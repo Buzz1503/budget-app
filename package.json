@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "e2e": "node e2e/smoke.mjs"
+    "e2e": "node e2e/smoke.mjs",
+    "build:artifact": "vite build --config vite.artifact.config.js && node scripts/build-artifact.mjs"
   },
   "dependencies": {
     "canvas-confetti": "^1.9.3",
