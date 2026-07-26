@@ -42,10 +42,14 @@ export default function CoDrawModal({ open, onClose, peptides }) {
         const ca = LIB_TO_COMPOUND[a.id] || a.id
         const cb = LIB_TO_COMPOUND[b.id] || b.id
         const pair = matrix.lookup(ca, cb)
-        const verdict = pair?.verdict || 'MIX'
+        // No chemistry data (e.g. a custom peptide) is NOT a pass — fall back to
+        // caution so it still goes through the visual-inspection gate.
+        const verdict = pair?.verdict || 'CAUTION'
+        const reason = pair?.note || pair?.reason
+          || 'No chemistry data for this pair — treat as unverified and inspect the drawn solution carefully.'
         if (SEVERITY[verdict] > SEVERITY[worst]) worst = verdict
-        if (verdict === 'DONT_MIX' || verdict === 'NEVER') problems.push({ a: a.name, b: b.name, verdict, reason: pair?.note || pair?.reason || '' })
-        else if (verdict === 'CAUTION') cautions.push({ a: a.name, b: b.name, reason: pair?.note || pair?.reason || '' })
+        if (verdict === 'DONT_MIX' || verdict === 'NEVER') problems.push({ a: a.name, b: b.name, verdict, reason })
+        else if (verdict === 'CAUTION') cautions.push({ a: a.name, b: b.name, reason })
       }
     }
     return { worst, problems, cautions }

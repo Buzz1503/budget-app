@@ -35,10 +35,22 @@ export function weekdayPickCount(frequency) {
   }
 }
 
+// A peptide added from the compound list starts with no protocol — we never
+// invent dosing values, so it stays out of the due list until the user sets it.
+export function needsProtocolSetup(peptide) {
+  return !(peptide?.ladder?.ceiling > 0) || !(peptide?.recon?.vialMg > 0) || !(peptide?.recon?.bacMl > 0)
+}
+
+// Pure scheduling: does the cycle + weekday pattern land on this date?
 export function isScheduledToday(peptide, dateStr) {
   const c = cycleInfo(peptide, dateStr)
   if (!c.isOn) return false
   return scheduledWeekdaySet(peptide).has(weekdayOf(dateStr))
+}
+
+// Scheduling AND ready to inject — what the Home list and streak run on.
+export function isDueToday(peptide, dateStr) {
+  return !needsProtocolSetup(peptide) && isScheduledToday(peptide, dateStr)
 }
 
 // Map a peptide to an AM/PM slot. Explicit peptide.slot wins; otherwise infer

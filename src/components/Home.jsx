@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Flame, Zap, Check, Info, Clock, AlertTriangle, Combine, Sun, Moon, ChevronRight, MapPin, Syringe, X, Circle, CheckCircle2 } from 'lucide-react'
 import useStore, { todayStr } from '../store/useStore'
 import { cycleInfo, currentRung, stepUpDue } from '../lib/schedule'
-import { isScheduledToday, slotOf, isDueSlot, currentSlot, slotIsFlexible } from '../lib/daily'
+import { isDueToday, slotOf, isDueSlot, currentSlot, slotIsFlexible, needsProtocolSetup } from '../lib/daily'
 import { toMg, doseToUnits, concentration, formatDose, formatUnits } from '../lib/calc'
 import { mixVerdict } from '../lib/mixing'
 import { levelProgress, rankForLevel } from '../lib/gamification'
@@ -39,7 +39,7 @@ export default function Home({ goTo }) {
     return next
   })
 
-  const scheduledToday = useMemo(() => peptides.filter((p) => isScheduledToday(p, t)), [peptides, t])
+  const scheduledToday = useMemo(() => peptides.filter((p) => isDueToday(p, t)), [peptides, t])
   const slotDue = useMemo(() => scheduledToday.filter((p) => slotOf(p) === slot), [scheduledToday, slot])
   const otherSlot = slot === 'AM' ? 'PM' : 'AM'
   const otherCount = scheduledToday.filter((p) => slotOf(p) === otherSlot).length

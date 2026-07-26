@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { motion } from 'framer-motion'
-import { Plus, ChevronDown, Trash2 } from 'lucide-react'
+import { Plus, ChevronDown, Trash2, Search, Check, AlertTriangle } from 'lucide-react'
 import useStore from '../store/useStore'
 import { currentRung, cycleInfo } from '../lib/schedule'
 import { formatDose } from '../lib/calc'
-import { WEEKDAYS, weekdayPickCount, scheduledWeekdaySet, slotOf } from '../lib/daily'
+import { WEEKDAYS, weekdayPickCount, scheduledWeekdaySet, slotOf, needsProtocolSetup } from '../lib/daily'
+import { loadMatrix, compoundColor } from '../lib/mixMatrix'
 import Modal from './ui/Modal'
 
 const FREQ_LABELS = {
@@ -20,6 +21,7 @@ function cycleLabel(p) {
 export default function Library() {
   const peptides = useStore((s) => s.peptides)
   const [adding, setAdding] = useState(false)
+  const [expandId, setExpandId] = useState(null)
 
   return (
     <div className="space-y-3">
@@ -30,34 +32,78 @@ export default function Library() {
           <Plus size={16} /> Add
         </motion.button>
       </div>
-      {peptides.map((p, i) => <PeptideCard key={p.id} peptide={p} index={i} />)}
-      <AddPeptideModal open={adding} onClose={() => setAdding(false)} />
+      {peptides.map((p, i) => (
+        <PeptideCard key={p.id} peptide={p} index={i}
+          defaultOpen={expandId === p.id} onOpened={() => setExpandId(null)} />
+      ))}
+      <AddPeptideModal open={adding} onClose={() => setAdding(false)} onAdded={setExpandId} />
     </div>
   )
 }
 
-function PeptideCard({ peptide: p, index }) {
+function PeptideCard({ peptide: p, index, defaultOpen, onOpened }) {
   const titration = useStore((s) => s.titration)
   const [open, setOpen] = useState(false)
+  const cardRef = useRef(null)
   const { dose, level, maxLevel } = currentRung(p, titration[p.id])
+  const setupNeeded = needsProtocolSetup(p)
+
+  // A freshly added peptide opens straight to its protocol fields and scrolls
+  // into view (new entries append to the bottom of a long list). Guarded by a
+  // ref and left uncancelled: clearing expandId re-renders this card, and a
+  // dep-tied cleanup would cancel the scroll before it ever ran.
+  const handledRef = useRef(false)
+  useEffect(() => {
+    if (!defaultOpen || handledRef.current) return
+    handledRef.current = true
+    setOpen(true)
+    // let the card mount + its entrance animation start before scrolling
+    setTimeout(() => {
+      cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      onOpened?.()
+    }, 260)
+  }, [defaultOpen, onOpened])
 
   return (
-    <motion.div layout className="card overflow-hidden"
+    <motion.div ref={cardRef} layout className="card overflow-hidden"
       initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }}
       transition={{ type: 'spring', stiffness: 260, damping: 24, delay: index * 0.03 }}>
       <button className="flex w-full items-center gap-3 p-4 text-left" onClick={() => setOpen(!open)}>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-base font-bold">{p.name}</h3>
-            <span className="chip" style={{ color: 'var(--violet)' }}>Lvl {level + 1}/{maxLevel + 1}</span>
+            {setupNeeded ? (
+              <span className="chip" style={{ color: 'var(--amber)', background: 'color-mix(in srgb, var(--amber) 18%, transparent)' }}>
+                <AlertTriangle size={11} /> Set your protocol
+              </span>
+            ) : (
+              <span className="chip" style={{ color: 'var(--violet)' }}>Lvl {level + 1}/{maxLevel + 1}</span>
+            )}
           </div>
-          <p className="mt-1 text-sm font-semibold">
-            {formatDose(dose, p.ladder.unit)}
-            <span className="font-medium" style={{ color: 'var(--muted)' }}>
-              {' '}· {FREQ_LABELS[p.frequency] || p.frequency} · {p.timing} · {p.route}
-            </span>
-          </p>
-          <p className="text-xs font-medium" style={{ color: 'var(--muted)' }}>{cycleLabel(p)}</p>
+          {setupNeeded ? (
+            <p className="mt-1 text-sm font-medium" style={{ color: 'var(--muted)' }}>
+              Tap to set dose, frequency, cycle and reconstitution.
+            </p>
+          ) : (
+            <>
+              <p className="mt-1 text-sm font-semibold">
+                {formatDose(dose, p.ladder.unit)}
+                <span className="font-medium" style={{ color: 'var(--muted)' }}>
+                  {' '}· {FREQ_LABELS[p.frequency] || p.frequency}{p.timing ? ` · ${p.timing}` : ''} · {p.route}
+                </span>
+              </p>
+              <p className="text-xs font-medium" style={{ color: 'var(--muted)' }}>{cycleLabel(p)}</p>
+            </>
+          )}
+          {(p.compoundClass || p.charge) && (
+            <div className="mt-1.5 flex flex-wrap gap-1">
+              {p.compoundClass && <span className="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase" style={{ background: 'var(--surface2)', color: 'var(--muted)' }}>{p.compoundClass}</span>}
+              {p.charge && <span className="rounded px-1.5 py-0.5 text-[9px] font-bold" style={{ background: 'var(--surface2)', color: 'var(--muted)' }}>{p.charge}</span>}
+              {(p.flags || []).slice(0, 2).map((f) => (
+                <span key={f} className="rounded px-1.5 py-0.5 text-[9px] font-semibold" style={{ background: 'var(--surface2)', color: 'var(--muted)' }}>{f}</span>
+              ))}
+            </div>
+          )}
         </div>
         <motion.div animate={{ rotate: open ? 180 : 0 }}><ChevronDown size={18} style={{ color: 'var(--muted)' }} /></motion.div>
       </button>
@@ -215,41 +261,151 @@ export function PeptideEditor({ peptide: p }) {
   )
 }
 
-function AddPeptideModal({ open, onClose }) {
-  const addPeptide = useStore((s) => s.addPeptide)
-  const [form, setForm] = useState({ name: '', floor: 100, step: 100, ceiling: 500, unit: 'mcg', vialMg: 10, bacMl: 2 })
-  const set = (k) => (e) => setForm({ ...form, [k]: e.target?.value ?? e })
+// Blank protocol — the matrix has no dosing data, so we never invent values.
+const BLANK_PROTOCOL = {
+  frequency: 'daily', timing: '', cycleOnDays: 0, cycleOffDays: 0,
+  ladder: { floor: 0, step: 0, intervalWeeks: 1, ceiling: 0, unit: 'mcg' },
+  recon: { vialMg: 0, bacMl: 0, expiryDays: 28 },
+}
 
-  const submit = () => {
-    if (!form.name.trim()) return
-    addPeptide({
-      name: form.name.trim(),
-      ladder: { floor: +form.floor || 100, step: +form.step || 100, intervalWeeks: 1, ceiling: +form.ceiling || 500, unit: form.unit },
-      recon: { vialMg: +form.vialMg || 10, bacMl: +form.bacMl || 2, expiryDays: 28 },
+function AddPeptideModal({ open, onClose, onAdded }) {
+  const peptides = useStore((s) => s.peptides)
+  const addPeptide = useStore((s) => s.addPeptide)
+  const [mode, setMode] = useState('list')
+  const [matrix, setMatrix] = useState(null)
+  const [loadFailed, setLoadFailed] = useState(false)
+  const [query, setQuery] = useState('')
+  const [customName, setCustomName] = useState('')
+
+  // lazy-load the compound matrix only when the picker opens
+  useEffect(() => {
+    if (!open || matrix) return
+    let alive = true
+    loadMatrix().then((m) => alive && setMatrix(m)).catch(() => alive && setLoadFailed(true))
+    return () => { alive = false }
+  }, [open, matrix])
+
+  const existingIds = useMemo(() => new Set(peptides.map((p) => p.id)), [peptides])
+  const existingNames = useMemo(
+    () => new Set(peptides.map((p) => p.name.trim().toLowerCase())), [peptides]
+  )
+
+  const results = useMemo(() => {
+    if (!matrix) return []
+    const q = query.trim().toLowerCase()
+    if (!q) return matrix.compounds
+    return matrix.compounds.filter(
+      (c) => c.name.toLowerCase().includes(q) || c.class.toLowerCase().includes(q) || c.id.includes(q)
+    )
+  }, [matrix, query])
+
+  const addFromCompound = (c) => {
+    if (existingIds.has(c.id)) return
+    // keeping the compound id as the peptide id wires Mix + co-draw automatically
+    const id = addPeptide({
+      ...BLANK_PROTOCOL,
+      id: c.id, name: c.name,
+      compoundClass: c.class, charge: c.charge, flags: c.flags || [],
     })
-    setForm({ name: '', floor: 100, step: 100, ceiling: 500, unit: 'mcg', vialMg: 10, bacMl: 2 })
-    onClose()
+    if (id) { setQuery(''); onClose(); onAdded?.(id) }
   }
 
+  const addCustom = () => {
+    const name = customName.trim()
+    if (!name || existingNames.has(name.toLowerCase())) return
+    const id = addPeptide({ ...BLANK_PROTOCOL, name })
+    if (id) { setCustomName(''); onClose(); onAdded?.(id) }
+  }
+
+  const customDupe = customName.trim() && existingNames.has(customName.trim().toLowerCase())
+
   return (
-    <Modal open={open} onClose={onClose} title="Add peptide">
+    <Modal open={open} onClose={onClose} title="Add peptide" wide>
       <div className="space-y-3">
-        <Field label="Name"><input className="input" value={form.name} onChange={set('name')} placeholder="e.g. TB-500" autoFocus /></Field>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Floor dose"><input type="number" className="input" value={form.floor} onChange={set('floor')} /></Field>
-          <Field label="Step"><input type="number" className="input" value={form.step} onChange={set('step')} /></Field>
-          <Field label="Ceiling"><input type="number" className="input" value={form.ceiling} onChange={set('ceiling')} /></Field>
-          <Field label="Unit">
-            <select className="input" value={form.unit} onChange={set('unit')}>
-              <option value="mcg">mcg</option><option value="mg">mg</option>
-            </select>
-          </Field>
-          <Field label="Vial (mg)"><input type="number" className="input" value={form.vialMg} onChange={set('vialMg')} /></Field>
-          <Field label="BAC water (mL)"><input type="number" className="input" value={form.bacMl} onChange={set('bacMl')} /></Field>
+        <div className="flex gap-1.5">
+          {[['list', 'From list'], ['custom', 'Custom']].map(([m, label]) => (
+            <button key={m} onClick={() => setMode(m)}
+              className="flex-1 rounded-lg py-1.5 text-xs font-black"
+              style={mode === m
+                ? { backgroundImage: 'linear-gradient(135deg, var(--violet), var(--indigo))', color: '#fff' }
+                : { background: 'var(--surface2)', color: 'var(--muted)' }}>
+              {label}
+            </button>
+          ))}
         </div>
-        <button className="btn-primary w-full rounded-xl py-2.5 text-sm font-extrabold" onClick={submit}>
-          Add to stack
-        </button>
+
+        {mode === 'list' ? (
+          <>
+            <div className="relative">
+              <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--muted)' }} />
+              <input className="input !pl-9" autoFocus placeholder={`Search ${matrix ? matrix.compounds.length : 86} compounds…`}
+                value={query} onChange={(e) => setQuery(e.target.value)} />
+            </div>
+
+            {loadFailed ? (
+              <p className="py-6 text-center text-xs font-semibold" style={{ color: 'var(--amber)' }}>
+                Couldn't load the compound list — use Custom to add by name.
+              </p>
+            ) : !matrix ? (
+              <p className="py-6 text-center text-xs font-semibold" style={{ color: 'var(--muted)' }}>Loading compounds…</p>
+            ) : (
+              <div className="max-h-[46vh] space-y-1.5 overflow-y-auto pr-0.5">
+                {results.map((c) => {
+                  const added = existingIds.has(c.id)
+                  return (
+                    <button key={c.id} onClick={() => addFromCompound(c)} disabled={added}
+                      className="flex w-full items-center gap-2 rounded-xl p-2.5 text-left"
+                      style={{ background: 'var(--surface2)', opacity: added ? 0.55 : 1 }}>
+                      <span className="h-6 w-6 shrink-0 rounded-full" style={{ background: compoundColor(c) }} />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-bold">{c.name}</span>
+                        <span className="flex flex-wrap gap-1 pt-0.5">
+                          <span className="rounded px-1 py-0.5 text-[9px] font-bold uppercase" style={{ background: 'var(--surface-solid)', color: 'var(--muted)' }}>{c.class}</span>
+                          <span className="rounded px-1 py-0.5 text-[9px] font-bold" style={{ background: 'var(--surface-solid)', color: 'var(--muted)' }}>{c.charge}</span>
+                          {(c.flags || []).slice(0, 2).map((f) => (
+                            <span key={f} className="rounded px-1 py-0.5 text-[9px] font-semibold" style={{ background: 'var(--surface-solid)', color: 'var(--muted)' }}>{f}</span>
+                          ))}
+                        </span>
+                      </span>
+                      {added ? (
+                        <span className="flex shrink-0 items-center gap-1 text-[10px] font-black" style={{ color: 'var(--lime)' }}>
+                          <Check size={13} /> Added
+                        </span>
+                      ) : (
+                        <Plus size={16} className="shrink-0" style={{ color: 'var(--violet)' }} />
+                      )}
+                    </button>
+                  )
+                })}
+                {results.length === 0 && (
+                  <p className="py-6 text-center text-xs font-semibold" style={{ color: 'var(--muted)' }}>
+                    No compound matches “{query}”. Use Custom to add it by name.
+                  </p>
+                )}
+              </div>
+            )}
+            <p className="text-[10px] font-medium" style={{ color: 'var(--muted)' }}>
+              Picking from the list links the compound to the Mix tab and co-draw checks automatically. You'll set your own dose, frequency and cycle next — the list carries no dosing data.
+            </p>
+          </>
+        ) : (
+          <>
+            <Field label="Name">
+              <input className="input" value={customName} autoFocus placeholder="e.g. My blend"
+                onChange={(e) => setCustomName(e.target.value)} />
+            </Field>
+            {customDupe && (
+              <p className="text-[11px] font-bold" style={{ color: 'var(--amber)' }}>That name is already in your Library.</p>
+            )}
+            <p className="text-[10px] font-medium" style={{ color: 'var(--muted)' }}>
+              A custom peptide isn't in the chemistry matrix, so the Mix tab will show “no data” for it. You'll set your protocol next.
+            </p>
+            <button className="btn-primary w-full rounded-xl py-2.5 text-sm font-extrabold disabled:opacity-40"
+              disabled={!customName.trim() || !!customDupe} onClick={addCustom}>
+              Add to stack
+            </button>
+          </>
+        )}
       </div>
     </Modal>
   )

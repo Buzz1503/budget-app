@@ -6,7 +6,7 @@ import {
 } from '../data/seed'
 import { SEED_KNOWN_GOOD } from '../lib/mixing'
 import { currentRung, cycleInfo, addDaysStr } from '../lib/schedule'
-import { isScheduledToday } from '../lib/daily'
+import { isDueToday } from '../lib/daily'
 import { perfectRotation } from '../lib/sites'
 import { toMg, doseToUnits, concentration } from '../lib/calc'
 import { XP, rankUpInfo } from '../lib/gamification'
@@ -86,20 +86,25 @@ const useStore = create(
           peptides: s.peptides.map((p) => (p.id === id ? { ...p, recon: { ...p.recon, ...patch } } : p)),
         }))
       },
-      addPeptide(data) {
-        const id = `custom-${Date.now()}`
+      // `data.id` may carry a compound id from the matrix — keeping it as the
+      // peptide id is what wires the new entry into Mix / co-draw / rotation
+      // with no manual mapping. Returns null if that id is already in the stack.
+      addPeptide(data = {}) {
         const t = todayStr()
+        const id = data.id || `custom-${Date.now()}`
+        if (get().peptides.some((p) => p.id === id)) return null
         const peptide = {
-          id, route: 'SubQ', startDate: t, frequency: 'daily', timing: 'Flexible',
+          route: 'SubQ', startDate: t, frequency: 'daily', timing: 'Flexible',
           cycleOnDays: 0, cycleOffDays: 0,
           ladder: { floor: 100, step: 100, intervalWeeks: 1, ceiling: 500, unit: 'mcg' },
           recon: { vialMg: 10, bacMl: 2, expiryDays: 28 },
           ...data,
+          id,
         }
         set((s) => ({
           peptides: [...s.peptides, peptide],
           titration: { ...s.titration, [id]: { level: 0, levelStartDate: t } },
-          openVials: { ...s.openVials, [id]: { remainingMg: peptide.recon.vialMg, reconstitutedAt: null } },
+          openVials: { ...s.openVials, [id]: { remainingMg: peptide.recon.vialMg || 0, reconstitutedAt: null } },
         }))
         return id
       },
@@ -208,7 +213,7 @@ const useStore = create(
         after.awardBadge('first-log', newBadges)
         if (after.doseLogs.length >= 100) after.awardBadge('logs-100', newBadges)
 
-        const due = after.peptides.filter((x) => isScheduledToday(x, t))
+        const due = after.peptides.filter((x) => isDueToday(x, t))
         const loggedToday = new Set(after.doseLogs.filter((l) => l.date === t).map((l) => l.peptideId))
         const fullDay = due.length > 0 && due.every((x) => loggedToday.has(x.id))
 
