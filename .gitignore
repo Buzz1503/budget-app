@@ -3,3 +3,5 @@ dist/
 e2e/shots/
 *.log
 *.tmp.mjs
+
+dist-artifact/
