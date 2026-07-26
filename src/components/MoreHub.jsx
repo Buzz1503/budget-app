@@ -1,14 +1,19 @@
 import { motion } from 'framer-motion'
-import { BookOpen, FlaskConical, Package, Syringe, Settings, Zap, Flame, ChevronRight, Award } from 'lucide-react'
+import {
+  BookOpen, Package, Syringe, Settings, Zap, Flame, ChevronRight, Award,
+  Activity, CalendarRange, PersonStanding,
+} from 'lucide-react'
 import useStore from '../store/useStore'
 import { levelProgress, rankForLevel, BADGES } from '../lib/gamification'
 
 const LINKS = [
+  { id: 'now', label: 'Right Now', desc: 'What your stack is doing today', icon: Activity, color: 'var(--lime)' },
+  { id: 'schedule', label: 'Plan', desc: 'Titration ladders & cycles', icon: CalendarRange, color: 'var(--violet)' },
   { id: 'library', label: 'Library', desc: 'Your peptides & ladders', icon: BookOpen, color: 'var(--lime)' },
-  { id: 'calc', label: 'Calculator', desc: 'Reconstitution & dosing', icon: FlaskConical, color: 'var(--indigo)' },
   { id: 'inventory', label: 'Stock', desc: 'Vials, cost & expiry', icon: Package, color: 'var(--amber)' },
   { id: 'needle', label: 'Needle guide', desc: 'SubQ technique', icon: Syringe, color: 'var(--coral)' },
-  { id: 'settings', label: 'Settings', desc: 'Theme, badges, export', icon: Settings, color: 'var(--violet)' },
+  { id: 'body', label: 'Outcomes & body', desc: 'Trends, photos, outcome engine', icon: PersonStanding, color: 'var(--indigo)' },
+  { id: 'settings', label: 'Settings & badges', desc: 'Theme, badges, export', icon: Settings, color: 'var(--violet)' },
 ]
 
 export default function MoreHub({ goTo }) {

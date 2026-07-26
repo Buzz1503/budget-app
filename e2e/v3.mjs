@@ -31,11 +31,11 @@ await page.goto(BASE, { waitUntil: 'networkidle' })
 await page.evaluate(() => localStorage.clear())
 await page.reload({ waitUntil: 'networkidle' })
 
-await step('Home: date + AM/PM toggle + 7 tabs', async () => {
+await step('Home: date + AM/PM toggle + 6 tabs', async () => {
   await waitText(/not medical advice/)
   await page.click('text=Got it')
   const tabs = await page.locator('nav button').count()
-  if (tabs !== 7) throw new Error(`expected 7 tabs, got ${tabs}`)
+  if (tabs !== 6) throw new Error(`expected 6 tabs, got ${tabs}`)
   // AM/PM toggle present
   if (!(await page.locator('button:has-text("AM")').count())) throw new Error('AM toggle missing')
   if (!(await page.locator('button:has-text("PM")').count())) throw new Error('PM toggle missing')

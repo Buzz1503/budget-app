@@ -32,10 +32,10 @@ await page.goto(BASE, { waitUntil: 'networkidle' })
 await page.evaluate(() => localStorage.clear())
 await page.reload({ waitUntil: 'networkidle' })
 
-await step('Home: disclaimer + ring + 7-tab bar', async () => {
+await step('Home: disclaimer + ring + 6-tab bar', async () => {
   await waitText(/not medical advice/)
   const tabs = await page.locator('nav button').count()
-  if (tabs !== 7) throw new Error(`expected 7 primary tabs, got ${tabs}`)
+  if (tabs !== 6) throw new Error(`expected 6 primary tabs, got ${tabs}`)
   await page.click('text=Got it')
 })
 
@@ -54,10 +54,10 @@ await step('Home: log a dose via site picker fires XP + done state', async () =>
 await page.screenshot({ path: `${SHOT}/v2-01-today.png` })
 
 await step('Right Now: phases render for active peptides', async () => {
-  await nav('Now')
-  await waitText(/Right Now/)
+  await nav('More'); await page.click('text=Right Now')
+  await waitText(/What your stack is doing/)
+  await waitText(/(Loading|Building|Peak|Maintenance)/) // poll until phase cards render
   const txt = await page.textContent('body')
-  if (!/(Loading|Building|Peak|Maintenance)/.test(txt)) throw new Error('no phase label')
   if (!/Selank/.test(txt)) throw new Error('active peptide missing')
   if (!/week/.test(txt)) throw new Error('no next-phase estimate')
 })
@@ -139,19 +139,21 @@ await page.screenshot({ path: `${SHOT}/v2-06-symptoms.png` })
 
 await step('More hub: navigates to sub-screens', async () => {
   await nav('More')
-  await waitText(/Compatibility|Library|Calculator/)
-  await page.click('text=Calculator')
-  await waitText(/Concentration/)
-  // back bar
-  await page.click('text=Back, text=Calculator, [class*="ChevronLeft"]').catch(() => {})
+  await waitText(/Library|Stock|Settings/)
+  await page.click('text=Stock')
+  await waitText(/runs out|on hand/)
   await nav('More')
   await page.click('text=Library')
   await waitText(/Retatrutide/)
 })
+await step('Calculator is a primary tab', async () => {
+  await nav('Calculator')
+  await waitText(/Concentration/)
+})
 await page.screenshot({ path: `${SHOT}/v2-07-more.png` })
 
 await step('Plan (Schedule) still works (titration confirm)', async () => {
-  await nav('Plan')
+  await nav('More'); await page.click('text=Plan')
   await page.evaluate(() => {
     const raw = JSON.parse(localStorage.getItem('peptide-command-center'))
     const d = new Date(Date.now() - 8 * 86400000).toISOString().slice(0, 10)
@@ -159,7 +161,7 @@ await step('Plan (Schedule) still works (titration confirm)', async () => {
     localStorage.setItem('peptide-command-center', JSON.stringify(raw))
   })
   await page.reload({ waitUntil: 'networkidle' })
-  await nav('Plan')
+  await nav('More'); await page.click('text=Plan')
   await page.click('button:has-text("Selank")')
   await waitText(/Tolerating well/)
   await page.click('button:has-text("Advance")')

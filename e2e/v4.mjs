@@ -1,0 +1,139 @@
+import { chromium } from 'playwright'
+import { mkdirSync } from 'fs'
+
+const BASE = process.env.BASE_URL || 'http://localhost:5176'
+const SHOT = new URL('./shots', import.meta.url).pathname
+mkdirSync(SHOT, { recursive: true })
+const EXE = process.env.CHROMIUM_PATH || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'
+
+const errors = []
+const browser = await chromium.launch({ executablePath: EXE })
+const page = await (await browser.newContext({ viewport: { width: 390, height: 844 } })).newPage()
+page.on('console', (m) => { if (m.type() === 'error') errors.push('console: ' + m.text()) })
+page.on('pageerror', (e) => errors.push('pageerror: ' + e.message))
+
+const step = async (name, fn) => {
+  try { await fn(); console.log('PASS', name) }
+  catch (e) { console.log('FAIL', name, '—', e.message.split('\n')[0]); errors.push(`step ${name}: ${e.message}`) }
+}
+const waitText = async (re, timeout = 5000) => {
+  const start = Date.now()
+  while (Date.now() - start < timeout) { if (re.test(await page.textContent('body'))) return true; await page.waitForTimeout(150) }
+  throw new Error('timeout waiting for ' + re)
+}
+
+await page.goto(BASE, { waitUntil: 'networkidle' })
+await page.evaluate(() => localStorage.clear())
+await page.reload({ waitUntil: 'networkidle' })
+await page.click('text=Got it')
+await page.click('button:has-text("AM")')
+await page.waitForTimeout(300)
+
+await step('Change 2: bottom nav has exactly 6 tabs', async () => {
+  const labels = await page.locator('nav button span').allTextContents()
+  const want = ['Home', 'Calculator', 'Body', 'Symptoms', 'Mix', 'More']
+  const got = labels.filter((l) => want.includes(l))
+  if (got.length !== 6) throw new Error(`expected 6 named tabs, got ${labels.join(',')}`)
+  for (const w of want) if (!labels.includes(w)) throw new Error(`missing tab ${w}`)
+})
+await page.screenshot({ path: `${SHOT}/v4-01-nav.png` })
+
+await step('Change 2: moved screens reachable under More', async () => {
+  await page.click('nav button:has-text("More")')
+  await waitText(/Right Now/)
+  for (const l of ['Right Now', 'Plan', 'Library', 'Stock', 'Needle guide', 'Settings']) {
+    if (!(await page.locator(`text=${l}`).count())) throw new Error(`More missing ${l}`)
+  }
+  // drill into one to confirm it renders + back works
+  await page.click('text=Right Now')
+  await waitText(/What your stack is doing/)
+  await page.click('nav button:has-text("More")')
+  await page.click('text=Library')
+  await waitText(/Retatrutide/)
+})
+await page.screenshot({ path: `${SHOT}/v4-02-more.png` })
+
+await step('Change 2: Calculator is a primary tab', async () => {
+  await page.click('nav button:has-text("Calculator")')
+  await waitText(/Concentration/)
+})
+
+await step('Change 1: single-peptide log still works (site picker)', async () => {
+  await page.click('nav button:has-text("Home")')
+  await page.click('button:has-text("AM")')
+  await page.waitForTimeout(300)
+  await page.locator('button[aria-label^="Log "]').first().click()
+  await waitText(/Pick an injection site/)
+  await page.click('button:has-text("Log here")')
+  await page.waitForTimeout(800)
+  const s = await page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state)
+  if (!s.doseLogs.some((l) => l.siteId && !l.coDrawId)) throw new Error('single log not recorded')
+})
+
+const sel = (name) => page.click(`button[aria-label="Select ${name} to co-draw"]`)
+
+await step('Change 1: MIX co-draw (Selank+Semax) logs to one site', async () => {
+  await page.click('nav button:has-text("Home")')
+  await page.click('button:has-text("AM")')
+  await page.waitForTimeout(300)
+  await sel('Selank'); await sel('Semax')
+  await waitText(/2 selected/)
+  await page.click('button:has-text("Log together")')
+  await waitText(/Pick one injection site/) // all-MIX → straight to site
+  await page.click('button:has-text("Log 2 together")')
+  await page.waitForTimeout(900)
+  const s = await page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state)
+  const cd = s.doseLogs.filter((l) => l.coDrawId)
+  if (cd.length !== 2) throw new Error(`expected 2 co-draw logs, got ${cd.length}`)
+  if (new Set(cd.map((l) => l.coDrawId)).size !== 1) throw new Error('different coDrawId')
+  if (new Set(cd.map((l) => l.siteId)).size !== 1) throw new Error('different sites')
+  if (new Set(cd.map((l) => l.loggedAt)).size !== 1) throw new Error('different timestamps')
+  if (s.gamification.xp < 20) throw new Error('co-draw XP not counted for both')
+})
+await page.screenshot({ path: `${SHOT}/v4-03-codraw.png` })
+
+await step('Change 1: CAUTION co-draw (Selank+SS-31) gates on inspection', async () => {
+  await page.evaluate(() => localStorage.clear())
+  await page.reload({ waitUntil: 'networkidle' })
+  await page.click('text=Got it'); await page.click('button:has-text("AM")'); await page.waitForTimeout(300)
+  await sel('Selank'); await sel('SS-31')
+  await page.click('button:has-text("Log together")')
+  await waitText(/Mix with caution/)
+  if (!(await page.locator("button:has-text(\"Confirm it's clear\")").count())) throw new Error('inspection gate missing')
+  await page.click("button:has-text(\"Confirm it's clear\")")
+  await waitText(/Pick one injection site/)
+})
+await page.screenshot({ path: `${SHOT}/v4-04-caution.png` })
+
+await step('Change 1: DONT_MIX pair (Reta+Tesa) is blocked', async () => {
+  await page.evaluate(() => localStorage.clear())
+  await page.reload({ waitUntil: 'networkidle' })
+  await page.click('text=Got it'); await page.click('button:has-text("AM")'); await page.waitForTimeout(300)
+  // Retatrutide is weekly on its start weekday (= today on fresh install), Tesamorelin daily; both AM
+  if (!(await page.locator('button[aria-label="Select Retatrutide to co-draw"]').count())) throw new Error('Retatrutide not due in AM today')
+  await sel('Retatrutide'); await sel('Tesamorelin')
+  await page.click('button:has-text("Log together")')
+  await waitText(/Don't co-draw/)
+})
+await page.screenshot({ path: `${SHOT}/v4-05-blocked.png` })
+
+await step('persistence: co-draw survives reload', async () => {
+  await page.evaluate(() => localStorage.clear())
+  await page.reload({ waitUntil: 'networkidle' })
+  await page.click('text=Got it'); await page.click('button:has-text("AM")'); await page.waitForTimeout(300)
+  await sel('Selank'); await sel('Semax')
+  await page.click('button:has-text("Log together")')
+  await waitText(/Pick one injection site/)
+  await page.click('button:has-text("Log 2 together")')
+  await page.waitForTimeout(700)
+  await page.reload({ waitUntil: 'networkidle' })
+  await page.waitForTimeout(500)
+  const s = await page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state)
+  if (!s.doseLogs.some((l) => l.coDrawId)) throw new Error('co-draw logs lost after reload')
+  console.log('  persisted — doseLogs:', s.doseLogs.length, 'xp:', s.gamification.xp)
+})
+
+console.log('\n--- console/page errors:', errors.length)
+errors.forEach((e) => console.log(' ', e.slice(0, 200)))
+await browser.close()
+process.exit(errors.length ? 1 : 0)

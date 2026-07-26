@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Flame, Zap, Check, Info, Clock, AlertTriangle, Combine, Sun, Moon, ChevronRight, MapPin } from 'lucide-react'
+import { Flame, Zap, Check, Info, Clock, AlertTriangle, Combine, Sun, Moon, ChevronRight, MapPin, Syringe, X, Circle, CheckCircle2 } from 'lucide-react'
 import useStore, { todayStr } from '../store/useStore'
 import { cycleInfo, currentRung, stepUpDue } from '../lib/schedule'
 import { isScheduledToday, slotOf, isDueSlot, currentSlot, slotIsFlexible } from '../lib/daily'
@@ -12,6 +12,7 @@ import { daysSince, SITE_BY_ID } from '../lib/sites'
 import Ring from './ui/Ring'
 import CountUp from './ui/CountUp'
 import SitePicker from './SitePicker'
+import CoDrawModal from './CoDrawModal'
 
 const spring = { type: 'spring', stiffness: 260, damping: 22 }
 
@@ -28,7 +29,15 @@ export default function Home({ goTo }) {
 
   const t = todayStr()
   const [slot, setSlot] = useState(() => currentSlot())
-  const [picker, setPicker] = useState(null) // peptide being logged
+  const [picker, setPicker] = useState(null) // peptide being logged (single)
+  const [selected, setSelected] = useState(() => new Set()) // co-draw selection
+  const [coDraw, setCoDraw] = useState(false)
+
+  const toggleSelect = (id) => setSelected((prev) => {
+    const next = new Set(prev)
+    if (next.has(id)) next.delete(id); else next.add(id)
+    return next
+  })
 
   const scheduledToday = useMemo(() => peptides.filter((p) => isScheduledToday(p, t)), [peptides, t])
   const slotDue = useMemo(() => scheduledToday.filter((p) => slotOf(p) === slot), [scheduledToday, slot])
@@ -41,6 +50,9 @@ export default function Home({ goTo }) {
   )
   const slotDone = slotDue.filter((p) => loggedToday.has(p.id)).length
   const dayDone = scheduledToday.filter((p) => loggedToday.has(p.id)).length
+  const unloggedCount = slotDue.filter((p) => !loggedToday.has(p.id)).length
+  // selection resolved against the live slot list so done/removed ids drop out
+  const selectedPeptides = slotDue.filter((p) => selected.has(p.id) && !loggedToday.has(p.id))
   const ringPct = slotDue.length ? slotDone / slotDue.length : (scheduledToday.length === 0 ? 0 : 1)
   const lp = levelProgress(gamification.xp)
   const firstRun = (gamification.totalLogs || 0) === 0
@@ -171,6 +183,13 @@ export default function Home({ goTo }) {
         </motion.p>
       )}
 
+      {/* co-draw hint */}
+      {unloggedCount >= 2 && selected.size === 0 && (
+        <p className="px-1 text-center text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
+          Injecting more than one? Tap the circles to <span className="font-bold" style={{ color: 'var(--lime)' }}>log them together</span> as one co-draw.
+        </p>
+      )}
+
       {/* due list for slot */}
       <div className="space-y-3">
         {slotDue.length === 0 && (
@@ -189,9 +208,37 @@ export default function Home({ goTo }) {
           <DueCard key={p.id} peptide={p} index={i} done={loggedToday.has(p.id)}
             slotList={slotDue} titration={titration} knownGood={knownGood}
             onLog={() => setPicker(p)} goTo={goTo} today={t} doseLogs={doseLogs}
+            selected={selected.has(p.id)} onToggleSelect={() => toggleSelect(p.id)}
+            selectMode={selected.size > 0}
             beckon={firstRun && i === slotDue.findIndex((x) => !loggedToday.has(x.id))} />
         ))}
       </div>
+
+      {/* co-draw action bar */}
+      <AnimatePresence>
+        {selected.size > 0 && (
+          <motion.div
+            initial={{ y: 80, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 80, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 28 }}
+            className="fixed inset-x-0 bottom-[76px] z-40 px-4"
+          >
+            <div className="mx-auto flex max-w-3xl items-center gap-2 rounded-2xl p-2.5 shadow-lg"
+              style={{ background: 'var(--surface-solid)', border: '1px solid var(--border)' }}>
+              <button onClick={() => setSelected(new Set())} className="rounded-full p-2" style={{ background: 'var(--surface2)' }} aria-label="Clear selection">
+                <X size={16} />
+              </button>
+              <div className="flex-1 text-xs font-bold">
+                {selected.size} selected{selected.size < 2 ? ' · pick 1 more to co-draw' : ' · one shot, one site'}
+              </div>
+              <motion.button whileTap={{ scale: 0.95 }} disabled={selected.size < 2}
+                onClick={() => setCoDraw(true)}
+                className="btn-primary flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-black disabled:opacity-40">
+                <Syringe size={16} /> Log together
+              </motion.button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <SitePicker
         open={!!picker} onClose={() => setPicker(null)}
@@ -199,6 +246,12 @@ export default function Home({ goTo }) {
         dose={picker ? currentRung(picker, titration[picker.id]).dose : 0}
         unit={picker?.ladder.unit}
         units={picker ? doseToUnits(toMg(currentRung(picker, titration[picker.id]).dose, picker.ladder.unit), concentration(picker.recon.vialMg, picker.recon.bacMl)) : 0}
+      />
+
+      <CoDrawModal
+        open={coDraw}
+        onClose={() => { setCoDraw(false); setSelected(new Set()) }}
+        peptides={selectedPeptides}
       />
     </div>
   )
@@ -220,7 +273,7 @@ export function StreakFlame({ streak, atRisk }) {
   )
 }
 
-function DueCard({ peptide: p, index, done, slotList, titration, knownGood, onLog, goTo, today, doseLogs, beckon }) {
+function DueCard({ peptide: p, index, done, slotList, titration, knownGood, onLog, goTo, today, doseLogs, beckon, selected, onToggleSelect, selectMode }) {
   const tState = titration[p.id]
   const { dose, level, maxLevel } = currentRung(p, tState)
   const doseMg = toMg(dose, p.ladder.unit)
@@ -240,8 +293,18 @@ function DueCard({ peptide: p, index, done, slotList, titration, knownGood, onLo
   return (
     <motion.div layout className={`card p-4 ${beckon ? 'beckon' : ''}`}
       initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ ...spring, delay: index * 0.04 }}
-      style={done ? { borderColor: 'color-mix(in srgb, var(--lime) 40%, transparent)' } : undefined}>
+      style={selected
+        ? { borderColor: 'var(--lime)', boxShadow: '0 0 0 1.5px var(--lime), var(--shadow)' }
+        : done ? { borderColor: 'color-mix(in srgb, var(--lime) 40%, transparent)' } : undefined}>
       <div className="flex items-center gap-3">
+        {/* co-draw select toggle */}
+        {!done && (
+          <motion.button whileTap={{ scale: 0.85 }} onClick={onToggleSelect}
+            className="shrink-0" aria-label={selected ? `Deselect ${p.name}` : `Select ${p.name} to co-draw`}
+            style={{ color: selected ? 'var(--lime)' : 'var(--muted)' }}>
+            {selected ? <CheckCircle2 size={24} /> : <Circle size={24} />}
+          </motion.button>
+        )}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <h3 className="truncate text-base font-bold">{p.name}</h3>

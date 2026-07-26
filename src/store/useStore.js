@@ -159,10 +159,12 @@ const useStore = create(
       },
 
       // ---------- logging ----------
-      logDose(peptideId, siteId) {
+      // Append one dose log + decrement its inventory. No gamification here so a
+      // co-draw can record several doses then award once. Returns the peptide.
+      _recordDose(peptideId, siteId, loggedAt, coDrawId) {
         const s = get()
         const p = s.peptides.find((x) => x.id === peptideId)
-        if (!p) return
+        if (!p) return null
         const t = todayStr()
         const { dose } = currentRung(p, s.titration[peptideId])
         const doseMg = toMg(dose, p.ladder.unit)
@@ -171,9 +173,9 @@ const useStore = create(
           id: `log-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
           peptideId, date: t, doseValue: dose, unit: p.ladder.unit,
           insulinUnits: Math.round(doseToUnits(doseMg, conc) * 10) / 10,
-          siteId: siteId || null, loggedAt: new Date().toISOString(),
+          siteId: siteId || null, loggedAt: loggedAt || new Date().toISOString(),
+          coDrawId: coDrawId || null,
         }
-
         // inventory: draw from the open vial; auto-open a sealed one when depleted
         const open = { ...(s.openVials[peptideId] || { remainingMg: 0, reconstitutedAt: null }) }
         open.remainingMg = Math.round((open.remainingMg - doseMg) * 1e6) / 1e6
@@ -183,34 +185,36 @@ const useStore = create(
           if (idx >= 0) {
             vials = vials.map((v, i) => (i === idx ? { ...v, qtyOnHand: v.qtyOnHand - 1 } : v))
             open.remainingMg = Math.round((open.remainingMg + s.vials[idx].vialMg) * 1e6) / 1e6
-            open.reconstitutedAt = t // fresh vial goes into the fridge reconstituted
+            open.reconstitutedAt = t
           } else {
             open.remainingMg = Math.max(0, open.remainingMg)
           }
         }
-
         set((st) => ({
           doseLogs: [...st.doseLogs, log],
           vials,
           openVials: { ...st.openVials, [peptideId]: open },
         }))
+        return p
+      },
 
-        // ---- gamification ----
+      // Run gamification once for a batch of just-logged peptides.
+      _awardForLogging(loggedPeptides, opts = {}) {
+        const t = todayStr()
         const after = get()
-        let xpGain = XP.log
+        const count = loggedPeptides.length
+        let xpGain = XP.log * count
         const newBadges = []
         after.awardBadge('first-log', newBadges)
         if (after.doseLogs.length >= 100) after.awardBadge('logs-100', newBadges)
 
-        // full-stack day? every peptide scheduled today has a log today
         const due = after.peptides.filter((x) => isScheduledToday(x, t))
         const loggedToday = new Set(after.doseLogs.filter((l) => l.date === t).map((l) => l.peptideId))
         const fullDay = due.length > 0 && due.every((x) => loggedToday.has(x.id))
 
-        // perfect-rotation badge — 7 injections, no site repeat
         if (perfectRotation(after.doseLogs, t)) after.awardBadge('perfect-rotation', newBadges)
 
-        let g = { ...after.gamification, totalLogs: (after.gamification.totalLogs || 0) + 1 }
+        let g = { ...after.gamification, totalLogs: (after.gamification.totalLogs || 0) + count }
         if (fullDay && g.lastFullDay !== t) {
           xpGain += XP.fullDay
           const yesterday = addDaysStr(t, -1)
@@ -223,23 +227,47 @@ const useStore = create(
           if (g.currentStreak >= 30) after.awardBadge('streak-30', newBadges)
         }
 
-        // completed a full on-cycle on any cycled peptide?
-        const cyc = cycleInfo(p, t)
-        if (cyc.completedCycles > 0) {
-          const already = after.gamification.badges.includes('cycle-complete')
-          after.awardBadge('cycle-complete', newBadges)
-          if (!already) xpGain += XP.cycleComplete
+        // completed a full on-cycle on any logged cycled peptide?
+        for (const p of loggedPeptides) {
+          if (cycleInfo(p, t).completedCycles > 0) {
+            const already = get().gamification.badges.includes('cycle-complete')
+            after.awardBadge('cycle-complete', newBadges)
+            if (!already) { xpGain += XP.cycleComplete; break }
+          }
         }
 
         const oldXp = get().gamification.xp
         g = { ...g, xp: oldXp + xpGain }
-        // awardBadge() mutated state after `after` was snapshotted — keep the live badges list
         set({ gamification: { ...get().gamification, ...g, badges: get().gamification.badges } })
 
         get().fireCelebration({
-          type: fullDay ? 'fullday' : 'log',
-          peptide: p.name, xp: xpGain, fullDay, streak: g.currentStreak, badges: newBadges,
+          type: fullDay ? 'fullday' : (opts.baseType || 'log'),
+          peptide: opts.peptide, names: opts.names, count,
+          xp: xpGain, fullDay, streak: g.currentStreak, badges: newBadges,
           rankUp: rankUpInfo(oldXp, g.xp),
+        })
+      },
+
+      logDose(peptideId, siteId) {
+        const p = get()._recordDose(peptideId, siteId, new Date().toISOString(), null)
+        if (!p) return
+        get()._awardForLogging([p], { baseType: 'log', peptide: p.name })
+      },
+
+      // Co-draw: several peptides drawn into one syringe → one injection event
+      // at one site with one shared timestamp + coDrawId.
+      logCoDraw(peptideIds, siteId) {
+        const loggedAt = new Date().toISOString()
+        const coDrawId = `cd-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+        const logged = []
+        for (const id of peptideIds) {
+          const p = get()._recordDose(id, siteId, loggedAt, coDrawId)
+          if (p) logged.push(p)
+        }
+        if (!logged.length) return
+        get()._awardForLogging(logged, {
+          baseType: logged.length > 1 ? 'codraw' : 'log',
+          peptide: logged[0].name, names: logged.map((p) => p.name),
         })
       },
       undoLog(logId) {

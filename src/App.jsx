@@ -4,6 +4,7 @@ import {
   Sun, Activity, CalendarRange, Combine, HeartPulse, LayoutGrid, ChevronLeft, PersonStanding,
   FlaskConical, Package, Syringe as SyringeIcon, BookOpen, Settings as SettingsIcon,
 } from 'lucide-react'
+
 import useStore, { onStorageError } from './store/useStore'
 import Home from './components/Home'
 import Library from './components/Library'
@@ -35,20 +36,20 @@ const SCREENS = {
   settings: SettingsTab,
 }
 
-// 7 primary tabs in the bottom bar; the rest live under the More hub.
+// 6 primary tabs in the bottom bar; the rest live under the More hub.
 const PRIMARY = [
   { id: 'today', label: 'Home', icon: Sun },
-  { id: 'now', label: 'Now', icon: Activity },
-  { id: 'schedule', label: 'Plan', icon: CalendarRange },
-  { id: 'mix', label: 'Mix', icon: Combine },
-  { id: 'symptoms', label: 'Symptoms', icon: HeartPulse },
+  { id: 'calc', label: 'Calculator', icon: FlaskConical },
   { id: 'body', label: 'Body', icon: PersonStanding },
+  { id: 'symptoms', label: 'Symptoms', icon: HeartPulse },
+  { id: 'mix', label: 'Mix', icon: Combine },
   { id: 'more', label: 'More', icon: LayoutGrid },
 ]
 const PRIMARY_IDS = new Set(PRIMARY.map((t) => t.id))
 
 const SUB_TITLES = {
-  library: 'Library', calc: 'Calculator', inventory: 'Stock', needle: 'Needle guide', settings: 'Settings',
+  now: 'Right Now', schedule: 'Plan', library: 'Library', inventory: 'Stock',
+  needle: 'Needle guide', settings: 'Settings',
 }
 
 export default function App() {
@@ -102,7 +103,7 @@ export default function App() {
         className="fixed inset-x-0 bottom-0 z-40 border-t backdrop-blur-xl"
         style={{ background: 'color-mix(in srgb, var(--bg) 82%, transparent)', borderColor: 'var(--border)' }}
       >
-        <div className="mx-auto grid max-w-3xl grid-cols-7 px-0.5 pb-[max(env(safe-area-inset-bottom),6px)] pt-2">
+        <div className="mx-auto grid max-w-3xl grid-cols-6 px-1 pb-[max(env(safe-area-inset-bottom),6px)] pt-2">
           {PRIMARY.map(({ id, label, icon: Icon }) => {
             const active = tab === id || (id === 'more' && isSub)
             return (
@@ -110,11 +111,11 @@ export default function App() {
                 key={id}
                 whileTap={{ scale: 0.86 }}
                 onClick={() => setTab(id)}
-                className="flex flex-col items-center gap-0.5 rounded-xl py-1"
+                className="flex flex-col items-center gap-1 rounded-xl py-1.5"
                 style={{ color: active ? 'var(--lime)' : 'var(--muted)' }}
               >
-                <Icon size={20} strokeWidth={active ? 2.5 : 2} />
-                <span className="text-[9px] font-bold leading-none">{label}</span>
+                <Icon size={26} strokeWidth={active ? 2.5 : 2} />
+                <span className="text-[10px] font-bold leading-none">{label}</span>
                 {active && <motion.div layoutId="tab-dot" className="mt-0.5 h-1 w-1 rounded-full" style={{ background: 'var(--lime)' }} />}
               </motion.button>
             )
