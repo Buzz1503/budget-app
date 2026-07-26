@@ -6,6 +6,9 @@ export const XP = {
   levelUp: 50,
   cycleComplete: 100,
   streakDay: 5,
+  mixDiscovery: 8,
+  symptomCheckin: 12,
+  clearDay: 20,
 }
 
 // Level curve: level n starts at 50*(n-1)^2 XP → 1, 50, 200, 450, 800...
@@ -39,8 +42,19 @@ export const BADGES = [
   { id: 'ceiling', name: 'Summit', desc: 'Reached a ladder ceiling', icon: 'Mountain' },
   { id: 'cycle-complete', name: 'Cycle Complete', desc: 'Completed a full on-cycle', icon: 'RefreshCw' },
   { id: 'logs-100', name: 'Century', desc: '100 doses logged', icon: 'Trophy' },
+  { id: 'chemist', name: 'Chemist', desc: 'Mapped 10 compatibility pairs', icon: 'FlaskConical' },
+  { id: 'first-checkin', name: 'Self Aware', desc: 'Logged your first symptom check-in', icon: 'HeartPulse' },
+  { id: 'clear-week', name: 'Clean Run', desc: '7 clear days in a row', icon: 'Sun' },
 ]
 
 export function badgeById(id) {
   return BADGES.find((b) => b.id === id)
+}
+
+// Given XP before/after a gain, describe a level crossing (for the full-screen moment).
+export function rankUpInfo(oldXp, newXp) {
+  const from = levelFromXp(oldXp)
+  const to = levelFromXp(newXp)
+  if (to <= from) return null
+  return { fromLevel: from, toLevel: to, fromRank: rankForLevel(from), toRank: rankForLevel(to), rankChanged: rankForLevel(to) !== rankForLevel(from) }
 }

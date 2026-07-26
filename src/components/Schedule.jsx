@@ -75,7 +75,9 @@ function PeptideSchedule({ peptide: p }) {
       {/* current state */}
       <motion.div layout className="card p-4" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
         <div className="flex items-center gap-4">
-          <Ring pct={cyclePct} size={76} stroke={8} color={cyc.isOn ? 'var(--lime)' : 'var(--amber)'}>
+          <Ring pct={cyclePct} size={76} stroke={8}
+            from={cyc.isOn ? 'var(--lime)' : 'var(--amber)'}
+            to={cyc.isOn ? 'var(--lime-deep)' : '#d97706'}>
             <div className="text-center leading-tight">
               <p className="text-sm font-extrabold">{cyc.isOn ? `d${cyc.onDay ?? cyc.cycleDay}` : 'rest'}</p>
               <p className="text-[8px] font-bold uppercase" style={{ color: 'var(--muted)' }}>

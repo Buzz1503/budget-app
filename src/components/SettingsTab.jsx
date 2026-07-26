@@ -27,6 +27,7 @@ export default function SettingsTab() {
         peptides: state.peptides, vials: state.vials, doseLogs: state.doseLogs,
         knownGoodMixes: state.knownGoodMixes, titration: state.titration,
         openVials: state.openVials, gamification: state.gamification, settings: state.settings,
+        mixExplored: state.mixExplored, symptomLogs: state.symptomLogs,
       }
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
       const url = URL.createObjectURL(blob)
@@ -44,7 +45,7 @@ export default function SettingsTab() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-extrabold">More</h1>
+      <h1 className="text-2xl font-extrabold">Settings</h1>
 
       {/* badges shelf */}
       <div className="card p-4">
@@ -93,6 +94,18 @@ export default function SettingsTab() {
         <Row label="Restock lead time (days)">
           <input type="number" className="input !w-20 text-center" value={settings.restockLeadDays} min="1"
             onChange={(e) => updateSettings({ restockLeadDays: Math.max(1, Math.round(+e.target.value || 30)) })} />
+        </Row>
+        <Row label="Haptics">
+          <button onClick={() => updateSettings({ haptics: !settings.haptics })}
+            className="chip !py-1.5 font-bold" style={{ color: settings.haptics ? 'var(--lime)' : 'var(--muted)' }}>
+            {settings.haptics ? 'On' : 'Off'}
+          </button>
+        </Row>
+        <Row label="Celebration sound">
+          <button onClick={() => updateSettings({ sound: !settings.sound })}
+            className="chip !py-1.5 font-bold" style={{ color: settings.sound ? 'var(--lime)' : 'var(--muted)' }}>
+            {settings.sound ? 'On' : 'Off'}
+          </button>
         </Row>
         <Row label="Disclaimer">
           <button className="chip !py-1.5 font-bold" onClick={() => updateSettings({ disclaimerDismissed: false })}>

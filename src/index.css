@@ -1,39 +1,76 @@
 @import "tailwindcss";
 
 :root {
-  --bg: #0a0c14;
-  --bg-grad: radial-gradient(1200px 600px at 50% -10%, rgba(99, 102, 241, 0.12), transparent 60%), #0a0c14;
-  --surface: rgba(255, 255, 255, 0.045);
-  --surface-solid: #141827;
-  --surface2: rgba(255, 255, 255, 0.08);
-  --border: rgba(255, 255, 255, 0.08);
-  --text: #f2f4f8;
-  --muted: #8b91a7;
-  --lime: #a3e635;
-  --lime-deep: #65a30d;
-  --amber: #fbbf24;
-  --violet: #8b5cf6;
-  --indigo: #6366f1;
-  --coral: #fb7185;
-  --shadow: 0 8px 24px rgba(0, 0, 0, 0.35), 0 2px 6px rgba(0, 0, 0, 0.25);
+  /* deep blue-black base with more life in the ambient wash */
+  --bg: #080a12;
+  --bg-grad:
+    radial-gradient(900px 500px at 8% -8%, rgba(139, 92, 246, 0.18), transparent 55%),
+    radial-gradient(900px 500px at 100% 0%, rgba(163, 230, 53, 0.10), transparent 50%),
+    radial-gradient(1000px 700px at 50% 110%, rgba(99, 102, 241, 0.12), transparent 60%),
+    #080a12;
+  --surface: rgba(255, 255, 255, 0.05);
+  --surface-solid: #141a2b;
+  --surface2: rgba(255, 255, 255, 0.09);
+  --border: rgba(255, 255, 255, 0.10);
+  --text: #f4f6fb;
+  --muted: #949ab2;
+  --lime: #b4f13a;
+  --lime-deep: #5ca80c;
+  --amber: #ffb020;
+  --violet: #a066ff;
+  --indigo: #6d6bff;
+  --coral: #ff6b8a;
+  --rose: #ff4d6d;
+  --gold: #f5c451;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.42), 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 :root[data-theme="light"] {
-  --bg: #f4f5fa;
-  --bg-grad: radial-gradient(1200px 600px at 50% -10%, rgba(99, 102, 241, 0.10), transparent 60%), #f4f5fa;
-  --surface: #ffffff;
+  --bg: #f2f3fb;
+  --bg-grad:
+    radial-gradient(900px 500px at 8% -8%, rgba(139, 92, 246, 0.14), transparent 55%),
+    radial-gradient(900px 500px at 100% 0%, rgba(101, 163, 13, 0.10), transparent 50%),
+    #f2f3fb;
+  --surface: rgba(255, 255, 255, 0.92);
   --surface-solid: #ffffff;
-  --surface2: rgba(15, 23, 42, 0.05);
-  --border: rgba(15, 23, 42, 0.10);
+  --surface2: rgba(15, 23, 42, 0.055);
+  --border: rgba(15, 23, 42, 0.11);
   --text: #10131f;
-  --muted: #5b6172;
-  --lime: #65a30d;
-  --lime-deep: #4d7c0f;
-  --amber: #d97706;
+  --muted: #565d72;
+  --lime: #4d9a0a;
+  --lime-deep: #3f7c08;
+  --amber: #c2740a;
   --violet: #7c3aed;
   --indigo: #4f46e5;
   --coral: #e11d48;
-  --shadow: 0 8px 24px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(15, 23, 42, 0.06);
+  --rose: #e11d48;
+  --gold: #b7860b;
+  --shadow: 0 10px 28px rgba(15, 23, 42, 0.10), 0 2px 6px rgba(15, 23, 42, 0.07);
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #f2f3fb;
+    --bg-grad:
+      radial-gradient(900px 500px at 8% -8%, rgba(139, 92, 246, 0.14), transparent 55%),
+      radial-gradient(900px 500px at 100% 0%, rgba(101, 163, 13, 0.10), transparent 50%),
+      #f2f3fb;
+    --surface: rgba(255, 255, 255, 0.92);
+    --surface-solid: #ffffff;
+    --surface2: rgba(15, 23, 42, 0.055);
+    --border: rgba(15, 23, 42, 0.11);
+    --text: #10131f;
+    --muted: #565d72;
+    --lime: #4d9a0a;
+    --lime-deep: #3f7c08;
+    --amber: #c2740a;
+    --violet: #7c3aed;
+    --indigo: #4f46e5;
+    --coral: #e11d48;
+    --rose: #e11d48;
+    --gold: #b7860b;
+    --shadow: 0 10px 28px rgba(15, 23, 42, 0.10), 0 2px 6px rgba(15, 23, 42, 0.07);
+  }
 }
 
 html, body {
@@ -71,7 +108,31 @@ body {
 .btn-violet {
   background-image: linear-gradient(135deg, var(--violet), var(--indigo));
   color: #fff;
-  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.35);
+  box-shadow: 0 4px 16px rgba(109, 107, 255, 0.4);
+}
+
+.btn-amber {
+  background-image: linear-gradient(135deg, var(--amber), #ff7a1a);
+  color: #1a1200;
+  box-shadow: 0 4px 16px rgba(255, 176, 32, 0.35);
+}
+
+/* soft beckoning pulse for zero-states and ready actions */
+@keyframes beckon {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--lime) 45%, transparent); }
+  50% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--lime) 0%, transparent); }
+}
+.beckon { animation: beckon 2.2s ease-in-out infinite; }
+
+@keyframes floatUp {
+  0% { transform: translateY(0); opacity: 0; }
+  25% { opacity: 1; }
+  100% { transform: translateY(-46px); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .beckon { animation: none; }
+  * { scroll-behavior: auto !important; }
 }
 
 .input {

@@ -7,7 +7,7 @@ import {
 import { SEED_KNOWN_GOOD } from '../lib/mixing'
 import { currentRung, isDueOn, cycleInfo, addDaysStr } from '../lib/schedule'
 import { toMg, doseToUnits, concentration } from '../lib/calc'
-import { XP } from '../lib/gamification'
+import { XP, rankUpInfo } from '../lib/gamification'
 
 export const todayStr = () => format(new Date(), 'yyyy-MM-dd')
 
@@ -36,9 +36,14 @@ function initialState() {
     knownGoodMixes: [...SEED_KNOWN_GOOD],
     titration: seedTitration(peptides, t),
     openVials: seedOpenVials(peptides),
-    gamification: { xp: 0, currentStreak: 0, bestStreak: 0, lastFullDay: null, badges: [], totalLogs: 0 },
+    gamification: {
+      xp: 0, currentStreak: 0, bestStreak: 0, lastFullDay: null, badges: [], totalLogs: 0,
+      checkinStreak: 0, bestCheckinStreak: 0, lastCheckin: null, clearDayStreak: 0,
+    },
     needleNotes: SEED_NEEDLE_NOTES,
-    settings: { currency: 'AUD', restockLeadDays: 30, theme: 'dark', disclaimerDismissed: false },
+    mixExplored: [], // codex: sorted-pair keys the user has revealed
+    symptomLogs: [],
+    settings: { currency: 'AUD', restockLeadDays: 30, theme: 'dark', disclaimerDismissed: false, haptics: true, sound: false },
   }
 }
 
@@ -112,6 +117,7 @@ const useStore = create(
         set((st) => ({
           titration: { ...st.titration, [id]: { level: newLevel, levelStartDate: todayStr() } },
         }))
+        const oldXp = get().gamification.xp
         get().awardXp(XP.levelUp)
         const newBadges = []
         get().awardBadge('level-up', newBadges)
@@ -119,6 +125,7 @@ const useStore = create(
         get().fireCelebration({
           type: 'levelup', peptide: p.name, level: newLevel + 1,
           dose: rungs[newLevel], unit: p.ladder.unit, badges: newBadges,
+          rankUp: rankUpInfo(oldXp, get().gamification.xp),
         })
       },
       holdStepUp(id) {
@@ -208,13 +215,15 @@ const useStore = create(
           if (!already) xpGain += XP.cycleComplete
         }
 
-        g = { ...g, xp: g.xp + xpGain }
+        const oldXp = get().gamification.xp
+        g = { ...g, xp: oldXp + xpGain }
         // awardBadge() mutated state after `after` was snapshotted — keep the live badges list
         set({ gamification: { ...get().gamification, ...g, badges: get().gamification.badges } })
 
         get().fireCelebration({
           type: fullDay ? 'fullday' : 'log',
           peptide: p.name, xp: xpGain, fullDay, streak: g.currentStreak, badges: newBadges,
+          rankUp: rankUpInfo(oldXp, g.xp),
         })
       },
       undoLog(logId) {
@@ -276,6 +285,72 @@ const useStore = create(
       },
       unmarkKnownGood(key) {
         set((s) => ({ knownGoodMixes: s.knownGoodMixes.filter((k) => k !== key) }))
+      },
+      // Compatibility Codex: reveal a pair once, award discovery XP the first time.
+      exploreMixPair(key) {
+        const s = get()
+        if (s.mixExplored.includes(key)) return
+        set({ mixExplored: [...s.mixExplored, key] })
+        const oldXp = s.gamification.xp
+        get().awardXp(XP.mixDiscovery)
+        const newBadges = []
+        if (get().mixExplored.length >= 10) get().awardBadge('chemist', newBadges)
+        get().fireCelebration({
+          type: 'discovery', xp: XP.mixDiscovery, badges: newBadges,
+          rankUp: rankUpInfo(oldXp, get().gamification.xp),
+        })
+      },
+
+      // ---------- symptoms ----------
+      logSymptomCheckin({ tags, note, site }) {
+        const s = get()
+        const t = todayStr()
+        // active peptides on this date, captured for later pattern overlay
+        const active = s.peptides
+          .filter((p) => cycleInfo(p, t).isOn)
+          .map((p) => ({ id: p.id, name: p.name, cycleDay: cycleInfo(p, t).cycleDay, level: currentRung(p, s.titration[p.id]).level }))
+        const entry = {
+          id: `sym-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          date: t, tags, note: note || '', site: site || null, activePeptides: active,
+        }
+        // one check-in per day replaces the prior one
+        const symptomLogs = [...s.symptomLogs.filter((l) => l.date !== t), entry]
+        const hadCheckinToday = s.symptomLogs.some((l) => l.date === t)
+        set({ symptomLogs })
+
+        const oldXp = s.gamification.xp
+        let xpGain = XP.symptomCheckin
+        const newBadges = []
+        get().awardBadge('first-checkin', newBadges)
+
+        const hasNegative = tags.some((tg) => tg.polarity === 'neg')
+        const clearDay = tags.length > 0 && !hasNegative
+
+        let g = { ...get().gamification }
+        if (!hadCheckinToday) {
+          const yesterday = addDaysStr(t, -1)
+          g.checkinStreak = g.lastCheckin === yesterday ? (g.checkinStreak || 0) + 1 : 1
+          g.bestCheckinStreak = Math.max(g.bestCheckinStreak || 0, g.checkinStreak)
+          g.lastCheckin = t
+          if (clearDay) {
+            xpGain += XP.clearDay
+            g.clearDayStreak = (g.clearDayStreak || 0) + 1
+            if (g.clearDayStreak >= 7) get().awardBadge('clear-week', newBadges)
+          } else {
+            g.clearDayStreak = 0
+          }
+        }
+        g.xp = oldXp + xpGain
+        set({ gamification: { ...g, badges: get().gamification.badges } })
+
+        get().fireCelebration({
+          type: clearDay ? 'clearday' : 'checkin',
+          xp: xpGain, clearDay, streak: g.checkinStreak, badges: newBadges,
+          rankUp: rankUpInfo(oldXp, g.xp),
+        })
+      },
+      deleteSymptomLog(id) {
+        set((s) => ({ symptomLogs: s.symptomLogs.filter((l) => l.id !== id) }))
       },
 
       // ---------- misc ----------

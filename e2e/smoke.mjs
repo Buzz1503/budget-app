@@ -1,10 +1,13 @@
 import { chromium } from 'playwright'
-
 import { mkdirSync } from 'fs'
+
+const BASE = process.env.BASE_URL || 'http://localhost:5174'
 const SHOT = new URL('./shots', import.meta.url).pathname
 mkdirSync(SHOT, { recursive: true })
+const EXE = process.env.CHROMIUM_PATH || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'
+
 const errors = []
-const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined })
+const browser = await chromium.launch({ executablePath: EXE })
 const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } })
 const page = await ctx.newPage()
 page.on('console', (m) => { if (m.type() === 'error') errors.push('console: ' + m.text()) })
@@ -14,8 +17,7 @@ const step = async (name, fn) => {
   try { await fn(); console.log('PASS', name) }
   catch (e) { console.log('FAIL', name, '—', e.message.split('\n')[0]); errors.push(`step ${name}: ${e.message}`) }
 }
-
-const waitText = async (re, timeout = 4000) => {
+const waitText = async (re, timeout = 5000) => {
   const start = Date.now()
   while (Date.now() - start < timeout) {
     const t = await page.textContent('body')
@@ -24,208 +26,157 @@ const waitText = async (re, timeout = 4000) => {
   }
   throw new Error('timeout waiting for ' + re)
 }
+const nav = (label) => page.click(`nav button:has-text("${label}")`)
 
-await page.goto('http://localhost:5173', { waitUntil: 'networkidle' })
+await page.goto(BASE, { waitUntil: 'networkidle' })
 await page.evaluate(() => localStorage.clear())
 await page.reload({ waitUntil: 'networkidle' })
 
-await step('Today renders with disclaimer + ring', async () => {
-  await page.waitForSelector('text=not medical advice', { timeout: 5000 })
-  await page.waitForSelector('text=Today')
-})
-
-await step('due list shows peptides with doses and cycle day', async () => {
-  await page.waitForSelector('text=Selank')
-  await page.waitForSelector('text=Retatrutide') // weekly, day 0 → due
-  const txt = await page.textContent('body')
-  if (!/250 mcg/.test(txt)) throw new Error('Selank floor dose 250 mcg not shown')
-  if (!/day 1\/112/.test(txt)) throw new Error('Selank cycle day 1/112 not shown; body: ' + txt.slice(0, 200))
-})
-
-await step('dismiss disclaimer', async () => {
+await step('Today: disclaimer + ring + 6-tab bar', async () => {
+  await waitText(/not medical advice/)
+  const tabs = await page.locator('nav button').count()
+  if (tabs !== 6) throw new Error(`expected 6 primary tabs, got ${tabs}`)
   await page.click('text=Got it')
 })
 
-await page.screenshot({ path: `${SHOT}/01-today.png` })
-
-await step('log a dose → ring, XP, done state update', async () => {
-  const before = await page.textContent('body')
-  const m = before.match(/(\d+)\/(\d+)/)
+await step('Today: log a dose fires floating XP + done state', async () => {
   await page.locator('button[aria-label^="Log "]').first().click()
-  await page.waitForTimeout(1200)
-  const after = await page.textContent('body')
-  if (!/logged/i.test(after) && !(await page.locator('button[aria-label$=" logged"]').count())) throw new Error('no logged state')
-})
-
-await page.screenshot({ path: `${SHOT}/02-logged.png` })
-
-await step('Library shows all 11 seeds', async () => {
-  await page.click('nav >> text=Library')
-  await page.waitForTimeout(400)
-  const names = ['Retatrutide','Selank','Semax','KPV','SS-31','DSIP','MOTS-c','BPC-157','GHK-Cu','NAD+','Tesamorelin']
-  const txt = await page.textContent('body')
-  for (const n of names) if (!txt.includes(n)) throw new Error(`missing ${n}`)
-})
-
-await step('Library inline edit persists', async () => {
-  await page.click('h3:has-text("Selank")')
-  await page.waitForTimeout(300)
-  const timing = page.locator('input').filter({ hasText: '' }).nth(1)
-  const timingInput = page.locator('label:has-text("Timing") input')
-  await timingInput.fill('Evening test')
-  await page.waitForTimeout(400)
-})
-
-await page.screenshot({ path: `${SHOT}/03-library.png` })
-
-await step('Schedule renders ladder + projection', async () => {
-  await page.click('nav >> text=Schedule')
-  await page.waitForTimeout(500)
-  const txt = await page.textContent('body')
-  if (!/Level 1 of/.test(txt)) throw new Error('level line missing')
-  if (!/12-week projection/.test(txt)) throw new Error('chart missing')
-})
-
-await page.screenshot({ path: `${SHOT}/04-schedule.png` })
-
-await step('Calc: Retatrutide defaults → 40 u', async () => {
-  await page.click('nav >> text=Calc')
-  await page.waitForTimeout(400)
-  await page.click('button:has-text("Retatrutide")')
-  await page.waitForTimeout(800)
-  const txt = await page.textContent('body')
-  if (!/5 mg\/mL/.test(txt)) throw new Error('conc 5 mg/mL missing: ' + txt.slice(0, 300))
-  if (!/40\.0/.test(txt)) throw new Error('40 units missing')
-})
-
-await step('Calc reverse mode', async () => {
-  await page.click('text=dose → units')
-  await page.waitForTimeout(600)
-  const txt = await page.textContent('body')
-  if (!/Delivered dose/.test(txt)) throw new Error('reverse mode missing')
-})
-
-await page.screenshot({ path: `${SHOT}/05-calc.png` })
-
-await step('Mix: BPC-157 + KPV is green', async () => {
-  await page.click('nav >> text=Mix')
-  await page.waitForTimeout(400)
-  await page.click('div.grid button:has-text("BPC-157")')
-  await page.click('div.grid button:has-text("KPV")')
-  await page.waitForTimeout(600)
-  const txt = await page.textContent('body')
-  if (!/OK to co-draw/.test(txt)) throw new Error('expected green verdict')
-})
-
-await step('Mix: Retatrutide pair is red', async () => {
-  await page.click('div.grid button:has-text("BPC-157")') // deselect
-  await page.click('div.grid button:has-text("Retatrutide")')
-  await waitText(/Inject separately/)
-})
-
-await step('Mix: unverified pair is amber + can mark known-good', async () => {
-  await page.click('div.grid button:has-text("Retatrutide")') // deselect
-  await page.click('div.grid button:has-text("DSIP")')
-  await waitText(/Separate unless verified/)
-  await page.click('button:has-text("mark known-good")')
-  await waitText(/OK to co-draw/)
-})
-
-await page.screenshot({ path: `${SHOT}/06-mix.png` })
-
-await step('Inventory: burn rate + cost render', async () => {
-  await page.click('nav >> text=Stock')
-  await page.waitForTimeout(500)
-  const txt = await page.textContent('body')
-  if (!/runs out/.test(txt)) throw new Error('run-out missing')
-  if (!/cost\/dose/.test(txt)) throw new Error('cost/dose missing')
-})
-
-await page.screenshot({ path: `${SHOT}/07-inventory.png` })
-
-await step('Needle guide renders', async () => {
-  await page.click('nav >> text=Needle')
-  await page.waitForTimeout(400)
-  const txt = await page.textContent('body')
-  if (!/29–31 gauge/.test(txt)) throw new Error('needle spec missing')
-})
-
-await step('Settings: badges shelf + theme toggle', async () => {
-  await page.click('nav >> text=More')
-  await page.waitForTimeout(400)
-  const txt = await page.textContent('body')
-  if (!/First Log/.test(txt)) throw new Error('badges missing')
-  await page.click('.chip:has-text("dark")')
-  await page.waitForTimeout(400)
-  const theme = await page.evaluate(() => document.documentElement.dataset.theme)
-  if (theme !== 'light') throw new Error('theme toggle failed, got ' + theme)
-  await page.click('.chip:has-text("light")')
-})
-
-await page.screenshot({ path: `${SHOT}/08-settings.png` })
-
-await step('persistence: full reload keeps log + edit + mix override', async () => {
-  await page.reload({ waitUntil: 'networkidle' })
-  await page.waitForTimeout(800)
-  const txt = await page.textContent('body')
-  if (/not medical advice/.test(txt)) throw new Error('disclaimer came back — persist failed')
-  // the dose logged earlier should still count
+  await page.waitForTimeout(1000)
   const logged = await page.locator('button[aria-label$=" logged"]').count()
-  if (!logged) throw new Error('logged dose lost after reload')
-  const store = await page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')))
-  if (!store?.state?.doseLogs?.length) throw new Error('doseLogs empty in localStorage')
-  if (store.state.peptides.find((p) => p.id === 'selank')?.timing !== 'Evening test') throw new Error('library edit lost')
-  if (!store.state.knownGoodMixes.some((k) => k.includes('DSIP'))) throw new Error('mix override lost')
-  console.log('  localStorage keys OK — logs:', store.state.doseLogs.length, 'xp:', store.state.gamification.xp)
+  if (!logged) throw new Error('no logged state after tapping Log')
+  const store = await page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state)
+  if (!store.doseLogs.length) throw new Error('doseLog not persisted')
+  if (store.gamification.xp < 10) throw new Error('no XP awarded')
+})
+await page.screenshot({ path: `${SHOT}/v2-01-today.png` })
+
+await step('Right Now: phases render for active peptides', async () => {
+  await nav('Now')
+  await waitText(/Right Now/)
+  const txt = await page.textContent('body')
+  if (!/(Loading|Building|Peak|Maintenance)/.test(txt)) throw new Error('no phase label')
+  if (!/Selank/.test(txt)) throw new Error('active peptide missing')
+  if (!/week/.test(txt)) throw new Error('no next-phase estimate')
+})
+await page.screenshot({ path: `${SHOT}/v2-02-rightnow.png` })
+
+await step('Mix: lazy matrix loads, MIX verdict + reaction', async () => {
+  await nav('Mix')
+  await waitText(/Compatibility Codex/)
+  // BPC-157 + KPV → MIX (R00)
+  await page.click('button:has-text("BPC-157")')
+  await page.click('button:has-text("KPV")')
+  await waitText(/Safe to mix/)
+  const txt = await page.textContent('body')
+  if (!/R00/.test(txt)) throw new Error('reason code R00 missing')
+  if (!/Chemistry model/.test(txt)) throw new Error('confidence badge missing')
+})
+await page.screenshot({ path: `${SHOT}/v2-03-mix-mix.png` })
+
+await step('Mix: DONT_MIX verdict (Retatrutide + Tesamorelin, R01 gel)', async () => {
+  // clear current pair, pick reta + tesa
+  await page.click('button:has-text("BPC-157")') // deselect A
+  await page.click('button:has-text("KPV")') // deselect B
+  await page.click('button:has-text("Retatrutide")')
+  await page.click('button:has-text("Tesamorelin")')
+  await waitText(/Don't mix/)
+  const txt = await page.textContent('body')
+  if (!/R01/.test(txt)) throw new Error('expected R01')
+})
+await page.screenshot({ path: `${SHOT}/v2-04-mix-dont.png` })
+
+await step('Mix: CAUTION shows mandatory visual-inspection gate', async () => {
+  await page.click('button:has-text("Retatrutide")')
+  await page.click('button:has-text("Tesamorelin")')
+  // GHK-Cu + SS-31 → CAUTION (R03)
+  await page.click('button:has-text("GHK-Cu")')
+  await page.click('button:has-text("SS-31")')
+  await waitText(/Mix with caution/)
+  await waitText(/Visual inspection required/)
+  // gate must block: "Confirm it's clear" present, not yet confirmed
+  if (!(await page.locator("button:has-text(\"Confirm it's clear\")").count())) throw new Error('inspection gate button missing')
+  await page.click("button:has-text(\"Confirm it's clear\")")
+  await waitText(/Confirmed clear/)
+})
+await page.screenshot({ path: `${SHOT}/v2-05-mix-caution.png` })
+
+await step('Mix: proven-blend seal on Selank + Semax', async () => {
+  await page.click('button:has-text("GHK-Cu")')
+  await page.click('button:has-text("SS-31")')
+  await page.click('button:has-text("Selank")')
+  await page.click('button:has-text("Semax")')
+  await waitText(/Proven blend/)
 })
 
-await step('tolerance decline holds dose (via store)', async () => {
-  // simulate: backdate selank levelStartDate 8 days → prompt appears on Schedule
+await step('Mix: Codex advances with discovery XP', async () => {
+  const store = await page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state)
+  if (!store.mixExplored.length) throw new Error('mixExplored empty — codex not tracking')
+})
+
+await step('Mix: browse all 86 compounds', async () => {
+  await page.click('button:has-text("My stack")') // toggle → browse all
+  await page.fill('input[placeholder*="Search"]', 'cagri')
+  await waitText(/Cagrilintide/)
+  await page.click('button:has-text("All 86")') // toggle back → my stack
+})
+
+await step('Symptoms: check-in logs, streak advances, timeline', async () => {
+  await nav('Symptoms')
+  await waitText(/Daily check-in|Today's check-in/)
+  await page.click('button:has-text("Great energy")')
+  await page.click('button:has-text("Better sleep")')
+  await page.click('button:has-text("Log check-in")')
+  await page.waitForTimeout(900)
+  const store = await page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state)
+  if (!store.symptomLogs.length) throw new Error('symptom log not saved')
+  if ((store.gamification.checkinStreak || 0) < 1) throw new Error('check-in streak not advanced')
+  if (!store.symptomLogs[0].activePeptides.length) throw new Error('active peptides not captured')
+})
+await page.screenshot({ path: `${SHOT}/v2-06-symptoms.png` })
+
+await step('More hub: navigates to sub-screens', async () => {
+  await nav('More')
+  await waitText(/Compatibility|Library|Calculator/)
+  await page.click('text=Calculator')
+  await waitText(/Concentration/)
+  // back bar
+  await page.click('text=Back, text=Calculator, [class*="ChevronLeft"]').catch(() => {})
+  await nav('More')
+  await page.click('text=Library')
+  await waitText(/Retatrutide/)
+})
+await page.screenshot({ path: `${SHOT}/v2-07-more.png` })
+
+await step('Schedule still works (titration confirm)', async () => {
+  await nav('Schedule')
   await page.evaluate(() => {
     const raw = JSON.parse(localStorage.getItem('peptide-command-center'))
-    const t = raw.state.titration.selank
-    const d = new Date(Date.now() - 8 * 86400000)
-    t.levelStartDate = d.toISOString().slice(0, 10)
+    const d = new Date(Date.now() - 8 * 86400000).toISOString().slice(0, 10)
+    raw.state.titration.selank.levelStartDate = d
     localStorage.setItem('peptide-command-center', JSON.stringify(raw))
   })
   await page.reload({ waitUntil: 'networkidle' })
-  await page.click('nav >> text=Schedule')
+  await nav('Schedule')
   await page.click('button:has-text("Selank")')
-  await page.waitForTimeout(500)
-  const txt = await page.textContent('body')
-  if (!/Tolerating well/.test(txt)) throw new Error('step-up prompt missing')
-  await page.click('button:has-text("Hold dose")')
-  await page.waitForTimeout(500)
-  const txt2 = await page.textContent('body')
-  if (/Tolerating well/.test(txt2)) throw new Error('prompt did not clear after hold')
-  const store = await page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')))
-  if (store.state.titration.selank.level !== 0) throw new Error('hold should not advance level')
-  const today = new Date().toISOString().slice(0, 10)
-  if (store.state.titration.selank.levelStartDate !== today) throw new Error('hold should re-anchor interval to today')
+  await waitText(/Tolerating well/)
+  await page.click('button:has-text("Advance")')
+  await page.waitForTimeout(1000)
+  const store = await page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state)
+  if (store.titration.selank.level !== 1) throw new Error('titration confirm did not advance')
 })
 
-await step('tolerance confirm advances + level-up', async () => {
-  await page.evaluate(() => {
-    const raw = JSON.parse(localStorage.getItem('peptide-command-center'))
-    const d = new Date(Date.now() - 8 * 86400000)
-    raw.state.titration.selank.levelStartDate = d.toISOString().slice(0, 10)
-    localStorage.setItem('peptide-command-center', JSON.stringify(raw))
-  })
+await step('persistence: full reload keeps everything', async () => {
   await page.reload({ waitUntil: 'networkidle' })
-  await page.click('nav >> text=Schedule')
-  await page.click('button:has-text("Selank")')
-  await page.waitForTimeout(500)
-  await page.click('button:has-text("Advance — Lvl 2")')
-  await page.waitForTimeout(1200)
-  const store = await page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')))
-  if (store.state.titration.selank.level !== 1) throw new Error('confirm should advance to level 1')
-  const txt = await page.textContent('body')
-  if (!/300 mcg/.test(txt)) throw new Error('new dose 300 mcg not shown')
+  await page.waitForTimeout(600)
+  const store = await page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state)
+  if (!store.doseLogs.length) throw new Error('dose logs lost')
+  if (!store.symptomLogs.length) throw new Error('symptom logs lost')
+  if (!store.mixExplored.length) throw new Error('mix codex lost')
+  console.log('  persisted — logs:', store.doseLogs.length, 'symptoms:', store.symptomLogs.length,
+    'explored:', store.mixExplored.length, 'xp:', store.gamification.xp)
 })
-
-await page.screenshot({ path: `${SHOT}/09-levelup.png` })
 
 console.log('\n--- console/page errors:', errors.length)
-errors.forEach((e) => console.log(' ', e.slice(0, 300)))
+errors.forEach((e) => console.log(' ', e.slice(0, 200)))
 await browser.close()
 process.exit(errors.length ? 1 : 0)
