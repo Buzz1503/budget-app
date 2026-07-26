@@ -9,6 +9,8 @@ export const XP = {
   mixDiscovery: 8,
   symptomCheckin: 12,
   clearDay: 20,
+  measurement: 15,
+  photo: 15,
 }
 
 // Level curve: level n starts at 50*(n-1)^2 XP → 1, 50, 200, 450, 800...
@@ -45,6 +47,12 @@ export const BADGES = [
   { id: 'chemist', name: 'Chemist', desc: 'Mapped 10 compatibility pairs', icon: 'FlaskConical' },
   { id: 'first-checkin', name: 'Self Aware', desc: 'Logged your first symptom check-in', icon: 'HeartPulse' },
   { id: 'clear-week', name: 'Clean Run', desc: '7 clear days in a row', icon: 'Sun' },
+  { id: 'perfect-rotation', name: 'Perfect Rotation', desc: '7 injections, no site repeated', icon: 'Repeat' },
+  { id: 'first-measurement', name: 'Baseline', desc: 'Logged your first measurement', icon: 'Ruler' },
+  { id: 'first-photo', name: 'Say Cheese', desc: 'Captured your first progress photo', icon: 'Camera' },
+  { id: 'first-scan', name: 'Scan Imported', desc: 'Imported a DEXA/InBody scan', icon: 'ScanLine' },
+  { id: 'photo-streak', name: '4-Week Lens', desc: 'Photos across 4 different weeks', icon: 'Images' },
+  { id: 'body-milestone', name: 'Recomp', desc: 'A body-comp metric trended down', icon: 'TrendingDown' },
 ]
 
 export function badgeById(id) {

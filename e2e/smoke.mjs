@@ -32,20 +32,23 @@ await page.goto(BASE, { waitUntil: 'networkidle' })
 await page.evaluate(() => localStorage.clear())
 await page.reload({ waitUntil: 'networkidle' })
 
-await step('Today: disclaimer + ring + 6-tab bar', async () => {
+await step('Home: disclaimer + ring + 7-tab bar', async () => {
   await waitText(/not medical advice/)
   const tabs = await page.locator('nav button').count()
-  if (tabs !== 6) throw new Error(`expected 6 primary tabs, got ${tabs}`)
+  if (tabs !== 7) throw new Error(`expected 7 primary tabs, got ${tabs}`)
   await page.click('text=Got it')
 })
 
-await step('Today: log a dose fires floating XP + done state', async () => {
+await step('Home: log a dose via site picker fires XP + done state', async () => {
   await page.locator('button[aria-label^="Log "]').first().click()
+  await waitText(/Pick an injection site/)
+  await page.click('button:has-text("Log here")')
   await page.waitForTimeout(1000)
   const logged = await page.locator('button[aria-label$=" logged"]').count()
-  if (!logged) throw new Error('no logged state after tapping Log')
+  if (!logged) throw new Error('no logged state after logging')
   const store = await page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state)
   if (!store.doseLogs.length) throw new Error('doseLog not persisted')
+  if (!store.doseLogs[0].siteId) throw new Error('siteId not recorded')
   if (store.gamification.xp < 10) throw new Error('no XP awarded')
 })
 await page.screenshot({ path: `${SHOT}/v2-01-today.png` })
@@ -147,8 +150,8 @@ await step('More hub: navigates to sub-screens', async () => {
 })
 await page.screenshot({ path: `${SHOT}/v2-07-more.png` })
 
-await step('Schedule still works (titration confirm)', async () => {
-  await nav('Schedule')
+await step('Plan (Schedule) still works (titration confirm)', async () => {
+  await nav('Plan')
   await page.evaluate(() => {
     const raw = JSON.parse(localStorage.getItem('peptide-command-center'))
     const d = new Date(Date.now() - 8 * 86400000).toISOString().slice(0, 10)
@@ -156,7 +159,7 @@ await step('Schedule still works (titration confirm)', async () => {
     localStorage.setItem('peptide-command-center', JSON.stringify(raw))
   })
   await page.reload({ waitUntil: 'networkidle' })
-  await nav('Schedule')
+  await nav('Plan')
   await page.click('button:has-text("Selank")')
   await waitText(/Tolerating well/)
   await page.click('button:has-text("Advance")')

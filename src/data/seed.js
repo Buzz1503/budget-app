@@ -8,7 +8,7 @@ export function seedPeptides(todayStr) {
   const start = todayStr || format(new Date(), 'yyyy-MM-dd')
   const p = (o) => ({ route: 'SubQ', startDate: start, ...o })
   return [
-    p({ id: 'retatrutide', name: 'Retatrutide', frequency: 'weekly', timing: 'Consistent day each week',
+    p({ id: 'retatrutide', name: 'Retatrutide', frequency: 'weekly', timing: 'Consistent day each week', slot: 'AM',
       cycleOnDays: 0, cycleOffDays: 0,
       ladder: { floor: 0.5, step: 0.5, intervalWeeks: 4, ceiling: 2, unit: 'mg' },
       recon: { vialMg: 20, bacMl: 4, expiryDays: 28 } }),
@@ -48,7 +48,7 @@ export function seedPeptides(todayStr) {
       cycleOnDays: 0, cycleOffDays: 0,
       ladder: { floor: 20, step: 25, intervalWeeks: 1, ceiling: 100, unit: 'mg' },
       recon: { vialMg: 500, bacMl: 5, expiryDays: 14 } }),
-    p({ id: 'tesamorelin', name: 'Tesamorelin', frequency: 'daily', timing: 'Fasted AM or bedtime',
+    p({ id: 'tesamorelin', name: 'Tesamorelin', frequency: 'daily', timing: 'Fasted AM or bedtime', slot: 'AM',
       cycleOnDays: wk(8), cycleOffDays: wk(4),
       ladder: { floor: 1, step: 1, intervalWeeks: 2, ceiling: 2, unit: 'mg' },
       recon: { vialMg: 10, bacMl: 2, expiryDays: 7 } }),

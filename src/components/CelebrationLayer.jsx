@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Check, Flame, TrendingUp, Award, Beaker, HeartPulse, Sun, ChevronsUp } from 'lucide-react'
+import { Check, Flame, TrendingUp, Award, Beaker, HeartPulse, Sun, ChevronsUp, Ruler, Camera } from 'lucide-react'
 import useStore from '../store/useStore'
 import { burstSmall, burstBig, levelUpBurst } from '../lib/celebrate'
 import { badgeById } from '../lib/gamification'
@@ -120,6 +120,8 @@ function ToastIcon({ toast }) {
     discovery: { bg: 'linear-gradient(135deg, var(--violet), var(--indigo))', color: '#fff', Icon: Beaker },
     checkin: { bg: 'linear-gradient(135deg, var(--coral), var(--rose))', color: '#fff', Icon: HeartPulse },
     clearday: { bg: 'linear-gradient(135deg, var(--lime), var(--lime-deep))', color: '#0c1200', Icon: Sun },
+    measurement: { bg: 'linear-gradient(135deg, var(--indigo), var(--violet))', color: '#fff', Icon: Ruler },
+    photo: { bg: 'linear-gradient(135deg, var(--violet), var(--indigo))', color: '#fff', Icon: Camera },
   }
   const s = map[toast.type] || { bg: 'linear-gradient(135deg, var(--lime), var(--lime-deep))', color: '#0c1200', Icon: Check }
   const Icon = s.Icon
@@ -168,6 +170,22 @@ function ToastBody({ toast }) {
     return (
       <>
         <p className="text-sm font-bold">Check-in logged</p>
+        <p className="text-xs font-medium" style={{ color: 'var(--muted)' }}>+{toast.xp} XP</p>
+      </>
+    )
+  }
+  if (toast.type === 'measurement') {
+    return (
+      <>
+        <p className="text-sm font-bold">Measurement saved 📏</p>
+        <p className="text-xs font-medium" style={{ color: 'var(--muted)' }}>+{toast.xp} XP</p>
+      </>
+    )
+  }
+  if (toast.type === 'photo') {
+    return (
+      <>
+        <p className="text-sm font-bold">Photo captured 📸</p>
         <p className="text-xs font-medium" style={{ color: 'var(--muted)' }}>+{toast.xp} XP</p>
       </>
     )

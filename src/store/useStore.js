@@ -5,11 +5,21 @@ import {
   seedPeptides, seedVials, seedTitration, seedOpenVials, SEED_NEEDLE_NOTES,
 } from '../data/seed'
 import { SEED_KNOWN_GOOD } from '../lib/mixing'
-import { currentRung, isDueOn, cycleInfo, addDaysStr } from '../lib/schedule'
+import { currentRung, cycleInfo, addDaysStr } from '../lib/schedule'
+import { isScheduledToday } from '../lib/daily'
+import { perfectRotation } from '../lib/sites'
 import { toMg, doseToUnits, concentration } from '../lib/calc'
 import { XP, rankUpInfo } from '../lib/gamification'
 
 export const todayStr = () => format(new Date(), 'yyyy-MM-dd')
+
+// ISO-ish year+week key for streak grouping (good enough for weekly cadence).
+function isoWeek(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00')
+  const onejan = new Date(d.getFullYear(), 0, 1)
+  const week = Math.ceil(((d - onejan) / 86400000 + onejan.getDay() + 1) / 7)
+  return `${d.getFullYear()}-W${week}`
+}
 
 // localStorage wrapped so a genuine quota/security failure surfaces once, without crashing.
 let storageErrorHandler = null
@@ -43,6 +53,9 @@ function initialState() {
     needleNotes: SEED_NEEDLE_NOTES,
     mixExplored: [], // codex: sorted-pair keys the user has revealed
     symptomLogs: [],
+    measurements: [], // body-comp entries (structured; no blobs)
+    photos: [], // progress-photo metadata; blobs live in IndexedDB by blobKey
+    bodyGoals: {}, // { metric: targetValue }
     settings: { currency: 'AUD', restockLeadDays: 30, theme: 'dark', disclaimerDismissed: false, haptics: true, sound: false },
   }
 }
@@ -146,7 +159,7 @@ const useStore = create(
       },
 
       // ---------- logging ----------
-      logDose(peptideId, site) {
+      logDose(peptideId, siteId) {
         const s = get()
         const p = s.peptides.find((x) => x.id === peptideId)
         if (!p) return
@@ -158,7 +171,7 @@ const useStore = create(
           id: `log-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
           peptideId, date: t, doseValue: dose, unit: p.ladder.unit,
           insulinUnits: Math.round(doseToUnits(doseMg, conc) * 10) / 10,
-          site: site || null,
+          siteId: siteId || null, loggedAt: new Date().toISOString(),
         }
 
         // inventory: draw from the open vial; auto-open a sealed one when depleted
@@ -189,10 +202,13 @@ const useStore = create(
         after.awardBadge('first-log', newBadges)
         if (after.doseLogs.length >= 100) after.awardBadge('logs-100', newBadges)
 
-        // full-stack day? every due peptide has a log today
-        const due = after.peptides.filter((x) => isDueOn(x, t))
+        // full-stack day? every peptide scheduled today has a log today
+        const due = after.peptides.filter((x) => isScheduledToday(x, t))
         const loggedToday = new Set(after.doseLogs.filter((l) => l.date === t).map((l) => l.peptideId))
         const fullDay = due.length > 0 && due.every((x) => loggedToday.has(x.id))
+
+        // perfect-rotation badge — 7 injections, no site repeat
+        if (perfectRotation(after.doseLogs, t)) after.awardBadge('perfect-rotation', newBadges)
 
         let g = { ...after.gamification, totalLogs: (after.gamification.totalLogs || 0) + 1 }
         if (fullDay && g.lastFullDay !== t) {
@@ -351,6 +367,74 @@ const useStore = create(
       },
       deleteSymptomLog(id) {
         set((s) => ({ symptomLogs: s.symptomLogs.filter((l) => l.id !== id) }))
+      },
+
+      // ---------- body composition ----------
+      addMeasurement(data) {
+        const s = get()
+        const entry = {
+          id: `m-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          date: data.date || todayStr(), source: data.source || 'manual', ...data,
+        }
+        // one entry per date+source replaces the prior one
+        const measurements = [
+          ...s.measurements.filter((m) => !(m.date === entry.date && m.source === entry.source)),
+          entry,
+        ].sort((a, b) => a.date.localeCompare(b.date))
+        set({ measurements })
+
+        const oldXp = s.gamification.xp
+        const newBadges = []
+        get().awardBadge('first-measurement', newBadges)
+        if (entry.source === 'scan') get().awardBadge('first-scan', newBadges)
+        get().checkBodyMilestones(newBadges)
+        get().awardXp(XP.measurement)
+        get().fireCelebration({
+          type: 'measurement', xp: XP.measurement, badges: newBadges,
+          rankUp: rankUpInfo(oldXp, get().gamification.xp),
+        })
+      },
+      deleteMeasurement(id) {
+        set((s) => ({ measurements: s.measurements.filter((m) => m.id !== id) }))
+      },
+      setBodyGoal(metric, value) {
+        set((s) => ({ bodyGoals: { ...s.bodyGoals, [metric]: value } }))
+      },
+      // award body-comp milestone badges vs goals / trend
+      checkBodyMilestones(collector) {
+        const s = get()
+        const ms = s.measurements
+        if (ms.length < 2) return
+        const first = ms[0], last = ms[ms.length - 1]
+        const dropped = (k) => first[k] != null && last[k] != null && last[k] < first[k]
+        if (dropped('visceralFat') || dropped('waist') || dropped('weight')) {
+          get().awardBadge('body-milestone', collector)
+        }
+      },
+
+      // ---------- progress photos (metadata; blob lives in IndexedDB) ----------
+      addPhoto({ pose, blobKey, date }) {
+        const s = get()
+        const entry = {
+          id: `photo-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          date: date || todayStr(), pose: pose || 'front', blobKey,
+        }
+        set({ photos: [...s.photos, entry].sort((a, b) => a.date.localeCompare(b.date)) })
+        const oldXp = s.gamification.xp
+        const newBadges = []
+        get().awardBadge('first-photo', newBadges)
+        // 4-week photo streak: photos on ≥4 distinct ISO weeks
+        const weeks = new Set(get().photos.map((p) => isoWeek(p.date)))
+        if (weeks.size >= 4) get().awardBadge('photo-streak', newBadges)
+        get().awardXp(XP.photo)
+        get().fireCelebration({
+          type: 'photo', xp: XP.photo, badges: newBadges,
+          rankUp: rankUpInfo(oldXp, get().gamification.xp),
+        })
+        return entry
+      },
+      removePhoto(id) {
+        set((s) => ({ photos: s.photos.filter((p) => p.id !== id) }))
       },
 
       // ---------- misc ----------

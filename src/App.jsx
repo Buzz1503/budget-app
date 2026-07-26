@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Sun, Activity, CalendarRange, Combine, HeartPulse, LayoutGrid, ChevronLeft,
+  Sun, Activity, CalendarRange, Combine, HeartPulse, LayoutGrid, ChevronLeft, PersonStanding,
   FlaskConical, Package, Syringe as SyringeIcon, BookOpen, Settings as SettingsIcon,
 } from 'lucide-react'
 import useStore, { onStorageError } from './store/useStore'
-import Today from './components/Today'
+import Home from './components/Home'
 import Library from './components/Library'
 import Schedule from './components/Schedule'
 import CalcTab from './components/CalcTab'
@@ -15,16 +15,18 @@ import NeedleTab from './components/NeedleTab'
 import SettingsTab from './components/SettingsTab'
 import RightNowTab from './components/RightNowTab'
 import SymptomsTab from './components/SymptomsTab'
+import BodyTab from './components/BodyTab'
 import MoreHub from './components/MoreHub'
 import CelebrationLayer from './components/CelebrationLayer'
 
 // full registry of every screen
 const SCREENS = {
-  today: Today,
+  today: Home,
   now: RightNowTab,
   schedule: Schedule,
   mix: MixTab,
   symptoms: SymptomsTab,
+  body: BodyTab,
   more: MoreHub,
   library: Library,
   calc: CalcTab,
@@ -33,13 +35,14 @@ const SCREENS = {
   settings: SettingsTab,
 }
 
-// 6 primary tabs in the bottom bar; the rest live under the More hub.
+// 7 primary tabs in the bottom bar; the rest live under the More hub.
 const PRIMARY = [
-  { id: 'today', label: 'Today', icon: Sun },
+  { id: 'today', label: 'Home', icon: Sun },
   { id: 'now', label: 'Now', icon: Activity },
-  { id: 'schedule', label: 'Schedule', icon: CalendarRange },
+  { id: 'schedule', label: 'Plan', icon: CalendarRange },
   { id: 'mix', label: 'Mix', icon: Combine },
   { id: 'symptoms', label: 'Symptoms', icon: HeartPulse },
+  { id: 'body', label: 'Body', icon: PersonStanding },
   { id: 'more', label: 'More', icon: LayoutGrid },
 ]
 const PRIMARY_IDS = new Set(PRIMARY.map((t) => t.id))
@@ -99,7 +102,7 @@ export default function App() {
         className="fixed inset-x-0 bottom-0 z-40 border-t backdrop-blur-xl"
         style={{ background: 'color-mix(in srgb, var(--bg) 82%, transparent)', borderColor: 'var(--border)' }}
       >
-        <div className="mx-auto grid max-w-3xl grid-cols-6 px-1 pb-[max(env(safe-area-inset-bottom),6px)] pt-2">
+        <div className="mx-auto grid max-w-3xl grid-cols-7 px-0.5 pb-[max(env(safe-area-inset-bottom),6px)] pt-2">
           {PRIMARY.map(({ id, label, icon: Icon }) => {
             const active = tab === id || (id === 'more' && isSub)
             return (
@@ -110,8 +113,8 @@ export default function App() {
                 className="flex flex-col items-center gap-0.5 rounded-xl py-1"
                 style={{ color: active ? 'var(--lime)' : 'var(--muted)' }}
               >
-                <Icon size={21} strokeWidth={active ? 2.5 : 2} />
-                <span className="text-[9.5px] font-bold leading-none">{label}</span>
+                <Icon size={20} strokeWidth={active ? 2.5 : 2} />
+                <span className="text-[9px] font-bold leading-none">{label}</span>
                 {active && <motion.div layoutId="tab-dot" className="mt-0.5 h-1 w-1 rounded-full" style={{ background: 'var(--lime)' }} />}
               </motion.button>
             )

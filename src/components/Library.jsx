@@ -4,6 +4,7 @@ import { Plus, ChevronDown, Trash2 } from 'lucide-react'
 import useStore from '../store/useStore'
 import { currentRung, cycleInfo } from '../lib/schedule'
 import { formatDose } from '../lib/calc'
+import { WEEKDAYS, weekdayPickCount, scheduledWeekdaySet, slotOf } from '../lib/daily'
 import Modal from './ui/Modal'
 
 const FREQ_LABELS = {
@@ -65,6 +66,66 @@ function PeptideCard({ peptide: p, index }) {
   )
 }
 
+function ScheduleConfig({ peptide: p, onPatch }) {
+  const pickCount = weekdayPickCount(p.frequency)
+  const days = scheduledWeekdaySet(p)
+  const slot = slotOf(p)
+
+  const toggleDay = (d) => {
+    const cur = new Set(days)
+    if (cur.has(d)) cur.delete(d)
+    else {
+      if (pickCount === 1) { cur.clear() } // weekly = single day
+      else if (cur.size >= pickCount) return // cap for N×week / 5-2
+      cur.add(d)
+    }
+    onPatch({ scheduleWeekdays: [...cur].sort((a, b) => a - b) })
+  }
+
+  return (
+    <div className="rounded-xl p-3" style={{ background: 'var(--surface2)' }}>
+      <p className="mb-2 text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--amber)' }}>Daily schedule</p>
+      <div className="mb-3 flex items-center justify-between">
+        <span className="text-xs font-bold">Inject in the</span>
+        <div className="flex rounded-lg p-0.5" style={{ background: 'var(--surface-solid)' }}>
+          {['AM', 'PM'].map((s) => (
+            <button key={s} onClick={() => onPatch({ slot: s })}
+              className="rounded-md px-3 py-1 text-xs font-black"
+              style={slot === s
+                ? { backgroundImage: s === 'AM' ? 'linear-gradient(135deg, var(--amber), #ff8a1a)' : 'linear-gradient(135deg, var(--indigo), var(--violet))', color: '#fff' }
+                : { color: 'var(--muted)' }}>
+              {s}
+            </button>
+          ))}
+        </div>
+      </div>
+      {pickCount > 0 ? (
+        <>
+          <p className="mb-1.5 text-[10px] font-semibold" style={{ color: 'var(--muted)' }}>
+            {pickCount === 1 ? 'Which day each week?' : `Pick ${pickCount} day${pickCount > 1 ? 's' : ''}`}
+          </p>
+          <div className="flex gap-1">
+            {WEEKDAYS.map((label, d) => {
+              const on = days.has(d)
+              return (
+                <button key={d} onClick={() => toggleDay(d)}
+                  className="flex-1 rounded-lg py-1.5 text-[10px] font-black"
+                  style={on
+                    ? { backgroundImage: 'linear-gradient(135deg, var(--lime), var(--lime-deep))', color: '#0c1200' }
+                    : { background: 'var(--surface-solid)', color: 'var(--muted)' }}>
+                  {label[0]}
+                </button>
+              )
+            })}
+          </div>
+        </>
+      ) : (
+        <p className="text-[10px] font-semibold" style={{ color: 'var(--muted)' }}>Every day (daily frequency).</p>
+      )}
+    </div>
+  )
+}
+
 function Field({ label, children }) {
   return (
     <label className="block">
@@ -113,6 +174,8 @@ export function PeptideEditor({ peptide: p }) {
             <Num value={p.cycleOffDays} step="1" onChange={(v) => updatePeptide(p.id, { cycleOffDays: Math.round(v) })} />
           </Field>
         </div>
+
+        <ScheduleConfig peptide={p} onPatch={(patch) => updatePeptide(p.id, patch)} />
 
         <p className="pt-1 text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--violet)' }}>Titration ladder</p>
         <div className="grid grid-cols-2 gap-3">
