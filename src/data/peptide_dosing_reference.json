@@ -1,0 +1,2180 @@
+{
+ "schema": "peptide-dosing-effects-reference/v1",
+ "generated": "2026-07-27",
+ "evidence_tiers": {
+  "T1": "Licensed medicine. Published label dosing and regulatory safety data.",
+  "T2": "Human RCT data exists but not licensed for this use, or licensed only recently/regionally.",
+  "T3": "Limited human data - small studies, single research group, or licensed only in some jurisdictions.",
+  "T4": "Animal data only. Human dosing figures are community extrapolation with no trial basis.",
+  "T5": "Essentially no data. Circulating dose figures are forum folklore with no traceable source.",
+  "TX": "Excluded. Dosing deliberately not provided - see the safety field for the specific reason."
+ },
+ "field_notes": {
+  "established": "What controlled evidence actually supports. Deliberately kept separate from reported effects.",
+  "reported": "Community-reported effects. These are not evidence. Placebo, concurrent training and diet changes, and vendor-driven expectation all contaminate this field heavily.",
+  "confidence": "How much weight the dose figure itself deserves - not how well the compound works."
+ },
+ "compounds": [
+  {
+   "id": "semaglutide",
+   "name": "Semaglutide",
+   "tier": "T1",
+   "human_data": "Extensive. STEP (obesity), SUSTAIN (T2D), SELECT (cardiovascular outcomes). Licensed globally.",
+   "dose": "Label titration: 0.25 mg weekly x4wk, 0.5 x4wk, 1.0 x4wk, 1.7 x4wk, 2.4 mg maintenance (Wegovy). Ozempic caps at 2.0 mg.",
+   "frequency": "Once weekly, subcutaneous, same day each week.",
+   "cycle": "Not cycled. Continuous therapy. Weight regain after cessation is well documented (~two-thirds regained within a year in STEP-1 extension).",
+   "established": [
+    "~15% mean body weight reduction at 68wk (STEP-1)",
+    "HbA1c reduction",
+    "20% MACE reduction in established CVD (SELECT)"
+   ],
+   "reported": [
+    "Appetite suppression, 'food noise' reduction",
+    "Reduced alcohol intake",
+    "Improved inflammatory markers"
+   ],
+   "mechanism": "GLP-1 receptor agonist. Delays gastric emptying, central satiety signalling, glucose-dependent insulinotropic effect.",
+   "safety": [
+    "GI: nausea, vomiting, constipation - dose-limiting",
+    "Gallbladder disease, pancreatitis",
+    "Rodent thyroid C-cell tumours; contraindicated in MEN2/MTC history",
+    "Significant lean mass loss without resistance training and adequate protein",
+    "Gastroparesis; anaesthesia aspiration risk - disclose before surgery"
+   ],
+   "monitor": [
+    "Body composition, not just scale weight",
+    "Resting HR",
+    "HbA1c if diabetic",
+    "Protein intake"
+   ],
+   "confidence": "high"
+  },
+  {
+   "id": "tirzepatide",
+   "name": "Tirzepatide",
+   "tier": "T1",
+   "human_data": "Extensive. SURMOUNT (obesity), SURPASS (T2D). Licensed.",
+   "dose": "Label titration: 2.5 mg weekly x4wk, then 5, 7.5, 10, 12.5, 15 mg, each step held 4wk. Maintenance commonly 10-15 mg.",
+   "frequency": "Once weekly, subcutaneous.",
+   "cycle": "Not cycled. Continuous.",
+   "established": [
+    "~22.5% mean weight reduction at 72wk, 15 mg arm (SURMOUNT-1)",
+    "Superior HbA1c reduction vs semaglutide (SURPASS-2)"
+   ],
+   "reported": [
+    "Stronger appetite effect than semaglutide at equivalent titration stage",
+    "Better GI tolerability per-unit-efficacy, reported inconsistently"
+   ],
+   "mechanism": "Dual GIP/GLP-1 receptor agonist.",
+   "safety": [
+    "Same GI, gallbladder, pancreatitis and C-cell profile as semaglutide",
+    "Lean mass loss",
+    "Gastroparesis / anaesthesia risk"
+   ],
+   "monitor": [
+    "Body composition",
+    "Resting HR",
+    "HbA1c"
+   ],
+   "confidence": "high"
+  },
+  {
+   "id": "retatrutide",
+   "name": "Retatrutide",
+   "tier": "T2",
+   "human_data": "Phase 2 published (NEJM, n=338). Phase 3 TRIUMPH programme ongoing/reporting. Not licensed anywhere.",
+   "dose": "DISPUTED. Trial arms ran 1-12 mg weekly. Commonly cited schedules conflict: 2>4>8>12, 1>2>4>6>9>12, and 2>4>6>9>12 all appear in secondary sources. Each step held ~4wk. No consensus schedule exists outside the trial protocols.",
+   "frequency": "Once weekly, subcutaneous.",
+   "cycle": "Not cycled in trials.",
+   "established": [
+    "~24.2% weight reduction at 48wk (Phase 2, 12 mg)",
+    "~28.7% reported at 68wk in Phase 3"
+   ],
+   "reported": [
+    "Strongest appetite effect of the incretin class",
+    "Noticeable thermogenic/warmth effect attributed to glucagon agonism"
+   ],
+   "mechanism": "Triple GLP-1 / GIP / glucagon receptor agonist. Glucagon arm adds energy expenditure.",
+   "safety": [
+    "Dysesthesia (skin tingling/burning) ~21% in Phase 3 - class-distinctive",
+    "Resting HR increase ~5-10 bpm",
+    "Glucagon agonism can raise hepatic glucose output; glycaemic effects less predictable",
+    "All GLP-1 class risks apply",
+    "Investigational - no post-marketing safety surveillance exists"
+   ],
+   "monitor": [
+    "Resting HR",
+    "Fasting glucose",
+    "Body composition"
+   ],
+   "confidence": "medium - dose steps genuinely unsettled in public sources"
+  },
+  {
+   "id": "survodutide",
+   "name": "Survodutide",
+   "tier": "T2",
+   "human_data": "Phase 2 published (Boehringer/Zealand). Phase 3 ongoing. Not licensed.",
+   "dose": "Trials used up to 6.0 mg weekly with slow escalation over ~20wk.",
+   "frequency": "Once weekly, subcutaneous.",
+   "cycle": "Not cycled.",
+   "established": [
+    "~14.9% weight reduction at 46wk, 4.8 mg arm (Phase 2)",
+    "Phase 2 signal in MASH resolution"
+   ],
+   "reported": [
+    "Thermogenic effect similar in character to retatrutide"
+   ],
+   "mechanism": "Dual GLP-1 / glucagon receptor agonist.",
+   "safety": [
+    "High GI adverse event rate in Phase 2, notably at faster escalation",
+    "HR increase",
+    "Hepatic glucose output effects"
+   ],
+   "monitor": [
+    "Resting HR",
+    "Liver enzymes",
+    "Fasting glucose"
+   ],
+   "confidence": "medium"
+  },
+  {
+   "id": "mazdutide",
+   "name": "Mazdutide",
+   "tier": "T2",
+   "human_data": "Phase 2/3 primarily in China (Innovent, licensed from Lilly as IBI362). Regulatory status is China-first.",
+   "dose": "Trials used 3.0, 4.5, 6.0 and 9.0 mg weekly with escalation.",
+   "frequency": "Once weekly, subcutaneous.",
+   "cycle": "Not cycled.",
+   "established": [
+    "~14-15% weight reduction at higher doses in Chinese Phase 2/3 cohorts"
+   ],
+   "reported": [
+    "Appetite suppression comparable to semaglutide at matched stage"
+   ],
+   "mechanism": "Dual GLP-1 / glucagon (oxyntomodulin analogue).",
+   "safety": [
+    "Standard incretin GI profile",
+    "Trial populations largely Chinese - generalisability to other populations not established"
+   ],
+   "monitor": [
+    "Resting HR",
+    "Fasting glucose"
+   ],
+   "confidence": "medium"
+  },
+  {
+   "id": "cagrilintide",
+   "name": "Cagrilintide",
+   "tier": "T2",
+   "human_data": "Phase 2 monotherapy and Phase 3 as part of CagriSema. Not licensed as monotherapy.",
+   "dose": "Trials used 0.3-4.5 mg weekly, most commonly titrated to 2.4 mg.",
+   "frequency": "Once weekly, subcutaneous.",
+   "cycle": "Not cycled.",
+   "established": [
+    "~10-11% weight reduction as monotherapy at 26wk",
+    "Additive to semaglutide in CagriSema"
+   ],
+   "reported": [
+    "Satiety quality described as different from GLP-1 - fullness rather than appetite absence"
+   ],
+   "mechanism": "Long-acting amylin analogue. Amylin signals meal termination and slows gastric emptying via a separate pathway to GLP-1.",
+   "safety": [
+    "Nausea, particularly during escalation",
+    "Injection site reactions more common than GLP-1 class"
+   ],
+   "monitor": [
+    "Body composition"
+   ],
+   "confidence": "medium"
+  },
+  {
+   "id": "cjc1295_dac",
+   "name": "CJC-1295 with DAC",
+   "tier": "T3",
+   "human_data": "Small Phase 1 PK/PD studies (n<100) published ~2006. Development discontinued. Never licensed.",
+   "dose": "Community range 1-2 mg per week, given as a single dose or split into two.",
+   "frequency": "Once or twice weekly. The DAC (drug affinity complex) binds albumin, giving a half-life of roughly 6-8 days.",
+   "cycle": "Community practice runs 8-12wk on, 4wk off, largely by analogy to other GH-axis compounds rather than from data.",
+   "established": [
+    "Dose-dependent increase in GH and IGF-1 lasting 6+ days in Phase 1"
+   ],
+   "reported": [
+    "Improved sleep depth",
+    "Skin and connective tissue changes",
+    "Slow recomposition over months"
+   ],
+   "mechanism": "Long-acting GHRH analogue. Raises the GH baseline continuously.",
+   "safety": [
+    "Continuous elevation abolishes normal pulsatile GH secretion - long-term consequence unstudied",
+    "Water retention, carpal tunnel symptoms, joint ache",
+    "Insulin resistance at sustained high IGF-1",
+    "IGF-1 elevation and cancer risk is a genuine open question, not a settled one"
+   ],
+   "monitor": [
+    "IGF-1",
+    "Fasting glucose / HbA1c"
+   ],
+   "confidence": "low"
+  },
+  {
+   "id": "cjc1295_nodac",
+   "name": "CJC-1295 without DAC (Mod GRF 1-29)",
+   "tier": "T4",
+   "human_data": "None specific to this analogue. Inferred from sermorelin/GHRH literature.",
+   "dose": "Community range 100 mcg per administration.",
+   "frequency": "One to three times daily. Half-life ~30 min, so it produces a pulse rather than a plateau.",
+   "cycle": "8-12wk on, 4wk off by convention.",
+   "established": [
+    "Nothing specific to this molecule in humans"
+   ],
+   "reported": [
+    "Sleep quality when dosed pre-bed",
+    "Preferred over DAC version specifically because it preserves pulsatility"
+   ],
+   "mechanism": "GHRH(1-29) with four substitutions for protease resistance, including Leu27 replacing the oxidation-prone methionine.",
+   "safety": [
+    "Injection site flushing",
+    "Milder water retention than DAC version",
+    "Same IGF-1 uncertainty"
+   ],
+   "monitor": [
+    "IGF-1"
+   ],
+   "confidence": "low"
+  },
+  {
+   "id": "sermorelin",
+   "name": "Sermorelin",
+   "tier": "T1",
+   "human_data": "Was licensed (Geref) for paediatric GH deficiency and as a diagnostic. Commercially withdrawn, not for safety.",
+   "dose": "Historical label: 0.2-0.3 mg. Community adult use sits in the same range.",
+   "frequency": "Once daily, typically at night to align with natural GH pulse.",
+   "cycle": "Continuous in licensed use. Community practice cycles 3-6 months.",
+   "established": [
+    "Stimulates endogenous GH release",
+    "Diagnostic utility in GH deficiency"
+   ],
+   "reported": [
+    "Sleep quality",
+    "Gentler subjective profile than GHRPs"
+   ],
+   "mechanism": "GHRH(1-29), the natural fragment. Retains Met27 and so is oxidation-sensitive.",
+   "safety": [
+    "Injection site reaction most common",
+    "Requires intact pituitary",
+    "Headache, flushing"
+   ],
+   "monitor": [
+    "IGF-1"
+   ],
+   "confidence": "medium"
+  },
+  {
+   "id": "tesamorelin",
+   "name": "Tesamorelin",
+   "tier": "T1",
+   "human_data": "Licensed (Egrifta) for HIV-associated lipodystrophy. Phase 3 data published.",
+   "dose": "Label: 2 mg daily subcutaneous. (A 1.4 mg F8 formulation also exists.)",
+   "frequency": "Once daily.",
+   "cycle": "Continuous in licensed use; benefit reverses on cessation.",
+   "established": [
+    "~15-18% visceral adipose tissue reduction over 26wk",
+    "Effect is VAT-selective; does not reduce subcutaneous fat comparably",
+    "Reduces liver fat in some cohorts"
+   ],
+   "reported": [
+    "Cognitive effects at the margins - weak signal",
+    "Used off-label for VAT in non-HIV populations without supporting trial data"
+   ],
+   "mechanism": "Stabilised GHRH analogue.",
+   "safety": [
+    "Glucose intolerance - clinically significant, appears in label",
+    "Arthralgia, peripheral oedema",
+    "Injection site reactions common",
+    "Aggregates readily in solution - inspect before every draw"
+   ],
+   "monitor": [
+    "Fasting glucose / HbA1c - this one genuinely matters",
+    "IGF-1"
+   ],
+   "confidence": "high"
+  },
+  {
+   "id": "ipamorelin",
+   "name": "Ipamorelin",
+   "tier": "T4",
+   "human_data": "Small early-phase work on postoperative ileus, abandoned. No efficacy or safety data at community doses.",
+   "dose": "Community range 100-300 mcg per administration.",
+   "frequency": "One to three times daily; commonly pre-bed and post-training.",
+   "cycle": "8-12wk on, 4wk off.",
+   "established": [
+    "GH release in animal models with minimal cortisol/prolactin effect"
+   ],
+   "reported": [
+    "Sleep depth",
+    "Mild recovery improvement",
+    "Preferred for being the 'clean' GHRP - no hunger, no prolactin"
+   ],
+   "mechanism": "Selective ghrelin receptor (GHS-R1a) agonist.",
+   "safety": [
+    "Head rush / flushing shortly after injection",
+    "Receptor desensitisation with continuous use is the rationale for cycling",
+    "IGF-1 elevation uncertainty"
+   ],
+   "monitor": [
+    "IGF-1 if run long"
+   ],
+   "confidence": "low"
+  },
+  {
+   "id": "ghrp2",
+   "name": "GHRP-2",
+   "tier": "T4",
+   "human_data": "Some human PK work; used diagnostically in Japan. No long-term data.",
+   "dose": "Community range 100-300 mcg.",
+   "frequency": "One to three times daily.",
+   "cycle": "8-12wk on, 4wk off.",
+   "established": [
+    "Potent GH release in acute human studies"
+   ],
+   "reported": [
+    "Mild appetite increase",
+    "Stronger GH pulse than ipamorelin"
+   ],
+   "mechanism": "Ghrelin receptor agonist, less selective than ipamorelin.",
+   "safety": [
+    "Cortisol and prolactin elevation at higher doses",
+    "Desensitisation",
+    "Appetite stimulation may be unwanted alongside incretins"
+   ],
+   "monitor": [
+    "Prolactin if run long or high"
+   ],
+   "confidence": "low"
+  },
+  {
+   "id": "ghrp6",
+   "name": "GHRP-6",
+   "tier": "T4",
+   "human_data": "Limited acute human PK. No long-term data.",
+   "dose": "Community range 100-300 mcg.",
+   "frequency": "One to three times daily.",
+   "cycle": "8-12wk on, 4wk off.",
+   "established": [
+    "GH release; pronounced appetite stimulation"
+   ],
+   "reported": [
+    "Strong hunger within ~20 min - used deliberately during bulking phases"
+   ],
+   "mechanism": "Ghrelin receptor agonist. Most ghrelin-like of the GHRPs in appetite effect.",
+   "safety": [
+    "Marked appetite stimulation",
+    "Cortisol and prolactin elevation",
+    "Desensitisation"
+   ],
+   "monitor": [
+    "Prolactin"
+   ],
+   "confidence": "low"
+  },
+  {
+   "id": "hexarelin",
+   "name": "Hexarelin",
+   "tier": "T4",
+   "human_data": "Some cardiac-focused human work in the 1990s. Abandoned.",
+   "dose": "Community range 100 mcg.",
+   "frequency": "One to two times daily.",
+   "cycle": "Short. 2-3wk on is the common recommendation because desensitisation is faster than the other GHRPs.",
+   "established": [
+    "Potent acute GH release",
+    "Direct cardiac effects independent of GH in animal models"
+   ],
+   "reported": [
+    "Strongest GH pulse of the GHRP group, and the fastest to stop working"
+   ],
+   "mechanism": "Ghrelin receptor agonist, highest potency of the group.",
+   "safety": [
+    "Rapid, pronounced receptor desensitisation",
+    "Cortisol and prolactin elevation more marked than GHRP-2"
+   ],
+   "monitor": [
+    "Prolactin",
+    "Cortisol"
+   ],
+   "confidence": "low"
+  },
+  {
+   "id": "bpc157",
+   "name": "BPC-157",
+   "tier": "T4",
+   "human_data": "None published. Every efficacy claim traces to rodent work from a small number of research groups, largely one Croatian lab.",
+   "dose": "Community range 200-500 mcg per day. Systemic vs local injection is debated with no data either way.",
+   "frequency": "Once or twice daily.",
+   "cycle": "4-8wk, tied to the injury being addressed rather than a fixed schedule.",
+   "established": [
+    "Tendon, ligament, muscle and gut healing acceleration in rodents",
+    "Nothing in humans"
+   ],
+   "reported": [
+    "Tendinopathy and soft tissue recovery - the dominant claim",
+    "Gut symptom relief, including in IBD and NSAID-related irritation",
+    "Reduced joint pain"
+   ],
+   "mechanism": "Proposed: VEGFR2 signalling, angiogenesis, nitric oxide pathway modulation, growth factor upregulation. Mechanism is not settled.",
+   "safety": [
+    "No human safety data at all - this is the honest position",
+    "Angiogenic activity is theoretically undesirable in the presence of an undiagnosed malignancy",
+    "Banned by WADA"
+   ],
+   "monitor": [
+    "Subjective function; there is no biomarker to follow"
+   ],
+   "confidence": "low - very high community confidence, very low evidence base. The gap between those two is the largest on this list."
+  },
+  {
+   "id": "tb500",
+   "name": "TB-500 (Thymosin Beta-4)",
+   "tier": "T4",
+   "human_data": "Thymosin beta-4 itself reached Phase 2 for dry eye and dermal wounds. TB-500 as sold is a fragment, not the full protein, and has no human data.",
+   "dose": "Community loading 2-2.5 mg twice weekly for 4-6wk, then 2-2.5 mg every 1-2wk maintenance.",
+   "frequency": "Twice weekly loading, weekly-to-fortnightly maintenance.",
+   "cycle": "4-6wk loading then maintenance, or discontinue.",
+   "established": [
+    "Actin sequestration, cell migration and angiogenesis in preclinical models",
+    "Full-length T\u03b24 showed some corneal wound healing signal in trials"
+   ],
+   "reported": [
+    "Systemic flexibility and 'looseness'",
+    "Muscle and tendon recovery",
+    "Frequently stacked with BPC-157"
+   ],
+   "mechanism": "Actin-binding peptide fragment; promotes cell migration and angiogenesis.",
+   "safety": [
+    "No human safety data",
+    "Angiogenic - same theoretical malignancy concern",
+    "Banned by WADA"
+   ],
+   "monitor": [
+    "Subjective function only"
+   ],
+   "confidence": "low"
+  },
+  {
+   "id": "kpv",
+   "name": "KPV",
+   "tier": "T4",
+   "human_data": "None. Rodent colitis models only.",
+   "dose": "Community range 200-500 mcg per day.",
+   "frequency": "Once daily. Oral/enteric routes are also used for gut-specific intent.",
+   "cycle": "2-4wk courses.",
+   "established": [
+    "Anti-inflammatory effect in rodent colitis"
+   ],
+   "reported": [
+    "Gut inflammation",
+    "Skin inflammation"
+   ],
+   "mechanism": "C-terminal tripeptide of alpha-MSH. Retains anti-inflammatory activity without melanocortin receptor pigmentation effects.",
+   "safety": [
+    "No human data",
+    "Generally reported as well tolerated, which is not the same as being safe"
+   ],
+   "monitor": [
+    "Symptom tracking"
+   ],
+   "confidence": "low"
+  },
+  {
+   "id": "ghkcu",
+   "name": "GHK-Cu",
+   "tier": "T3",
+   "human_data": "Substantial for topical/cosmetic use. Essentially none for injection.",
+   "dose": "Community injectable 1-2 mg per day. Topical is the far better-evidenced route.",
+   "frequency": "Once daily when injected.",
+   "cycle": "Short courses, 2-4wk, because of copper accumulation concern.",
+   "established": [
+    "Topical: collagen synthesis, skin appearance, wound healing",
+    "Injectable: no controlled human data"
+   ],
+   "reported": [
+    "Skin quality, hair",
+    "Connective tissue"
+   ],
+   "mechanism": "Copper-binding tripeptide. Modulates collagen and metalloproteinase expression.",
+   "safety": [
+    "Subcutaneous injection is notably painful and can leave staining",
+    "Systemic copper load - repeated high dosing risks copper accumulation; copper toxicity is real and affects liver and neurological function",
+    "Topical route avoids this entirely and has better evidence"
+   ],
+   "monitor": [
+    "Serum copper and ceruloplasmin if injecting at dose or repeatedly"
+   ],
+   "confidence": "medium topical, low injectable"
+  },
+  {
+   "id": "ahkcu",
+   "name": "AHK-Cu",
+   "tier": "T5",
+   "human_data": "None beyond cosmetic formulation work.",
+   "dose": "No established figure. Community use mirrors GHK-Cu.",
+   "frequency": "Not established.",
+   "cycle": "Not established.",
+   "established": [
+    "Nothing in humans"
+   ],
+   "reported": [
+    "Hair growth, mostly from topical cosmetic context"
+   ],
+   "mechanism": "Copper-binding tripeptide, proposed follicular effects.",
+   "safety": [
+    "Same copper accumulation concern as GHK-Cu",
+    "No injectable data whatsoever"
+   ],
+   "monitor": [
+    "Serum copper if used systemically"
+   ],
+   "confidence": "none"
+  },
+  {
+   "id": "glow",
+   "name": "GLOW (GHK-Cu + TB-500 + BPC-157)",
+   "tier": "T5",
+   "human_data": "None. A vendor-created blend, not a studied product.",
+   "dose": "Blend is dosed as a unit; component doses are fixed by the vendor's ratio and may not match what you would choose individually.",
+   "frequency": "Once daily typically.",
+   "cycle": "4wk courses.",
+   "established": [
+    "Nothing - no blend has been studied"
+   ],
+   "reported": [
+    "Skin, hair and recovery effects attributed to the combination"
+   ],
+   "mechanism": "See individual components.",
+   "safety": [
+    "Fixed ratio removes your ability to titrate any single component",
+    "Copper accumulation from the GHK-Cu fraction",
+    "Compounding of three separate no-human-data compounds"
+   ],
+   "monitor": [
+    "Serum copper"
+   ],
+   "confidence": "none"
+  },
+  {
+   "id": "klow",
+   "name": "KLOW (BPC-157 + GHK-Cu + TB-500 + KPV)",
+   "tier": "T5",
+   "human_data": "None. Vendor blend.",
+   "dose": "Dosed as a unit at the vendor's fixed ratio.",
+   "frequency": "Once daily typically.",
+   "cycle": "4wk courses.",
+   "established": [
+    "Nothing"
+   ],
+   "reported": [
+    "Same claims as GLOW plus gut/anti-inflammatory from the KPV fraction"
+   ],
+   "mechanism": "See individual components.",
+   "safety": [
+    "Four compounds, fixed ratio, no titration control",
+    "Copper accumulation"
+   ],
+   "monitor": [
+    "Serum copper"
+   ],
+   "confidence": "none"
+  },
+  {
+   "id": "bpc_tb_blend",
+   "name": "BPC-157 + TB-500 blend",
+   "tier": "T4",
+   "human_data": "None.",
+   "dose": "Vendor blend at 1:1. Community dosing follows the individual compound ranges.",
+   "frequency": "Once daily to twice weekly depending on the ratio drawn.",
+   "cycle": "4-6wk.",
+   "established": [
+    "Nothing"
+   ],
+   "reported": [
+    "The most common repair stack; claimed synergy is assertion, not finding"
+   ],
+   "mechanism": "See individual components.",
+   "safety": [
+    "Combined no-data profile of both"
+   ],
+   "monitor": [
+    "Subjective function"
+   ],
+   "confidence": "low"
+  },
+  {
+   "id": "melanotan1",
+   "name": "Melanotan 1 (Afamelanotide)",
+   "tier": "T3",
+   "human_data": "Licensed as Scenesse, a subcutaneous implant, for erythropoietic protoporphyria. Injectable community use is a different route and product.",
+   "dose": "Community loading around 0.5-1 mg per day until desired pigmentation, then maintenance 1-2x weekly.",
+   "frequency": "Daily during loading, then weekly-to-fortnightly.",
+   "cycle": "Load then maintain; pigmentation fades over weeks after stopping.",
+   "established": [
+    "Photoprotection in EPP (licensed indication)",
+    "Reliable melanogenesis"
+   ],
+   "reported": [
+    "Tanning with reduced UV exposure",
+    "Fewer side effects than Melanotan 2 - notably no significant erectile or nausea effect"
+   ],
+   "mechanism": "Alpha-MSH analogue, melanocortin receptor agonist, principally MC1R.",
+   "safety": [
+    "Existing naevi darken and may change appearance, which can mask or mimic melanoma",
+    "Requires baseline and ongoing skin surveillance",
+    "Nausea, flushing during loading"
+   ],
+   "monitor": [
+    "Dermatological skin check before starting and periodically - this is not optional advice"
+   ],
+   "confidence": "medium"
+  },
+  {
+   "id": "melanotan2",
+   "name": "Melanotan 2",
+   "tier": "T4",
+   "human_data": "Early trials abandoned. No licensed product. Case reports dominate the literature.",
+   "dose": "Community loading 250-500 mcg per day, then maintenance 1-2x weekly.",
+   "frequency": "Daily loading, then weekly.",
+   "cycle": "Load then maintain.",
+   "established": [
+    "Melanogenesis",
+    "Erectile effect - the PT-141 spinoff came from this observation"
+   ],
+   "reported": [
+    "Tanning, appetite suppression, spontaneous erections, libido increase"
+   ],
+   "mechanism": "Non-selective melanocortin agonist (MC1R, MC3R, MC4R).",
+   "safety": [
+    "Case reports of melanoma and rapidly changing naevi in users - the strongest safety signal of any compound on this list outside the excluded ones",
+    "Priapism",
+    "Nausea, flushing, and marked blood pressure changes during loading",
+    "Non-selective receptor action is why the side effect profile is broad"
+   ],
+   "monitor": [
+    "Dermatological review before and during use",
+    "Any changing mole warrants immediate assessment"
+   ],
+   "confidence": "low - and the safety concerns here are better evidenced than the benefits"
+  },
+  {
+   "id": "pt141",
+   "name": "PT-141 (Bremelanotide)",
+   "tier": "T1",
+   "human_data": "Licensed as Vyleesi for hypoactive sexual desire disorder in premenopausal women. Phase 3 data published.",
+   "dose": "Label: 1.75 mg subcutaneous as needed, at least 45 min before anticipated activity. Community male use often 0.5-2 mg.",
+   "frequency": "As needed. Label limits to one dose per 24h and no more than 8 per month.",
+   "cycle": "Not cycled - episodic use.",
+   "established": [
+    "Improved sexual desire scores in licensed indication"
+   ],
+   "reported": [
+    "Libido effect distinct from PDE5 inhibitors - central rather than vascular",
+    "Effect onset 1-3h, duration variable"
+   ],
+   "mechanism": "Melanocortin receptor agonist acting centrally on MC4R.",
+   "safety": [
+    "Nausea is the dominant adverse effect - occurred in roughly 40% in trials",
+    "Transient blood pressure increase and HR decrease; label cautions in uncontrolled hypertension or CVD",
+    "Flushing, headache",
+    "Focal hyperpigmentation with frequent use - the reason for the monthly cap"
+   ],
+   "monitor": [
+    "Blood pressure if hypertensive"
+   ],
+   "confidence": "high"
+  },
+  {
+   "id": "epithalon",
+   "name": "Epithalon (AEDG)",
+   "tier": "T3",
+   "human_data": "Russian clinical work from Khavinson's group over decades. Not independently replicated outside Russia; methodology and reporting standards differ from Western trial norms.",
+   "dose": "Community protocol 5-10 mg per day.",
+   "frequency": "Once daily.",
+   "cycle": "10-20 consecutive days, repeated once or twice per year. This short-course-annual pattern is the defining feature.",
+   "established": [
+    "Telomerase activation in cell culture",
+    "Russian cohort claims of mortality and functional benefit that have not been independently reproduced"
+   ],
+   "reported": [
+    "Sleep quality",
+    "Subjective wellbeing",
+    "Longevity intent - unfalsifiable at individual level"
+   ],
+   "mechanism": "Tetrapeptide, proposed pineal regulation and telomerase induction.",
+   "safety": [
+    "Telomerase activation cuts both ways - it is also a mechanism of cellular immortalisation. This is a genuine theoretical concern that the longevity framing tends to omit",
+    "Little safety data outside the originating group"
+   ],
+   "monitor": [
+    "None established"
+   ],
+   "confidence": "low"
+  },
+  {
+   "id": "thymalin",
+   "name": "Thymalin",
+   "tier": "T3",
+   "human_data": "Khavinson-group Russian publications only. No independent replication, no Western trial data.",
+   "dose": "Community protocol 1-10 mg per day, most commonly 10 mg.",
+   "frequency": "Once daily.",
+   "cycle": "10-20 day courses, repeated 1-2x per year.",
+   "established": [
+    "Nothing independently replicated"
+   ],
+   "reported": [
+    "Tissue-specific benefit matching the marketed target organ - claims follow the naming rather than the evidence"
+   ],
+   "mechanism": "Thymus peptide complex. Russian clinical use in immune support. Proposed mechanism is peptide-DNA interaction regulating tissue-specific gene expression; this model is not accepted outside the originating group.",
+   "safety": [
+    "Minimal reported toxicity, but also minimal scrutiny",
+    "The entire class shares one evidence source"
+   ],
+   "monitor": [
+    "None established"
+   ],
+   "confidence": "low"
+  },
+  {
+   "id": "vesugen",
+   "name": "Vesugen (KED)",
+   "tier": "T5",
+   "human_data": "Khavinson-group Russian publications only. No independent replication, no Western trial data.",
+   "dose": "Community protocol 1-10 mg per day, most commonly 10 mg.",
+   "frequency": "Once daily.",
+   "cycle": "10-20 day courses, repeated 1-2x per year.",
+   "established": [
+    "Nothing independently replicated"
+   ],
+   "reported": [
+    "Tissue-specific benefit matching the marketed target organ - claims follow the naming rather than the evidence"
+   ],
+   "mechanism": "Vascular tissue-targeted short bioregulator. Proposed mechanism is peptide-DNA interaction regulating tissue-specific gene expression; this model is not accepted outside the originating group.",
+   "safety": [
+    "Minimal reported toxicity, but also minimal scrutiny",
+    "The entire class shares one evidence source"
+   ],
+   "monitor": [
+    "None established"
+   ],
+   "confidence": "none"
+  },
+  {
+   "id": "pinealon",
+   "name": "Pinealon (EDR)",
+   "tier": "T5",
+   "human_data": "Khavinson-group Russian publications only. No independent replication, no Western trial data.",
+   "dose": "Community protocol 1-10 mg per day, most commonly 10 mg.",
+   "frequency": "Once daily.",
+   "cycle": "10-20 day courses, repeated 1-2x per year.",
+   "established": [
+    "Nothing independently replicated"
+   ],
+   "reported": [
+    "Tissue-specific benefit matching the marketed target organ - claims follow the naming rather than the evidence"
+   ],
+   "mechanism": "Pineal/CNS-targeted short bioregulator. Proposed mechanism is peptide-DNA interaction regulating tissue-specific gene expression; this model is not accepted outside the originating group.",
+   "safety": [
+    "Minimal reported toxicity, but also minimal scrutiny",
+    "The entire class shares one evidence source"
+   ],
+   "monitor": [
+    "None established"
+   ],
+   "confidence": "none"
+  },
+  {
+   "id": "cardiogen",
+   "name": "Cardiogen",
+   "tier": "T5",
+   "human_data": "Khavinson-group Russian publications only. No independent replication, no Western trial data.",
+   "dose": "Community protocol 1-10 mg per day, most commonly 10 mg.",
+   "frequency": "Once daily.",
+   "cycle": "10-20 day courses, repeated 1-2x per year.",
+   "established": [
+    "Nothing independently replicated"
+   ],
+   "reported": [
+    "Tissue-specific benefit matching the marketed target organ - claims follow the naming rather than the evidence"
+   ],
+   "mechanism": "Cardiac tissue-targeted short bioregulator. Proposed mechanism is peptide-DNA interaction regulating tissue-specific gene expression; this model is not accepted outside the originating group.",
+   "safety": [
+    "Minimal reported toxicity, but also minimal scrutiny",
+    "The entire class shares one evidence source"
+   ],
+   "monitor": [
+    "None established"
+   ],
+   "confidence": "none"
+  },
+  {
+   "id": "cortagen",
+   "name": "Cortagen",
+   "tier": "T5",
+   "human_data": "Khavinson-group Russian publications only. No independent replication, no Western trial data.",
+   "dose": "Community protocol 1-10 mg per day, most commonly 10 mg.",
+   "frequency": "Once daily.",
+   "cycle": "10-20 day courses, repeated 1-2x per year.",
+   "established": [
+    "Nothing independently replicated"
+   ],
+   "reported": [
+    "Tissue-specific benefit matching the marketed target organ - claims follow the naming rather than the evidence"
+   ],
+   "mechanism": "Cerebral cortex-targeted short bioregulator. Proposed mechanism is peptide-DNA interaction regulating tissue-specific gene expression; this model is not accepted outside the originating group.",
+   "safety": [
+    "Minimal reported toxicity, but also minimal scrutiny",
+    "The entire class shares one evidence source"
+   ],
+   "monitor": [
+    "None established"
+   ],
+   "confidence": "none"
+  },
+  {
+   "id": "crystagen",
+   "name": "Crystagen",
+   "tier": "T5",
+   "human_data": "Khavinson-group Russian publications only. No independent replication, no Western trial data.",
+   "dose": "Community protocol 1-10 mg per day, most commonly 10 mg.",
+   "frequency": "Once daily.",
+   "cycle": "10-20 day courses, repeated 1-2x per year.",
+   "established": [
+    "Nothing independently replicated"
+   ],
+   "reported": [
+    "Tissue-specific benefit matching the marketed target organ - claims follow the naming rather than the evidence"
+   ],
+   "mechanism": "Immune-targeted short bioregulator. Proposed mechanism is peptide-DNA interaction regulating tissue-specific gene expression; this model is not accepted outside the originating group.",
+   "safety": [
+    "Minimal reported toxicity, but also minimal scrutiny",
+    "The entire class shares one evidence source"
+   ],
+   "monitor": [
+    "None established"
+   ],
+   "confidence": "none"
+  },
+  {
+   "id": "cartalax",
+   "name": "Cartalax (AEDL)",
+   "tier": "T5",
+   "human_data": "Khavinson-group Russian publications only. No independent replication, no Western trial data.",
+   "dose": "Community protocol 1-10 mg per day, most commonly 10 mg.",
+   "frequency": "Once daily.",
+   "cycle": "10-20 day courses, repeated 1-2x per year.",
+   "established": [
+    "Nothing independently replicated"
+   ],
+   "reported": [
+    "Tissue-specific benefit matching the marketed target organ - claims follow the naming rather than the evidence"
+   ],
+   "mechanism": "Cartilage/connective tissue-targeted short bioregulator. Proposed mechanism is peptide-DNA interaction regulating tissue-specific gene expression; this model is not accepted outside the originating group.",
+   "safety": [
+    "Minimal reported toxicity, but also minimal scrutiny",
+    "The entire class shares one evidence source"
+   ],
+   "monitor": [
+    "None established"
+   ],
+   "confidence": "none"
+  },
+  {
+   "id": "semax",
+   "name": "Semax",
+   "tier": "T3",
+   "human_data": "Licensed in Russia for stroke and cognitive indications. Russian trial data exists; limited Western replication.",
+   "dose": "Intranasal 300-600 mcg per day is the licensed route. Injectable community use 100-300 mcg.",
+   "frequency": "Once or twice daily.",
+   "cycle": "10-14 day courses is the Russian clinical pattern; continuous community use is common but unsupported.",
+   "established": [
+    "Russian trial data in ischaemic stroke recovery",
+    "BDNF upregulation in preclinical models"
+   ],
+   "reported": [
+    "Focus, verbal fluency, mental stamina",
+    "Stimulant-like clarity without stimulant side effects"
+   ],
+   "mechanism": "ACTH(4-10) fragment analogue. Modulates BDNF/NGF expression, no corticotropic activity.",
+   "safety": [
+    "Intranasal irritation",
+    "Little long-term data",
+    "Intranasal is the better-evidenced route; injection has no advantage in the literature"
+   ],
+   "monitor": [
+    "None established"
+   ],
+   "confidence": "low-medium"
+  },
+  {
+   "id": "selank",
+   "name": "Selank",
+   "tier": "T3",
+   "human_data": "Licensed in Russia for anxiety. Russian trial data only.",
+   "dose": "Intranasal 250-500 mcg per day. Injectable community use similar.",
+   "frequency": "Once to three times daily.",
+   "cycle": "10-14 day courses in Russian practice.",
+   "established": [
+    "Anxiolytic effect in Russian trials",
+    "GABA and serotonin system modulation preclinically"
+   ],
+   "reported": [
+    "Anxiety reduction without sedation or dependence",
+    "Often paired with Semax"
+   ],
+   "mechanism": "Tuftsin analogue with a stabilising tripeptide tail.",
+   "safety": [
+    "Little long-term data",
+    "No withdrawal syndrome reported, unlike benzodiazepines"
+   ],
+   "monitor": [
+    "None established"
+   ],
+   "confidence": "low-medium"
+  },
+  {
+   "id": "selank_semax_blend",
+   "name": "Selank + Semax blend",
+   "tier": "T5",
+   "human_data": "None as a blend.",
+   "dose": "Vendor fixed ratio; component doses follow the individual entries.",
+   "frequency": "Once or twice daily.",
+   "cycle": "10-14 day courses.",
+   "established": [
+    "Nothing as a combination"
+   ],
+   "reported": [
+    "Calm focus - the anxiolytic and nootropic effects reported as complementary"
+   ],
+   "mechanism": "See individual components.",
+   "safety": [
+    "Fixed ratio removes titration control"
+   ],
+   "monitor": [
+    "None"
+   ],
+   "confidence": "none"
+  },
+  {
+   "id": "dsip",
+   "name": "DSIP",
+   "tier": "T4",
+   "human_data": "Small human studies in the 1980s, inconsistent results. Nothing modern.",
+   "dose": "Community range 100-300 mcg.",
+   "frequency": "Once daily, shortly before sleep.",
+   "cycle": "Short courses; tolerance reported anecdotally.",
+   "established": [
+    "Sleep effects in early studies were inconsistent and largely unreplicated"
+   ],
+   "reported": [
+    "Sleep onset and depth",
+    "Effect described as unreliable - works for some, does nothing for many"
+   ],
+   "mechanism": "Delta sleep-inducing peptide. Mechanism poorly characterised despite the name.",
+   "safety": [
+    "Minimal reported toxicity",
+    "Very poor blood-brain barrier penetration questions the whole premise"
+   ],
+   "monitor": [
+    "Sleep tracking"
+   ],
+   "confidence": "low"
+  },
+  {
+   "id": "pe2228",
+   "name": "PE-22-28",
+   "tier": "T5",
+   "human_data": "None.",
+   "dose": "No established figure. Community figures around 200-500 mcg exist without basis.",
+   "frequency": "Not established.",
+   "cycle": "Not established.",
+   "established": [
+    "Rodent antidepressant-like effects via TREK-1 blockade"
+   ],
+   "reported": [
+    "Mood effects - very thin reporting base"
+   ],
+   "mechanism": "Spadin analogue, TREK-1 potassium channel blocker.",
+   "safety": [
+    "No human data",
+    "TREK-1 is broadly expressed including cardiac tissue; blocking it systemically is not a characterised intervention"
+   ],
+   "monitor": [
+    "None"
+   ],
+   "confidence": "none"
+  },
+  {
+   "id": "cerebrolysin",
+   "name": "Cerebrolysin",
+   "tier": "T2",
+   "human_data": "Licensed in numerous countries (not US/UK/AU). Multiple trials in stroke and dementia; Cochrane reviews have been equivocal to negative on clinically meaningful benefit.",
+   "dose": "Label range varies widely by indication: 5-30 ml per day.",
+   "frequency": "Daily, intramuscular or intravenous depending on volume.",
+   "cycle": "10-20 consecutive days per course, courses repeated.",
+   "established": [
+    "Licensed in some jurisdictions; Cochrane assessment of benefit in acute stroke found no convincing effect on mortality or function"
+   ],
+   "reported": [
+    "Cognitive clarity, recovery after neurological insult"
+   ],
+   "mechanism": "Porcine brain-derived peptide hydrolysate with neurotrophic activity.",
+   "safety": [
+    "Porcine-derived biological - batch variability and immunogenic potential",
+    "Manufacturer explicitly prohibits mixing in the same syringe with any other solution",
+    "Large injection volume"
+   ],
+   "monitor": [
+    "None established"
+   ],
+   "confidence": "medium on licensing, low on benefit"
+  },
+  {
+   "id": "motsc",
+   "name": "MOTS-c",
+   "tier": "T4",
+   "human_data": "Observational associations only. No interventional human trials.",
+   "dose": "Community range 5-10 mg.",
+   "frequency": "Two to three times weekly.",
+   "cycle": "4-8wk courses.",
+   "established": [
+    "Improved insulin sensitivity and exercise capacity in rodent models"
+   ],
+   "reported": [
+    "Endurance, metabolic flexibility",
+    "Effect described as subtle by most users"
+   ],
+   "mechanism": "Mitochondrial-derived peptide; AMPK activation, folate-methionine cycle interaction.",
+   "safety": [
+    "No human safety data",
+    "Injection site reactions"
+   ],
+   "monitor": [
+    "Fasting glucose, HbA1c if metabolic intent"
+   ],
+   "confidence": "low"
+  },
+  {
+   "id": "ss31",
+   "name": "SS-31 (Elamipretide)",
+   "tier": "T2",
+   "human_data": "Multiple Phase 2 and Phase 3 trials in mitochondrial myopathy, Barth syndrome and ophthalmic disease. Mixed results; primary endpoints missed in several.",
+   "dose": "Trials used 40 mg per day subcutaneous.",
+   "frequency": "Once daily.",
+   "cycle": "Continuous in trials.",
+   "established": [
+    "Cardiolipin binding and mitochondrial membrane stabilisation",
+    "Trial results have been inconsistent - several primary endpoints not met"
+   ],
+   "reported": [
+    "Fatigue reduction",
+    "Exercise tolerance"
+   ],
+   "mechanism": "Binds cardiolipin in the inner mitochondrial membrane, improving electron transport efficiency.",
+   "safety": [
+    "Injection site reactions are common and can be significant at 40 mg",
+    "Well characterised safety profile relative to most of this list"
+   ],
+   "monitor": [
+    "Injection site rotation"
+   ],
+   "confidence": "medium"
+  },
+  {
+   "id": "aod9604",
+   "name": "AOD9604",
+   "tier": "T3",
+   "human_data": "Completed human trials for obesity. Failed to beat placebo on weight endpoints. Development discontinued.",
+   "dose": "Trials used up to 1 mg daily oral; community injectable 300 mcg.",
+   "frequency": "Once daily.",
+   "cycle": "Community 8-12wk.",
+   "established": [
+    "Human obesity trials did not demonstrate meaningful weight loss - this is a negative result, not an absence of data"
+   ],
+   "reported": [
+    "Fat loss claims persist despite the trial outcome"
+   ],
+   "mechanism": "HGH(177-191) fragment, proposed lipolytic activity without GH's metabolic effects.",
+   "safety": [
+    "Good safety record from the trials",
+    "The honest summary: it was tested properly and did not work"
+   ],
+   "monitor": [
+    "None"
+   ],
+   "confidence": "medium - and the evidence points negative"
+  },
+  {
+   "id": "hgh_frag",
+   "name": "HGH Fragment 176-191",
+   "tier": "T4",
+   "human_data": "None distinct from AOD9604, which is the same fragment region.",
+   "dose": "Community range 250-500 mcg.",
+   "frequency": "One to two times daily.",
+   "cycle": "8-12wk.",
+   "established": [
+    "Effectively the same molecule region as AOD9604, which failed its human trials"
+   ],
+   "reported": [
+    "Localised fat loss - no mechanism supports site-specific effect"
+   ],
+   "mechanism": "C-terminal GH fragment.",
+   "safety": [
+    "No human safety data at community doses",
+    "Aggregation-prone in solution"
+   ],
+   "monitor": [
+    "None"
+   ],
+   "confidence": "low"
+  },
+  {
+   "id": "amino1mq",
+   "name": "5-Amino-1MQ",
+   "tier": "T5",
+   "human_data": "None.",
+   "dose": "Community use is predominantly ORAL, 50-150 mg per day. Injectable presentation is unusual for this compound.",
+   "frequency": "Once daily.",
+   "cycle": "8-12wk.",
+   "established": [
+    "NNMT inhibition and adipocyte effects in rodent models"
+   ],
+   "reported": [
+    "Fat loss, energy"
+   ],
+   "mechanism": "NNMT (nicotinamide N-methyltransferase) inhibitor, small molecule not a peptide.",
+   "safety": [
+    "No human data",
+    "NNMT has broad roles in methylation metabolism; systemic inhibition is not a characterised intervention",
+    "Note this is a small molecule - the peptide framing on the price list is misleading"
+   ],
+   "monitor": [
+    "None"
+   ],
+   "confidence": "none"
+  },
+  {
+   "id": "slupp332",
+   "name": "SLU-PP-332",
+   "tier": "T5",
+   "human_data": "None. Zero. This compound has never been administered to a human in a documented study.",
+   "dose": "No basis for any figure. Community numbers are invented.",
+   "frequency": "Not established.",
+   "cycle": "Not established.",
+   "established": [
+    "Rodent exercise-mimetic effects via ERR agonism"
+   ],
+   "reported": [
+    "Endurance - reporting base is extremely thin and recent"
+   ],
+   "mechanism": "Estrogen-related receptor (ERR) pan-agonist.",
+   "safety": [
+    "No human data of any kind",
+    "ERRs regulate broad metabolic gene programmes including cardiac; effects of systemic agonism in humans are entirely unknown",
+    "Requires co-solvent - see the mixing dataset"
+   ],
+   "monitor": [
+    "None possible"
+   ],
+   "confidence": "none - this is the least characterised compound on the list"
+  },
+  {
+   "id": "hgh",
+   "name": "HGH / Somatropin",
+   "tier": "T1",
+   "human_data": "Extensive. Licensed for GH deficiency, Turner syndrome, short stature indications.",
+   "dose": "Licensed adult GH deficiency dosing starts low, around 0.15-0.3 mg/day, titrated to IGF-1. Community non-deficient use commonly cited at 1-3 IU/day, which is not a licensed indication.",
+   "frequency": "Once daily, typically evening.",
+   "cycle": "Continuous in licensed use. Community practice runs 3-6 month blocks.",
+   "established": [
+    "Body composition change in genuine deficiency",
+    "Does not improve athletic performance meaningfully in non-deficient adults despite widespread belief"
+   ],
+   "reported": [
+    "Skin, sleep, recovery, fat loss"
+   ],
+   "mechanism": "Recombinant human growth hormone.",
+   "safety": [
+    "Insulin resistance and frank diabetes at sustained dose",
+    "Carpal tunnel, oedema, arthralgia",
+    "Acromegalic changes with prolonged high dosing",
+    "IGF-1 elevation and malignancy risk is an unresolved question",
+    "Prescription-only in Australia; supply outside that framework is a legal matter as well as a safety one"
+   ],
+   "monitor": [
+    "IGF-1 - mandatory if using at all",
+    "Fasting glucose and HbA1c",
+    "Blood pressure"
+   ],
+   "confidence": "high"
+  },
+  {
+   "id": "hcg",
+   "name": "HCG",
+   "tier": "T1",
+   "human_data": "Extensive. Licensed for fertility and hypogonadism indications.",
+   "dose": "TRT-adjunct community use 250-500 IU two to three times weekly. Fertility protocols differ substantially and are individualised.",
+   "frequency": "Two to three times weekly.",
+   "cycle": "Continuous alongside TRT, or as a restart protocol.",
+   "established": [
+    "Maintains testicular volume and intratesticular testosterone during exogenous androgen use",
+    "Restores spermatogenesis in secondary hypogonadism"
+   ],
+   "reported": [
+    "Testicular volume preservation, mood, libido on TRT"
+   ],
+   "mechanism": "LH analogue; stimulates Leydig cells.",
+   "safety": [
+    "Oestradiol elevation via aromatisation",
+    "Gynaecomastia risk",
+    "Desensitisation at excessive dose",
+    "Prescription-only"
+   ],
+   "monitor": [
+    "Total and free testosterone",
+    "Oestradiol",
+    "Haematocrit"
+   ],
+   "confidence": "high"
+  },
+  {
+   "id": "hmg",
+   "name": "HMG (Menotropin)",
+   "tier": "T1",
+   "human_data": "Extensive in fertility medicine.",
+   "dose": "Fertility protocols individualised, commonly 75-150 IU. Not a compound with a meaningful community protocol.",
+   "frequency": "Per fertility protocol.",
+   "cycle": "Per protocol.",
+   "established": [
+    "Follicular stimulation in assisted reproduction"
+   ],
+   "reported": [
+    "Used in fertility restart protocols alongside HCG"
+   ],
+   "mechanism": "FSH and LH activity from purified urinary gonadotropins.",
+   "safety": [
+    "Ovarian hyperstimulation in female use",
+    "Requires clinical monitoring by design",
+    "Prescription-only"
+   ],
+   "monitor": [
+    "Specialist-supervised"
+   ],
+   "confidence": "high, but this is a clinician-managed drug"
+  },
+  {
+   "id": "igf1lr3",
+   "name": "IGF-1 LR3",
+   "tier": "T4",
+   "human_data": "None at community doses. IGF-1 itself (mecasermin) is licensed for severe primary IGF-1 deficiency; LR3 is a modified analogue with far longer half-life.",
+   "dose": "Community range 20-50 mcg per day.",
+   "frequency": "Once daily.",
+   "cycle": "Short. 4wk on is the common recommendation.",
+   "established": [
+    "Mecasermin data exists for genuine IGF-1 deficiency; none of it transfers to LR3 at these doses in healthy adults"
+   ],
+   "reported": [
+    "Muscle fullness, nutrient partitioning"
+   ],
+   "mechanism": "IGF-1 analogue with Arg3 substitution and 13-residue extension, reducing IGFBP binding and extending half-life dramatically.",
+   "safety": [
+    "HYPOGLYCAEMIA is the serious acute risk - reduced IGFBP binding means far more free IGF-1 than native",
+    "Sustained IGF-1 elevation and cancer risk is a real concern, more so than with GH secretagogues because the elevation is direct",
+    "Requires acidic vehicle - see mixing dataset",
+    "Banned by WADA"
+   ],
+   "monitor": [
+    "Blood glucose awareness",
+    "IGF-1"
+   ],
+   "confidence": "low - and the hypoglycaemia risk is the reason this one deserves genuine caution"
+  },
+  {
+   "id": "mgf",
+   "name": "MGF",
+   "tier": "T5",
+   "human_data": "None.",
+   "dose": "Community range 200-400 mcg (MGF), 200-500 mcg 2x weekly (PEG-MGF).",
+   "frequency": "Post-training for MGF given its very short half-life; twice weekly for the PEGylated form.",
+   "cycle": "4-6wk.",
+   "established": [
+    "Rodent satellite cell activation"
+   ],
+   "reported": [
+    "Localised muscle growth - the site-specific claim has no supporting mechanism in humans"
+   ],
+   "mechanism": "IGF-1 splice variant (mechano-growth factor).",
+   "safety": [
+    "No human data",
+    "Same IGF-axis concerns as IGF-1",
+    "Requires acidic vehicle",
+    "Banned by WADA"
+   ],
+   "monitor": [
+    "None established"
+   ],
+   "confidence": "none"
+  },
+  {
+   "id": "peg_mgf",
+   "name": "PEG-MGF",
+   "tier": "T5",
+   "human_data": "None.",
+   "dose": "Community range 200-400 mcg (MGF), 200-500 mcg 2x weekly (PEG-MGF).",
+   "frequency": "Post-training for MGF given its very short half-life; twice weekly for the PEGylated form.",
+   "cycle": "4-6wk.",
+   "established": [
+    "Rodent satellite cell activation"
+   ],
+   "reported": [
+    "Localised muscle growth - the site-specific claim has no supporting mechanism in humans"
+   ],
+   "mechanism": "IGF-1 splice variant (mechano-growth factor).",
+   "safety": [
+    "No human data",
+    "Same IGF-axis concerns as IGF-1",
+    "Requires acidic vehicle",
+    "Banned by WADA"
+   ],
+   "monitor": [
+    "None established"
+   ],
+   "confidence": "none"
+  },
+  {
+   "id": "gonadorelin",
+   "name": "Gonadorelin",
+   "tier": "T1",
+   "human_data": "Licensed as a diagnostic and in pulsatile fertility treatment.",
+   "dose": "Diagnostic use 100 mcg. Community TRT-adjunct use commonly 100-200 mcg 2-3x weekly.",
+   "frequency": "Two to three times weekly in community use; pulsatile pump delivery in licensed fertility use.",
+   "cycle": "Continuous alongside TRT.",
+   "established": [
+    "Stimulates pituitary LH/FSH release",
+    "Half-life is roughly 10 minutes - the pulsatile physiology matters"
+   ],
+   "reported": [
+    "Used as an HCG alternative on TRT; whether infrequent subcutaneous dosing meaningfully replicates pulsatile delivery is genuinely contested"
+   ],
+   "mechanism": "Synthetic GnRH.",
+   "safety": [
+    "Continuous rather than pulsatile GnRH exposure downregulates the receptor - the mechanism behind GnRH agonist chemical castration. Dosing frequency is not a trivial detail here",
+    "Prescription-only"
+   ],
+   "monitor": [
+    "LH, FSH, testosterone"
+   ],
+   "confidence": "high on pharmacology, low on the community protocol"
+  },
+  {
+   "id": "kisspeptin10",
+   "name": "Kisspeptin-10",
+   "tier": "T3",
+   "human_data": "Academic human studies (Imperial College and others) on reproductive axis and sexual response.",
+   "dose": "Research studies used infusion protocols. Community subcutaneous figures around 100-500 mcg have no trial basis.",
+   "frequency": "Not established for community use.",
+   "cycle": "Not established.",
+   "established": [
+    "Stimulates GnRH release",
+    "Effects on sexual brain processing in imaging studies"
+   ],
+   "reported": [
+    "Libido"
+   ],
+   "mechanism": "KISS1R agonist upstream of GnRH.",
+   "safety": [
+    "Same continuous-exposure downregulation concern as gonadorelin",
+    "Aggregation-prone in solution",
+    "Human data used infusion, not bolus subcutaneous - the routes are not equivalent"
+   ],
+   "monitor": [
+    "LH, testosterone"
+   ],
+   "confidence": "low"
+  },
+  {
+   "id": "oxytocin",
+   "name": "Oxytocin",
+   "tier": "T1",
+   "human_data": "Extensive for licensed obstetric use (IV/IM). Intranasal social-cognition research is large but replication has been poor.",
+   "dose": "Licensed obstetric dosing is clinician-administered and indication-specific. Research intranasal doses 24-40 IU.",
+   "frequency": "Varies entirely by route and intent.",
+   "cycle": "Not applicable.",
+   "established": [
+    "Uterine contraction, milk ejection",
+    "Intranasal social/behavioural effects have largely failed to replicate at scale"
+   ],
+   "reported": [
+    "Bonding, mood, social ease from intranasal use"
+   ],
+   "mechanism": "Oxytocin receptor agonist.",
+   "safety": [
+    "Injectable oxytocin outside clinical supervision is a meaningfully different proposition to intranasal - it has direct uterine and cardiovascular effects",
+    "Hyponatraemia and water intoxication at higher doses - oxytocin has antidiuretic activity",
+    "Contraindicated in pregnancy outside obstetric supervision",
+    "Disulfide bond is reduced by thiols - see mixing dataset"
+   ],
+   "monitor": [
+    "Clinician-supervised for injectable use"
+   ],
+   "confidence": "high on pharmacology; the community use case is poorly supported"
+  },
+  {
+   "id": "thymosin_a1",
+   "name": "Thymosin Alpha-1",
+   "tier": "T1",
+   "human_data": "Licensed as Zadaxin in ~30 countries for hepatitis B/C and as an immune adjuvant. Trial data exists.",
+   "dose": "Label 1.6 mg.",
+   "frequency": "Twice weekly.",
+   "cycle": "Course length is indication-driven, commonly 6-12 months in hepatitis use.",
+   "established": [
+    "Immune modulation, T-cell maturation",
+    "Licensed antiviral adjuvant use"
+   ],
+   "reported": [
+    "Immune resilience, reduced infection frequency",
+    "Used adjunctively in chronic infection and post-viral contexts"
+   ],
+   "mechanism": "Thymic peptide; promotes T-cell differentiation and dendritic cell function.",
+   "safety": [
+    "Good safety record in licensed use",
+    "Immune stimulation is theoretically undesirable in autoimmune disease"
+   ],
+   "monitor": [
+    "None routine"
+   ],
+   "confidence": "high"
+  },
+  {
+   "id": "ll37",
+   "name": "LL-37",
+   "tier": "T4",
+   "human_data": "Topical wound healing trials only. No systemic injection data.",
+   "dose": "No established figure. Community numbers around 100-500 mcg have no basis.",
+   "frequency": "Not established.",
+   "cycle": "Not established.",
+   "established": [
+    "Antimicrobial and wound healing activity, topically"
+   ],
+   "reported": [
+    "Antimicrobial, biofilm, chronic infection claims"
+   ],
+   "mechanism": "Human cathelicidin antimicrobial peptide.",
+   "safety": [
+    "Cytotoxic to host cells at higher concentrations - the antimicrobial mechanism is membrane disruption and it is not fully selective",
+    "Mast cell degranulation, histamine release",
+    "Implicated in rosacea and psoriasis pathology when overexpressed - more is not better",
+    "Strongly cationic, binds anionic partners - see mixing dataset"
+   ],
+   "monitor": [
+    "None established"
+   ],
+   "confidence": "low - and the toxicity ceiling is real"
+  },
+  {
+   "id": "ara290",
+   "name": "ARA-290 (Cibinetide)",
+   "tier": "T2",
+   "human_data": "Phase 2 trials in sarcoidosis small fibre neuropathy and diabetic neuropathy. Results were promising but development stalled.",
+   "dose": "Trials used 4 mg per day subcutaneous.",
+   "frequency": "Once daily.",
+   "cycle": "Trials ran 28 days.",
+   "established": [
+    "Improvement in small fibre neuropathy symptom scores in Phase 2"
+   ],
+   "reported": [
+    "Neuropathic pain relief",
+    "Effect described as taking 2-3 weeks to appear"
+   ],
+   "mechanism": "Innate repair receptor agonist. EPO-derived but non-haematopoietic - it does not raise haematocrit.",
+   "safety": [
+    "Good tolerability in trials",
+    "No erythropoietic effect, which was the design intent"
+   ],
+   "monitor": [
+    "Symptom scoring"
+   ],
+   "confidence": "medium"
+  },
+  {
+   "id": "humanin",
+   "name": "Humanin",
+   "tier": "T5",
+   "human_data": "Observational association studies only. No interventional trials.",
+   "dose": "No established figure.",
+   "frequency": "Not established.",
+   "cycle": "Not established.",
+   "established": [
+    "Cytoprotective effects in cell and animal models"
+   ],
+   "reported": [
+    "Longevity framing; very thin user reporting"
+   ],
+   "mechanism": "Mitochondrial-derived peptide, anti-apoptotic signalling.",
+   "safety": [
+    "No human data",
+    "Free cysteine - dimerises and reacts with copper peptides"
+   ],
+   "monitor": [
+    "None"
+   ],
+   "confidence": "none"
+  },
+  {
+   "id": "vip",
+   "name": "VIP",
+   "tier": "T4",
+   "human_data": "Some clinical use in pulmonary hypertension research. Intranasal use in CIRS protocols is not supported by controlled trials.",
+   "dose": "Intranasal protocols use ~50 mcg per spray. Injectable community dosing is not established.",
+   "frequency": "Multiple times daily in intranasal protocols.",
+   "cycle": "Extended courses in the CIRS context.",
+   "established": [
+    "Potent vasodilation",
+    "Bronchodilation"
+   ],
+   "reported": [
+    "Used in chronic inflammatory response syndrome protocols - a framework not accepted in mainstream medicine"
+   ],
+   "mechanism": "Vasoactive intestinal peptide, VPAC receptor agonist.",
+   "safety": [
+    "HYPOTENSION - VIP is a potent vasodilator and systemic injection can drop blood pressure significantly",
+    "Flushing, diarrhoea",
+    "Extremely labile peptide - degrades rapidly and adsorbs to surfaces"
+   ],
+   "monitor": [
+    "Blood pressure"
+   ],
+   "confidence": "low"
+  },
+  {
+   "id": "dihexa",
+   "name": "Dihexa",
+   "tier": "T5",
+   "human_data": "None.",
+   "dose": "No basis. Community oral figures 5-20 mg exist without support.",
+   "frequency": "Not established.",
+   "cycle": "Not established.",
+   "established": [
+    "Extremely potent synaptogenic activity in rodent models - reported as orders of magnitude more potent than BDNF"
+   ],
+   "reported": [
+    "Cognitive effects; small and inconsistent reporting base"
+   ],
+   "mechanism": "HGF/c-Met potentiator, angiotensin IV analogue.",
+   "safety": [
+    "No human data",
+    "c-Met is an oncogene pathway - potentiating HGF/c-Met signalling systemically is a genuine and specific cancer concern, not a generic caveat",
+    "The reported potency is itself a risk factor, not a selling point",
+    "Requires co-solvent"
+   ],
+   "monitor": [
+    "None possible"
+   ],
+   "confidence": "none"
+  },
+  {
+   "id": "p21",
+   "name": "P21 (P021)",
+   "tier": "T5",
+   "human_data": "None.",
+   "dose": "No established figure. Any circulating number is extrapolation from rodent work.",
+   "frequency": "Not established.",
+   "cycle": "Not established.",
+   "established": [
+    "Rodent data only"
+   ],
+   "reported": [
+    "Very thin reporting base - insufficient to constitute anecdotal consensus"
+   ],
+   "mechanism": "Ciliary neurotrophic factor-derived peptide mimetic.",
+   "safety": [
+    "No human data",
+    "Requires co-solvent - see mixing dataset",
+    "For FOXO4-DRI specifically: senolytic mechanisms trigger apoptosis broadly and off-target cell death is the central unresolved concern"
+   ],
+   "monitor": [
+    "None possible"
+   ],
+   "confidence": "none"
+  },
+  {
+   "id": "foxo4dri",
+   "name": "FOXO4-DRI",
+   "tier": "T5",
+   "human_data": "None.",
+   "dose": "No established figure. Any circulating number is extrapolation from rodent work.",
+   "frequency": "Not established.",
+   "cycle": "Not established.",
+   "established": [
+    "Rodent data only"
+   ],
+   "reported": [
+    "Very thin reporting base - insufficient to constitute anecdotal consensus"
+   ],
+   "mechanism": "Senolytic peptide; disrupts FOXO4-p53 interaction to trigger senescent cell apoptosis.",
+   "safety": [
+    "No human data",
+    "Requires co-solvent - see mixing dataset",
+    "For FOXO4-DRI specifically: senolytic mechanisms trigger apoptosis broadly and off-target cell death is the central unresolved concern"
+   ],
+   "monitor": [
+    "None possible"
+   ],
+   "confidence": "none"
+  },
+  {
+   "id": "adamax_984",
+   "name": "Adamax 984da",
+   "tier": "T5",
+   "human_data": "None.",
+   "dose": "No established figure. Any circulating number is extrapolation from rodent work.",
+   "frequency": "Not established.",
+   "cycle": "Not established.",
+   "established": [
+    "Rodent data only"
+   ],
+   "reported": [
+    "Very thin reporting base - insufficient to constitute anecdotal consensus"
+   ],
+   "mechanism": "Semax-derivative nootropic, adamantane-free form.",
+   "safety": [
+    "No human data",
+    "Requires co-solvent - see mixing dataset",
+    "For FOXO4-DRI specifically: senolytic mechanisms trigger apoptosis broadly and off-target cell death is the central unresolved concern"
+   ],
+   "monitor": [
+    "None possible"
+   ],
+   "confidence": "none"
+  },
+  {
+   "id": "adamax_1032",
+   "name": "Adamax 1032da",
+   "tier": "T5",
+   "human_data": "None.",
+   "dose": "No established figure. Any circulating number is extrapolation from rodent work.",
+   "frequency": "Not established.",
+   "cycle": "Not established.",
+   "established": [
+    "Rodent data only"
+   ],
+   "reported": [
+    "Very thin reporting base - insufficient to constitute anecdotal consensus"
+   ],
+   "mechanism": "Adamantane-conjugated Semax derivative.",
+   "safety": [
+    "No human data",
+    "Requires co-solvent - see mixing dataset",
+    "For FOXO4-DRI specifically: senolytic mechanisms trigger apoptosis broadly and off-target cell death is the central unresolved concern"
+   ],
+   "monitor": [
+    "None possible"
+   ],
+   "confidence": "none"
+  },
+  {
+   "id": "nad",
+   "name": "NAD+",
+   "tier": "T3",
+   "human_data": "Precursor trials (NR, NMN) exist with modest results. Direct NAD+ injection/infusion has minimal controlled data.",
+   "dose": "Community subcutaneous 50-100 mg; IV infusion protocols use 250-1000 mg.",
+   "frequency": "Daily to a few times weekly for SC; infusions are episodic.",
+   "cycle": "Short courses.",
+   "established": [
+    "Precursor supplementation raises NAD+ levels; clinical benefit has been modest and inconsistent",
+    "Whether injected NAD+ enters cells intact is genuinely disputed - it may be degraded to precursors first, which would make the whole route redundant"
+   ],
+   "reported": [
+    "Energy, mental clarity",
+    "Effect strongly reported during and immediately after infusion, which may be the infusion itself"
+   ],
+   "mechanism": "Direct NAD+ repletion, in principle.",
+   "safety": [
+    "Subcutaneous injection is notably painful",
+    "IV infusion causes chest tightness, flushing and nausea if run fast",
+    "Acidic solution - see mixing dataset"
+   ],
+   "monitor": [
+    "None established"
+   ],
+   "confidence": "low"
+  },
+  {
+   "id": "glutathione",
+   "name": "Glutathione",
+   "tier": "T3",
+   "human_data": "Trials in Parkinson's and skin lightening; oral bioavailability is poor, IV data limited.",
+   "dose": "Community IV/IM 600-2400 mg.",
+   "frequency": "One to three times weekly.",
+   "cycle": "Course-based.",
+   "established": [
+    "Systemic antioxidant activity",
+    "Skin lightening trials have shown modest effects"
+   ],
+   "reported": [
+    "Skin clarity, energy, hangover recovery"
+   ],
+   "mechanism": "Primary endogenous thiol antioxidant.",
+   "safety": [
+    "Reports of serious adverse events including Stevens-Johnson syndrome with high-dose IV skin-lightening use - the Philippine FDA has issued warnings on this",
+    "Free thiol reacts with copper peptides and B12 - see mixing dataset"
+   ],
+   "monitor": [
+    "None routine"
+   ],
+   "confidence": "medium"
+  },
+  {
+   "id": "b12",
+   "name": "B12 (Methylcobalamin)",
+   "tier": "T1",
+   "human_data": "Extensive. Standard clinical nutrition.",
+   "dose": "1000 mcg is the standard injectable dose.",
+   "frequency": "Weekly during repletion, then monthly or less.",
+   "cycle": "Continuous if deficient.",
+   "established": [
+    "Corrects B12 deficiency",
+    "No benefit in the replete"
+   ],
+   "reported": [
+    "Energy - almost entirely confined to those who were actually deficient"
+   ],
+   "mechanism": "Cobalamin repletion.",
+   "safety": [
+    "Very safe",
+    "Masks folate deficiency",
+    "Photolabile; reacts with thiols - see mixing dataset"
+   ],
+   "monitor": [
+    "Serum B12, MMA if assessing true status"
+   ],
+   "confidence": "high"
+  },
+  {
+   "id": "lipoc",
+   "name": "Lipo-C without B12",
+   "tier": "T5",
+   "human_data": "Compounding-pharmacy formulations. Component evidence varies; the blends as sold have not been trialled.",
+   "dose": "Per compounding protocol, typically 1 ml.",
+   "frequency": "One to three times weekly.",
+   "cycle": "Course-based.",
+   "established": [
+    "Individual component effects where deficiency exists",
+    "No blend-level trial evidence"
+   ],
+   "reported": [
+    "Fat loss adjunct, energy - largely marketing-driven claims in the medspa context"
+   ],
+   "mechanism": "Methionine, inositol, choline, L-carnitine, dexpanthenol.",
+   "safety": [
+    "High-volume injections with multiple components",
+    "Preservatives and osmolarity make these poor mixing partners for peptides",
+    "Injection site reactions common"
+   ],
+   "monitor": [
+    "None established"
+   ],
+   "confidence": "low"
+  },
+  {
+   "id": "lipoc_b12",
+   "name": "Lipo-C with B12",
+   "tier": "T5",
+   "human_data": "Compounding-pharmacy formulations. Component evidence varies; the blends as sold have not been trialled.",
+   "dose": "Per compounding protocol, typically 1 ml.",
+   "frequency": "One to three times weekly.",
+   "cycle": "Course-based.",
+   "established": [
+    "Individual component effects where deficiency exists",
+    "No blend-level trial evidence"
+   ],
+   "reported": [
+    "Fat loss adjunct, energy - largely marketing-driven claims in the medspa context"
+   ],
+   "mechanism": "As above plus methylcobalamin.",
+   "safety": [
+    "High-volume injections with multiple components",
+    "Preservatives and osmolarity make these poor mixing partners for peptides",
+    "Injection site reactions common"
+   ],
+   "monitor": [
+    "None established"
+   ],
+   "confidence": "low"
+  },
+  {
+   "id": "lcarnitine",
+   "name": "L-Carnitine injectable",
+   "tier": "T3",
+   "human_data": "Compounding-pharmacy formulations. Component evidence varies; the blends as sold have not been trialled.",
+   "dose": "Per compounding protocol, typically 1 ml.",
+   "frequency": "One to three times weekly.",
+   "cycle": "Course-based.",
+   "established": [
+    "Individual component effects where deficiency exists",
+    "No blend-level trial evidence"
+   ],
+   "reported": [
+    "Fat loss adjunct, energy - largely marketing-driven claims in the medspa context"
+   ],
+   "mechanism": "Carnitine for fatty acid transport.",
+   "safety": [
+    "High-volume injections with multiple components",
+    "Preservatives and osmolarity make these poor mixing partners for peptides",
+    "Injection site reactions common"
+   ],
+   "monitor": [
+    "None established"
+   ],
+   "confidence": "low"
+  },
+  {
+   "id": "relaxation_pm",
+   "name": "Relaxation PM blend",
+   "tier": "T3",
+   "human_data": "Compounding-pharmacy formulations. Component evidence varies; the blends as sold have not been trialled.",
+   "dose": "Per compounding protocol, typically 1 ml.",
+   "frequency": "One to three times weekly.",
+   "cycle": "Course-based.",
+   "established": [
+    "Individual component effects where deficiency exists",
+    "No blend-level trial evidence"
+   ],
+   "reported": [
+    "Fat loss adjunct, energy - largely marketing-driven claims in the medspa context"
+   ],
+   "mechanism": "GABA, melatonin, arginine, glutamine.",
+   "safety": [
+    "High-volume injections with multiple components",
+    "Preservatives and osmolarity make these poor mixing partners for peptides",
+    "Injection site reactions common"
+   ],
+   "monitor": [
+    "None established"
+   ],
+   "confidence": "low"
+  },
+  {
+   "id": "super_human",
+   "name": "Super Human Blend",
+   "tier": "T5",
+   "human_data": "Compounding-pharmacy formulations. Component evidence varies; the blends as sold have not been trialled.",
+   "dose": "Per compounding protocol, typically 1 ml.",
+   "frequency": "One to three times weekly.",
+   "cycle": "Course-based.",
+   "established": [
+    "Individual component effects where deficiency exists",
+    "No blend-level trial evidence"
+   ],
+   "reported": [
+    "Fat loss adjunct, energy - largely marketing-driven claims in the medspa context"
+   ],
+   "mechanism": "Amino acid blend including NAC.",
+   "safety": [
+    "High-volume injections with multiple components",
+    "Preservatives and osmolarity make these poor mixing partners for peptides",
+    "Injection site reactions common"
+   ],
+   "monitor": [
+    "None established"
+   ],
+   "confidence": "low"
+  },
+  {
+   "id": "hair_skin_nails",
+   "name": "Healthy Hair Skin Nails Blend",
+   "tier": "T5",
+   "human_data": "Compounding-pharmacy formulations. Component evidence varies; the blends as sold have not been trialled.",
+   "dose": "Per compounding protocol, typically 1 ml.",
+   "frequency": "One to three times weekly.",
+   "cycle": "Course-based.",
+   "established": [
+    "Individual component effects where deficiency exists",
+    "No blend-level trial evidence"
+   ],
+   "reported": [
+    "Fat loss adjunct, energy - largely marketing-driven claims in the medspa context"
+   ],
+   "mechanism": "B-vitamin complex.",
+   "safety": [
+    "High-volume injections with multiple components",
+    "Preservatives and osmolarity make these poor mixing partners for peptides",
+    "Injection site reactions common"
+   ],
+   "monitor": [
+    "None established"
+   ],
+   "confidence": "low"
+  },
+  {
+   "id": "lemonbottle",
+   "name": "Lemon Bottle",
+   "tier": "T5",
+   "human_data": "None. Cosmetic lipolytic marketed without trial data.",
+   "dose": "Per practitioner protocol; intended for localised subcutaneous fat.",
+   "frequency": "Course-based sessions.",
+   "cycle": "Practitioner-determined.",
+   "established": [
+    "Nothing"
+   ],
+   "reported": [
+    "Localised fat reduction"
+   ],
+   "mechanism": "Bromelain, riboflavin, lecithin emulsion. Adipocyte disruption proposed.",
+   "safety": [
+    "Regulatory warnings have been issued in several jurisdictions over unapproved lipolytic injectables",
+    "Necrosis, nodules, infection reported with this product class",
+    "Not a peptide and not comparable to anything else on this list"
+   ],
+   "monitor": [
+    "Practitioner-administered by design"
+   ],
+   "confidence": "none"
+  },
+  {
+   "id": "snap8",
+   "name": "Snap-8",
+   "tier": "T5",
+   "human_data": "Cosmetic topical formulation data only.",
+   "dose": "Not an injectable product. It is a topical cosmetic peptide.",
+   "frequency": "Topical.",
+   "cycle": "Topical.",
+   "established": [
+    "Modest topical wrinkle-depth effects in cosmetic studies"
+   ],
+   "reported": [
+    "Topical anti-wrinkle"
+   ],
+   "mechanism": "Acetyl octapeptide-3; inhibits SNARE complex formation, a botulinum-like mechanism at vastly lower potency.",
+   "safety": [
+    "Injecting a compound formulated and studied only for topical use has no supporting data and no dosing basis",
+    "Mechanism is neuromuscular - systemic injection is not a characterised intervention"
+   ],
+   "monitor": [
+    "None"
+   ],
+   "confidence": "none - topical product, injectable use unsupported"
+  },
+  {
+   "id": "dermorphin",
+   "name": "Dermorphin",
+   "tier": "TX",
+   "human_data": "EXCLUDED FROM DOSING DATA.",
+   "dose": "NOT PROVIDED.",
+   "frequency": "NOT PROVIDED.",
+   "cycle": "NOT PROVIDED.",
+   "established": [
+    "Mu-opioid receptor agonist with potency reported at roughly 30-40x morphine"
+   ],
+   "reported": [
+    "EXCLUDED"
+   ],
+   "mechanism": "Highly potent mu-opioid agonist.",
+   "safety": [
+    "This is an opioid several dozen times more potent than morphine, in a vial, with no pharmacy-grade concentration verification. Respiratory depression at microgram-scale errors is the expected failure mode, and grey-market concentration variance is exactly the condition under which fatal opioid dosing errors occur.",
+    "No dosing guidance is provided for this compound at any level."
+   ],
+   "monitor": [
+    "N/A"
+   ],
+   "confidence": "excluded"
+  },
+  {
+   "id": "botulinum",
+   "name": "Botulinum toxin",
+   "tier": "TX",
+   "human_data": "EXCLUDED FROM DOSING DATA.",
+   "dose": "NOT PROVIDED.",
+   "frequency": "NOT PROVIDED.",
+   "cycle": "NOT PROVIDED.",
+   "established": [
+    "Licensed neurotoxin; clinician-administered with anatomical training"
+   ],
+   "reported": [
+    "EXCLUDED"
+   ],
+   "mechanism": "Cleaves SNAP-25, blocking acetylcholine release at the neuromuscular junction.",
+   "safety": [
+    "Narrow therapeutic index, unit potency varies between manufacturers and is not interchangeable, and iatrogenic botulism from mis-dosed or counterfeit product is a documented and recurring cause of hospitalisation including respiratory failure.",
+    "Requires anatomical injection training. No dosing guidance provided."
+   ],
+   "monitor": [
+    "N/A"
+   ],
+   "confidence": "excluded"
+  },
+  {
+   "id": "ace031",
+   "name": "ACE-031",
+   "tier": "TX",
+   "human_data": "DOSING NOT PROVIDED. Phase 2 trials in Duchenne muscular dystrophy were TERMINATED EARLY after epistaxis and telangiectasia - vascular adverse events attributed to off-target effects on the TGF-beta superfamily.",
+   "dose": "NOT PROVIDED - see safety.",
+   "frequency": "NOT PROVIDED.",
+   "cycle": "NOT PROVIDED.",
+   "established": [
+    "Phase 2 trials in Duchenne muscular dystrophy were TERMINATED EARLY after epistaxis and telangiectasia - vascular adverse events attributed to off-target effects on the TGF-beta superfamily."
+   ],
+   "reported": [
+    "Community claims exist but are not reproduced here given the safety record"
+   ],
+   "mechanism": "Myostatin/activin pathway (TGF-beta superfamily) modulation, except Adipotide which is proapoptotic.",
+   "safety": [
+    "Phase 2 trials in Duchenne muscular dystrophy were TERMINATED EARLY after epistaxis and telangiectasia - vascular adverse events attributed to off-target effects on the TGF-beta superfamily.",
+    "These four share a pattern: development stopped for reasons that were identified in controlled settings with medical monitoring available. Those conditions do not apply to self-administration."
+   ],
+   "monitor": [
+    "N/A"
+   ],
+   "confidence": "excluded"
+  },
+  {
+   "id": "adipotide",
+   "name": "Adipotide / FTPP",
+   "tier": "TX",
+   "human_data": "DOSING NOT PROVIDED. Primate studies showed dose-dependent RENAL TOXICITY. Development did not proceed to meaningful human trials.",
+   "dose": "NOT PROVIDED - see safety.",
+   "frequency": "NOT PROVIDED.",
+   "cycle": "NOT PROVIDED.",
+   "established": [
+    "Primate studies showed dose-dependent RENAL TOXICITY. Development did not proceed to meaningful human trials."
+   ],
+   "reported": [
+    "Community claims exist but are not reproduced here given the safety record"
+   ],
+   "mechanism": "Myostatin/activin pathway (TGF-beta superfamily) modulation, except Adipotide which is proapoptotic.",
+   "safety": [
+    "Primate studies showed dose-dependent RENAL TOXICITY. Development did not proceed to meaningful human trials.",
+    "These four share a pattern: development stopped for reasons that were identified in controlled settings with medical monitoring available. Those conditions do not apply to self-administration."
+   ],
+   "monitor": [
+    "N/A"
+   ],
+   "confidence": "excluded"
+  },
+  {
+   "id": "follistatin344",
+   "name": "Follistatin 344",
+   "tier": "TX",
+   "human_data": "DOSING NOT PROVIDED. No human trials of the injected protein. Human context is gene therapy, not peptide injection. The injectable product bears little relationship to the studied biology.",
+   "dose": "NOT PROVIDED - see safety.",
+   "frequency": "NOT PROVIDED.",
+   "cycle": "NOT PROVIDED.",
+   "established": [
+    "No human trials of the injected protein. Human context is gene therapy, not peptide injection. The injectable product bears little relationship to the studied biology."
+   ],
+   "reported": [
+    "Community claims exist but are not reproduced here given the safety record"
+   ],
+   "mechanism": "Myostatin/activin pathway (TGF-beta superfamily) modulation, except Adipotide which is proapoptotic.",
+   "safety": [
+    "No human trials of the injected protein. Human context is gene therapy, not peptide injection. The injectable product bears little relationship to the studied biology.",
+    "These four share a pattern: development stopped for reasons that were identified in controlled settings with medical monitoring available. Those conditions do not apply to self-administration."
+   ],
+   "monitor": [
+    "N/A"
+   ],
+   "confidence": "excluded"
+  },
+  {
+   "id": "gdf8",
+   "name": "GDF-8 (Myostatin)",
+   "tier": "TX",
+   "human_data": "DOSING NOT PROVIDED. GDF-8 IS myostatin - the negative regulator of muscle growth. Administering it would be expected to reduce muscle mass, opposite to how it is typically marketed. Products sold under this name are frequently mislabelled.",
+   "dose": "NOT PROVIDED - see safety.",
+   "frequency": "NOT PROVIDED.",
+   "cycle": "NOT PROVIDED.",
+   "established": [
+    "GDF-8 IS myostatin - the negative regulator of muscle growth. Administering it would be expected to reduce muscle mass, opposite to how it is typically marketed. Products sold under this name are frequently mislabelled."
+   ],
+   "reported": [
+    "Community claims exist but are not reproduced here given the safety record"
+   ],
+   "mechanism": "Myostatin/activin pathway (TGF-beta superfamily) modulation, except Adipotide which is proapoptotic.",
+   "safety": [
+    "GDF-8 IS myostatin - the negative regulator of muscle growth. Administering it would be expected to reduce muscle mass, opposite to how it is typically marketed. Products sold under this name are frequently mislabelled.",
+    "These four share a pattern: development stopped for reasons that were identified in controlled settings with medical monitoring available. Those conditions do not apply to self-administration."
+   ],
+   "monitor": [
+    "N/A"
+   ],
+   "confidence": "excluded"
+  },
+  {
+   "id": "sterile_water",
+   "name": "Sterile Water",
+   "tier": "T1",
+   "human_data": "Pharmacopoeial diluents.",
+   "dose": "Reconstitution volume determines concentration - see the app calculator.",
+   "frequency": "N/A",
+   "cycle": "Bacteriostatic water: ~28 days refrigerated once broached, per the benzyl alcohol preservative convention. Sterile water: single use, no preservative, discard immediately.",
+   "established": [
+    "Bacteriostatic water contains 0.9% benzyl alcohol as preservative",
+    "Sterile water has no preservative and does not protect a multi-dose vial"
+   ],
+   "reported": [],
+   "mechanism": "Diluent.",
+   "safety": [
+    "Benzyl alcohol is contraindicated in neonates and in pregnancy",
+    "Sterile water used for a multi-dose vial is a contamination risk",
+    "Acetic acid water is for compounds requiring low pH only - it will degrade GHRH analogues"
+   ],
+   "monitor": [
+    "Broach date - the app should track this"
+   ],
+   "confidence": "high"
+  },
+  {
+   "id": "bac_water",
+   "name": "Bacteriostatic Water",
+   "tier": "T1",
+   "human_data": "Pharmacopoeial diluents.",
+   "dose": "Reconstitution volume determines concentration - see the app calculator.",
+   "frequency": "N/A",
+   "cycle": "Bacteriostatic water: ~28 days refrigerated once broached, per the benzyl alcohol preservative convention. Sterile water: single use, no preservative, discard immediately.",
+   "established": [
+    "Bacteriostatic water contains 0.9% benzyl alcohol as preservative",
+    "Sterile water has no preservative and does not protect a multi-dose vial"
+   ],
+   "reported": [],
+   "mechanism": "Diluent.",
+   "safety": [
+    "Benzyl alcohol is contraindicated in neonates and in pregnancy",
+    "Sterile water used for a multi-dose vial is a contamination risk",
+    "Acetic acid water is for compounds requiring low pH only - it will degrade GHRH analogues"
+   ],
+   "monitor": [
+    "Broach date - the app should track this"
+   ],
+   "confidence": "high"
+  },
+  {
+   "id": "aa_water",
+   "name": "Acetic Acid Water",
+   "tier": "T1",
+   "human_data": "Pharmacopoeial diluents.",
+   "dose": "Reconstitution volume determines concentration - see the app calculator.",
+   "frequency": "N/A",
+   "cycle": "Bacteriostatic water: ~28 days refrigerated once broached, per the benzyl alcohol preservative convention. Sterile water: single use, no preservative, discard immediately.",
+   "established": [
+    "Bacteriostatic water contains 0.9% benzyl alcohol as preservative",
+    "Sterile water has no preservative and does not protect a multi-dose vial"
+   ],
+   "reported": [],
+   "mechanism": "Diluent.",
+   "safety": [
+    "Benzyl alcohol is contraindicated in neonates and in pregnancy",
+    "Sterile water used for a multi-dose vial is a contamination risk",
+    "Acetic acid water is for compounds requiring low pH only - it will degrade GHRH analogues"
+   ],
+   "monitor": [
+    "Broach date - the app should track this"
+   ],
+   "confidence": "high"
+  }
+ ]
+}

@@ -6,6 +6,8 @@ import { currentRung, cycleInfo } from '../lib/schedule'
 import { formatDose } from '../lib/calc'
 import { WEEKDAYS, weekdayPickCount, scheduledWeekdaySet, slotOf, needsProtocolSetup } from '../lib/daily'
 import { loadMatrix, compoundColor } from '../lib/mixMatrix'
+import { referenceFor, protocolTextFrom, referenceAttachment, isExcludedTier } from '../lib/reference'
+import ReferenceInfo, { TierBadge } from './ReferenceInfo'
 import Modal from './ui/Modal'
 
 const FREQ_LABELS = {
@@ -95,11 +97,12 @@ function PeptideCard({ peptide: p, index, defaultOpen, onOpened }) {
               <p className="text-xs font-medium" style={{ color: 'var(--muted)' }}>{cycleLabel(p)}</p>
             </>
           )}
-          {(p.compoundClass || p.charge) && (
-            <div className="mt-1.5 flex flex-wrap gap-1">
+          {(p.compoundClass || p.charge || p.reference) && (
+            <div className="mt-1.5 flex flex-wrap items-center gap-1">
+              {p.reference?.tier && <TierBadge tier={p.reference.tier} confidence={p.reference.confidence} compact />}
               {p.compoundClass && <span className="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase" style={{ background: 'var(--surface2)', color: 'var(--muted)' }}>{p.compoundClass}</span>}
               {p.charge && <span className="rounded px-1.5 py-0.5 text-[9px] font-bold" style={{ background: 'var(--surface2)', color: 'var(--muted)' }}>{p.charge}</span>}
-              {(p.flags || []).slice(0, 2).map((f) => (
+              {(p.flags || []).slice(0, 1).map((f) => (
                 <span key={f} className="rounded px-1.5 py-0.5 text-[9px] font-semibold" style={{ background: 'var(--surface2)', color: 'var(--muted)' }}>{f}</span>
               ))}
             </div>
@@ -223,6 +226,55 @@ export function PeptideEditor({ peptide: p }) {
 
         <ScheduleConfig peptide={p} onPatch={(patch) => updatePeptide(p.id, patch)} />
 
+        {/* TX: dosing is deliberately withheld — show the reason in place of a dose */}
+        {isExcludedTier(p.reference?.tier) && (
+          <div className="rounded-xl p-3" style={{ background: 'color-mix(in srgb, var(--rose) 14%, transparent)', border: '1px solid color-mix(in srgb, var(--rose) 45%, transparent)' }}>
+            <p className="flex items-center gap-1.5 text-xs font-black" style={{ color: 'var(--rose)' }}>
+              <AlertTriangle size={14} /> No dosing provided for this compound
+            </p>
+            <ul className="mt-1.5 space-y-1">
+              {(p.reference.safety || []).map((s, i) => (
+                <li key={i} className="flex gap-1.5 text-[11px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+                  <span style={{ color: 'var(--rose)' }}>•</span><span>{s}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* descriptive protocol seeded from the reference — free text, editable */}
+        <div className="rounded-xl p-3" style={{ background: 'var(--surface2)' }}>
+          <p className="mb-2 text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--indigo)' }}>
+            Protocol notes {p.reference && !isExcludedTier(p.reference.tier) ? '· seeded from reference' : ''}
+          </p>
+          <div className="space-y-2">
+            <Field label="Suggested dose">
+              <textarea className="input min-h-[52px] leading-relaxed" value={p.doseText || ''} placeholder="e.g. 200–500 mcg per day"
+                onChange={(e) => updatePeptide(p.id, { doseText: e.target.value })} />
+            </Field>
+            <Field label="Suggested frequency">
+              <textarea className="input min-h-[40px] leading-relaxed" value={p.frequencyText || ''}
+                onChange={(e) => updatePeptide(p.id, { frequencyText: e.target.value })} />
+            </Field>
+            <Field label="Suggested cycle">
+              <textarea className="input min-h-[40px] leading-relaxed" value={p.cycleText || ''}
+                onChange={(e) => updatePeptide(p.id, { cycleText: e.target.value })} />
+            </Field>
+          </div>
+          <p className="mt-2 text-[10px] font-medium" style={{ color: 'var(--muted)' }}>
+            Text guidance only. Set the numbers you'll actually inject in the ladder and reconstitution below.
+          </p>
+        </div>
+
+        {p.reference && (
+          <details className="rounded-xl p-3" open={isExcludedTier(p.reference.tier)} style={{ background: 'var(--surface2)' }}>
+            <summary className="cursor-pointer text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--violet)' }}>
+              Reference · evidence, effects, safety
+            </summary>
+            <div className="mt-3"><ReferenceInfo reference={p.reference} /></div>
+          </details>
+        )}
+
         <p className="pt-1 text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--violet)' }}>Titration ladder</p>
         <div className="grid grid-cols-2 gap-3">
           <Field label={`Floor (${p.ladder.unit})`}><Num value={p.ladder.floor} onChange={(v) => updateLadder(p.id, { floor: v })} /></Field>
@@ -299,6 +351,8 @@ function AddPeptideModal({ open, onClose, onAdded }) {
     )
   }, [matrix, query])
 
+  const refFor = referenceFor // evidence tier for a picker row
+
   const addFromCompound = (c) => {
     if (existingIds.has(c.id)) return
     // keeping the compound id as the peptide id wires Mix + co-draw automatically
@@ -359,13 +413,18 @@ function AddPeptideModal({ open, onClose, onAdded }) {
                       <span className="h-6 w-6 shrink-0 rounded-full" style={{ background: compoundColor(c) }} />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-bold">{c.name}</span>
-                        <span className="flex flex-wrap gap-1 pt-0.5">
+                        <span className="flex flex-wrap items-center gap-1 pt-0.5">
+                          {refFor(c.id) && <TierBadge tier={refFor(c.id).tier} confidence={refFor(c.id).confidence} compact />}
                           <span className="rounded px-1 py-0.5 text-[9px] font-bold uppercase" style={{ background: 'var(--surface-solid)', color: 'var(--muted)' }}>{c.class}</span>
-                          <span className="rounded px-1 py-0.5 text-[9px] font-bold" style={{ background: 'var(--surface-solid)', color: 'var(--muted)' }}>{c.charge}</span>
-                          {(c.flags || []).slice(0, 2).map((f) => (
+                          {(c.flags || []).slice(0, 1).map((f) => (
                             <span key={f} className="rounded px-1 py-0.5 text-[9px] font-semibold" style={{ background: 'var(--surface-solid)', color: 'var(--muted)' }}>{f}</span>
                           ))}
                         </span>
+                        {isExcludedTier(refFor(c.id)?.tier) && (
+                          <span className="mt-0.5 block text-[9px] font-bold" style={{ color: 'var(--rose)' }}>
+                            No dosing provided — safety exclusion
+                          </span>
+                        )}
                       </span>
                       {added ? (
                         <span className="flex shrink-0 items-center gap-1 text-[10px] font-black" style={{ color: 'var(--lime)' }}>

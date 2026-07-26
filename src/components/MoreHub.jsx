@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion'
 import {
   BookOpen, Package, Syringe, Settings, Zap, Flame, ChevronRight, Award,
-  Activity, CalendarRange, PersonStanding,
+  Activity, CalendarRange, PersonStanding, History,
 } from 'lucide-react'
 import useStore from '../store/useStore'
 import { levelProgress, rankForLevel, BADGES } from '../lib/gamification'
@@ -9,6 +9,7 @@ import { levelProgress, rankForLevel, BADGES } from '../lib/gamification'
 const LINKS = [
   { id: 'now', label: 'Right Now', desc: 'What your stack is doing today', icon: Activity, color: 'var(--lime)' },
   { id: 'schedule', label: 'Plan', desc: 'Titration ladders & cycles', icon: CalendarRange, color: 'var(--violet)' },
+  { id: 'history', label: 'History & adherence', desc: 'Every dose, rates, shareable summary', icon: History, color: 'var(--indigo)' },
   { id: 'library', label: 'Library', desc: 'Your peptides & ladders', icon: BookOpen, color: 'var(--lime)' },
   { id: 'inventory', label: 'Stock', desc: 'Vials, cost & expiry', icon: Package, color: 'var(--amber)' },
   { id: 'needle', label: 'Needle guide', desc: 'SubQ technique', icon: Syringe, color: 'var(--coral)' },
@@ -81,7 +82,7 @@ export default function MoreHub({ goTo }) {
       </div>
 
       <p className="pb-2 text-center text-[10px] font-medium" style={{ color: 'var(--muted)' }}>
-        Peptide Command Center v2 · personal tracking tool, not medical advice
+        Peptide Command Center · personal tracking tool, not medical advice
       </p>
     </div>
   )

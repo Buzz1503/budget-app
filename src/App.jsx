@@ -17,6 +17,7 @@ import SettingsTab from './components/SettingsTab'
 import RightNowTab from './components/RightNowTab'
 import SymptomsTab from './components/SymptomsTab'
 import BodyTab from './components/BodyTab'
+import HistoryTab from './components/HistoryTab'
 import MoreHub from './components/MoreHub'
 import CelebrationLayer from './components/CelebrationLayer'
 
@@ -34,6 +35,7 @@ const SCREENS = {
   inventory: InventoryTab,
   needle: NeedleTab,
   settings: SettingsTab,
+  history: HistoryTab,
 }
 
 // 6 primary tabs in the bottom bar; the rest live under the More hub.
@@ -49,7 +51,7 @@ const PRIMARY_IDS = new Set(PRIMARY.map((t) => t.id))
 
 const SUB_TITLES = {
   now: 'Right Now', schedule: 'Plan', library: 'Library', inventory: 'Stock',
-  needle: 'Needle guide', settings: 'Settings',
+  needle: 'Needle guide', settings: 'Settings', history: 'History',
 }
 
 export default function App() {
@@ -65,7 +67,7 @@ export default function App() {
     onStorageError(() => setStorageError(true))
   }, [])
 
-  const Active = SCREENS[tab] || Today
+  const Active = SCREENS[tab] || Home
   const isSub = !PRIMARY_IDS.has(tab)
 
   return (

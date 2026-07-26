@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Flame, Zap, Check, Info, Clock, AlertTriangle, Combine, Sun, Moon, ChevronRight, MapPin, Syringe, X, Circle, CheckCircle2 } from 'lucide-react'
+import { Flame, Zap, Check, Info, Clock, AlertTriangle, Combine, Sun, Moon, ChevronRight, MapPin, Syringe, X, Circle, CheckCircle2, ShieldCheck } from 'lucide-react'
 import useStore, { todayStr } from '../store/useStore'
 import { cycleInfo, currentRung, stepUpDue } from '../lib/schedule'
 import { isDueToday, slotOf, isDueSlot, currentSlot, slotIsFlexible, needsProtocolSetup } from '../lib/daily'
@@ -9,6 +9,7 @@ import { mixVerdict } from '../lib/mixing'
 import { levelProgress, rankForLevel } from '../lib/gamification'
 import { expiryInfo, runOutInfo } from '../lib/inventory'
 import { daysSince, SITE_BY_ID } from '../lib/sites'
+import { backupNudge, countEntries } from '../lib/backup'
 import Ring from './ui/Ring'
 import CountUp from './ui/CountUp'
 import SitePicker from './SitePicker'
@@ -58,6 +59,23 @@ export default function Home({ goTo }) {
   const firstRun = (gamification.totalLogs || 0) === 0
   const evening = new Date().getHours() >= 18
   const atRisk = evening && dayDone < scheduledToday.length && gamification.currentStreak > 0
+
+  // "back up your data" nudge — weekly, or after a batch of new entries
+  const backupMeta = useStore((s) => s.backupMeta)
+  const symptomLogs = useStore((s) => s.symptomLogs)
+  const measurements = useStore((s) => s.measurements)
+  const photos = useStore((s) => s.photos)
+  const dismissBackupNudge = useStore((s) => s.dismissBackupNudge)
+  const nudge = useMemo(() => {
+    if (!backupMeta) return null
+    // stay quiet for a day after an explicit dismiss
+    if (backupMeta.nudgeDismissedAt && Date.now() - new Date(backupMeta.nudgeDismissedAt) < 86400000) return null
+    return backupNudge({
+      lastBackupAt: backupMeta.lastBackupAt,
+      lastBackupEntryCount: backupMeta.lastBackupEntryCount,
+      entryCount: countEntries({ doseLogs, symptomLogs, measurements, photos }),
+    })
+  }, [backupMeta, doseLogs, symptomLogs, measurements, photos])
 
   const alerts = useMemo(() => {
     const out = []
@@ -165,6 +183,28 @@ export default function Home({ goTo }) {
           </p>
         )}
       </motion.div>
+
+      {nudge && (
+        <motion.div layout className="card flex items-start gap-2.5 p-3"
+          initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
+          style={{ background: 'color-mix(in srgb, var(--indigo) 12%, var(--surface))' }}>
+          <ShieldCheck size={16} className="mt-0.5 shrink-0" style={{ color: 'var(--indigo)' }} />
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-bold">{nudge.text}</p>
+            <div className="mt-1.5 flex gap-2">
+              <button onClick={() => goTo('settings')}
+                className="rounded-lg px-2.5 py-1 text-[11px] font-black"
+                style={{ background: 'var(--indigo)', color: '#fff' }}>
+                Back up now
+              </button>
+              <button onClick={dismissBackupNudge}
+                className="rounded-lg px-2.5 py-1 text-[11px] font-bold" style={{ background: 'var(--surface2)' }}>
+                Later
+              </button>
+            </div>
+          </div>
+        </motion.div>
+      )}
 
       {alerts.length > 0 && (
         <motion.div layout className="card space-y-2 p-3" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>

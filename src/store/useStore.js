@@ -8,6 +8,8 @@ import { SEED_KNOWN_GOOD } from '../lib/mixing'
 import { currentRung, cycleInfo, addDaysStr } from '../lib/schedule'
 import { isDueToday } from '../lib/daily'
 import { perfectRotation } from '../lib/sites'
+import { enrichPeptide } from '../lib/reference'
+import { countEntries } from '../lib/backup'
 import { toMg, doseToUnits, concentration } from '../lib/calc'
 import { XP, rankUpInfo } from '../lib/gamification'
 
@@ -56,6 +58,7 @@ function initialState() {
     measurements: [], // body-comp entries (structured; no blobs)
     photos: [], // progress-photo metadata; blobs live in IndexedDB by blobKey
     bodyGoals: {}, // { metric: targetValue }
+    backupMeta: { lastBackupAt: null, lastBackupEntryCount: 0, nudgeDismissedAt: null },
     settings: { currency: 'AUD', restockLeadDays: 30, theme: 'dark', disclaimerDismissed: false, haptics: true, sound: false },
   }
 }
@@ -93,7 +96,7 @@ const useStore = create(
         const t = todayStr()
         const id = data.id || `custom-${Date.now()}`
         if (get().peptides.some((p) => p.id === id)) return null
-        const peptide = {
+        const base = {
           route: 'SubQ', startDate: t, frequency: 'daily', timing: 'Flexible',
           cycleOnDays: 0, cycleOffDays: 0,
           ladder: { floor: 100, step: 100, intervalWeeks: 1, ceiling: 500, unit: 'mcg' },
@@ -101,6 +104,9 @@ const useStore = create(
           ...data,
           id,
         }
+        // Attach the evidence reference and seed the descriptive protocol text.
+        // Structured dose/ladder/recon are never derived from it.
+        const peptide = { ...base, ...(enrichPeptide(base) || {}) }
         set((s) => ({
           peptides: [...s.peptides, peptide],
           titration: { ...s.titration, [id]: { level: 0, levelStartDate: t } },
@@ -477,6 +483,33 @@ const useStore = create(
       updateSettings(patch) {
         set((s) => ({ settings: { ...s.settings, ...patch } }))
       },
+
+      // ---------- backup bookkeeping ----------
+      markBackedUp(when = new Date().toISOString()) {
+        const s = get()
+        set({
+          backupMeta: {
+            ...s.backupMeta,
+            lastBackupAt: when,
+            lastBackupEntryCount: countEntries(s),
+            nudgeDismissedAt: null,
+          },
+        })
+      },
+      dismissBackupNudge() {
+        set((s) => ({ backupMeta: { ...s.backupMeta, nudgeDismissedAt: new Date().toISOString() } }))
+      },
+
+      // Attach reference info to peptides that predate it, without touching any
+      // protocol value the user has already set.
+      enrichLibraryFromReference() {
+        set((s) => ({
+          peptides: s.peptides.map((p) => {
+            const patch = enrichPeptide(p)
+            return patch ? { ...p, ...patch } : p
+          }),
+        }))
+      },
       resetAll() {
         set({ ...initialState(), celebration: null })
       },
@@ -487,6 +520,16 @@ const useStore = create(
       partialize: (s) => {
         const { celebration, ...rest } = s
         return Object.fromEntries(Object.entries(rest).filter(([, v]) => typeof v !== 'function'))
+      },
+      // Older saves predate backupMeta and the reference attachment; fill both
+      // in on load so existing users get them without losing anything.
+      merge: (persisted, current) => ({
+        ...current,
+        ...persisted,
+        backupMeta: { ...current.backupMeta, ...(persisted?.backupMeta || {}) },
+      }),
+      onRehydrateStorage: () => (state) => {
+        state?.enrichLibraryFromReference?.()
       },
     }
   )
