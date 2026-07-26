@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "e2e": "node e2e/smoke.mjs",
-    "build:artifact": "vite build --config vite.artifact.config.js && node scripts/build-artifact.mjs"
+    "build:artifact": "VITE_NO_PWA=1 vite build --config vite.artifact.config.js && node scripts/build-artifact.mjs"
   },
   "dependencies": {
     "canvas-confetti": "^1.9.3",
@@ -27,8 +27,10 @@
     "@tailwindcss/vite": "^4.0.0",
     "@vitejs/plugin-react": "^4.3.4",
     "playwright": "^1.62.0",
+    "sharp": "^0.35.3",
     "tailwindcss": "^4.0.0",
     "vite": "^6.0.0",
+    "vite-plugin-pwa": "^1.3.0",
     "vitest": "^2.1.8"
   }
 }

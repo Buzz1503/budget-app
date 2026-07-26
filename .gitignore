@@ -1,7 +1,18 @@
 node_modules/
 dist/
+dist-artifact/
 e2e/shots/
 *.log
 *.tmp.mjs
 
-dist-artifact/
+# secrets
+.env
+.env.*
+!.env.example
+
+# personal data exported from the app — must never be committed
+*.backup
+*.backup.json
+peptide-command-center-backup-*.json
+peptide-summary-*.html
+peptide-schedule-*.ics

@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="ring" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0%" stop-color="#b4f13a"/>
+      <stop offset="50%" stop-color="#a066ff"/>
+      <stop offset="100%" stop-color="#6d6bff"/>
+    </linearGradient>
+    <linearGradient id="body" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0%" stop-color="#b4f13a"/>
+      <stop offset="100%" stop-color="#a066ff"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" fill="#080a12"/>
+
+  <!-- daily-completion ring: a progress arc with a clean gap at the top -->
+  <circle cx="32" cy="32" r="20.448" fill="none" stroke="url(#ring)" stroke-width="4.32"
+          stroke-linecap="round"
+          stroke-dasharray="95.07414413929405 128.47857316120817"
+          transform="rotate(-43.199999999999996 32 32)"/>
+
+  <!-- syringe: one bold solid silhouette, centred in the ring -->
+  <g transform="translate(32 32)">
+    <!-- plunger rod + thumb pad -->
+    <rect x="-3.74976" y="-15.897600000000002" width="7.49952" height="2.592"
+          rx="1.296" fill="url(#body)"/>
+    <rect x="-0.9820800000000001" y="-13.824000000000002" width="1.9641600000000001" height="4.1472"
+          fill="url(#body)"/>
+    <!-- barrel -->
+    <rect x="-4.464" y="-9.676800000000002" width="8.928" height="17.28"
+          rx="3.0355200000000004" fill="url(#body)"/>
+    <!-- graduation marks cut into the barrel -->
+    <g fill="#080a12" opacity="0.85">
+      <rect x="-2.6784000000000003" y="-5.8752" width="3.0355200000000004" height="0.7776000000000001" rx="0.38016"/>
+      <rect x="-2.6784000000000003" y="-2.7648" width="3.0355200000000004" height="0.7776000000000001" rx="0.38016"/>
+      <rect x="-2.6784000000000003" y="0.3456" width="3.0355200000000004" height="0.7776000000000001" rx="0.38016"/>
+    </g>
+    <!-- needle -->
+    <rect x="-0.6696000000000001" y="7.6032" width="1.3392000000000002" height="5.184"
+          rx="0.53568" fill="url(#body)"/>
+  </g>
+</svg>

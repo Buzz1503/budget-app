@@ -84,7 +84,16 @@ body {
   background-attachment: fixed;
   min-height: 100dvh;
   -webkit-font-smoothing: antialiased;
+  /* installed on iOS the app runs under a translucent status bar, so the
+     content needs to clear the notch itself */
+  padding-top: env(safe-area-inset-top);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+  /* no rubber-band scroll behind the fixed tab bar when standalone */
+  overscroll-behavior-y: none;
 }
+/* the tab bar already pads itself for the home indicator via
+   pb-[max(env(safe-area-inset-bottom),6px)] — don't double it here */
 
 .card {
   background: var(--surface);

@@ -20,6 +20,7 @@ import BodyTab from './components/BodyTab'
 import HistoryTab from './components/HistoryTab'
 import MoreHub from './components/MoreHub'
 import CelebrationLayer from './components/CelebrationLayer'
+import UpdatePrompt from './components/UpdatePrompt'
 
 // full registry of every screen
 const SCREENS = {
@@ -126,6 +127,7 @@ export default function App() {
       </nav>
 
       <CelebrationLayer />
+      <UpdatePrompt />
 
       <AnimatePresence>
         {storageError && (
