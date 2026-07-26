@@ -5,7 +5,7 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // GitHub project Pages serve from /<repo>/, so assets need that base.
 // Overridable for local preview and for the single-file artifact build.
-const base = process.env.VITE_BASE ?? '/pcc/'
+const base = process.env.VITE_BASE ?? '/budget-app/'
 
 export default defineConfig({
   base,

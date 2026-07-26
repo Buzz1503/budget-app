@@ -20,7 +20,9 @@ const step = async (name, fn) => {
 
 await page.goto(BASE, { waitUntil: 'networkidle' })
 
-await step('app boots at the /pcc/ base path', async () => {
+const BASE_PATH = new URL(BASE).pathname
+
+await step(`app boots at the ${new URL(BASE).pathname} base path`, async () => {
   await page.waitForSelector('nav button', { timeout: 10000 })
   if ((await page.locator('nav button').count()) !== 6) throw new Error('nav did not render')
 })
@@ -75,7 +77,7 @@ await step('service worker registers and activates', async () => {
     return { scope: r.scope, active: !!r.active }
   })
   if (!state.active) throw new Error('SW not active')
-  if (!state.scope.endsWith('/pcc/')) throw new Error(`SW scope wrong: ${state.scope}`)
+  if (new URL(state.scope).pathname !== BASE_PATH) throw new Error(`SW scope ${state.scope} != base ${BASE_PATH}`)
   console.log(`  scope ${state.scope}`)
 })
 
