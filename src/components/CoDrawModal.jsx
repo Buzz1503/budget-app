@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { MapPin, Check, ShieldAlert, Ban, Eye, AlertTriangle } from 'lucide-react'
+import { MapPin, Check, ShieldAlert, Ban, Eye, AlertTriangle, Clock } from 'lucide-react'
 import useStore, { todayStr } from '../store/useStore'
 import Modal from './ui/Modal'
 import BodyMap from './BodyMap'
-import { suggestSite, SITE_BY_ID, daysSince } from '../lib/sites'
+import { suggestSite, SITE_BY_ID, daysSince, lastShot, restedWords } from '../lib/sites'
 import { loadMatrix, LIB_TO_COMPOUND } from '../lib/mixMatrix'
 import { currentRung } from '../lib/schedule'
 import { toMg, doseToUnits, concentration, formatDose, formatUnits } from '../lib/calc'
@@ -78,6 +78,7 @@ export default function CoDrawModal({ open, onClose, peptides }) {
   }, [review])
 
   const suggestion = useMemo(() => suggestSite(doseLogs, t), [doseLogs, t])
+  const last = useMemo(() => lastShot(doseLogs, t), [doseLogs, t])
   const chosen = picked || suggestion
   const chosenSite = SITE_BY_ID[chosen]
   const rested = daysSince(chosen, doseLogs, t)
@@ -163,17 +164,28 @@ export default function CoDrawModal({ open, onClose, peptides }) {
                 <Check size={13} /> All pairs compatible — one shot, one site
               </p>
             )}
+            {last && (
+              <p className="flex items-center gap-1.5 rounded-xl p-2.5 text-xs font-bold" style={{ background: 'var(--surface2)' }}>
+                <Clock size={13} className="shrink-0" style={{ color: 'var(--muted)' }} />
+                Last shot: {last.when} — {last.label}.
+              </p>
+            )}
             <div>
               <p className="mb-1 flex items-center gap-1.5 text-xs font-bold">
-                <MapPin size={13} style={{ color: 'var(--lime)' }} /> Pick one injection site for the co-draw
+                <MapPin size={13} style={{ color: 'var(--lime)' }} /> One shot, so pick one spot
               </p>
               <BodyMap doseLogs={doseLogs} today={t} selected={picked} suggestion={suggestion} onPick={setPicked} />
             </div>
             <div className="rounded-xl p-3" style={{ background: 'color-mix(in srgb, var(--lime) 12%, transparent)' }}>
-              <p className="text-xs font-bold" style={{ color: picked ? 'var(--text)' : 'var(--lime)' }}>
-                {picked ? 'Selected: ' : 'Suggested: '}{chosenSite?.label}
-                {rested == null ? ' — never used, fully rested' : ` — ${rested}d rested`}
+              <p className="text-xs font-black" style={{ color: picked ? 'var(--text)' : 'var(--lime)' }}>
+                {picked ? 'You picked: ' : `Inject here — spot ${chosenSite?.n}: `}{chosenSite?.short || chosenSite?.label}
               </p>
+              {chosenSite?.plain && (
+                <p className="mt-0.5 text-[11px] font-semibold leading-relaxed" style={{ color: 'var(--muted)' }}>
+                  {chosenSite.plain}
+                </p>
+              )}
+              <p className="mt-1 text-[11px] font-bold" style={{ color: 'var(--muted)' }}>{restedWords(rested)}</p>
             </div>
             <motion.button whileTap={{ scale: 0.97 }} onClick={confirm}
               className="btn-primary flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-black">

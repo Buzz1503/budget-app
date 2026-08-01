@@ -63,8 +63,11 @@ await step('Change 1: single-peptide log still works (site picker)', async () =>
   await page.click('button:has-text("AM")')
   await page.waitForTimeout(300)
   await page.locator('button[aria-label^="Log "]').first().click()
-  await waitText(/Pick an injection site/)
+  await waitText(/Tap a spot on the map/)
   await page.click('button:has-text("Log here")')
+  await page.waitForTimeout(400)
+  await page.click('button:has-text("Done")') // v9: dismiss the written confirmation
+  await page.waitForTimeout(400)
   await page.waitForTimeout(800)
   const s = await page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state)
   if (!s.doseLogs.some((l) => l.siteId && !l.coDrawId)) throw new Error('single log not recorded')
@@ -79,7 +82,7 @@ await step('Change 1: MIX co-draw (Selank+Semax) logs to one site', async () => 
   await sel('Selank'); await sel('Semax')
   await waitText(/2 selected/)
   await page.click('button:has-text("Log together")')
-  await waitText(/Pick one injection site/) // all-MIX → straight to site
+  await waitText(/pick one spot/i) // all-MIX → straight to site
   await page.click('button:has-text("Log 2 together")')
   await page.waitForTimeout(900)
   const s = await page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state)
@@ -101,7 +104,7 @@ await step('Change 1: CAUTION co-draw (Selank+SS-31) gates on inspection', async
   await waitText(/Mix with caution/)
   if (!(await page.locator("button:has-text(\"Confirm it's clear\")").count())) throw new Error('inspection gate missing')
   await page.click("button:has-text(\"Confirm it's clear\")")
-  await waitText(/Pick one injection site/)
+  await waitText(/pick one spot/i)
 })
 await page.screenshot({ path: `${SHOT}/v4-04-caution.png` })
 
@@ -123,7 +126,7 @@ await step('persistence: co-draw survives reload', async () => {
   await page.click('text=Got it'); await page.click('button:has-text("AM")'); await page.waitForTimeout(300)
   await sel('Selank'); await sel('Semax')
   await page.click('button:has-text("Log together")')
-  await waitText(/Pick one injection site/)
+  await waitText(/pick one spot/i)
   await page.click('button:has-text("Log 2 together")')
   await page.waitForTimeout(700)
   await page.reload({ waitUntil: 'networkidle' })

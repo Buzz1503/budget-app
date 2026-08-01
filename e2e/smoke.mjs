@@ -41,8 +41,11 @@ await step('Home: disclaimer + ring + 6-tab bar', async () => {
 
 await step('Home: log a dose via site picker fires XP + done state', async () => {
   await page.locator('button[aria-label^="Log "]').first().click()
-  await waitText(/Pick an injection site/)
+  await waitText(/Tap a spot on the map/)
   await page.click('button:has-text("Log here")')
+  await page.waitForTimeout(400)
+  await page.click('button:has-text("Done")') // v9: dismiss the written confirmation
+  await page.waitForTimeout(400)
   await page.waitForTimeout(1000)
   const logged = await page.locator('button[aria-label$=" logged"]').count()
   if (!logged) throw new Error('no logged state after logging')

@@ -11,6 +11,7 @@ import { loadMatrix, compoundColor } from '../lib/mixMatrix'
 import { referenceFor, protocolTextFrom, referenceAttachment, isExcludedTier } from '../lib/reference'
 import ReferenceInfo, { TierBadge } from './ReferenceInfo'
 import Modal from './ui/Modal'
+import Term from './ui/Term'
 
 const FREQ_LABELS = {
   daily: 'Daily', nightly: 'Nightly', weekly: 'Weekly', '2xweek': '2×/week', '3xweek': '3×/week', '5on2off': '5 on / 2 off',
@@ -312,7 +313,9 @@ export function PeptideEditor({ peptide: p }) {
           </details>
         )}
 
-        <p className="pt-1 text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--violet)' }}>Titration ladder</p>
+        <p className="flex items-center gap-1.5 pt-1 text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--violet)' }}>
+          <Term id="titration">Titration</Term> ladder
+        </p>
         <div className="grid grid-cols-2 gap-3">
           <Field label={`Floor (${p.ladder.unit})`}><Num value={p.ladder.floor} onChange={(v) => updateLadder(p.id, { floor: v })} /></Field>
           <Field label={`Step (${p.ladder.unit})`}><Num value={p.ladder.step} onChange={(v) => updateLadder(p.id, { step: v })} /></Field>

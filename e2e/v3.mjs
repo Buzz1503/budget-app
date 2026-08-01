@@ -66,10 +66,13 @@ await step('Rotation: Log opens body map with suggestion, records site', async (
   await page.click('button:has-text("AM")')
   await page.waitForTimeout(300)
   await page.locator('button[aria-label^="Log "]').first().click()
-  await waitText(/Pick an injection site/)
-  await waitText(/Suggested:/)
+  await waitText(/Tap a spot on the map/)
+  await waitText(/Inject here — spot \d+/i)
   // confirm the suggested site
   await page.click('button:has-text("Log here")')
+  await page.waitForTimeout(400)
+  await page.click('button:has-text("Done")') // v9: dismiss the written confirmation
+  await page.waitForTimeout(400)
   await page.waitForTimeout(900)
   const store = await page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state)
   const withSite = store.doseLogs.find((l) => l.siteId)

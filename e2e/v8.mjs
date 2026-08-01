@@ -152,7 +152,7 @@ await step('accepting a suggestion routes into log-together → one site', async
   // a CAUTION group must clear the visual-inspection gate before a site appears
   const gate = page.locator('button:has-text("Confirm it\'s clear")')
   if (await gate.count()) await gate.first().click()
-  await waitText(/Pick one injection site/)
+  await waitText(/pick one spot/i)
   await page.click('button:has-text("together —")')
   await page.waitForTimeout(1200)
   const after = await page.evaluate(() => {
@@ -176,7 +176,7 @@ await step('accepting a suggestion routes into log-together → one site', async
 // ---------------- CHANGE 2 · IM rotation ----------------
 await step('logging it opens the IM map, not the SubQ one', async () => {
   await page.click(`button[aria-label="Log ${TE}"]`)
-  await waitText(/Pick an IM site/)
+  await waitText(/INJECT HERE/)
   const body = await modal().textContent()
   if (!/Intramuscular/.test(body)) throw new Error('no IM route banner')
   if (!/23–25 g/.test(body)) throw new Error('IM needle guidance missing from the picker')
@@ -186,6 +186,9 @@ await step('logging it opens the IM map, not the SubQ one', async () => {
   const offered = await modal().locator('svg g[style*="cursor"]').count()
   if (offered !== 6) throw new Error(`IM map should offer 6 sites, offers ${offered}`)
   await page.click('button:has-text("Log here")')
+  await page.waitForTimeout(400)
+  await page.click('button:has-text("Done")') // v9: dismiss the written confirmation
+  await page.waitForTimeout(400)
   await page.waitForTimeout(900)
   const log = await page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center'))
     .state.doseLogs.filter((l) => l.peptideId === 'testosterone-e').pop())

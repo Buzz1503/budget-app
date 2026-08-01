@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Sun, Activity, CalendarRange, Combine, HeartPulse, LayoutGrid, ChevronLeft, PersonStanding,
@@ -68,6 +68,23 @@ export default function App() {
     onStorageError(() => setStorageError(true))
   }, [])
 
+  // The bottom nav's real height (icons + labels + the iOS home-indicator inset)
+  // is published as --nav-h so floating bars and scroll padding sit above it
+  // instead of guessing a pixel value that's wrong on notched phones.
+  const navRef = useRef(null)
+  useLayoutEffect(() => {
+    const el = navRef.current
+    if (!el) return
+    const publish = () => {
+      document.documentElement.style.setProperty('--nav-h', `${Math.round(el.offsetHeight)}px`)
+    }
+    publish()
+    if (typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(publish)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
   const Active = SCREENS[tab] || Home
   const isSub = !PRIMARY_IDS.has(tab)
 
@@ -87,7 +104,7 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      <main className="flex-1 px-4 pb-28 pt-5">
+      <main className="flex-1 px-4 pt-5" style={{ paddingBottom: 'calc(var(--nav-h, 76px) + 28px)' }}>
         <AnimatePresence mode="wait">
           <motion.div
             key={tab}
@@ -103,6 +120,7 @@ export default function App() {
 
       {/* bottom tab bar */}
       <nav
+        ref={navRef}
         className="fixed inset-x-0 bottom-0 z-40 border-t backdrop-blur-xl"
         style={{ background: 'color-mix(in srgb, var(--bg) 82%, transparent)', borderColor: 'var(--border)' }}
       >

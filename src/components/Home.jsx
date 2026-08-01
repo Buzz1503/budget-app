@@ -14,6 +14,8 @@ import { daysSince, SITE_BY_ID } from '../lib/sites'
 import { backupNudge, countEntries } from '../lib/backup'
 import Ring from './ui/Ring'
 import CountUp from './ui/CountUp'
+import CoachTip from './ui/CoachTip'
+import Term from './ui/Term'
 import SitePicker from './SitePicker'
 import CoDrawModal from './CoDrawModal'
 
@@ -270,10 +272,16 @@ export default function Home({ goTo }) {
         <ShotPlan plan={plan} slot={slot} onAccept={acceptGroup} />
       )}
 
+      {/* first-run pointer at the Log button */}
+      <CoachTip id="log-button" when={slotDue.length > 0}>
+        Tap the green <span className="font-black">Log</span> button on a card when you've taken a dose —
+        we'll show you a labelled body map and tell you exactly where to inject.
+      </CoachTip>
+
       {/* co-draw hint */}
       {unloggedCount >= 2 && selected.size === 0 && !plan && (
         <p className="px-1 text-center text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
-          Injecting more than one? Tap the circles to <span className="font-bold" style={{ color: 'var(--lime)' }}>log them together</span> as one co-draw.
+          Injecting more than one? Tap the circles to <span className="font-bold" style={{ color: 'var(--lime)' }}>log them together</span> as one <Term id="codraw" />.
         </p>
       )}
 
@@ -301,25 +309,32 @@ export default function Home({ goTo }) {
         ))}
       </div>
 
+      {/* keeps the last card clear of the floating co-draw bar */}
+      {selected.size > 0 && <div aria-hidden className="h-20" />}
+
       {/* co-draw action bar */}
       <AnimatePresence>
         {selected.size > 0 && (
           <motion.div
             initial={{ y: 80, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 80, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 300, damping: 28 }}
-            className="fixed inset-x-0 bottom-[76px] z-40 px-4"
+            // z-45 sits above the nav (z-40) but below modals (z-50); --nav-h is
+            // the nav's measured height, safe-area inset included
+            className="fixed inset-x-0 z-[45] px-3"
+            style={{ bottom: 'calc(var(--nav-h, 76px) + 10px)' }}
+            data-testid="codraw-bar"
           >
             <div className="mx-auto flex max-w-3xl items-center gap-2 rounded-2xl p-2.5 shadow-lg"
-              style={{ background: 'var(--surface-solid)', border: '1px solid var(--border)' }}>
-              <button onClick={() => setSelected(new Set())} className="rounded-full p-2" style={{ background: 'var(--surface2)' }} aria-label="Clear selection">
+              style={{ background: 'var(--surface-solid)', border: '1px solid var(--border)', boxShadow: '0 8px 30px rgba(0,0,0,0.45)' }}>
+              <button onClick={() => setSelected(new Set())} className="shrink-0 rounded-full p-2" style={{ background: 'var(--surface2)' }} aria-label="Clear selection">
                 <X size={16} />
               </button>
-              <div className="flex-1 text-xs font-bold">
-                {selected.size} selected{selected.size < 2 ? ' · pick 1 more to co-draw' : ' · one shot, one site'}
+              <div className="min-w-0 flex-1 text-[11px] font-bold leading-tight">
+                {selected.size} selected{selected.size < 2 ? ' · pick 1 more' : ' · one shot, one site'}
               </div>
               <motion.button whileTap={{ scale: 0.95 }} disabled={selected.size < 2}
                 onClick={() => setCoDraw(true)}
-                className="btn-primary flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-black disabled:opacity-40">
+                className="btn-primary flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl px-3.5 py-2.5 text-sm font-black disabled:opacity-40">
                 <Syringe size={16} /> Log together
               </motion.button>
             </div>

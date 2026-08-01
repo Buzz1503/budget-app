@@ -60,6 +60,7 @@ function initialState() {
     photos: [], // progress-photo metadata; blobs live in IndexedDB by blobKey
     bodyGoals: {}, // { metric: targetValue }
     backupMeta: { lastBackupAt: null, lastBackupEntryCount: 0, nudgeDismissedAt: null },
+    coachMarks: {}, // one-time beginner tips already seen, by id
     settings: { currency: 'AUD', restockLeadDays: 30, theme: 'dark', disclaimerDismissed: false, haptics: true, sound: false },
   }
 }
@@ -484,6 +485,13 @@ const useStore = create(
       updateSettings(patch) {
         set((s) => ({ settings: { ...s.settings, ...patch } }))
       },
+      // One-time coach tips: shown until dismissed, then never again.
+      markCoachSeen(id) {
+        set((s) => (s.coachMarks?.[id] ? {} : { coachMarks: { ...s.coachMarks, [id]: true } }))
+      },
+      resetCoachMarks() {
+        set({ coachMarks: {} })
+      },
 
       // ---------- backup bookkeeping ----------
       markBackedUp(when = new Date().toISOString()) {
@@ -555,6 +563,7 @@ const useStore = create(
         ...current,
         ...persisted,
         backupMeta: { ...current.backupMeta, ...(persisted?.backupMeta || {}) },
+        coachMarks: { ...current.coachMarks, ...(persisted?.coachMarks || {}) },
       }),
       onRehydrateStorage: () => (state) => {
         state?.enrichLibraryFromReference?.()

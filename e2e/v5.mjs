@@ -122,7 +122,7 @@ await step('after setting the protocol it becomes due and co-draw works', async 
   await page.click('button[aria-label="Select TB-500 (Thymosin Beta-4 Acetate) to co-draw"]')
   await page.click('button[aria-label="Select BPC-157 to co-draw"]')
   await page.click('button:has-text("Log together")')
-  await waitText(/Pick one injection site/)
+  await waitText(/pick one spot/i)
   await page.click('button:has-text("Log 2 together")')
   await page.waitForTimeout(800)
   const s = await page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state)

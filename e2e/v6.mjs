@@ -60,8 +60,11 @@ await step('seed doses, a symptom check-in and a photo blob', async () => {
   await page.click('button:has-text("AM")')
   await page.waitForTimeout(300)
   await page.locator('button[aria-label^="Log "]').first().click()
-  await waitText(/Pick an injection site/)
+  await waitText(/Tap a spot on the map/)
   await page.click('button:has-text("Log here")')
+  await page.waitForTimeout(400)
+  await page.click('button:has-text("Done")') // v9: dismiss the written confirmation
+  await page.waitForTimeout(400)
   await page.waitForTimeout(800)
   // a photo blob straight into IndexedDB, so backup has something binary to carry
   await page.evaluate(async (idb) => {
@@ -183,7 +186,7 @@ await step('History groups a co-draw as one injection event', async () => {
   if (await sel.count() >= 2) {
     await sel.nth(0).click(); await sel.nth(1).click()
     await page.click('button:has-text("Log together")')
-    await waitText(/Pick one injection site|Mix with caution|Don't co-draw/)
+    await waitText(/pick one spot|Mix with caution|Don't co-draw/i)
     if (await page.locator("button:has-text(\"Confirm it's clear\")").count()) {
       await page.click("button:has-text(\"Confirm it's clear\")")
     }
