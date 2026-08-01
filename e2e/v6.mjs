@@ -7,6 +7,8 @@ const BASE = process.env.BASE_URL || 'http://localhost:5178'
 const SHOT = new URL('./shots', import.meta.url).pathname
 mkdirSync(SHOT, { recursive: true })
 const EXE = process.env.CHROMIUM_PATH || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'
+// Vite serves node_modules under the configured base, so this has to follow BASE
+const IDB = new URL('node_modules/idb-keyval/dist/index.js', BASE).toString()
 const DL = join(tmpdir(), 'pcc-dl')
 rmSync(DL, { recursive: true, force: true })
 mkdirSync(DL, { recursive: true })
@@ -62,14 +64,14 @@ await step('seed doses, a symptom check-in and a photo blob', async () => {
   await page.click('button:has-text("Log here")')
   await page.waitForTimeout(800)
   // a photo blob straight into IndexedDB, so backup has something binary to carry
-  await page.evaluate(async () => {
-    const { set, createStore } = await import('/node_modules/idb-keyval/dist/index.js')
+  await page.evaluate(async (idb) => {
+    const { set, createStore } = await import(/* @vite-ignore */ idb)
     const store = createStore('pcc-blobs', 'blobs')
     await set('photo-test-1', new Blob([new Uint8Array([1, 2, 3, 4, 5])], { type: 'image/jpeg' }), store)
     const raw = JSON.parse(localStorage.getItem('peptide-command-center'))
     raw.state.photos = [{ id: 'p1', date: new Date().toISOString().slice(0, 10), pose: 'front', blobKey: 'photo-test-1' }]
     localStorage.setItem('peptide-command-center', JSON.stringify(raw))
-  })
+  }, IDB)
   await page.reload({ waitUntil: 'networkidle' })
 })
 
@@ -93,11 +95,11 @@ await page.screenshot({ path: `${SHOT}/v6-01-backup.png` })
 
 await step('restore repopulates data and photo blobs after a confirm', async () => {
   // wipe everything, then restore
-  await page.evaluate(async () => {
-    const { clear, createStore } = await import('/node_modules/idb-keyval/dist/index.js')
+  await page.evaluate(async (idb) => {
+    const { clear, createStore } = await import(/* @vite-ignore */ idb)
     await clear(createStore('pcc-blobs', 'blobs'))
     localStorage.clear()
-  })
+  }, IDB)
   await page.reload({ waitUntil: 'networkidle' })
   await page.click('text=Got it')
   await goSettings()
@@ -106,12 +108,12 @@ await step('restore repopulates data and photo blobs after a confirm', async () 
   await waitText(/photo\/scan files/)
   await page.click('button:has-text("Yes, restore")')
   await page.waitForTimeout(2500) // page reloads itself after restore
-  const restored = await page.evaluate(async () => {
-    const { get, createStore } = await import('/node_modules/idb-keyval/dist/index.js')
+  const restored = await page.evaluate(async (idb) => {
+    const { get, createStore } = await import(/* @vite-ignore */ idb)
     const blob = await get('photo-test-1', createStore('pcc-blobs', 'blobs'))
     const s = JSON.parse(localStorage.getItem('peptide-command-center')).state
     return { logs: s.doseLogs.length, photos: s.photos.length, blobSize: blob ? blob.size : 0 }
-  })
+  }, IDB)
   if (restored.logs < 1) throw new Error('dose logs not restored')
   if (restored.photos < 1) throw new Error('photo records not restored')
   if (restored.blobSize !== 5) throw new Error(`photo blob not restored (size ${restored.blobSize})`)

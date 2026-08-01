@@ -52,7 +52,37 @@ export function seedPeptides(todayStr) {
       cycleOnDays: wk(8), cycleOffDays: wk(4),
       ladder: { floor: 1, step: 1, intervalWeeks: 2, ceiling: 2, unit: 'mg' },
       recon: { vialMg: 10, bacMl: 2, expiryDays: 7 } }),
+    testosteroneEnanthate(start),
   ]
+}
+
+// Oil-based injectable — not a peptide, and handled differently on purpose:
+// pre-mixed (no powder + BAC water), fixed dose (floor === ceiling, so the
+// ladder engine has a single rung and never prompts a step-up), ongoing rather
+// than cycled, intramuscular by default, and never co-drawn with a peptide.
+// `recon` carries the vial's label: 2500 mg in 10 mL === 250 mg/mL.
+export const TEST_E_ID = 'testosterone-e'
+
+export function testosteroneEnanthate(startDate) {
+  return {
+    id: TEST_E_ID,
+    name: 'Testosterone Enanthate',
+    startDate,
+    frequency: '2xweek',
+    scheduleWeekdays: [1, 4], // Mon / Thu — editable
+    slot: 'AM',
+    timing: 'Mon & Thu',
+    route: 'IM',
+    vehicle: 'oil',
+    preparation: 'premixed',
+    alwaysSeparate: true,
+    separateReason: 'Oil-based and not in the peptide compatibility matrix — different vehicle and route, so it is always its own shot.',
+    cycleOnDays: 0,
+    cycleOffDays: 0, // ongoing
+    ladder: { floor: 50, step: 0, intervalWeeks: 1, ceiling: 50, unit: 'mg' },
+    // 10 mL vial at 250 mg/mL; expiryDays 0 = no reconstitution timer to run
+    recon: { vialMg: 2500, bacMl: 10, expiryDays: 0 },
+  }
 }
 
 // Placeholder AUD costs — edit to your real prices.
@@ -92,4 +122,5 @@ export const SEED_NEEDLE_NOTES = [
   { id: 'sites', title: 'Injection sites', body: 'Abdomen (5 cm away from the navel), front/outer thigh, or back of upper arm. Pinch the skin, insert at 45–90°, inject slowly.' },
   { id: 'rotation', title: 'Rotate sites', body: 'Rotate between sites and within a site — never inject the same spot twice in a row. Keep any single site under ~1.5 mL.' },
   { id: 'hygiene', title: 'Hygiene', body: 'Swab vial tops and skin with an alcohol wipe. One needle, one use — never reuse or share. Sharps go in a proper container.' },
+  { id: 'oil', title: 'Oil-based injectables (e.g. test E)', body: 'Different routine to the SubQ insulin-syringe peptides above — do not reuse that setup. Oil is viscous: draw slowly with a wider needle, then swap to a fresh one to inject, and push slowly.\n\nIM: ~23–25 g, 1–1.5" (glute, delt or quad).\nSubQ TRT: ~27–29 g, 1/2".\n\nThe vial is already in solution at a stated mg/mL — there is no powder to reconstitute. Never draw it into the same syringe as a peptide.' },
 ]

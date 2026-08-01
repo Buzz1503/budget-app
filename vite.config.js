@@ -20,8 +20,8 @@ export default defineConfig({
       injectRegister: null,   // registration is handled in src/pwa.js
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       manifest: {
-        name: 'Peptide Command Center',
-        short_name: 'Peptide CC',
+        name: 'Pepito +',
+        short_name: 'Pepito',
         description: 'Personal peptide protocol tracker — dosing, injection-site rotation, mixing chemistry and body composition. Not medical advice.',
         start_url: base,
         scope: base,

@@ -82,7 +82,7 @@ export default function MoreHub({ goTo }) {
       </div>
 
       <p className="pb-2 text-center text-[10px] font-medium" style={{ color: 'var(--muted)' }}>
-        Peptide Command Center · personal tracking tool, not medical advice
+        Pepito + · personal tracking tool, not medical advice
       </p>
     </div>
   )

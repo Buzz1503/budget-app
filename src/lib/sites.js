@@ -26,11 +26,34 @@ export const SITES = [
   { id: 'thr-li', region: 'thigh-R', label: 'Right thigh lower-inner', x: 55, y: 80, neighbors: ['thr-ui', 'thr-lo'] },
 ]
 
-export const SITE_BY_ID = Object.fromEntries(SITES.map((s) => [s.id, s]))
+// Intramuscular sites — a different map entirely. Oil injectables go into muscle,
+// not the SubQ belly/thigh fat the insulin-syringe peptides use, so they get their
+// own rotation pool instead of being forced onto the wrong plane.
+export const IM_SITES = [
+  { id: 'im-delt-l', region: 'delt-L', route: 'IM', label: 'Left deltoid', x: 32, y: 24, neighbors: [] },
+  { id: 'im-delt-r', region: 'delt-R', route: 'IM', label: 'Right deltoid', x: 68, y: 24, neighbors: [] },
+  { id: 'im-glute-l', region: 'glute-L', route: 'IM', label: 'Left glute (ventrogluteal)', x: 34, y: 57, neighbors: [] },
+  { id: 'im-glute-r', region: 'glute-R', route: 'IM', label: 'Right glute (ventrogluteal)', x: 66, y: 57, neighbors: [] },
+  { id: 'im-quad-l', region: 'quad-L', route: 'IM', label: 'Left quad (vastus lateralis)', x: 37, y: 74, neighbors: [] },
+  { id: 'im-quad-r', region: 'quad-R', route: 'IM', label: 'Right quad (vastus lateralis)', x: 63, y: 74, neighbors: [] },
+]
+
+export const ALL_SITES = [...SITES, ...IM_SITES]
+
+export const SITE_BY_ID = Object.fromEntries(ALL_SITES.map((s) => [s.id, s]))
+
+// Which rotation map a peptide draws from. Anything not explicitly IM uses the
+// SubQ map, so every existing peptide keeps the map it has always had.
+export function sitesForRoute(route) {
+  return route === 'IM' ? IM_SITES : SITES
+}
 
 export const REGION_LABEL = {
   abdomen: 'Abdomen', 'love-handle-L': 'Left love handle', 'love-handle-R': 'Right love handle',
   'thigh-L': 'Left thigh', 'thigh-R': 'Right thigh',
+  'delt-L': 'Left deltoid', 'delt-R': 'Right deltoid',
+  'glute-L': 'Left glute', 'glute-R': 'Right glute',
+  'quad-L': 'Left quad', 'quad-R': 'Right quad',
 }
 
 // Most-recent use time (ms) per site id from the dose log.
@@ -78,8 +101,13 @@ export function lastUsedSite(doseLogs) {
 
 // Suggest the longest-rested site, avoiding the last-used site and its
 // immediate neighbours. Never-used sites count as maximally rested.
-export function suggestSite(doseLogs, todayStr) {
-  const last = lastUsedSite(doseLogs)
+// `route` selects which map to rotate within — an IM shot must not be steered
+// onto a SubQ site, and vice versa.
+export function suggestSite(doseLogs, todayStr, route) {
+  const sites = sitesForRoute(route)
+  const inPool = new Set(sites.map((s) => s.id))
+  // "last used" only counts within this route's own pool
+  const last = lastUsedSite(doseLogs.filter((l) => inPool.has(l.siteId)))
   const avoid = new Set()
   if (last) {
     avoid.add(last)
@@ -89,8 +117,8 @@ export function suggestSite(doseLogs, todayStr) {
     const d = daysSince(id, doseLogs, todayStr)
     return d == null ? Infinity : d
   }
-  const candidates = SITES.filter((s) => !avoid.has(s.id))
-  const pool = candidates.length ? candidates : SITES
+  const candidates = sites.filter((s) => !avoid.has(s.id))
+  const pool = candidates.length ? candidates : sites
   let best = pool[0]
   for (const s of pool) {
     if (score(s.id) > score(best.id)) best = s

@@ -36,6 +36,21 @@ export default function CoDrawModal({ open, onClose, peptides }) {
     if (!matrix || !peptides?.length) return null
     const problems = [], cautions = []
     let worst = 'MIX'
+    // Always-separate compounds (oil-based, different route) never reach the
+    // chemistry matrix — they're excluded from co-draws before any pair is
+    // considered, whatever they're paired with.
+    for (const p of peptides) {
+      if (!p.alwaysSeparate) continue
+      worst = 'NEVER'
+      for (const other of peptides) {
+        if (other.id === p.id) continue
+        problems.push({
+          a: p.name, b: other.name, verdict: 'NEVER',
+          reason: p.separateReason
+            || `${p.name} is not a peptide and isn't in the compatibility matrix — draw and inject it on its own.`,
+        })
+      }
+    }
     for (let i = 0; i < peptides.length; i++) {
       for (let j = i + 1; j < peptides.length; j++) {
         const a = peptides[i], b = peptides[j]

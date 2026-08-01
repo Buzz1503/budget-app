@@ -1,11 +1,13 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Flame, Zap, Check, Info, Clock, AlertTriangle, Combine, Sun, Moon, ChevronRight, MapPin, Syringe, X, Circle, CheckCircle2, ShieldCheck } from 'lucide-react'
+import { Flame, Zap, Check, Info, Clock, AlertTriangle, Combine, Sun, Moon, ChevronRight, MapPin, Syringe, X, Circle, CheckCircle2, ShieldCheck, Ban, Eye, Layers } from 'lucide-react'
 import useStore, { todayStr } from '../store/useStore'
 import { cycleInfo, currentRung, stepUpDue } from '../lib/schedule'
 import { isDueToday, slotOf, isDueSlot, currentSlot, slotIsFlexible, needsProtocolSetup } from '../lib/daily'
-import { toMg, doseToUnits, concentration, formatDose, formatUnits } from '../lib/calc'
+import { formatDose, formatUnitsLong, unitsFor, round } from '../lib/calc'
 import { mixVerdict } from '../lib/mixing'
+import { loadMatrix, LIB_TO_COMPOUND } from '../lib/mixMatrix'
+import { planShots, shotsHeadline, MAX_GROUP_ML } from '../lib/grouping'
 import { levelProgress, rankForLevel } from '../lib/gamification'
 import { expiryInfo, runOutInfo } from '../lib/inventory'
 import { daysSince, SITE_BY_ID } from '../lib/sites'
@@ -51,7 +53,8 @@ export default function Home({ goTo }) {
   )
   const slotDone = slotDue.filter((p) => loggedToday.has(p.id)).length
   const dayDone = scheduledToday.filter((p) => loggedToday.has(p.id)).length
-  const unloggedCount = slotDue.filter((p) => !loggedToday.has(p.id)).length
+  const unlogged = useMemo(() => slotDue.filter((p) => !loggedToday.has(p.id)), [slotDue, loggedToday])
+  const unloggedCount = unlogged.length
   // selection resolved against the live slot list so done/removed ids drop out
   const selectedPeptides = slotDue.filter((p) => selected.has(p.id) && !loggedToday.has(p.id))
   const ringPct = slotDue.length ? slotDone / slotDue.length : (scheduledToday.length === 0 ? 0 : 1)
@@ -76,6 +79,41 @@ export default function Home({ goTo }) {
       entryCount: countEntries({ doseLogs, symptomLogs, measurements, photos }),
     })
   }, [backupMeta, doseLogs, symptomLogs, measurements, photos])
+
+  // ---- "combine your shots" planner ----
+  // The chemistry matrix is a ~1.9 MB lazy chunk, so it's only pulled in once
+  // there are actually two or more shots left in this slot to reason about.
+  const [matrix, setMatrix] = useState(null)
+  useEffect(() => {
+    if (matrix || unloggedCount < 2) return
+    let alive = true
+    loadMatrix().then((m) => { if (alive) setMatrix(m) }).catch(() => { /* suggestions stay hidden */ })
+    return () => { alive = false }
+  }, [matrix, unloggedCount])
+
+  const plan = useMemo(() => {
+    if (!matrix || unlogged.length < 2) return null
+    const items = unlogged.map((p) => {
+      const units = unitsFor(p, currentRung(p, titration[p.id]).dose)
+      return {
+        id: p.id,
+        // an always-separate compound never gets a compound id, so it can't
+        // even be considered for a group
+        compoundId: p.alwaysSeparate ? null : (LIB_TO_COMPOUND[p.id] || p.id),
+        name: p.name,
+        units,
+        ml: units / 100,
+        separate: !!p.alwaysSeparate,
+        separateReason: p.separateReason,
+      }
+    })
+    return planShots(items, (a, b) => matrix.lookup(a, b)?.verdict || null)
+  }, [matrix, unlogged, titration])
+
+  const acceptGroup = (group) => {
+    setSelected(new Set(group.items.map((i) => i.id)))
+    setCoDraw(true)
+  }
 
   const alerts = useMemo(() => {
     const out = []
@@ -116,6 +154,10 @@ export default function Home({ goTo }) {
       {/* date + slot toggle */}
       <div className="flex items-end justify-between">
         <div>
+          <p className="text-[11px] font-black uppercase tracking-[0.18em]"
+            style={{ color: 'transparent', backgroundImage: 'linear-gradient(100deg, var(--lime), var(--violet))', backgroundClip: 'text', WebkitBackgroundClip: 'text' }}>
+            Pepito +
+          </p>
           <p className="text-2xl font-black leading-tight tracking-tight">
             {now.toLocaleDateString(undefined, { weekday: 'long' })}
           </p>
@@ -223,8 +265,13 @@ export default function Home({ goTo }) {
         </motion.p>
       )}
 
+      {/* combine-your-shots plan */}
+      {plan && selected.size === 0 && (
+        <ShotPlan plan={plan} slot={slot} onAccept={acceptGroup} />
+      )}
+
       {/* co-draw hint */}
-      {unloggedCount >= 2 && selected.size === 0 && (
+      {unloggedCount >= 2 && selected.size === 0 && !plan && (
         <p className="px-1 text-center text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
           Injecting more than one? Tap the circles to <span className="font-bold" style={{ color: 'var(--lime)' }}>log them together</span> as one co-draw.
         </p>
@@ -285,7 +332,7 @@ export default function Home({ goTo }) {
         peptide={picker}
         dose={picker ? currentRung(picker, titration[picker.id]).dose : 0}
         unit={picker?.ladder.unit}
-        units={picker ? doseToUnits(toMg(currentRung(picker, titration[picker.id]).dose, picker.ladder.unit), concentration(picker.recon.vialMg, picker.recon.bacMl)) : 0}
+        units={picker ? unitsFor(picker, currentRung(picker, titration[picker.id]).dose) : 0}
       />
 
       <CoDrawModal
@@ -293,6 +340,79 @@ export default function Home({ goTo }) {
         onClose={() => { setCoDraw(false); setSelected(new Set()) }}
         peptides={selectedPeptides}
       />
+    </div>
+  )
+}
+
+// Fewest-syringes plan for the selected slot. Accepting a group hands straight
+// off to the existing co-draw flow, which re-runs the mix check, gates CAUTION
+// on visual inspection, and takes one site for the whole group.
+function ShotPlan({ plan, slot, onAccept }) {
+  const headline = shotsHeadline(plan, slot)
+  const combinable = plan.groups.filter((g) => g.items.length > 1)
+
+  return (
+    <motion.div layout className="card space-y-2.5 p-4"
+      initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+      style={{ backgroundImage: 'linear-gradient(135deg, color-mix(in srgb, var(--lime) 12%, var(--surface)), var(--surface))' }}>
+      <div className="flex items-center gap-2">
+        <Layers size={16} className="shrink-0" style={{ color: 'var(--lime)' }} />
+        <p className="text-sm font-black leading-tight">{headline}</p>
+      </div>
+
+      <div className="space-y-2">
+        {plan.groups.map((g, i) => (
+          <ShotRow key={g.items.map((x) => x.id).join('+') || i} group={g} onAccept={onAccept} />
+        ))}
+      </div>
+
+      <p className="text-[10px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+        {combinable.length > 0
+          ? <>Grouped from the chemistry matrix, capped at {MAX_GROUP_ML} mL a syringe. A “safe to mix” verdict is not proof of compatibility — inspect every draw.</>
+          : <>Nothing here shares a syringe safely: a pair is only grouped when the matrix actually rates it, and never when it says don't mix.</>}
+      </p>
+    </motion.div>
+  )
+}
+
+function ShotRow({ group, onAccept }) {
+  const many = group.items.length > 1
+  const names = group.items.map((i) => i.name).join(' + ')
+
+  return (
+    <div className="rounded-xl p-2.5" style={{ background: 'var(--surface2)' }}>
+      <div className="flex items-center gap-2">
+        <span className="min-w-0 flex-1">
+          <span className="block text-[11px] font-black uppercase tracking-wide"
+            style={{ color: many ? 'var(--lime)' : 'var(--muted)' }}>
+            {many ? `Combine into 1 shot · ${group.items.length}` : group.separate ? 'Separate shot' : 'On its own'}
+          </span>
+          <span className="block truncate text-sm font-bold">{names}</span>
+          <span className="block text-[11px] font-bold" style={{ color: 'var(--lime)' }}>
+            {formatUnitsLong(group.units)}{many ? ' total' : ''}
+            <span className="font-semibold" style={{ color: 'var(--muted)' }}> · {round(group.ml, 2)} mL</span>
+          </span>
+        </span>
+        {many && (
+          <motion.button whileTap={{ scale: 0.94 }} onClick={() => onAccept(group)}
+            className="btn-primary shrink-0 rounded-xl px-3 py-2 text-xs font-black">
+            Log together
+          </motion.button>
+        )}
+      </div>
+
+      {group.caution && (
+        <p className="mt-1.5 flex items-start gap-1.5 text-[10px] font-bold" style={{ color: 'var(--amber)' }}>
+          <Eye size={12} className="mt-0.5 shrink-0" />
+          <span>Caution pair — you'll confirm the drawn solution is clear before it logs.</span>
+        </p>
+      )}
+      {group.separate && (
+        <p className="mt-1.5 flex items-start gap-1.5 text-[10px] font-bold" style={{ color: 'var(--rose)' }}>
+          <Ban size={12} className="mt-0.5 shrink-0" />
+          <span>{group.separateReason || 'Always injected on its own.'}</span>
+        </p>
+      )}
     </div>
   )
 }
@@ -316,16 +436,20 @@ export function StreakFlame({ streak, atRisk }) {
 function DueCard({ peptide: p, index, done, slotList, titration, knownGood, onLog, goTo, today, doseLogs, beckon, selected, onToggleSelect, selectMode }) {
   const tState = titration[p.id]
   const { dose, level, maxLevel } = currentRung(p, tState)
-  const doseMg = toMg(dose, p.ladder.unit)
-  const conc = concentration(p.recon.vialMg, p.recon.bacMl)
-  const units = doseToUnits(doseMg, conc)
+  const units = unitsFor(p, dose)
   const cyc = cycleInfo(p, today)
   const stepDue = stepUpDue(p, tState, today)
 
-  const partners = slotList.filter((o) => o.id !== p.id && mixVerdict(p.name, o.name, knownGood).verdict === 'green')
-  const hint = partners.length
-    ? { ok: true, text: `Co-draw OK with ${partners.map((x) => x.name).join(', ')}` }
-    : { ok: false, text: 'Inject separately' }
+  // An always-separate compound is never a co-draw candidate, whatever the
+  // legacy pair rules would say about the names.
+  const partners = p.alwaysSeparate
+    ? []
+    : slotList.filter((o) => o.id !== p.id && !o.alwaysSeparate && mixVerdict(p.name, o.name, knownGood).verdict === 'green')
+  const hint = p.alwaysSeparate
+    ? { ok: false, text: p.vehicle === 'oil' ? 'Inject separately — oil-based' : 'Inject separately' }
+    : partners.length
+      ? { ok: true, text: `Co-draw OK with ${partners.map((x) => x.name).join(', ')}` }
+      : { ok: false, text: 'Inject separately' }
 
   // last site used for this peptide
   const lastSiteLog = [...doseLogs].filter((l) => l.peptideId === p.id && l.siteId).sort((a, b) => (b.loggedAt || b.date).localeCompare(a.loggedAt || a.date))[0]
@@ -338,13 +462,18 @@ function DueCard({ peptide: p, index, done, slotList, titration, knownGood, onLo
         : done ? { borderColor: 'color-mix(in srgb, var(--lime) 40%, transparent)' } : undefined}>
       <div className="flex items-center gap-3">
         {/* co-draw select toggle */}
-        {!done && (
+        {!done && (p.alwaysSeparate ? (
+          <span className="shrink-0" title="Always injected on its own — cannot be co-drawn"
+            aria-label={`${p.name} cannot be co-drawn`} style={{ color: 'var(--rose)', opacity: 0.7 }}>
+            <Ban size={24} />
+          </span>
+        ) : (
           <motion.button whileTap={{ scale: 0.85 }} onClick={onToggleSelect}
             className="shrink-0" aria-label={selected ? `Deselect ${p.name}` : `Select ${p.name} to co-draw`}
             style={{ color: selected ? 'var(--lime)' : 'var(--muted)' }}>
             {selected ? <CheckCircle2 size={24} /> : <Circle size={24} />}
           </motion.button>
-        )}
+        ))}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <h3 className="truncate text-base font-bold">{p.name}</h3>
@@ -352,7 +481,7 @@ function DueCard({ peptide: p, index, done, slotList, titration, knownGood, onLo
           </div>
           <p className="mt-0.5 text-2xl font-black tracking-tight">
             {formatDose(dose, p.ladder.unit)}
-            <span className="ml-2 text-sm font-bold" style={{ color: 'var(--lime)' }}>{formatUnits(units)}</span>
+            <span className="ml-2 text-sm font-bold" style={{ color: 'var(--lime)' }}>{formatUnitsLong(units)}</span>
           </p>
           <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
             <span className="flex items-center gap-1"><Clock size={11} /> {p.timing}</span>

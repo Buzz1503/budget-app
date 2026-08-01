@@ -173,7 +173,7 @@ export default function SettingsTab() {
         )}
       </div>
       <p className="pb-2 text-center text-[10px] font-medium" style={{ color: 'var(--muted)' }}>
-        Peptide Command Center v1 · data lives in your browser only
+        Pepito + · data lives in your browser only
       </p>
     </div>
   )

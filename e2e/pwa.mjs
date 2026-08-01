@@ -31,8 +31,8 @@ await step('manifest is linked, valid, and standalone/portrait', async () => {
   const href = await page.getAttribute('link[rel="manifest"]', 'href')
   if (!href) throw new Error('no manifest link')
   const m = await (await page.request.get(new URL(href, BASE).toString())).json()
-  if (m.name !== 'Peptide Command Center') throw new Error('wrong name')
-  if (m.short_name !== 'Peptide CC') throw new Error('wrong short_name')
+  if (m.name !== 'Pepito +') throw new Error('wrong name')
+  if (m.short_name !== 'Pepito') throw new Error('wrong short_name')
   if (m.display !== 'standalone') throw new Error('not standalone')
   if (m.orientation !== 'portrait') throw new Error('not portrait')
   if (!m.description) throw new Error('no description')
@@ -52,7 +52,7 @@ await step('iOS standalone meta tags present', async () => {
   const need = {
     'apple-mobile-web-app-capable': 'yes',
     'apple-mobile-web-app-status-bar-style': 'black-translucent',
-    'apple-mobile-web-app-title': 'Peptide CC',
+    'apple-mobile-web-app-title': 'Pepito',
     'theme-color': '#080a12',
   }
   for (const [name, val] of Object.entries(need)) {

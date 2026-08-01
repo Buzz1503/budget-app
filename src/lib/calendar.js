@@ -68,7 +68,7 @@ export function eventsForPeptide(peptide, tState, opts) {
       description: [
         peptide.timing ? `Timing: ${peptide.timing}` : null,
         dose > 0 ? `Dose at export: ${formatDose(dose, peptide.ladder.unit)}` : null,
-        'Snapshot from Peptide Command Center — re-export after protocol changes.',
+        'Snapshot from Pepito + — re-export after protocol changes.',
       ].filter(Boolean).join('\n'),
     }
   })
@@ -78,7 +78,7 @@ export function buildIcs(peptides, titration, { from = new Date(), until = null,
   const stamp = icsUtcStamp(new Date())
   const lines = [
     'BEGIN:VCALENDAR', 'VERSION:2.0',
-    'PRODID:-//Peptide Command Center//Schedule Export//EN',
+    'PRODID:-//Pepito Plus//Schedule Export//EN',
     'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
     'X-WR-CALNAME:Peptide schedule',
   ]

@@ -42,6 +42,10 @@ export function costPerDose(peptide, tState, vials) {
 
 export function expiryInfo(peptide, openVial, todayStr) {
   if (!openVial?.reconstitutedAt) return null
-  const expiresAt = addDaysStr(openVial.reconstitutedAt, peptide.recon?.expiryDays || 28)
+  // expiryDays 0 = no post-reconstitution clock to run (a pre-mixed oil vial
+  // isn't reconstituted, so there's nothing to count down from).
+  const days = peptide.recon?.expiryDays ?? 28
+  if (!(days > 0)) return null
+  const expiresAt = addDaysStr(openVial.reconstitutedAt, days)
   return { expiresAt, daysLeft: daysBetween(todayStr, expiresAt) }
 }

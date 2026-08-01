@@ -1,5 +1,5 @@
 // Titration ladder + cycle engine. All dates are 'yyyy-MM-dd' strings.
-import { parseISO, differenceInCalendarDays, addDays, format } from 'date-fns'
+import { parseISO, differenceInCalendarDays, addDays, format, getDay } from 'date-fns'
 
 export const DAY_FMT = 'yyyy-MM-dd'
 
@@ -57,6 +57,7 @@ export function cycleInfo(peptide, dateStr) {
 export function dosesPerWeek(frequency) {
   switch (frequency) {
     case 'weekly': return 1
+    case '2xweek': return 2
     case '3xweek': return 3
     case '5on2off': return 5
     case 'daily':
@@ -69,9 +70,17 @@ export function dosesPerWeek(frequency) {
 export function frequencyHits(peptide, dateStr) {
   const since = daysBetween(peptide.startDate, dateStr)
   if (since < 0) return false
+  // An explicit weekday selection is what the user actually injects on, so it
+  // wins over the offset pattern — this keeps the projection in Plan agreeing
+  // with the Home due list rather than drifting a day or two off it.
+  const picked = peptide.scheduleWeekdays
+  if (Array.isArray(picked) && picked.length && !['daily', 'nightly'].includes(peptide.frequency)) {
+    return picked.includes(getDay(parseISO(dateStr)))
+  }
   const inWeek = ((since % 7) + 7) % 7
   switch (peptide.frequency) {
     case 'weekly': return since % 7 === 0
+    case '2xweek': return inWeek === 0 || inWeek === 3
     case '3xweek': return inWeek === 0 || inWeek === 2 || inWeek === 4
     case '5on2off': return inWeek < 5
     default: return true // daily / nightly

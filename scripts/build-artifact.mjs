@@ -21,7 +21,7 @@ if (/<\/style/i.test(css)) throw new Error('CSS bundle contains a closing style 
 // charset MUST be declared: without it the page is sniffed as windows-1252 and
 // every em-dash / ellipsis / emoji in the UI copy renders as mojibake.
 const html = `<meta charset="utf-8" />
-<title>Peptide Command Center</title>
+<title>Pepito +</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <style>
 ${css}

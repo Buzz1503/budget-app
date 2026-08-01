@@ -20,6 +20,7 @@ export function scheduledWeekdaySet(peptide) {
   }
   // defaults when the user hasn't configured specific days
   if (freq === 'weekly') return new Set([weekdayOf(peptide.startDate)])
+  if (freq === '2xweek') return new Set([1, 4]) // Mon/Thu
   if (freq === '3xweek') return new Set([1, 3, 5]) // Mon/Wed/Fri
   if (freq === '5on2off') return new Set([1, 2, 3, 4, 5]) // Mon–Fri
   return new Set([0, 1, 2, 3, 4, 5, 6])
@@ -29,6 +30,7 @@ export function scheduledWeekdaySet(peptide) {
 export function weekdayPickCount(frequency) {
   switch (frequency) {
     case 'weekly': return 1
+    case '2xweek': return 2
     case '3xweek': return 3
     case '5on2off': return 5
     default: return 0 // daily/nightly — every day, not configurable

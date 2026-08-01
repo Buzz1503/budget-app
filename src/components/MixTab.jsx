@@ -36,15 +36,42 @@ export default function MixTab() {
     return () => { alive = false }
   }, [])
 
+  // Compounds that are never co-drawn with a peptide — oil-based injectables and
+  // anything else on a different vehicle/route. They have no matrix entry by
+  // design, so they're surfaced here as their own cards whose verdict is fixed.
+  const separateCompounds = useMemo(() => peptides.filter((p) => p.alwaysSeparate).map((p) => ({
+    id: p.id,
+    name: p.name,
+    class: p.vehicle === 'oil' ? 'OIL' : 'SEPARATE',
+    charge: 'non-aqueous',
+    flags: [p.vehicle === 'oil' ? 'oil vehicle' : 'always separate', p.route === 'IM' ? 'IM' : null].filter(Boolean),
+    alwaysSeparate: true,
+    separateReason: p.separateReason
+      || `${p.name} is not a peptide and isn't in the compatibility matrix — draw and inject it on its own.`,
+  })), [peptides])
+
+  const separateIds = useMemo(() => new Set(separateCompounds.map((c) => c.id)), [separateCompounds])
+
   // Library compounds present in the matrix → the user's "stack".
-  const stackCompounds = useMemo(() => {
+  const matrixStack = useMemo(() => {
     if (!matrix) return []
     return peptides
+      .filter((p) => !p.alwaysSeparate)
       .map((p) => matrix.byId.get(LIB_TO_COMPOUND[p.id] || p.id))
       .filter(Boolean)
   }, [matrix, peptides])
 
-  const stackIds = useMemo(() => new Set(stackCompounds.map((c) => c.id)), [stackCompounds])
+  const stackCompounds = useMemo(
+    () => [...matrixStack, ...separateCompounds],
+    [matrixStack, separateCompounds]
+  )
+
+  // Codex progress counts real chemistry pairs only — a fixed "separate" verdict
+  // isn't a discovery.
+  const stackIds = useMemo(() => new Set(matrixStack.map((c) => c.id)), [matrixStack])
+
+  const compoundById = (id) =>
+    (matrix ? matrix.byId.get(id) : null) || separateCompounds.find((c) => c.id === id) || null
 
   // Compatibility Codex: how many of the stack's pairs have been revealed.
   const stackPairKeys = useMemo(() => {
@@ -58,15 +85,19 @@ export default function MixTab() {
 
   const list = useMemo(() => {
     if (!matrix) return []
-    const base = browseAll ? matrix.compounds : stackCompounds
+    const base = browseAll ? [...separateCompounds, ...matrix.compounds] : stackCompounds
     if (!query.trim()) return base
     const q = query.toLowerCase()
     return base.filter((c) => c.name.toLowerCase().includes(q) || c.class.toLowerCase().includes(q))
-  }, [matrix, browseAll, stackCompounds, query])
+  }, [matrix, browseAll, stackCompounds, separateCompounds, query])
 
-  const ca = a && matrix ? matrix.byId.get(a) : null
-  const cb = b && matrix ? matrix.byId.get(b) : null
-  const pair = ca && cb ? matrix.lookup(ca.id, cb.id) : null
+  const ca = a && matrix ? compoundById(a) : null
+  const cb = b && matrix ? compoundById(b) : null
+  // One always-separate side settles it before the matrix is consulted at all.
+  const forcedSeparate = ca && cb && (ca.alwaysSeparate || cb.alwaysSeparate)
+    ? (ca.alwaysSeparate ? ca : cb)
+    : null
+  const pair = ca && cb && !forcedSeparate ? matrix.lookup(ca.id, cb.id) : null
 
   const select = (id) => {
     setInspected(false)
@@ -180,7 +211,7 @@ export default function MixTab() {
             <CompoundCard
               key={c.id} compound={c}
               selected={a === c.id || b === c.id}
-              inStack={stackIds.has(c.id)}
+              inStack={stackIds.has(c.id) || separateIds.has(c.id)}
               proven={[...PROVEN_BLENDS].some((k) => k.split('|').includes(c.id))}
               onSelect={() => select(c.id)}
             />
@@ -198,6 +229,7 @@ export default function MixTab() {
             key={playKey || `${ca.id}-${cb.id}`}
             ca={ca} cb={cb} pair={pair} playKey={playKey || `${ca.id}-${cb.id}`}
             reasonCodes={matrix.reasonCodes} classes={matrix.classes}
+            forcedSeparate={forcedSeparate}
             inspected={inspected} setInspected={setInspected}
           />
         )}
@@ -261,7 +293,39 @@ function chargeColor(charge) {
   return 'var(--muted)'
 }
 
-function VerdictPanel({ ca, cb, pair, playKey, reasonCodes, classes, inspected, setInspected }) {
+function VerdictPanel({ ca, cb, pair, playKey, reasonCodes, classes, forcedSeparate, inspected, setInspected }) {
+  // A different vehicle/route is not a chemistry question — there is no verdict
+  // to compute and no override to offer.
+  if (forcedSeparate) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 14, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.97 }}
+        transition={{ type: 'spring', stiffness: 280, damping: 24 }}
+        className="card overflow-hidden p-5"
+        style={{ background: 'color-mix(in srgb, var(--rose) 10%, var(--surface))' }}
+      >
+        <div className="text-center">
+          <p className="text-sm font-bold" style={{ color: 'var(--muted)' }}>{ca.name} + {cb.name}</p>
+          <div className="mt-1 flex items-center justify-center gap-2">
+            <span className="flex h-8 w-8 items-center justify-center rounded-full" style={{ background: 'var(--rose)', color: '#fff' }}>
+              <Ban size={18} strokeWidth={3} />
+            </span>
+            <span className="text-xl font-black" style={{ color: 'var(--rose)' }}>Inject separately</span>
+          </div>
+          <span className="chip mt-2 !py-1 font-bold" style={{ color: 'var(--rose)' }}>Always separate</span>
+        </div>
+        <p className="mx-auto mt-3 max-w-sm text-center text-xs font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+          {forcedSeparate.separateReason}
+        </p>
+        <p className="mx-auto mt-2 max-w-sm text-center text-[11px] font-bold" style={{ color: 'var(--text)' }}>
+          Two shots, two syringes — never draw it into the same barrel as a peptide.
+        </p>
+      </motion.div>
+    )
+  }
+
   if (!pair) {
     return (
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="card p-5 text-center">

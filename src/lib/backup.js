@@ -54,7 +54,7 @@ export async function buildBackup(onProgress) {
 
 export function validateBackup(bundle) {
   if (!bundle || typeof bundle !== 'object') return 'Not a valid backup file.'
-  if (bundle.format !== BACKUP_FORMAT) return 'This file is not a Peptide Command Center backup.'
+  if (bundle.format !== BACKUP_FORMAT) return 'This file is not a Pepito + backup.'
   if (!bundle.appState) return 'Backup contains no app data.'
   if (bundle.version > BACKUP_VERSION) return 'Backup was made by a newer version of the app.'
   return null

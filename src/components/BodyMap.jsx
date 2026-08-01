@@ -9,7 +9,9 @@ const STATUS_COLOR = {
   blocked: 'var(--coral)',  // today / yesterday
 }
 
-export default function BodyMap({ doseLogs, today, selected, suggestion, onPick, compact }) {
+// `sites` lets a caller swap in the IM map for an oil injectable; everything
+// else keeps the SubQ map it has always used.
+export default function BodyMap({ doseLogs, today, selected, suggestion, onPick, compact, sites = SITES }) {
   return (
     <div className="relative mx-auto w-full" style={{ maxWidth: compact ? 240 : 300 }}>
       <svg viewBox="0 0 100 112" className="w-full">
@@ -26,7 +28,7 @@ export default function BodyMap({ doseLogs, today, selected, suggestion, onPick,
         </g>
 
         {/* connective region hints */}
-        {SITES.map((s) => {
+        {sites.map((s) => {
           const st = siteStatus(s.id, doseLogs, today)
           const color = STATUS_COLOR[st.level]
           const isSel = selected === s.id

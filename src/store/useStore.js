@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware'
 import { format } from 'date-fns'
 import {
   seedPeptides, seedVials, seedTitration, seedOpenVials, SEED_NEEDLE_NOTES,
+  testosteroneEnanthate, TEST_E_ID,
 } from '../data/seed'
 import { SEED_KNOWN_GOOD } from '../lib/mixing'
 import { currentRung, cycleInfo, addDaysStr } from '../lib/schedule'
@@ -515,8 +516,35 @@ const useStore = create(
       },
     }),
     {
-      name: 'peptide-command-center',
+      name: 'peptide-command-center', // storage key is history — renaming it would orphan existing data
+      version: 1,
       storage: createJSONStorage(() => safeStorage),
+      // v1 introduced the oil-based injectable. A save written before it exists
+      // has no way to pick it up from the seed, so add it here — once. Deleting
+      // it afterwards sticks, because the migration only runs on the version bump.
+      migrate: (persisted, from) => {
+        if (!persisted || from >= 1) return persisted
+        const s = { ...persisted }
+        const t = todayStr()
+        if (!s.peptides?.some((p) => p.id === TEST_E_ID)) {
+          const te = testosteroneEnanthate(t)
+          s.peptides = [...(s.peptides || []), te]
+          s.titration = { ...(s.titration || {}), [TEST_E_ID]: { level: 0, levelStartDate: t } }
+          s.openVials = {
+            ...(s.openVials || {}),
+            [TEST_E_ID]: { remainingMg: te.recon.vialMg, reconstitutedAt: null },
+          }
+          s.vials = [...(s.vials || []), {
+            id: `vial-${TEST_E_ID}`, peptideId: TEST_E_ID, vialMg: te.recon.vialMg,
+            costAud: 0, vendor: '', lot: '', qtyPurchased: 1, qtyOnHand: 1,
+          }]
+        }
+        // pick up needle-guide sections added since this save was written,
+        // without touching any section the user has already edited
+        const have = new Set((s.needleNotes || []).map((n) => n.id))
+        s.needleNotes = [...(s.needleNotes || []), ...SEED_NEEDLE_NOTES.filter((n) => !have.has(n.id))]
+        return s
+      },
       partialize: (s) => {
         const { celebration, ...rest } = s
         return Object.fromEntries(Object.entries(rest).filter(([, v]) => typeof v !== 'function'))

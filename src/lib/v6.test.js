@@ -206,7 +206,7 @@ describe('backup', () => {
 
   it('rejects junk, foreign files and future versions', () => {
     expect(validateBackup(null)).toBeTruthy()
-    expect(validateBackup({ format: 'something-else' })).toMatch(/not a Peptide/)
+    expect(validateBackup({ format: 'something-else' })).toMatch(/not a Pepito/)
     expect(validateBackup({ format: BACKUP_FORMAT, version: 1 })).toMatch(/no app data/)
     expect(validateBackup({ ...bundle, version: 99 })).toMatch(/newer version/)
   })

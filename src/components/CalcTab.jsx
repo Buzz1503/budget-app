@@ -1,8 +1,11 @@
 import { useState, useMemo } from 'react'
 import { motion } from 'framer-motion'
-import { ArrowLeftRight } from 'lucide-react'
+import { ArrowLeftRight, Droplet } from 'lucide-react'
 import useStore from '../store/useStore'
-import { concentration, doseToUnits, unitsToDoseMg, unitsToMl, toMg, fromMg, round } from '../lib/calc'
+import {
+  concentration, concentrationOf, doseToUnits, unitsToDoseMg, unitsToMl,
+  toMg, fromMg, round, isPremixed, premixedVialMg,
+} from '../lib/calc'
 import Syringe from './ui/Syringe'
 import CountUp from './ui/CountUp'
 
@@ -17,19 +20,34 @@ export default function CalcTab() {
   const [unit, setUnit] = useState(selected?.ladder.unit ?? 'mcg')
   const [reverse, setReverse] = useState(false)
   const [unitsIn, setUnitsIn] = useState(10)
+  // 'recon' = powder + BAC water; 'premixed' = an already-made solution sold at
+  // a stated mg/mL (oil-based injectables), where there is nothing to dissolve.
+  const [prep, setPrep] = useState(isPremixed(selected) ? 'premixed' : 'recon')
+  const [concIn, setConcIn] = useState(selected && isPremixed(selected) ? concentrationOf(selected) : 250)
+  const [vialMl, setVialMl] = useState(selected?.recon.bacMl ?? 10)
 
   const pick = (id) => {
     setPid(id)
     const p = peptides.find((x) => x.id === id)
-    if (p) {
+    if (!p) return
+    setUnit(p.ladder.unit)
+    setDoseVal(p.ladder.ceiling)
+    if (isPremixed(p)) {
+      setPrep('premixed')
+      setConcIn(concentrationOf(p))
+      setVialMl(p.recon.bacMl)
+    } else {
+      setPrep('recon')
       setVialMg(p.recon.vialMg)
       setBacMl(p.recon.bacMl)
-      setUnit(p.ladder.unit)
-      setDoseVal(p.ladder.ceiling)
     }
   }
 
-  const conc = useMemo(() => concentration(+vialMg, +bacMl), [vialMg, bacMl])
+  const premixed = prep === 'premixed'
+  const conc = useMemo(
+    () => (premixed ? Math.max(0, +concIn || 0) : concentration(+vialMg, +bacMl)),
+    [premixed, concIn, vialMg, bacMl]
+  )
   const doseMg = toMg(+doseVal || 0, unit)
   const units = doseToUnits(doseMg, conc)
   const ml = unitsToMl(units)
@@ -60,19 +78,50 @@ export default function CalcTab() {
       </div>
 
       <div className="card space-y-3 p-4">
-        <div className="grid grid-cols-2 gap-3">
-          <label className="block">
-            <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>Vial (mg)</span>
-            <input type="number" inputMode="decimal" className="input" value={vialMg} onChange={(e) => setVialMg(e.target.value)} />
-          </label>
-          <label className="block">
-            <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>BAC water (mL)</span>
-            <input type="number" inputMode="decimal" className="input" value={bacMl} onChange={(e) => setBacMl(e.target.value)} />
-          </label>
+        {/* preparation mode — reconstitution vs. a vial that's already in solution */}
+        <div className="flex gap-1.5">
+          {[['recon', 'Reconstitute'], ['premixed', 'Pre-mixed solution']].map(([m, label]) => (
+            <button key={m} onClick={() => setPrep(m)}
+              className="flex-1 rounded-lg py-1.5 text-xs font-black"
+              style={prep === m
+                ? { backgroundImage: 'linear-gradient(135deg, var(--violet), var(--indigo))', color: '#fff' }
+                : { background: 'var(--surface2)', color: 'var(--muted)' }}>
+              {label}
+            </button>
+          ))}
         </div>
+
+        {premixed ? (
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block">
+              <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>Concentration (mg/mL)</span>
+              <input type="number" inputMode="decimal" className="input" value={concIn} onChange={(e) => setConcIn(e.target.value)} />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>Vial size (mL)</span>
+              <input type="number" inputMode="decimal" className="input" value={vialMl} onChange={(e) => setVialMl(e.target.value)} />
+            </label>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block">
+              <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>Vial (mg)</span>
+              <input type="number" inputMode="decimal" className="input" value={vialMg} onChange={(e) => setVialMg(e.target.value)} />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>BAC water (mL)</span>
+              <input type="number" inputMode="decimal" className="input" value={bacMl} onChange={(e) => setBacMl(e.target.value)} />
+            </label>
+          </div>
+        )}
         <div className="rounded-xl p-3 text-center" style={{ background: 'var(--surface2)' }}>
           <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>Concentration</p>
           <p className="text-xl font-extrabold">{conc ? `${round(conc, 3)} mg/mL` : '—'}</p>
+          {premixed && (
+            <p className="mt-0.5 text-[10px] font-semibold" style={{ color: 'var(--muted)' }}>
+              As supplied — no powder to dissolve{+vialMl > 0 ? ` · ${round(premixedVialMg(+concIn || 0, +vialMl || 0), 1)} mg per vial` : ''}
+            </p>
+          )}
         </div>
 
         {!reverse ? (
@@ -95,8 +144,24 @@ export default function CalcTab() {
               <p className="text-4xl font-extrabold tracking-tight" style={{ color: 'var(--lime)' }}>
                 <CountUp value={isFinite(units) ? round(units, 1) : 0} decimals={1} /> <span className="text-xl">units</span>
               </p>
-              <p className="mt-1 text-sm font-bold" style={{ color: 'var(--muted)' }}>= {round(ml, 3)} mL on a U-100 syringe</p>
+              <p className="mt-1 text-sm font-bold" style={{ color: 'var(--muted)' }}>
+                = <span style={{ color: 'var(--text)' }}>{round(ml, 3)} mL</span> {premixed ? '' : 'on a U-100 syringe'}
+              </p>
+              {premixed && (
+                <p className="mt-0.5 text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
+                  {round(+doseVal || 0, 3)} {unit} ÷ {round(conc, 3)} mg/mL
+                </p>
+              )}
             </motion.div>
+            {premixed && (
+              <p className="flex items-start gap-1.5 rounded-xl p-2.5 text-[11px] font-semibold"
+                style={{ background: 'color-mix(in srgb, var(--amber) 14%, transparent)', color: 'var(--amber)' }}>
+                <Droplet size={13} className="mt-0.5 shrink-0" />
+                <span>
+                  Oil is viscous — it draws and pushes far slower than water. Use a wider needle to draw, swap to a fresh one to inject, and go slowly.
+                </span>
+              </p>
+            )}
             <Syringe units={units} />
           </>
         ) : (
@@ -118,7 +183,8 @@ export default function CalcTab() {
         )}
       </div>
       <p className="px-1 text-[10px] font-medium" style={{ color: 'var(--muted)' }}>
-        U-100 insulin syringe: 1 unit = 0.01 mL. Selecting a peptide pre-fills its reconstitution defaults.
+        U-100 insulin syringe: 1 unit = 0.01 mL. Selecting a compound pre-fills its own defaults and switches to the right mode —
+        pre-mixed vials are divided by their label concentration, with no reconstitution step.
       </p>
     </div>
   )

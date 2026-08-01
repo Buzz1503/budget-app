@@ -3,7 +3,9 @@ import { motion } from 'framer-motion'
 import { Plus, ChevronDown, Trash2, Search, Check, AlertTriangle } from 'lucide-react'
 import useStore from '../store/useStore'
 import { currentRung, cycleInfo } from '../lib/schedule'
-import { formatDose } from '../lib/calc'
+import {
+  formatDose, formatUnitsLong, round, isPremixed, concentrationOf, premixedVialMg, unitsFor,
+} from '../lib/calc'
 import { WEEKDAYS, weekdayPickCount, scheduledWeekdaySet, slotOf, needsProtocolSetup } from '../lib/daily'
 import { loadMatrix, compoundColor } from '../lib/mixMatrix'
 import { referenceFor, protocolTextFrom, referenceAttachment, isExcludedTier } from '../lib/reference'
@@ -11,7 +13,26 @@ import ReferenceInfo, { TierBadge } from './ReferenceInfo'
 import Modal from './ui/Modal'
 
 const FREQ_LABELS = {
-  daily: 'Daily', nightly: 'Nightly', weekly: 'Weekly', '3xweek': '3×/week', '5on2off': '5 on / 2 off',
+  daily: 'Daily', nightly: 'Nightly', weekly: 'Weekly', '2xweek': '2×/week', '3xweek': '3×/week', '5on2off': '5 on / 2 off',
+}
+
+const ROUTES = [
+  ['SubQ', 'Subcutaneous'],
+  ['IM', 'Intramuscular'],
+]
+
+// Route-specific needle guidance. Oil is a different routine to the SubQ
+// insulin-syringe peptide flow and says so wherever it appears.
+export function needleHint(p) {
+  const oil = p.vehicle === 'oil'
+  if (p.route === 'IM') {
+    return oil
+      ? '~23–25 g, 1–1.5" IM (glute / delt / quad). Oil is viscous — draw with a wider needle, swap to a fresh one to inject, and push slowly. Not the SubQ insulin-syringe routine.'
+      : '~23–25 g, 1–1.5" into muscle (glute / delt / quad).'
+  }
+  return oil
+    ? 'SubQ TRT: ~27–29 g, 1/2". Still oil — slower to draw and push than an aqueous peptide, and never co-drawn with one.'
+    : 'U-100 insulin syringe, 29–31 g, 4–8 mm SubQ. Pinch, 45–90°, inject slowly.'
 }
 
 function cycleLabel(p) {
@@ -79,7 +100,9 @@ function PeptideCard({ peptide: p, index, defaultOpen, onOpened }) {
                 <AlertTriangle size={11} /> Set your protocol
               </span>
             ) : (
-              <span className="chip" style={{ color: 'var(--violet)' }}>Lvl {level + 1}/{maxLevel + 1}</span>
+              <span className="chip" style={{ color: 'var(--violet)' }}>
+                {maxLevel === 0 ? 'Fixed dose' : `Lvl ${level + 1}/${maxLevel + 1}`}
+              </span>
             )}
           </div>
           {setupNeeded ? (
@@ -196,7 +219,9 @@ export function PeptideEditor({ peptide: p }) {
   const updateLadder = useStore((s) => s.updateLadder)
   const updateRecon = useStore((s) => s.updateRecon)
   const removePeptide = useStore((s) => s.removePeptide)
+  const titration = useStore((s) => s.titration)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const currentDose = currentRung(p, titration[p.id]).dose
 
   return (
     <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} className="overflow-hidden">
@@ -215,6 +240,18 @@ export function PeptideEditor({ peptide: p }) {
           </Field>
           <Field label="Start date">
             <input type="date" className="input" value={p.startDate} onChange={(e) => e.target.value && updatePeptide(p.id, { startDate: e.target.value })} />
+          </Field>
+          <Field label="Route">
+            <select className="input" value={p.route === 'IM' ? 'IM' : 'SubQ'} onChange={(e) => updatePeptide(p.id, { route: e.target.value })}>
+              {ROUTES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            </select>
+          </Field>
+          <Field label="Preparation">
+            <select className="input" value={isPremixed(p) ? 'premixed' : 'reconstituted'}
+              onChange={(e) => updatePeptide(p.id, { preparation: e.target.value === 'premixed' ? 'premixed' : 'reconstituted' })}>
+              <option value="reconstituted">Powder + BAC water</option>
+              <option value="premixed">Pre-mixed solution</option>
+            </select>
           </Field>
           <Field label="Cycle on (days, 0 = ongoing)">
             <Num value={p.cycleOnDays} step="1" onChange={(v) => updatePeptide(p.id, { cycleOnDays: Math.round(v) })} />
@@ -288,11 +325,54 @@ export function PeptideEditor({ peptide: p }) {
           </Field>
         </div>
 
-        <p className="pt-1 text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--lime)' }}>Reconstitution</p>
-        <div className="grid grid-cols-3 gap-3">
-          <Field label="Vial (mg)"><Num value={p.recon.vialMg} onChange={(v) => updateRecon(p.id, { vialMg: v })} /></Field>
-          <Field label="BAC water (mL)"><Num value={p.recon.bacMl} onChange={(v) => updateRecon(p.id, { bacMl: v })} /></Field>
-          <Field label="Expiry (days)"><Num value={p.recon.expiryDays} step="1" onChange={(v) => updateRecon(p.id, { expiryDays: Math.round(v) })} /></Field>
+        {isPremixed(p) ? (
+          <>
+            <p className="pt-1 text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--lime)' }}>
+              Pre-mixed solution
+            </p>
+            <div className="grid grid-cols-3 gap-3">
+              <Field label="Conc. (mg/mL)">
+                <Num value={concentrationOf(p)} onChange={(v) => updateRecon(p.id, {
+                  vialMg: premixedVialMg(v, p.recon.bacMl), // keep vial size, restate its total
+                })} />
+              </Field>
+              <Field label="Vial size (mL)">
+                <Num value={p.recon.bacMl} onChange={(v) => updateRecon(p.id, {
+                  bacMl: v, vialMg: premixedVialMg(concentrationOf(p), v),
+                })} />
+              </Field>
+              <Field label="Expiry (days, 0 = none)">
+                <Num value={p.recon.expiryDays} step="1" onChange={(v) => updateRecon(p.id, { expiryDays: Math.max(0, Math.round(v)) })} />
+              </Field>
+            </div>
+            <p className="text-[10px] font-medium" style={{ color: 'var(--muted)' }}>
+              Already in solution — nothing to reconstitute. {formatDose(currentDose, p.ladder.unit)} ÷ {round(concentrationOf(p), 3)} mg/mL
+              = <span className="font-bold" style={{ color: 'var(--lime)' }}>{round(unitsFor(p, currentDose) / 100, 3)} mL · {formatUnitsLong(unitsFor(p, currentDose))}</span> on a U-100 syringe.
+            </p>
+          </>
+        ) : (
+          <>
+            <p className="pt-1 text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--lime)' }}>Reconstitution</p>
+            <div className="grid grid-cols-3 gap-3">
+              <Field label="Vial (mg)"><Num value={p.recon.vialMg} onChange={(v) => updateRecon(p.id, { vialMg: v })} /></Field>
+              <Field label="BAC water (mL)"><Num value={p.recon.bacMl} onChange={(v) => updateRecon(p.id, { bacMl: v })} /></Field>
+              <Field label="Expiry (days)"><Num value={p.recon.expiryDays} step="1" onChange={(v) => updateRecon(p.id, { expiryDays: Math.round(v) })} /></Field>
+            </div>
+          </>
+        )}
+
+        {/* route + needle, and the co-draw exclusion where it applies */}
+        <div className="rounded-xl p-3" style={{ background: 'var(--surface2)' }}>
+          <p className="mb-1 text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--coral)' }}>
+            Needle & route · {p.route === 'IM' ? 'intramuscular' : 'subcutaneous'}
+          </p>
+          <p className="text-[11px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>{needleHint(p)}</p>
+          {p.alwaysSeparate && (
+            <p className="mt-2 flex items-start gap-1.5 text-[11px] font-bold" style={{ color: 'var(--rose)' }}>
+              <AlertTriangle size={13} className="mt-0.5 shrink-0" />
+              <span>Never co-drawn: excluded from “log together” and always “inject separately” in Mix.</span>
+            </p>
+          )}
         </div>
 
         {confirmDelete ? (

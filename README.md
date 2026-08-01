@@ -1,4 +1,4 @@
-# Peptide Command Center
+# Pepito +
 
 An installable, offline-capable personal tracker for peptide protocols — dosing and titration, injection-site rotation, single-syringe mixing chemistry, body composition and adherence.
 
