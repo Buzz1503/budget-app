@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Flame, Zap, Check, Info, Clock, AlertTriangle, Combine, Sun, Moon, ChevronRight, MapPin, Syringe, X, Circle, CheckCircle2, ShieldCheck, Ban, Eye, Layers } from 'lucide-react'
+import { Flame, Zap, Check, Info, Clock, AlertTriangle, Combine, Sun, Moon, ChevronRight, MapPin, Syringe, X, Circle, CheckCircle2, ShieldCheck, Ban, Layers, Wind } from 'lucide-react'
 import useStore, { todayStr } from '../store/useStore'
 import { cycleInfo, currentRung, stepUpDue } from '../lib/schedule'
 import { isDueToday, slotOf, isDueSlot, currentSlot, slotIsFlexible, needsProtocolSetup } from '../lib/daily'
-import { formatDose, formatUnitsLong, unitsFor, round } from '../lib/calc'
-import { mixVerdict } from '../lib/mixing'
+import { formatDose, formatUnitsLong, unitsFor, round, isNasal } from '../lib/calc'
 import { loadMatrix, LIB_TO_COMPOUND } from '../lib/mixMatrix'
 import { planShots, shotsHeadline, MAX_GROUP_ML } from '../lib/grouping'
 import { levelProgress, rankForLevel } from '../lib/gamification'
@@ -25,7 +24,6 @@ export default function Home({ goTo }) {
   const peptides = useStore((s) => s.peptides)
   const titration = useStore((s) => s.titration)
   const doseLogs = useStore((s) => s.doseLogs)
-  const knownGood = useStore((s) => s.knownGoodMixes)
   const openVials = useStore((s) => s.openVials)
   const vials = useStore((s) => s.vials)
   const gamification = useStore((s) => s.gamification)
@@ -82,20 +80,44 @@ export default function Home({ goTo }) {
     })
   }, [backupMeta, doseLogs, symptomLogs, measurements, photos])
 
-  // ---- "combine your shots" planner ----
-  // The chemistry matrix is a ~1.9 MB lazy chunk, so it's only pulled in once
-  // there are actually two or more shots left in this slot to reason about.
+  // ---- chemistry: one source for both the per-card hint and the plan ----
+  // The matrix is a ~1.9 MB lazy chunk, so it's only pulled in once there are
+  // two or more injections in this slot that could conceivably share a syringe.
   const [matrix, setMatrix] = useState(null)
+  const injectable = useMemo(() => slotDue.filter((p) => !isNasal(p)), [slotDue])
   useEffect(() => {
-    if (matrix || unloggedCount < 2) return
+    if (matrix || injectable.length < 2) return
     let alive = true
-    loadMatrix().then((m) => { if (alive) setMatrix(m) }).catch(() => { /* suggestions stay hidden */ })
+    loadMatrix().then((m) => { if (alive) setMatrix(m) }).catch(() => { /* hints stay hidden */ })
     return () => { alive = false }
-  }, [matrix, unloggedCount])
+  }, [matrix, injectable.length])
+
+  const verdictOf = useMemo(() => {
+    if (!matrix) return null
+    return (a, b) => matrix.lookup(LIB_TO_COMPOUND[a] || a, LIB_TO_COMPOUND[b] || b)?.verdict || null
+  }, [matrix])
+
+  // Who each peptide can actually share a syringe with, in the context of what
+  // else is due in this slot. Compatibility is pairwise, so this is computed —
+  // never a fixed per-peptide tag — and the plan below reads the same verdicts.
+  const partnersById = useMemo(() => {
+    const out = {}
+    if (!verdictOf) return out
+    for (const p of injectable) {
+      out[p.id] = p.alwaysSeparate ? [] : injectable.filter((o) => (
+        o.id !== p.id && !o.alwaysSeparate && verdictOf(p.id, o.id) === 'MIX'
+      ))
+    }
+    return out
+  }, [verdictOf, injectable])
+
+  const unloggedInjectable = useMemo(
+    () => injectable.filter((p) => !loggedToday.has(p.id)), [injectable, loggedToday]
+  )
 
   const plan = useMemo(() => {
-    if (!matrix || unlogged.length < 2) return null
-    const items = unlogged.map((p) => {
+    if (!matrix || unloggedInjectable.length < 2) return null
+    const items = unloggedInjectable.map((p) => {
       const units = unitsFor(p, currentRung(p, titration[p.id]).dose)
       return {
         id: p.id,
@@ -110,7 +132,7 @@ export default function Home({ goTo }) {
       }
     })
     return planShots(items, (a, b) => matrix.lookup(a, b)?.verdict || null)
-  }, [matrix, unlogged, titration])
+  }, [matrix, unloggedInjectable, titration])
 
   const acceptGroup = (group) => {
     setSelected(new Set(group.items.map((i) => i.id)))
@@ -279,7 +301,7 @@ export default function Home({ goTo }) {
       </CoachTip>
 
       {/* co-draw hint */}
-      {unloggedCount >= 2 && selected.size === 0 && !plan && (
+      {unloggedInjectable.length >= 2 && selected.size === 0 && !plan && (
         <p className="px-1 text-center text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
           Injecting more than one? Tap the circles to <span className="font-bold" style={{ color: 'var(--lime)' }}>log them together</span> as one <Term id="codraw" />.
         </p>
@@ -301,7 +323,7 @@ export default function Home({ goTo }) {
         )}
         {slotDue.map((p, i) => (
           <DueCard key={p.id} peptide={p} index={i} done={loggedToday.has(p.id)}
-            slotList={slotDue} titration={titration} knownGood={knownGood}
+            titration={titration} partners={partnersById[p.id]} slot={slot}
             onLog={() => setPicker(p)} goTo={goTo} today={t} doseLogs={doseLogs}
             selected={selected.has(p.id)} onToggleSelect={() => toggleSelect(p.id)}
             selectMode={selected.size > 0}
@@ -383,8 +405,8 @@ function ShotPlan({ plan, slot, onAccept }) {
 
       <p className="text-[10px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
         {combinable.length > 0
-          ? <>Grouped from the chemistry matrix, capped at {MAX_GROUP_ML} mL a syringe. A “safe to mix” verdict is not proof of compatibility — inspect every draw.</>
-          : <>Nothing here shares a syringe safely: a pair is only grouped when the matrix actually rates it, and never when it says don't mix.</>}
+          ? <>Only pairs the matrix rates <span className="font-bold">safe to mix</span> are combined, capped at {MAX_GROUP_ML} mL a syringe. That still isn't proof of compatibility — inspect every draw.</>
+          : <>Nothing here shares a syringe: a pair is combined only on a confirmed “safe to mix”, so caution, don't-mix and unrated pairs all get their own shot.</>}
       </p>
     </motion.div>
   )
@@ -416,12 +438,6 @@ function ShotRow({ group, onAccept }) {
         )}
       </div>
 
-      {group.caution && (
-        <p className="mt-1.5 flex items-start gap-1.5 text-[10px] font-bold" style={{ color: 'var(--amber)' }}>
-          <Eye size={12} className="mt-0.5 shrink-0" />
-          <span>Caution pair — you'll confirm the drawn solution is clear before it logs.</span>
-        </p>
-      )}
       {group.separate && (
         <p className="mt-1.5 flex items-start gap-1.5 text-[10px] font-bold" style={{ color: 'var(--rose)' }}>
           <Ban size={12} className="mt-0.5 shrink-0" />
@@ -448,23 +464,29 @@ export function StreakFlame({ streak, atRisk }) {
   )
 }
 
-function DueCard({ peptide: p, index, done, slotList, titration, knownGood, onLog, goTo, today, doseLogs, beckon, selected, onToggleSelect, selectMode }) {
+function DueCard({ peptide: p, index, done, titration, partners, slot, onLog, goTo, today, doseLogs, beckon, selected, onToggleSelect, selectMode }) {
   const tState = titration[p.id]
   const { dose, level, maxLevel } = currentRung(p, tState)
-  const units = unitsFor(p, dose)
+  const nasal = isNasal(p)
+  const units = nasal ? null : unitsFor(p, dose)
   const cyc = cycleInfo(p, today)
   const stepDue = stepUpDue(p, tState, today)
+  const noCoDraw = nasal || !!p.alwaysSeparate
 
-  // An always-separate compound is never a co-draw candidate, whatever the
-  // legacy pair rules would say about the names.
-  const partners = p.alwaysSeparate
-    ? []
-    : slotList.filter((o) => o.id !== p.id && !o.alwaysSeparate && mixVerdict(p.name, o.name, knownGood).verdict === 'green')
-  const hint = p.alwaysSeparate
-    ? { ok: false, text: p.vehicle === 'oil' ? 'Inject separately — oil-based' : 'Inject separately' }
-    : partners.length
-      ? { ok: true, text: `Co-draw OK with ${partners.map((x) => x.name).join(', ')}` }
-      : { ok: false, text: 'Inject separately' }
+  // The hint is pairwise and comes from the same matrix the combine plan reads,
+  // in the context of what else is due in this slot — so the two can never
+  // disagree. `partners` is undefined until the matrix resolves; that's the one
+  // case where no claim is made either way.
+  const when = slot === 'PM' ? 'tonight' : 'today'
+  const hint = nasal
+    ? { ok: false, text: 'Nasal spray — nothing to draw' }
+    : p.alwaysSeparate
+      ? { ok: false, text: p.vehicle === 'oil' ? 'Always its own shot — oil-based' : 'Always its own shot' }
+      : partners == null
+        ? null
+        : partners.length
+          ? { ok: true, text: `Can combine with ${partners.map((x) => x.name).join(', ')} ${when}` }
+          : { ok: false, text: `Best on its own ${when}` }
 
   // last site used for this peptide
   const lastSiteLog = [...doseLogs].filter((l) => l.peptideId === p.id && l.siteId).sort((a, b) => (b.loggedAt || b.date).localeCompare(a.loggedAt || a.date))[0]
@@ -477,10 +499,12 @@ function DueCard({ peptide: p, index, done, slotList, titration, knownGood, onLo
         : done ? { borderColor: 'color-mix(in srgb, var(--lime) 40%, transparent)' } : undefined}>
       <div className="flex items-center gap-3">
         {/* co-draw select toggle */}
-        {!done && (p.alwaysSeparate ? (
-          <span className="shrink-0" title="Always injected on its own — cannot be co-drawn"
-            aria-label={`${p.name} cannot be co-drawn`} style={{ color: 'var(--rose)', opacity: 0.7 }}>
-            <Ban size={24} />
+        {!done && (noCoDraw ? (
+          <span className="shrink-0"
+            title={nasal ? 'Sprayed, not injected — cannot be co-drawn' : 'Always injected on its own — cannot be co-drawn'}
+            aria-label={`${p.name} cannot be co-drawn`}
+            style={{ color: nasal ? 'var(--indigo)' : 'var(--rose)', opacity: 0.8 }}>
+            {nasal ? <Wind size={24} /> : <Ban size={24} />}
           </span>
         ) : (
           <motion.button whileTap={{ scale: 0.85 }} onClick={onToggleSelect}
@@ -496,14 +520,18 @@ function DueCard({ peptide: p, index, done, slotList, titration, knownGood, onLo
           </div>
           <p className="mt-0.5 text-2xl font-black tracking-tight">
             {formatDose(dose, p.ladder.unit)}
-            <span className="ml-2 text-sm font-bold" style={{ color: 'var(--lime)' }}>{formatUnitsLong(units)}</span>
+            {!nasal && (
+              <span className="ml-2 text-sm font-bold" style={{ color: 'var(--lime)' }}>{formatUnitsLong(units)}</span>
+            )}
           </p>
           <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
             <span className="flex items-center gap-1"><Clock size={11} /> {p.timing}</span>
             <span>{cyc.ongoing ? `day ${cyc.cycleDay} · ongoing` : `day ${cyc.cycleDay}/${cyc.onDays + cyc.offDays}`}</span>
-            <button className="flex items-center gap-1" style={{ color: hint.ok ? 'var(--lime)' : 'var(--muted)' }} onClick={() => goTo('mix')}>
-              <Combine size={11} /> {hint.text}
-            </button>
+            {hint && (
+              <button className="flex items-center gap-1" style={{ color: hint.ok ? 'var(--lime)' : 'var(--muted)' }} onClick={() => goTo('mix')}>
+                {nasal ? <Wind size={11} /> : <Combine size={11} />} {hint.text}
+              </button>
+            )}
             {done && lastSiteLog && (
               <span className="flex items-center gap-1" style={{ color: 'var(--lime)' }}>
                 <MapPin size={11} /> {SITE_BY_ID[lastSiteLog.siteId]?.label}

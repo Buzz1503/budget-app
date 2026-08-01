@@ -182,14 +182,13 @@ await step('History groups a co-draw as one injection event', async () => {
   await page.click('nav button:has-text("Home")')
   await page.click('button:has-text("AM")')
   await page.waitForTimeout(400)
-  const sel = page.locator('button[aria-label^="Select "]')
-  if (await sel.count() >= 2) {
-    await sel.nth(0).click(); await sel.nth(1).click()
+  // Selank + Semax is a confirmed MIX, so the co-draw goes through
+  const a = page.locator('button[aria-label="Select Selank to co-draw"]')
+  const b = page.locator('button[aria-label="Select Semax to co-draw"]')
+  if (await a.count() && await b.count()) {
+    await a.click(); await b.click()
     await page.click('button:has-text("Log together")')
-    await waitText(/pick one spot|Mix with caution|Don't co-draw/i)
-    if (await page.locator("button:has-text(\"Confirm it's clear\")").count()) {
-      await page.click("button:has-text(\"Confirm it's clear\")")
-    }
+    await waitText(/pick one spot|Not one shot/i)
     if (await page.locator('button:has-text("Log 2 together")').count()) {
       await page.click('button:has-text("Log 2 together")')
       await page.waitForTimeout(900)

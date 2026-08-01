@@ -95,16 +95,18 @@ await step('Change 1: MIX co-draw (Selank+Semax) logs to one site', async () => 
 })
 await page.screenshot({ path: `${SHOT}/v4-03-codraw.png` })
 
-await step('Change 1: CAUTION co-draw (Selank+SS-31) gates on inspection', async () => {
+await step('Change 1: CAUTION co-draw (Selank+SS-31) is refused outright', async () => {
   await page.evaluate(() => localStorage.clear())
   await page.reload({ waitUntil: 'networkidle' })
   await page.click('text=Got it'); await page.click('button:has-text("AM")'); await page.waitForTimeout(300)
   await sel('Selank'); await sel('SS-31')
   await page.click('button:has-text("Log together")')
-  await waitText(/Mix with caution/)
-  if (!(await page.locator("button:has-text(\"Confirm it's clear\")").count())) throw new Error('inspection gate missing')
-  await page.click("button:has-text(\"Confirm it's clear\")")
-  await waitText(/pick one spot/i)
+  await waitText(/Not one shot — inject these separately/)
+  if (await page.locator("button:has-text(\"Confirm it's clear\")").count()) {
+    throw new Error('a caution pair can still be talked into one syringe')
+  }
+  const body = await page.textContent('body')
+  if (/pick one spot/i.test(body)) throw new Error('a site picker was offered for a caution pair')
 })
 await page.screenshot({ path: `${SHOT}/v4-04-caution.png` })
 
@@ -116,7 +118,7 @@ await step('Change 1: DONT_MIX pair (Reta+Tesa) is blocked', async () => {
   if (!(await page.locator('button[aria-label="Select Retatrutide to co-draw"]').count())) throw new Error('Retatrutide not due in AM today')
   await sel('Retatrutide'); await sel('Tesamorelin')
   await page.click('button:has-text("Log together")')
-  await waitText(/Don't co-draw/)
+  await waitText(/Not one shot — inject these separately/)
 })
 await page.screenshot({ path: `${SHOT}/v4-05-blocked.png` })
 

@@ -3,7 +3,8 @@ import { format } from 'date-fns'
 
 const wk = (n) => n * 7
 
-// frequency: daily | nightly | weekly | 3xweek | 5on2off
+// frequency: daily | nightly | weekly | 2xweek | 3xweek | 5on2off
+// intranasalCapable: can be switched to a nasal spray (same prep and strength)
 export function seedPeptides(todayStr) {
   const start = todayStr || format(new Date(), 'yyyy-MM-dd')
   const p = (o) => ({ route: 'SubQ', startDate: start, ...o })
@@ -12,11 +13,11 @@ export function seedPeptides(todayStr) {
       cycleOnDays: 0, cycleOffDays: 0,
       ladder: { floor: 0.5, step: 0.5, intervalWeeks: 4, ceiling: 2, unit: 'mg' },
       recon: { vialMg: 20, bacMl: 4, expiryDays: 28 } }),
-    p({ id: 'selank', name: 'Selank', frequency: 'daily', timing: 'Flexible',
+    p({ id: 'selank', name: 'Selank', intranasalCapable: true, frequency: 'daily', timing: 'Flexible',
       cycleOnDays: wk(8), cycleOffDays: wk(8),
       ladder: { floor: 250, step: 50, intervalWeeks: 1, ceiling: 500, unit: 'mcg' },
       recon: { vialMg: 10, bacMl: 2, expiryDays: 28 } }),
-    p({ id: 'semax', name: 'Semax', frequency: 'daily', timing: 'Morning',
+    p({ id: 'semax', name: 'Semax', intranasalCapable: true, frequency: 'daily', timing: 'Morning',
       cycleOnDays: wk(6), cycleOffDays: wk(2),
       ladder: { floor: 300, step: 150, intervalWeeks: 1, ceiling: 1000, unit: 'mcg' },
       recon: { vialMg: 10, bacMl: 2, expiryDays: 28 } }),
@@ -122,5 +123,6 @@ export const SEED_NEEDLE_NOTES = [
   { id: 'sites', title: 'Injection sites', body: 'Abdomen (5 cm away from the navel), front/outer thigh, or back of upper arm. Pinch the skin, insert at 45–90°, inject slowly.' },
   { id: 'rotation', title: 'Rotate sites', body: 'Rotate between sites and within a site — never inject the same spot twice in a row. Keep any single site under ~1.5 mL.' },
   { id: 'hygiene', title: 'Hygiene', body: 'Swab vial tops and skin with an alcohol wipe. One needle, one use — never reuse or share. Sharps go in a proper container.' },
+  { id: 'nasal', title: 'Nasal spray prep (Semax / Selank)', body: 'Reconstitute a 10 mg vial with 2 mL bacteriostatic water.\nTransfer the entire 2 mL (all 10 mg) into a nasal spray bottle.\nAdd 3 mL sterile saline → final volume 5 mL.\n\n10 mg ÷ 5 mL = 2 mg/mL (2,000 mcg/mL). At 0.1 mL per spray that is 200 mcg per spray, so a 5 mL bottle is about 50 sprays (10,000 mcg total).\n\nSame recipe and strength for both. Blow your nose first, aim slightly outward toward the ear, sniff gently — hard sniffing sends it down your throat instead.' },
   { id: 'oil', title: 'Oil-based injectables (e.g. test E)', body: 'Different routine to the SubQ insulin-syringe peptides above — do not reuse that setup. Oil is viscous: draw slowly with a wider needle, then swap to a fresh one to inject, and push slowly.\n\nIM: ~23–25 g, 1–1.5" (glute, delt or quad).\nSubQ TRT: ~27–29 g, 1/2".\n\nThe vial is already in solution at a stated mg/mL — there is no powder to reconstitute. Never draw it into the same syringe as a peptide.' },
 ]

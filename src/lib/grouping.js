@@ -1,17 +1,13 @@
 // "Combine your shots" planner. Given everything due in one slot, work out the
-// fewest syringes that can carry it — every pair inside a syringe must have a
-// real MIX or CAUTION verdict from the chemistry matrix.
+// fewest syringes that can carry it.
 //
-// Deliberately conservative in two places:
-//   • a pair with no matrix entry is NOT grouped. The co-draw modal treats
-//     missing data as CAUTION so a user-initiated mix still hits the inspection
-//     gate, but this engine *proposes* mixes unprompted, so it only proposes
-//     what the data actually supports.
-//   • CAUTION groups are allowed but flagged; accepting one routes through the
-//     co-draw flow, which will not log until visual inspection is confirmed.
+// A pair shares a syringe ONLY on a confirmed MIX verdict. CAUTION, DONT_MIX
+// and NEVER are all inject-separately here, and so is a pair the matrix has no
+// entry for — "no conflict found" is the only thing this engine will act on,
+// and anything short of that gets its own shot.
 
 export const MAX_GROUP_ML = 1.5
-const GROUPABLE = new Set(['MIX', 'CAUTION'])
+const GROUPABLE = new Set(['MIX'])
 const EPS = 1e-9
 
 // Above this many poolable items the exhaustive search is replaced by a greedy
@@ -31,27 +27,23 @@ function pairVerdicts(items, verdictOf) {
 
 function groupSummary(members, verdict) {
   const pairs = []
-  let caution = false
   for (let i = 0; i < members.length; i++) {
     for (let j = i + 1; j < members.length; j++) {
-      const v = verdict(members[i], members[j])
-      if (v === 'CAUTION') caution = true
-      pairs.push({ a: members[i].name, b: members[j].name, verdict: v })
+      pairs.push({ a: members[i].name, b: members[j].name, verdict: verdict(members[i], members[j]) })
     }
   }
   return {
     items: members,
     units: members.reduce((s, m) => s + (m.units || 0), 0),
     ml: members.reduce((s, m) => s + (m.ml || 0), 0),
-    caution,
     pairs,
     separate: false,
   }
 }
 
-// Scores are [groupCount, cautionGroups, -largestGroup] — fewest syringes first,
-// then the fewest syringes that need a visual-inspection gate, then the chunkier
-// merge so the answer is stable rather than whichever partition came up first.
+// Scores are [groupCount, -largestGroup] — fewest syringes first, then the
+// chunkier merge so the answer is stable rather than whichever partition
+// happened to come up first.
 function better(a, b) {
   for (let i = 0; i < a.length; i++) {
     if (a[i] !== b[i]) return a[i] < b[i]
@@ -69,7 +61,7 @@ function greedy(items, canPair, fits) {
   return groups
 }
 
-function exhaustive(items, canPair, fits, isCaution) {
+function exhaustive(items, canPair, fits) {
   let best = null
   let bestScore = null
   const cur = []
@@ -78,11 +70,7 @@ function exhaustive(items, canPair, fits, isCaution) {
     // can never beat a solution that already uses fewer syringes
     if (bestScore && cur.length > bestScore[0]) return
     if (i === items.length) {
-      const score = [
-        cur.length,
-        cur.filter((g) => g.some((m, mi) => g.some((n, ni) => ni > mi && isCaution(m, n)))).length,
-        -Math.max(...cur.map((g) => g.length), 0),
-      ]
+      const score = [cur.length, -Math.max(...cur.map((g) => g.length), 0)]
       if (!bestScore || better(score, bestScore)) {
         bestScore = score
         best = cur.map((g) => [...g])
@@ -126,21 +114,19 @@ export function planShots(items, verdictOf, { maxMl = MAX_GROUP_ML } = {}) {
 
   const verdict = pairVerdicts(indexed, verdictOf)
   const canPair = (a, b) => GROUPABLE.has(verdict(a, b))
-  const isCaution = (a, b) => verdict(a, b) === 'CAUTION'
   const fits = (g, it) => g.reduce((s, m) => s + m.ml, 0) + it.ml <= maxMl + EPS
 
   const raw = poolable.length === 0
     ? []
     : poolable.length > MAX_BRUTE_FORCE
       ? greedy(poolable, canPair, fits)
-      : exhaustive(poolable, canPair, fits, isCaution)
+      : exhaustive(poolable, canPair, fits)
 
   const groups = raw.map((members) => groupSummary(members, verdict))
   const singles = forced.map((it) => ({
     items: [it],
     units: it.units || 0,
     ml: it.ml || 0,
-    caution: false,
     pairs: [],
     separate: !!it.separate,
     separateReason: it.separateReason || null,

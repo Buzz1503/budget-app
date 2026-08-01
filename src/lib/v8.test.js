@@ -175,17 +175,18 @@ describe('planShots', () => {
     expect(plan.shots).toBe(2)
   })
 
-  it('groups CAUTION but flags it for the inspection gate', () => {
+  // v10 tightened this: a CAUTION pair is no longer combinable at all.
+  it('never groups a CAUTION pair', () => {
     const plan = planShots([item('a'), item('e')], verdictOf)
-    expect(plan.shots).toBe(1)
-    expect(plan.groups[0].caution).toBe(true)
+    expect(plan.shots).toBe(2)
   })
 
-  it('prefers the grouping with fewer caution syringes at equal shot count', () => {
-    // a,b,e all pair; a-b is MIX, a-e / b-e are CAUTION.
+  it('a CAUTION pair splits the group even when the rest are MIX', () => {
+    // a-b is MIX, but a-e and b-e are CAUTION, so e cannot join them
     const plan = planShots([item('a'), item('b'), item('e')], verdictOf)
-    expect(plan.shots).toBe(1) // one syringe still beats two
-    expect(plan.groups[0].items).toHaveLength(3)
+    expect(plan.shots).toBe(2)
+    const withE = plan.groups.find((g) => g.items.some((i) => i.id === 'e'))
+    expect(withE.items).toHaveLength(1)
   })
 
   it('does not group a pair the matrix has no verdict for', () => {

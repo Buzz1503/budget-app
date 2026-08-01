@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { MapPin, Check, ShieldAlert, Ban, Eye, AlertTriangle, Clock } from 'lucide-react'
+import { MapPin, Check, Ban, Clock } from 'lucide-react'
 import useStore, { todayStr } from '../store/useStore'
 import Modal from './ui/Modal'
 import BodyMap from './BodyMap'
@@ -11,8 +11,16 @@ import { toMg, doseToUnits, concentration, formatDose, formatUnits } from '../li
 
 const SEVERITY = { MIX: 0, CAUTION: 1, DONT_MIX: 2, NEVER: 3 }
 
+// Plain-English reason a pair can't share a syringe.
+const BLOCK_REASON = {
+  CAUTION: 'The chemistry model flags a possible conflict for this pair. Only confirmed-compatible pairs share a syringe here.',
+  DONT_MIX: null, // the matrix note says it better
+  NEVER: null,
+}
+
 // Co-draw = one shot into one site. Runs the Mix engine over every selected pair
-// first: DONT_MIX/NEVER blocks, CAUTION gates on visual inspection, then one site.
+// first: only a confirmed MIX may share a syringe. CAUTION, DONT_MIX, NEVER and
+// "no data" all block, and the user is told to inject those separately.
 export default function CoDrawModal({ open, onClose, peptides }) {
   const titration = useStore((s) => s.titration)
   const doseLogs = useStore((s) => s.doseLogs)
@@ -20,7 +28,7 @@ export default function CoDrawModal({ open, onClose, peptides }) {
   const t = todayStr()
 
   const [matrix, setMatrix] = useState(null)
-  const [phase, setPhase] = useState('loading') // loading | blocked | inspect | site
+  const [phase, setPhase] = useState('loading') // loading | blocked | site
   const [picked, setPicked] = useState(null)
 
   useEffect(() => {
@@ -34,7 +42,7 @@ export default function CoDrawModal({ open, onClose, peptides }) {
   // evaluate all pairs once the matrix is ready
   const review = useMemo(() => {
     if (!matrix || !peptides?.length) return null
-    const problems = [], cautions = []
+    const problems = []
     let worst = 'MIX'
     // Always-separate compounds (oil-based, different route) never reach the
     // chemistry matrix — they're excluded from co-draws before any pair is
@@ -57,24 +65,21 @@ export default function CoDrawModal({ open, onClose, peptides }) {
         const ca = LIB_TO_COMPOUND[a.id] || a.id
         const cb = LIB_TO_COMPOUND[b.id] || b.id
         const pair = matrix.lookup(ca, cb)
-        // No chemistry data (e.g. a custom peptide) is NOT a pass — fall back to
-        // caution so it still goes through the visual-inspection gate.
+        // Only a confirmed MIX shares a syringe. No chemistry data (e.g. a
+        // custom peptide) is not a pass — it lands on CAUTION and blocks.
         const verdict = pair?.verdict || 'CAUTION'
-        const reason = pair?.note || pair?.reason
-          || 'No chemistry data for this pair — treat as unverified and inspect the drawn solution carefully.'
+        const reason = BLOCK_REASON[verdict] || pair?.note || pair?.reason
+          || 'No chemistry data for this pair, so it has not been confirmed compatible.'
         if (SEVERITY[verdict] > SEVERITY[worst]) worst = verdict
-        if (verdict === 'DONT_MIX' || verdict === 'NEVER') problems.push({ a: a.name, b: b.name, verdict, reason })
-        else if (verdict === 'CAUTION') cautions.push({ a: a.name, b: b.name, reason })
+        if (verdict !== 'MIX') problems.push({ a: a.name, b: b.name, verdict, reason })
       }
     }
-    return { worst, problems, cautions }
+    return { worst, problems }
   }, [matrix, peptides])
 
   useEffect(() => {
     if (!review) return
-    if (review.problems.length) setPhase('blocked')
-    else if (review.cautions.length) setPhase('inspect')
-    else setPhase('site')
+    setPhase(review.problems.length ? 'blocked' : 'site')
   }, [review])
 
   const suggestion = useMemo(() => suggestSite(doseLogs, t), [doseLogs, t])
@@ -116,12 +121,16 @@ export default function CoDrawModal({ open, onClose, peptides }) {
         {phase === 'blocked' && review && (
           <div className="rounded-2xl p-4" style={{ background: 'color-mix(in srgb, var(--coral) 14%, transparent)', border: '1px solid color-mix(in srgb, var(--coral) 40%, transparent)' }}>
             <p className="flex items-center gap-1.5 text-sm font-extrabold" style={{ color: 'var(--coral)' }}>
-              <Ban size={16} /> Don't co-draw these
+              <Ban size={16} /> Not one shot — inject these separately
             </p>
             <div className="mt-2 space-y-2">
               {review.problems.map((p, i) => (
                 <div key={i} className="text-xs">
-                  <p className="font-bold">{p.a} + {p.b} <span style={{ color: p.verdict === 'NEVER' ? 'var(--rose)' : 'var(--coral)' }}>· {p.verdict === 'NEVER' ? 'never' : "don't mix"}</span></p>
+                  <p className="font-bold">{p.a} + {p.b}{' '}
+                    <span style={{ color: p.verdict === 'NEVER' ? 'var(--rose)' : p.verdict === 'CAUTION' ? 'var(--amber)' : 'var(--coral)' }}>
+                      · {p.verdict === 'NEVER' ? 'never' : p.verdict === 'CAUTION' ? 'not confirmed' : "don't mix"}
+                    </span>
+                  </p>
                   <p className="font-medium" style={{ color: 'var(--muted)' }}>{p.reason}</p>
                 </div>
               ))}
@@ -135,35 +144,11 @@ export default function CoDrawModal({ open, onClose, peptides }) {
           </div>
         )}
 
-        {phase === 'inspect' && review && (
-          <div className="rounded-2xl p-4" style={{ background: 'color-mix(in srgb, var(--amber) 16%, transparent)', border: '1px solid color-mix(in srgb, var(--amber) 40%, transparent)' }}>
-            <p className="flex items-center gap-1.5 text-sm font-extrabold" style={{ color: 'var(--amber)' }}>
-              <ShieldAlert size={16} /> Mix with caution
-            </p>
-            <div className="mt-1.5 space-y-1">
-              {review.cautions.map((c, i) => (
-                <p key={i} className="text-[11px] font-medium" style={{ color: 'var(--muted)' }}>
-                  <span className="font-bold" style={{ color: 'var(--text)' }}>{c.a} + {c.b}:</span> {c.reason}
-                </p>
-              ))}
-            </div>
-            <p className="mt-2 flex items-start gap-1.5 text-xs font-semibold" style={{ color: 'var(--text)' }}>
-              <Eye size={14} className="mt-0.5 shrink-0" style={{ color: 'var(--amber)' }} />
-              Draw them, then inspect — hazy, stringy, discoloured or particulate means discard. Only inject if it's clear.
-            </p>
-            <button onClick={() => setPhase('site')} className="mt-3 w-full rounded-xl py-2.5 text-sm font-black" style={{ background: 'var(--amber)', color: '#1a1200' }}>
-              Confirm it's clear — continue
-            </button>
-          </div>
-        )}
-
         {phase === 'site' && (
           <>
-            {review?.cautions.length ? null : (
-              <p className="flex items-center justify-center gap-1.5 text-xs font-bold" style={{ color: 'var(--lime)' }}>
-                <Check size={13} /> All pairs compatible — one shot, one site
-              </p>
-            )}
+            <p className="flex items-center justify-center gap-1.5 text-xs font-bold" style={{ color: 'var(--lime)' }}>
+              <Check size={13} /> Every pair is a confirmed mix — one shot, one site
+            </p>
             {last && (
               <p className="flex items-center gap-1.5 rounded-xl p-2.5 text-xs font-bold" style={{ background: 'var(--surface2)' }}>
                 <Clock size={13} className="shrink-0" style={{ color: 'var(--muted)' }} />

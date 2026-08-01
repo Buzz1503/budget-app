@@ -11,7 +11,7 @@ import { isDueToday } from '../lib/daily'
 import { perfectRotation } from '../lib/sites'
 import { enrichPeptide } from '../lib/reference'
 import { countEntries } from '../lib/backup'
-import { toMg, doseToUnits, concentration } from '../lib/calc'
+import { toMg, doseToUnits, concentration, isNasal, convertLadderForRoute } from '../lib/calc'
 import { XP, rankUpInfo } from '../lib/gamification'
 
 export const todayStr = () => format(new Date(), 'yyyy-MM-dd')
@@ -84,6 +84,21 @@ const useStore = create(
       updateLadder(id, patch) {
         set((s) => ({
           peptides: s.peptides.map((p) => (p.id === id ? { ...p, ladder: { ...p.ladder, ...patch } } : p)),
+        }))
+      },
+      // Switching between injecting and spraying changes the unit the dose is
+      // counted in, so the ladder is converted rather than left reading mcg for
+      // a spray bottle. Rounded to whole sprays and never below one — the
+      // resulting mcg is shown right next to it, so any change is visible.
+      setRoute(id, route) {
+        set((s) => ({
+          peptides: s.peptides.map((p) => {
+            if (p.id !== id) return p
+            const wasNasal = p.route === 'Nasal'
+            const nowNasal = route === 'Nasal'
+            if (wasNasal === nowNasal) return { ...p, route }
+            return { ...p, route, ladder: convertLadderForRoute(p.ladder, nowNasal) }
+          }),
         }))
       },
       updateRecon(id, patch) {
@@ -185,8 +200,12 @@ const useStore = create(
         const log = {
           id: `log-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
           peptideId, date: t, doseValue: dose, unit: p.ladder.unit,
-          insulinUnits: Math.round(doseToUnits(doseMg, conc) * 10) / 10,
-          siteId: siteId || null, loggedAt: loggedAt || new Date().toISOString(),
+          // a nasal dose isn't drawn into a syringe, so it has no unit count
+          // and no injection site
+          insulinUnits: isNasal(p) ? null : Math.round(doseToUnits(doseMg, conc) * 10) / 10,
+          route: p.route || 'SubQ',
+          siteId: isNasal(p) ? null : (siteId || null),
+          loggedAt: loggedAt || new Date().toISOString(),
           coDrawId: coDrawId || null,
         }
         // inventory: draw from the open vial; auto-open a sealed one when depleted
@@ -525,15 +544,29 @@ const useStore = create(
     }),
     {
       name: 'peptide-command-center', // storage key is history — renaming it would orphan existing data
-      version: 1,
+      version: 2,
       storage: createJSONStorage(() => safeStorage),
-      // v1 introduced the oil-based injectable. A save written before it exists
-      // has no way to pick it up from the seed, so add it here — once. Deleting
-      // it afterwards sticks, because the migration only runs on the version bump.
+      // Saves written before a release can't pick new library entries up from
+      // the seed, so each version bump backfills them here — once. Deleting one
+      // afterwards sticks, because the migration only runs on the bump.
+      //   v1: the oil-based injectable
+      //   v2: the intranasal-capable flag on Semax / Selank
       migrate: (persisted, from) => {
-        if (!persisted || from >= 1) return persisted
+        if (!persisted || from >= 2) return persisted
         const s = { ...persisted }
         const t = todayStr()
+        if (from < 2) {
+          // v2: Semax and Selank can be switched to a nasal spray. The flag only
+          // offers the choice — the route itself stays whatever the user has.
+          s.peptides = (s.peptides || []).map((p) => (
+            ['semax', 'selank'].includes(p.id) ? { ...p, intranasalCapable: true } : p
+          ))
+        }
+        if (from >= 1) {
+          const have1 = new Set((s.needleNotes || []).map((n) => n.id))
+          s.needleNotes = [...(s.needleNotes || []), ...SEED_NEEDLE_NOTES.filter((n) => !have1.has(n.id))]
+          return s
+        }
         if (!s.peptides?.some((p) => p.id === TEST_E_ID)) {
           const te = testosteroneEnanthate(t)
           s.peptides = [...(s.peptides || []), te]

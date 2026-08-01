@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  MapPin, Check, ChevronDown, ChevronLeft, Sparkles, Clock, HelpCircle, Syringe,
+  MapPin, Check, ChevronDown, ChevronLeft, Sparkles, Clock, HelpCircle, Syringe, Wind,
 } from 'lucide-react'
 import useStore, { todayStr } from '../store/useStore'
 import Modal from './ui/Modal'
@@ -12,7 +12,9 @@ import {
   SITE_BY_ID, suggestSite, daysSince, sitesForRoute, regionsForRoute,
   sitesInRegionGroup, daysWords, restedWords, lastShot, suggestionReason,
 } from '../lib/sites'
-import { formatDose, formatUnitsLong, isPremixed } from '../lib/calc'
+import {
+  formatDose, formatUnitsLong, isPremixed, isNasal, fromMg, nasalStrength, NASAL_RECIPE, round,
+} from '../lib/calc'
 
 // Opens when the user taps Log. Built for someone who has never injected: the
 // recommendation is spelled out in body landmarks, the map is labelled, and
@@ -20,6 +22,7 @@ import { formatDose, formatUnitsLong, isPremixed } from '../lib/calc'
 export default function SitePicker({ open, onClose, peptide, dose, unit, units }) {
   const doseLogs = useStore((s) => s.doseLogs)
   const logDose = useStore((s) => s.logDose)
+  const openVial = useStore((s) => s.openVials?.[peptide?.id])
   const t = todayStr()
 
   const route = peptide?.route === 'IM' ? 'IM' : 'SubQ'
@@ -41,6 +44,11 @@ export default function SitePicker({ open, onClose, peptide, dose, unit, units }
   const rested = daysSince(chosen, doseLogs, t)
   const last = useMemo(() => lastShot(doseLogs, t, route), [doseLogs, t, route])
   const reason = useMemo(() => suggestionReason(suggestion, doseLogs, t), [suggestion, doseLogs, t])
+
+  const confirmNasal = () => {
+    logDose(peptide.id, null)
+    setDone({ label: `${formatDose(dose, unit)}`, nasal: true })
+  }
 
   const confirm = () => {
     const site = SITE_BY_ID[chosen]
@@ -70,15 +78,77 @@ export default function SitePicker({ open, onClose, peptide, dose, unit, units }
             </motion.div>
             <p className="text-base font-black">Logged — {done.label}</p>
             <p className="mt-1 text-xs font-semibold" style={{ color: 'var(--muted)' }}>
-              {formatDose(dose, unit)} · {formatUnitsLong(units)} · {peptide.name}
+              {done.nasal
+                ? `${peptide.name} · nasal spray`
+                : `${formatDose(dose, unit)} · ${formatUnitsLong(units)} · ${peptide.name}`}
             </p>
           </div>
+          {done.nasal && (
+            <p className="px-1 text-center text-xs font-semibold" style={{ color: 'var(--muted)' }}>
+              Nothing to rotate — sprays alternate nostrils, not injection sites.
+            </p>
+          )}
           {done.next && (
             <p className="px-1 text-center text-xs font-semibold" style={{ color: 'var(--muted)' }}>
               Next time we'll steer you to <span className="font-black" style={{ color: 'var(--text)' }}>{done.next}</span> to keep rotating.
             </p>
           )}
           <button onClick={close} className="btn-primary w-full rounded-xl py-3 text-sm font-black">Done</button>
+        </div>
+      </Modal>
+    )
+  }
+
+  // ---- nasal: no site, no syringe, no map ----
+  if (isNasal(peptide)) {
+    const strength = nasalStrength(peptide.nasal || NASAL_RECIPE)
+    const spraysLeft = openVial?.remainingMg > 0
+      ? Math.floor(fromMg(openVial.remainingMg, 'spray'))
+      : null
+    return (
+      <Modal open={open} onClose={close} title={`Take ${peptide.name}`}>
+        <div className="space-y-3">
+          <div className="rounded-xl p-4 text-center" style={{ background: 'var(--surface2)' }}>
+            <p className="text-2xl font-black tracking-tight">{formatDose(dose, unit)}</p>
+            <p className="mt-0.5 text-[11px] font-bold" style={{ color: 'var(--muted)' }}>
+              Nasal spray · {strength.mcgPerSpray} mcg per spray
+            </p>
+          </div>
+
+          <CoachTip id="nasal-spray" tone="indigo">
+            Blow your nose first. Aim the nozzle slightly outward, toward the same-side ear —
+            not straight up — and sniff gently. Alternate nostrils if you're taking more than one spray.
+          </CoachTip>
+
+          {spraysLeft != null && (
+            <p className="flex items-center gap-1.5 rounded-xl p-2.5 text-xs font-bold" style={{ background: 'var(--surface2)' }}>
+              <Wind size={13} className="shrink-0" style={{ color: 'var(--indigo)' }} />
+              About {spraysLeft} spray{spraysLeft === 1 ? '' : 's'} left in the bottle.
+            </p>
+          )}
+
+          <div className="rounded-xl" style={{ background: 'var(--surface2)' }}>
+            <button onClick={() => setHowTo((v) => !v)}
+              className="flex w-full items-center justify-between gap-2 p-3 text-left">
+              <span className="flex items-center gap-1.5 text-xs font-black">
+                <HelpCircle size={14} style={{ color: 'var(--indigo)' }} /> How do I prepare the spray?
+              </span>
+              <motion.span animate={{ rotate: howTo ? 180 : 0 }}><ChevronDown size={15} style={{ color: 'var(--muted)' }} /></motion.span>
+            </button>
+            <AnimatePresence initial={false}>
+              {howTo && (
+                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+                  className="overflow-hidden">
+                  <NasalRecipe recipe={peptide.nasal || NASAL_RECIPE} strength={strength} />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          <motion.button whileTap={{ scale: 0.97 }} onClick={confirmNasal}
+            className="btn-primary flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-black">
+            <Wind size={18} strokeWidth={2.5} /> Log {formatDose(dose, unit)}
+          </motion.button>
         </div>
       </Modal>
     )
@@ -264,3 +334,37 @@ const IM_STEPS = [
   'Press the plunger slowly — oil takes longer than water. Count to five.',
   'Withdraw, press with a clean cotton pad, and put the needle straight into the sharps bin.',
 ]
+
+// The prep, spelled out. Every number is derived from the recipe above it, so
+// an edited vial or bottle size stays self-consistent.
+export function NasalRecipe({ recipe = NASAL_RECIPE, strength = null }) {
+  const s = strength || nasalStrength(recipe)
+  const steps = [
+    `Reconstitute a ${recipe.vialMg} mg vial with ${recipe.bacMl} mL bacteriostatic water.`,
+    `Transfer the entire ${recipe.bacMl} mL (all ${recipe.vialMg} mg) into a nasal spray bottle.`,
+    `Add ${recipe.salineMl} mL sterile saline → final volume ${s.bottleMl} mL.`,
+  ]
+  return (
+    <div className="px-3 pb-3">
+      <ol className="space-y-1.5 text-[11px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+        {steps.map((line, i) => (
+          <li key={i} className="flex gap-2">
+            <span className="font-black" style={{ color: 'var(--indigo)' }}>{i + 1}.</span>
+            <span>{line}</span>
+          </li>
+        ))}
+      </ol>
+      <p className="mt-2 rounded-lg p-2 text-[11px] font-bold leading-relaxed"
+        style={{ background: 'color-mix(in srgb, var(--indigo) 14%, transparent)' }}>
+        {recipe.vialMg} mg ÷ {s.bottleMl} mL = {round(s.mgPerMl, 3)} mg/mL ({s.mcgPerMl.toLocaleString()} mcg/mL).
+        At {recipe.sprayMl} mL per spray that is{' '}
+        <span style={{ color: 'var(--lime)' }}>{s.mcgPerSpray} mcg per spray</span> — about {s.spraysPerBottle} sprays
+        per bottle ({s.totalMcg.toLocaleString()} mcg total).
+      </p>
+      <p className="mt-1.5 text-[10px] font-medium" style={{ color: 'var(--muted)' }}>
+        1 spray = {s.mcgPerSpray} mcg · 2 = {s.mcgPerSpray * 2} mcg · 3 = {s.mcgPerSpray * 3} mcg. Editable — these are
+        the defaults, not medical advice.
+      </p>
+    </div>
+  )
+}

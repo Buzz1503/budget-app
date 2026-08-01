@@ -4,13 +4,14 @@ import { ArrowLeftRight, Droplet } from 'lucide-react'
 import useStore from '../store/useStore'
 import {
   concentration, concentrationOf, doseToUnits, unitsToDoseMg, unitsToMl,
-  toMg, fromMg, round, isPremixed, premixedVialMg,
+  toMg, fromMg, round, isPremixed, premixedVialMg, isNasal,
 } from '../lib/calc'
 import Syringe from './ui/Syringe'
 import CountUp from './ui/CountUp'
 
 export default function CalcTab() {
-  const peptides = useStore((s) => s.peptides)
+  // nasal peptides are dosed in sprays, not drawn — nothing to calculate here
+  const peptides = useStore((s) => s.peptides).filter((p) => !isNasal(p))
   const [pid, setPid] = useState(peptides[0]?.id || '')
   const selected = peptides.find((p) => p.id === pid)
 

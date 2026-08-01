@@ -5,6 +5,7 @@ import useStore from '../store/useStore'
 import { currentRung, cycleInfo } from '../lib/schedule'
 import {
   formatDose, formatUnitsLong, round, isPremixed, concentrationOf, premixedVialMg, unitsFor,
+  isNasal, NASAL_RECIPE, nasalStrength,
 } from '../lib/calc'
 import { WEEKDAYS, weekdayPickCount, scheduledWeekdaySet, slotOf, needsProtocolSetup } from '../lib/daily'
 import { loadMatrix, compoundColor } from '../lib/mixMatrix'
@@ -12,19 +13,37 @@ import { referenceFor, protocolTextFrom, referenceAttachment, isExcludedTier } f
 import ReferenceInfo, { TierBadge } from './ReferenceInfo'
 import Modal from './ui/Modal'
 import Term from './ui/Term'
+import { NasalRecipe } from './SitePicker'
 
 const FREQ_LABELS = {
   daily: 'Daily', nightly: 'Nightly', weekly: 'Weekly', '2xweek': '2×/week', '3xweek': '3×/week', '5on2off': '5 on / 2 off',
 }
 
 const ROUTES = [
-  ['SubQ', 'Subcutaneous'],
-  ['IM', 'Intramuscular'],
+  ['SubQ', 'Subcutaneous (injected)'],
+  ['IM', 'Intramuscular (injected)'],
 ]
+// Only offered on compounds flagged intranasal-capable — the same prep and
+// strength applies to all of them.
+const NASAL_ROUTE = ['Nasal', 'Intranasal (spray)']
+
+const isNasalRoute = isNasal
+
+function routesFor(p) {
+  return p?.intranasalCapable ? [...ROUTES, NASAL_ROUTE] : ROUTES
+}
+
+// The ladder is counted in sprays for a nasal peptide, mcg/mg otherwise.
+function unitLabel(unit) {
+  return unit === 'spray' ? 'sprays' : unit
+}
 
 // Route-specific needle guidance. Oil is a different routine to the SubQ
 // insulin-syringe peptide flow and says so wherever it appears.
 export function needleHint(p) {
+  if (p.route === 'Nasal') {
+    return 'No needle — one actuation of the nasal spray per "spray". Blow your nose first, aim slightly outward toward the same-side ear, and sniff gently.'
+  }
   const oil = p.vehicle === 'oil'
   if (p.route === 'IM') {
     return oil
@@ -220,6 +239,7 @@ export function PeptideEditor({ peptide: p }) {
   const updateLadder = useStore((s) => s.updateLadder)
   const updateRecon = useStore((s) => s.updateRecon)
   const removePeptide = useStore((s) => s.removePeptide)
+  const setRoute = useStore((s) => s.setRoute)
   const titration = useStore((s) => s.titration)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const currentDose = currentRung(p, titration[p.id]).dose
@@ -243,8 +263,9 @@ export function PeptideEditor({ peptide: p }) {
             <input type="date" className="input" value={p.startDate} onChange={(e) => e.target.value && updatePeptide(p.id, { startDate: e.target.value })} />
           </Field>
           <Field label="Route">
-            <select className="input" value={p.route === 'IM' ? 'IM' : 'SubQ'} onChange={(e) => updatePeptide(p.id, { route: e.target.value })}>
-              {ROUTES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            <select className="input" value={['IM', 'Nasal'].includes(p.route) ? p.route : 'SubQ'}
+              onChange={(e) => setRoute(p.id, e.target.value)}>
+              {routesFor(p).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
             </select>
           </Field>
           <Field label="Preparation">
@@ -317,18 +338,43 @@ export function PeptideEditor({ peptide: p }) {
           <Term id="titration">Titration</Term> ladder
         </p>
         <div className="grid grid-cols-2 gap-3">
-          <Field label={`Floor (${p.ladder.unit})`}><Num value={p.ladder.floor} onChange={(v) => updateLadder(p.id, { floor: v })} /></Field>
-          <Field label={`Step (${p.ladder.unit})`}><Num value={p.ladder.step} onChange={(v) => updateLadder(p.id, { step: v })} /></Field>
+          <Field label={`Floor (${unitLabel(p.ladder.unit)})`}><Num value={p.ladder.floor} onChange={(v) => updateLadder(p.id, { floor: v })} /></Field>
+          <Field label={`Step (${unitLabel(p.ladder.unit)})`}><Num value={p.ladder.step} onChange={(v) => updateLadder(p.id, { step: v })} /></Field>
           <Field label="Interval (weeks)"><Num value={p.ladder.intervalWeeks} step="1" onChange={(v) => updateLadder(p.id, { intervalWeeks: Math.max(1, Math.round(v)) })} /></Field>
-          <Field label={`Ceiling (${p.ladder.unit})`}><Num value={p.ladder.ceiling} onChange={(v) => updateLadder(p.id, { ceiling: v })} /></Field>
+          <Field label={`Ceiling (${unitLabel(p.ladder.unit)})`}><Num value={p.ladder.ceiling} onChange={(v) => updateLadder(p.id, { ceiling: v })} /></Field>
           <Field label="Unit">
-            <select className="input" value={p.ladder.unit} onChange={(e) => updateLadder(p.id, { unit: e.target.value })}>
-              <option value="mcg">mcg</option><option value="mg">mg</option>
+            <select className="input" value={p.ladder.unit} onChange={(e) => updateLadder(p.id, { unit: e.target.value })}
+              disabled={isNasalRoute(p)}>
+              {isNasalRoute(p)
+                ? <option value="spray">sprays</option>
+                : <><option value="mcg">mcg</option><option value="mg">mg</option></>}
             </select>
           </Field>
         </div>
 
-        {isPremixed(p) ? (
+        {isNasalRoute(p) ? (
+          <>
+            <p className="pt-1 text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--indigo)' }}>
+              Nasal spray prep
+            </p>
+            <div className="rounded-xl" style={{ background: 'var(--surface2)' }}>
+              <div className="px-3 pt-3">
+                <p className="text-[11px] font-bold">
+                  Dosed in sprays — {formatDose(currentDose, p.ladder.unit)} at the current rung.
+                </p>
+              </div>
+              <NasalRecipe recipe={p.nasal || NASAL_RECIPE} />
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <Field label="Vial (mg)"><Num value={p.recon.vialMg} onChange={(v) => updateRecon(p.id, { vialMg: v })} /></Field>
+              <Field label="BAC water (mL)"><Num value={p.recon.bacMl} onChange={(v) => updateRecon(p.id, { bacMl: v })} /></Field>
+              <Field label="Expiry (days)"><Num value={p.recon.expiryDays} step="1" onChange={(v) => updateRecon(p.id, { expiryDays: Math.round(v) })} /></Field>
+            </div>
+            <p className="text-[10px] font-medium" style={{ color: 'var(--muted)' }}>
+              One bottle is about {nasalStrength(p.nasal || NASAL_RECIPE).spraysPerBottle} sprays; stock counts down as you log.
+            </p>
+          </>
+        ) : isPremixed(p) ? (
           <>
             <p className="pt-1 text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--lime)' }}>
               Pre-mixed solution

@@ -111,7 +111,8 @@ await step('Home shows every due dose as "X units" beside the mcg/mg', async () 
 
 await step('the oil compound cannot be selected for a co-draw', async () => {
   const text = await teCard().textContent()
-  if (!/Inject separately/.test(text)) throw new Error('does not read "inject separately" on Home')
+  if (!/Always its own shot/.test(text)) throw new Error('card does not say it is always its own shot')
+  if (/Inject separately/.test(text)) throw new Error('the blanket "Inject separately" tag is back')
   if (await page.locator(`button[aria-label="Select ${TE} to co-draw"]`).count()) {
     throw new Error('oil compound is selectable for co-draw')
   }

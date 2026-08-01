@@ -130,7 +130,7 @@ export default function SettingsTab() {
             return (
               <div key={l.id} className="flex items-center gap-2 text-xs font-semibold">
                 <span className="w-14 shrink-0" style={{ color: 'var(--muted)' }}>{format(parseISO(l.date), 'd MMM')}</span>
-                <span className="flex-1 truncate">{p?.name || l.peptideId} — {formatDose(l.doseValue, l.unit)} ({l.insulinUnits} u)</span>
+                <span className="flex-1 truncate">{p?.name || l.peptideId} — {formatDose(l.doseValue, l.unit)}{l.insulinUnits ? ` (${l.insulinUnits} u)` : ''}</span>
                 <button className="font-bold" style={{ color: 'var(--coral)' }} onClick={() => undoLog(l.id)}>undo</button>
               </div>
             )

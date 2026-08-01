@@ -52,12 +52,73 @@ export function unitsFor(peptide, doseValue) {
   return doseToUnits(toMg(doseValue, peptide?.ladder?.unit), concentrationOf(peptide))
 }
 
+// ---- intranasal ----
+// A nasal spray bottle delivers a fixed volume per actuation, so the dose is
+// counted in sprays rather than drawn. The whole app still stores mg
+// underneath, which keeps inventory burn-down and run-out working unchanged:
+// one spray is 0.2 mg, so a 10 mg vial is exactly 50 sprays.
+export const MCG_PER_SPRAY = 200
+
+export function isNasal(peptide) {
+  return peptide?.route === 'Nasal'
+}
+
+// The prep this app assumes for a nasal bottle. Editable per peptide; these are
+// the defaults, and every number below is derived from them.
+export const NASAL_RECIPE = {
+  vialMg: 10,      // powder in the vial
+  bacMl: 2,        // bacteriostatic water to reconstitute
+  salineMl: 3,     // sterile saline added in the bottle
+  bottleMl: 5,     // final volume
+  sprayMl: 0.1,    // delivered per actuation
+}
+
+// mcg per spray and sprays per bottle, derived rather than hardcoded, so an
+// edited recipe stays self-consistent.
+export function nasalStrength(recipe = NASAL_RECIPE) {
+  const bottleMl = recipe.bottleMl || (recipe.bacMl + recipe.salineMl)
+  const mgPerMl = bottleMl > 0 ? recipe.vialMg / bottleMl : 0
+  return {
+    bottleMl,
+    mgPerMl,
+    mcgPerMl: mgPerMl * 1000,
+    mcgPerSpray: Math.round(mgPerMl * 1000 * (recipe.sprayMl || 0.1)),
+    spraysPerBottle: recipe.sprayMl > 0 ? Math.round(bottleMl / recipe.sprayMl) : 0,
+    totalMcg: recipe.vialMg * 1000,
+  }
+}
+
+export function sprayToMcg(sprays, mcgPerSpray = MCG_PER_SPRAY) {
+  return (sprays || 0) * mcgPerSpray
+}
+
+// Switching a peptide between injecting and spraying changes the unit its dose
+// is counted in. Converted rather than left reading mcg for a spray bottle:
+// rounded to whole sprays, never below one, ceiling never under the floor.
+export function convertLadderForRoute(ladder, toNasal) {
+  const l = ladder || {}
+  if (toNasal) {
+    const s = (v) => Math.max(1, Math.round(fromMg(toMg(v || 0, l.unit), 'spray')))
+    const out = { ...l, unit: 'spray', floor: s(l.floor), step: s(l.step), ceiling: s(l.ceiling) }
+    out.ceiling = Math.max(out.ceiling, out.floor)
+    return out
+  }
+  const m = (v) => Math.round(fromMg(toMg(v || 0, 'spray'), 'mcg'))
+  const out = { ...l, unit: 'mcg', floor: m(l.floor), step: m(l.step), ceiling: m(l.ceiling) }
+  out.ceiling = Math.max(out.ceiling, out.floor)
+  return out
+}
+
 export function toMg(value, unit) {
-  return unit === 'mcg' ? value / 1000 : value
+  if (unit === 'mcg') return value / 1000
+  if (unit === 'spray') return (value * MCG_PER_SPRAY) / 1000
+  return value
 }
 
 export function fromMg(mg, unit) {
-  return unit === 'mcg' ? mg * 1000 : mg
+  if (unit === 'mcg') return mg * 1000
+  if (unit === 'spray') return (mg * 1000) / MCG_PER_SPRAY
+  return mg
 }
 
 export function round(n, places = 2) {
@@ -65,9 +126,15 @@ export function round(n, places = 2) {
   return Math.round((n + Number.EPSILON) * f) / f
 }
 
-// "500 mcg" / "2 mg" — trims trailing zeros
+// "500 mcg" / "2 mg" — trims trailing zeros. A nasal dose reads in sprays with
+// the mcg it works out to, because the number of sprays is what you do and the
+// mcg is what you're actually taking.
 export function formatDose(value, unit) {
   if (value == null || Number.isNaN(value)) return '—'
+  if (unit === 'spray') {
+    const n = round(value, 0)
+    return `${n} spray${n === 1 ? '' : 's'} (${sprayToMcg(n)} mcg)`
+  }
   const v = round(value, unit === 'mcg' ? 0 : 3)
   return `${v} ${unit}`
 }
