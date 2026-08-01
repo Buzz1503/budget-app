@@ -10,6 +10,7 @@ import { currentRung, cycleInfo, addDaysStr } from '../lib/schedule'
 import { isDueToday } from '../lib/daily'
 import { perfectRotation } from '../lib/sites'
 import { enrichPeptide } from '../lib/reference'
+import { toPeptide } from '../lib/wizardDefaults'
 import { countEntries } from '../lib/backup'
 import { toMg, doseToUnits, concentration, isNasal, convertLadderForRoute } from '../lib/calc'
 import { XP, rankUpInfo } from '../lib/gamification'
@@ -61,6 +62,9 @@ function initialState() {
     bodyGoals: {}, // { metric: targetValue }
     backupMeta: { lastBackupAt: null, lastBackupEntryCount: 0, nudgeDismissedAt: null },
     coachMarks: {}, // one-time beginner tips already seen, by id
+    // restock list: horizon, per-line quantity overrides, what's been ordered,
+    // expected delivery dates, and editable consumable unit costs
+    restock: { horizon: 'cycles', qty: {}, checked: {}, delivery: {}, unitCosts: {} },
     settings: { currency: 'AUD', restockLeadDays: 30, theme: 'dark', disclaimerDismissed: false, haptics: true, sound: false },
   }
 }
@@ -504,6 +508,89 @@ const useStore = create(
       updateSettings(patch) {
         set((s) => ({ settings: { ...s.settings, ...patch } }))
       },
+      // ---------- restock ----------
+      setRestockHorizon(horizon) {
+        set((s) => ({ restock: { ...s.restock, horizon } }))
+      },
+      setRestockQty(key, qty) {
+        set((s) => ({ restock: { ...s.restock, qty: { ...s.restock.qty, [key]: Math.max(0, Math.round(qty || 0)) } } }))
+      },
+      clearRestockQty(key) {
+        set((s) => {
+          const qty = { ...s.restock.qty }
+          delete qty[key]
+          return { restock: { ...s.restock, qty } }
+        })
+      },
+      toggleRestockChecked(key) {
+        set((s) => {
+          const checked = { ...s.restock.checked }
+          if (checked[key]) delete checked[key]
+          else checked[key] = new Date().toISOString()
+          return { restock: { ...s.restock, checked } }
+        })
+      },
+      setRestockDelivery(key, date) {
+        set((s) => {
+          const delivery = { ...s.restock.delivery }
+          if (date) delivery[key] = date
+          else delete delivery[key]
+          return { restock: { ...s.restock, delivery } }
+        })
+      },
+      setRestockUnitCost(id, aud) {
+        set((s) => ({ restock: { ...s.restock, unitCosts: { ...s.restock.unitCosts, [id]: Math.max(0, aud || 0) } } }))
+      },
+      resetRestock() {
+        set((s) => ({ restock: { ...s.restock, qty: {}, checked: {}, delivery: {} } }))
+      },
+
+      // ---------- schedule wizard ----------
+      // Builds the stack from wizard entries. Existing peptides are updated in
+      // place rather than duplicated, and nothing else is touched unless the
+      // user explicitly asked to start over — which clears the stack and its
+      // inventory, and deliberately leaves the dose history alone.
+      applyWizard(entries, { startOver = false, startDate = null } = {}) {
+        const t = startDate || todayStr()
+        if (startOver) {
+          set((s) => ({
+            peptides: [],
+            vials: [],
+            titration: {},
+            openVials: {},
+            restock: { ...s.restock, qty: {}, checked: {}, delivery: {} },
+          }))
+        }
+        const applied = []
+        for (const entry of entries) {
+          const data = toPeptide(entry, t)
+          const exists = get().peptides.some((p) => p.id === data.id)
+          if (exists) {
+            get().updatePeptide(data.id, data)
+            set((s) => ({ titration: { ...s.titration, [data.id]: { level: 0, levelStartDate: t } } }))
+          } else {
+            get().addPeptide(data)
+          }
+          // optional stock + cost feed inventory and the restock list
+          const qty = Math.max(0, Math.round(entry.stockVials || 0))
+          const cost = Math.max(0, entry.costAud || 0)
+          if (qty > 0 || cost > 0) {
+            set((s) => ({
+              vials: [
+                ...s.vials.filter((v) => v.id !== `vial-${data.id}`),
+                {
+                  id: `vial-${data.id}`, peptideId: data.id, vialMg: data.recon.vialMg || 0,
+                  costAud: cost, vendor: '', lot: '', qtyPurchased: qty, qtyOnHand: qty,
+                },
+              ],
+            }))
+          }
+          applied.push(data.id)
+        }
+        set((s) => ({ coachMarks: { ...s.coachMarks, 'wizard-done': true } }))
+        return applied
+      },
+
       // One-time coach tips: shown until dismissed, then never again.
       markCoachSeen(id) {
         set((s) => (s.coachMarks?.[id] ? {} : { coachMarks: { ...s.coachMarks, [id]: true } }))
@@ -597,6 +684,7 @@ const useStore = create(
         ...persisted,
         backupMeta: { ...current.backupMeta, ...(persisted?.backupMeta || {}) },
         coachMarks: { ...current.coachMarks, ...(persisted?.coachMarks || {}) },
+        restock: { ...current.restock, ...(persisted?.restock || {}) },
       }),
       onRehydrateStorage: () => (state) => {
         state?.enrichLibraryFromReference?.()

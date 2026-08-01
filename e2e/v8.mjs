@@ -25,7 +25,11 @@ const waitText = async (re, timeout = 12000) => {
   }
   throw new Error('timeout waiting for ' + re)
 }
-const nav = (label) => page.click(`nav button:has-text("${label}")`)
+const nav = async (label) => {
+  await page.click(`nav button:has-text("${label}")`)
+  // Home defaults to the current wall-clock slot; these suites want the morning
+  if (label === 'Home') { await page.click('button:has-text("AM")'); await page.waitForTimeout(400) }
+}
 const TE = 'Testosterone Enanthate'
 // on Library there's one card for the compound; on Home the combine-plan card
 // also names it, so the due card is identified by the Log button only it has
@@ -40,6 +44,10 @@ await page.evaluate(() => localStorage.clear())
 await page.reload({ waitUntil: 'networkidle' })
 await waitText(/not medical advice/)
 await page.click('text=Got it')
+// the seeded morning list is what these steps assume; without this the app
+// opens on whichever slot the wall clock says
+await page.click('button:has-text("AM")')
+await page.waitForTimeout(500)
 
 // ---------------- CHANGE 1 · rename ----------------
 await step('app is named "Pepito +" in the title and the header', async () => {

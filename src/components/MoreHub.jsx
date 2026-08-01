@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion'
 import {
   BookOpen, Package, Syringe, Settings, Zap, Flame, ChevronRight, Award,
-  Activity, CalendarRange, PersonStanding, History,
+  Activity, CalendarRange, PersonStanding, History, ShoppingCart, Wand2,
 } from 'lucide-react'
 import useStore from '../store/useStore'
 import { levelProgress, rankForLevel, BADGES } from '../lib/gamification'
@@ -12,6 +12,8 @@ const LINKS = [
   { id: 'history', label: 'History & adherence', desc: 'Every dose, rates, shareable summary', icon: History, color: 'var(--indigo)' },
   { id: 'library', label: 'Library', desc: 'Your peptides & ladders', icon: BookOpen, color: 'var(--lime)' },
   { id: 'inventory', label: 'Stock', desc: 'Vials, cost & expiry', icon: Package, color: 'var(--amber)' },
+  { id: 'restock', label: 'Restock list', desc: 'What to order, and when', icon: ShoppingCart, color: 'var(--coral)' },
+  { id: 'wizard', label: 'Build / rebuild my schedule', desc: 'Guided setup with suggestions pre-loaded', icon: Wand2, color: 'var(--violet)' },
   { id: 'needle', label: 'Needle guide', desc: 'SubQ technique', icon: Syringe, color: 'var(--coral)' },
   { id: 'body', label: 'Outcomes & body', desc: 'Trends, photos, outcome engine', icon: PersonStanding, color: 'var(--indigo)' },
   { id: 'settings', label: 'Settings & badges', desc: 'Theme, badges, export', icon: Settings, color: 'var(--violet)' },

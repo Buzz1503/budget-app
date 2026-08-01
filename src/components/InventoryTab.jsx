@@ -1,12 +1,12 @@
 import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Plus, Droplets, AlertTriangle, DollarSign, Trash2 } from 'lucide-react'
+import { Plus, Droplets, AlertTriangle, DollarSign, Trash2, ChevronRight } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import useStore, { todayStr } from '../store/useStore'
 import { runOutInfo, costPerDose, totalSpend, expiryInfo, vialsFor } from '../lib/inventory'
 import { round } from '../lib/calc'
 
-export default function InventoryTab() {
+export default function InventoryTab({ goTo }) {
   const peptides = useStore((s) => s.peptides)
   const vials = useStore((s) => s.vials)
   const settings = useStore((s) => s.settings)
@@ -22,6 +22,18 @@ export default function InventoryTab() {
           <DollarSign size={13} /> {round(spend, 0)} {settings.currency} total
         </div>
       </div>
+
+      <button onClick={() => goTo?.('restock')}
+        className="flex w-full items-center justify-between gap-2 rounded-xl p-3 text-left"
+        style={{ background: 'color-mix(in srgb, var(--coral) 12%, var(--surface))', border: '1px solid var(--border)' }}>
+        <span className="min-w-0">
+          <span className="block text-sm font-black">Restock list</span>
+          <span className="block text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
+            What to order for the next cycle, with syringes and consumables
+          </span>
+        </span>
+        <ChevronRight size={18} className="shrink-0" style={{ color: 'var(--muted)' }} />
+      </button>
       {peptides.map((p, i) => <StockCard key={p.id} peptide={p} index={i} today={t} />)}
     </div>
   )

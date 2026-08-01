@@ -31,7 +31,11 @@ const waitText = async (re, timeout = 15000) => {
   }
   throw new Error('timeout waiting for ' + re)
 }
-const nav = (label) => page.click(`nav button:has-text("${label}")`)
+const nav = async (label) => {
+  await page.click(`nav button:has-text("${label}")`)
+  // Home defaults to the current wall-clock slot; these suites want the morning
+  if (label === 'Home') { await page.click('button:has-text("AM")'); await page.waitForTimeout(400) }
+}
 const modal = () => page.locator('div.fixed.inset-0.z-50 > div.card')
 const plan = () => page.locator('div.card', { hasText: 'instead of' }).first()
 // the due card for a peptide, identified by the Log button only it has
@@ -43,6 +47,10 @@ await page.evaluate(() => localStorage.clear())
 await page.reload({ waitUntil: 'networkidle' })
 await waitText(/not medical advice/)
 await page.click('text=Got it')
+// the seeded morning list is what these steps assume; without this the app
+// opens on whichever slot the wall clock says
+await page.click('button:has-text("AM")')
+await page.waitForTimeout(500)
 await waitText(/shots? instead of|nothing safely combinable/, 30000)
 
 // ---------------- CHANGE 1 · only MIX pairs are combined ----------------

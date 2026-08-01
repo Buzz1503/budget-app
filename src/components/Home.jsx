@@ -11,6 +11,7 @@ import { levelProgress, rankForLevel } from '../lib/gamification'
 import { expiryInfo, runOutInfo } from '../lib/inventory'
 import { daysSince, SITE_BY_ID } from '../lib/sites'
 import { backupNudge, countEntries } from '../lib/backup'
+import { deliveryCovers } from '../lib/restock'
 import Ring from './ui/Ring'
 import CountUp from './ui/CountUp'
 import CoachTip from './ui/CoachTip'
@@ -28,6 +29,7 @@ export default function Home({ goTo }) {
   const vials = useStore((s) => s.vials)
   const gamification = useStore((s) => s.gamification)
   const settings = useStore((s) => s.settings)
+  const restock = useStore((s) => s.restock)
   const updateSettings = useStore((s) => s.updateSettings)
 
   const t = todayStr()
@@ -153,11 +155,17 @@ export default function Home({ goTo }) {
       }
       const ro = runOutInfo(p, titration[p.id], vials, openVials[p.id], t)
       if (ro.daysLeft <= settings.restockLeadDays && isFinite(ro.daysLeft)) {
-        out.push({ id: `stock-${p.id}`, kind: 'stock', text: `${p.name} runs out in ~${ro.daysLeft}d — restock soon` })
+        // an order already on the way answers this — say so instead of nagging,
+        // and drop it entirely once the delivery date has passed
+        const covered = deliveryCovers(restock, p.id, ro.runOutDate, t)
+        if (covered?.arrived) continue
+        out.push(covered
+          ? { id: `stock-${p.id}`, kind: 'ordered', text: `${p.name} runs out in ~${ro.daysLeft}d — delivery expected ${covered.eta}` }
+          : { id: `stock-${p.id}`, kind: 'stock', text: `${p.name} runs out in ~${ro.daysLeft}d — restock soon` })
       }
     }
     return out
-  }, [peptides, openVials, vials, titration, settings.restockLeadDays, t])
+  }, [peptides, openVials, vials, titration, settings.restockLeadDays, restock, t])
 
   const now = new Date()
 
@@ -275,8 +283,8 @@ export default function Home({ goTo }) {
       {alerts.length > 0 && (
         <motion.div layout className="card space-y-2 p-3" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
           {alerts.map((a) => (
-            <button key={a.id} onClick={() => goTo('inventory')} className="flex w-full items-center gap-2 text-left text-xs font-semibold">
-              <AlertTriangle size={14} className="shrink-0" style={{ color: a.kind === 'expired' ? 'var(--coral)' : 'var(--amber)' }} />
+            <button key={a.id} onClick={() => goTo(a.kind === 'stock' || a.kind === 'ordered' ? 'restock' : 'inventory')} className="flex w-full items-center gap-2 text-left text-xs font-semibold">
+              <AlertTriangle size={14} className="shrink-0" style={{ color: a.kind === 'expired' ? 'var(--coral)' : a.kind === 'ordered' ? 'var(--indigo)' : 'var(--amber)' }} />
               <span style={{ color: a.kind === 'expired' ? 'var(--coral)' : 'var(--text)' }}>{a.text}</span>
             </button>
           ))}

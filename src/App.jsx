@@ -18,6 +18,8 @@ import RightNowTab from './components/RightNowTab'
 import SymptomsTab from './components/SymptomsTab'
 import BodyTab from './components/BodyTab'
 import HistoryTab from './components/HistoryTab'
+import RestockTab from './components/RestockTab'
+import ScheduleWizard from './components/ScheduleWizard'
 import MoreHub from './components/MoreHub'
 import CelebrationLayer from './components/CelebrationLayer'
 import UpdatePrompt from './components/UpdatePrompt'
@@ -37,6 +39,7 @@ const SCREENS = {
   needle: NeedleTab,
   settings: SettingsTab,
   history: HistoryTab,
+  restock: RestockTab,
 }
 
 // 6 primary tabs in the bottom bar; the rest live under the More hub.
@@ -52,11 +55,26 @@ const PRIMARY_IDS = new Set(PRIMARY.map((t) => t.id))
 
 const SUB_TITLES = {
   now: 'Right Now', schedule: 'Plan', library: 'Library', inventory: 'Stock',
-  needle: 'Needle guide', settings: 'Settings', history: 'History',
+  needle: 'Needle guide', settings: 'Settings', history: 'History', restock: 'Restock',
 }
 
 export default function App() {
   const [tab, setTab] = useState('today')
+  const [wizard, setWizard] = useState(false)
+  const peptides = useStore((s) => s.peptides)
+  const coachMarks = useStore((s) => s.coachMarks)
+  const markCoachSeen = useStore((s) => s.markCoachSeen)
+
+  // 'wizard' isn't a screen — it's a modal any screen can ask for.
+  const goTo = (id) => (id === 'wizard' ? setWizard(true) : setTab(id))
+
+  // Offered once, unprompted, when there's nothing to track yet.
+  useEffect(() => {
+    if (peptides.length === 0 && !coachMarks?.['wizard-offered'] && !coachMarks?.['wizard-done']) {
+      setWizard(true)
+      markCoachSeen('wizard-offered')
+    }
+  }, [peptides.length, coachMarks, markCoachSeen])
   const [storageError, setStorageError] = useState(false)
   const theme = useStore((s) => s.settings.theme)
 
@@ -113,7 +131,7 @@ export default function App() {
             exit={{ opacity: 0, x: -14 }}
             transition={{ duration: 0.18 }}
           >
-            <Active goTo={setTab} />
+            <Active goTo={goTo} />
           </motion.div>
         </AnimatePresence>
       </main>
@@ -143,6 +161,8 @@ export default function App() {
           })}
         </div>
       </nav>
+
+      <ScheduleWizard open={wizard} onClose={() => setWizard(false)} />
 
       <CelebrationLayer />
       <UpdatePrompt />

@@ -74,7 +74,29 @@ export function eventsForPeptide(peptide, tState, opts) {
   })
 }
 
-export function buildIcs(peptides, titration, { from = new Date(), until = null, includeDose = true } = {}) {
+// An expected delivery is an all-day marker so it shows against the doses it's
+// meant to cover.
+export function deliveryVevents(deliveries, stamp) {
+  const lines = []
+  for (const d of deliveries || []) {
+    if (!d?.date) continue
+    const ymd = String(d.date).replace(/-/g, '')
+    const next = icsLocalStamp(new Date(`${d.date}T00:00:00`), 0, 0).slice(0, 8)
+    lines.push(
+      'BEGIN:VEVENT',
+      foldLine(`UID:delivery-${d.key}@pepito-plus`),
+      `DTSTAMP:${stamp}`,
+      `DTSTART;VALUE=DATE:${ymd}`,
+      `DTEND;VALUE=DATE:${next}`,
+      foldLine(`SUMMARY:📦 ${escapeIcs(d.label)}`),
+      foldLine('DESCRIPTION:Expected delivery from your restock list.'),
+      'END:VEVENT',
+    )
+  }
+  return lines
+}
+
+export function buildIcs(peptides, titration, { from = new Date(), until = null, includeDose = true, deliveries = [] } = {}) {
   const stamp = icsUtcStamp(new Date())
   const lines = [
     'BEGIN:VCALENDAR', 'VERSION:2.0',
@@ -103,6 +125,10 @@ export function buildIcs(peptides, titration, { from = new Date(), until = null,
       count++
     }
   }
+  const deliveryLines = deliveryVevents(deliveries, stamp)
+  lines.push(...deliveryLines)
+  count += deliveryLines.filter((l) => l === 'BEGIN:VEVENT').length
+
   lines.push('END:VCALENDAR')
   return { ics: lines.join('\r\n'), eventCount: count }
 }

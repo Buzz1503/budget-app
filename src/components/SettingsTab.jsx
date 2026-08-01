@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import * as Icons from 'lucide-react'
 import {
-  Download, RotateCcw, Moon, Sun, Award, History, ShieldCheck, Upload, CalendarPlus, Check, AlertTriangle,
+  Download, RotateCcw, Moon, Sun, Award, History, ShieldCheck, Upload, CalendarPlus, Check, AlertTriangle, Wand2,
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import useStore, { todayStr } from '../store/useStore'
@@ -10,9 +10,10 @@ import { BADGES, levelProgress, rankForLevel } from '../lib/gamification'
 import { formatDose } from '../lib/calc'
 import { buildBackup, restoreBackup, validateBackup, describeBackup, backupFilename } from '../lib/backup'
 import { buildIcs } from '../lib/calendar'
+import { deliveryEvents } from '../lib/restock'
 import { addDaysStr } from '../lib/schedule'
 
-export default function SettingsTab() {
+export default function SettingsTab({ goTo }) {
   const settings = useStore((s) => s.settings)
   const gamification = useStore((s) => s.gamification)
   const doseLogs = useStore((s) => s.doseLogs)
@@ -172,6 +173,11 @@ export default function SettingsTab() {
           </button>
         )}
       </div>
+      <button onClick={() => goTo?.('wizard')}
+        className="btn-violet flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-black">
+        <Wand2 size={16} /> Build / rebuild my schedule
+      </button>
+
       <p className="pb-2 text-center text-[10px] font-medium" style={{ color: 'var(--muted)' }}>
         Pepito + · data lives in your browser only
       </p>
@@ -310,6 +316,7 @@ function BackupCard() {
 
 // ---------- Calendar (.ics) export ----------
 function CalendarCard() {
+  const restock = useStore((s) => s.restock)
   const peptides = useStore((s) => s.peptides)
   const titration = useStore((s) => s.titration)
   const [mode, setMode] = useState('ongoing')
@@ -321,7 +328,8 @@ function CalendarCard() {
     try {
       const from = new Date()
       const until = mode === 'range' ? new Date(addDaysStr(todayStr(), months * 30) + 'T23:59:59') : null
-      const { ics, eventCount } = buildIcs(peptides, titration, { from, until, includeDose })
+      const deliveries = deliveryEvents(restock, peptides)
+      const { ics, eventCount } = buildIcs(peptides, titration, { from, until, includeDose, deliveries })
       if (eventCount === 0) {
         setResult({ ok: false, msg: 'No scheduled peptides to export — set a protocol first.' })
         return

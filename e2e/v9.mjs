@@ -36,12 +36,18 @@ await page.evaluate(() => localStorage.clear())
 await page.reload({ waitUntil: 'networkidle' })
 await waitText(/not medical advice/)
 await page.click('text=Got it')
+// pin the AM slot: the suite assumes the seeded morning list, and the app
+// otherwise opens on whichever slot the wall clock says
+const amSlot = async () => { await page.click('button:has-text("AM")'); await page.waitForTimeout(500) }
+await amSlot()
 
 // ---------------- FIX 1 · the co-draw bar ----------------
 await step('the whole "Log together" bar clears the bottom nav at 390px', async () => {
+  // each click renames that card's button to "Deselect", so always take the first
   const circles = page.locator('button[aria-label^="Select "]')
-  await circles.nth(0).click()
-  await circles.nth(1).click()
+  await circles.first().click()
+  await page.waitForTimeout(300)
+  await circles.first().click()
   await page.waitForTimeout(700)
 
   const geo = await page.evaluate(() => {
@@ -271,6 +277,7 @@ await step('an IM peptide still gets the IM map, with its own how-to', async () 
   })
   await page.reload({ waitUntil: 'networkidle' })
   await page.waitForSelector('nav button')
+  await amSlot()
   await page.click('button[aria-label="Log Testosterone Enanthate"]')
   await waitText(/INJECT HERE/)
   const body = await modal().textContent()
