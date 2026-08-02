@@ -26,16 +26,41 @@ const waitText = async (re, timeout = 5000) => {
   }
   throw new Error('timeout waiting for ' + re)
 }
-const nav = (label) => page.click(`nav button:has-text("${label}")`)
+const PRIMARY_TABS = new Set(['Home', 'Calendar', 'Symptoms', 'Body', 'More'])
+// v13 moved everything but the five primary tabs under the More hub, so a
+// screen is reached by its More-hub description rather than a nav button.
+const MORE_LINK = {
+  Calculator: 'text=Reconstitution & syringe units',
+  Mix: 'text=Can these two share a syringe',
+  Stock: 'text=Vials, cost, expiry',
+  Library: 'text=Your peptides, ladders',
+  'Right Now': 'text=What your stack is doing today',
+  History: 'text=Every dose, rates',
+  Settings: 'text=Theme, badges',
+  Needle: 'text=SubQ, IM and nasal',
+  Wizard: 'text=Guided setup with suggestions',
+}
+const nav = async (label) => {
+  if (PRIMARY_TABS.has(label)) {
+    await page.click(`nav button[aria-label="${label}"]`)
+  } else {
+    await page.click('nav button[aria-label="More"]')
+    await page.waitForTimeout(320)
+    await page.click(MORE_LINK[label])
+  }
+  await page.waitForTimeout(380)
+  // Home defaults to the current wall-clock slot; these suites want the morning
+  if (label === 'Home') { await page.click('button:has-text("AM")'); await page.waitForTimeout(400) }
+}
 
 await page.goto(BASE, { waitUntil: 'networkidle' })
 await page.evaluate(() => localStorage.clear())
 await page.reload({ waitUntil: 'networkidle' })
 
-await step('Home: disclaimer + ring + 6-tab bar', async () => {
+await step('Home: disclaimer + ring + 5-tab bar', async () => {
   await waitText(/not medical advice/)
   const tabs = await page.locator('nav button').count()
-  if (tabs !== 6) throw new Error(`expected 6 primary tabs, got ${tabs}`)
+  if (tabs !== 5) throw new Error(`expected 5 primary tabs, got ${tabs}`)
   await page.click('text=Got it')
 })
 
@@ -141,22 +166,19 @@ await step('Symptoms: check-in logs, streak advances, timeline', async () => {
 await page.screenshot({ path: `${SHOT}/v2-06-symptoms.png` })
 
 await step('More hub: navigates to sub-screens', async () => {
-  await nav('More')
-  await waitText(/Library|Stock|Settings/)
-  await page.click('text=Stock')
+  await nav('Stock')
   await waitText(/runs out|on hand/)
-  await nav('More')
-  await page.click('text=Library')
+  await nav('Library')
   await waitText(/Retatrutide/)
 })
-await step('Calculator is a primary tab', async () => {
+await step('Calculator lives under More', async () => {
   await nav('Calculator')
   await waitText(/Concentration/)
 })
 await page.screenshot({ path: `${SHOT}/v2-07-more.png` })
 
-await step('Plan (Schedule) still works (titration confirm)', async () => {
-  await nav('More'); await page.click('text=Plan')
+await step('the titration ladder in Library still confirms a step-up', async () => {
+  await nav('Library')
   await page.evaluate(() => {
     const raw = JSON.parse(localStorage.getItem('peptide-command-center'))
     const d = new Date(Date.now() - 8 * 86400000).toISOString().slice(0, 10)
@@ -164,8 +186,8 @@ await step('Plan (Schedule) still works (titration confirm)', async () => {
     localStorage.setItem('peptide-command-center', JSON.stringify(raw))
   })
   await page.reload({ waitUntil: 'networkidle' })
-  await nav('More'); await page.click('text=Plan')
-  await page.click('button:has-text("Selank")')
+  await nav('Library')
+  await page.locator('div.card', { hasText: 'Selank' }).first().locator('button').first().click()
   await waitText(/Tolerating well/)
   await page.click('button:has-text("Advance")')
   await page.waitForTimeout(1000)

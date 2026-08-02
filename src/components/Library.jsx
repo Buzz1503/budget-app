@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { motion } from 'framer-motion'
-import { Plus, ChevronDown, Trash2, Search, Check, AlertTriangle } from 'lucide-react'
-import useStore from '../store/useStore'
-import { currentRung, cycleInfo } from '../lib/schedule'
+import { Plus, ChevronDown, Trash2, Search, Check, AlertTriangle, Zap, Pause, ChevronUp, SlidersHorizontal } from 'lucide-react'
+import { format, parseISO } from 'date-fns'
+import useStore, { todayStr } from '../store/useStore'
+import { currentRung, cycleInfo, stepUpDue, nextStepUpDate } from '../lib/schedule'
 import {
   formatDose, formatUnitsLong, round, isPremixed, concentrationOf, premixedVialMg, unitsFor,
   isNasal, NASAL_RECIPE, nasalStrength,
@@ -352,6 +353,8 @@ export function PeptideEditor({ peptide: p }) {
           </Field>
         </div>
 
+        <LadderClimb peptide={p} />
+
         {isNasalRoute(p) ? (
           <>
             <p className="pt-1 text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--indigo)' }}>
@@ -439,6 +442,129 @@ export function PeptideEditor({ peptide: p }) {
         )}
       </div>
     </motion.div>
+  )
+}
+
+/**
+ * Where this peptide currently sits on its ladder, and the only controls that
+ * move it. This used to be a separate Plan screen; the Calendar is the timeline
+ * now, so the climb lives next to the ladder it climbs.
+ */
+function LadderClimb({ peptide: p }) {
+  const titration = useStore((s) => s.titration)
+  const confirmStepUp = useStore((s) => s.confirmStepUp)
+  const holdStepUp = useStore((s) => s.holdStepUp)
+  const setRungLevel = useStore((s) => s.setRungLevel)
+  const [showOverride, setShowOverride] = useState(false)
+
+  const t = todayStr()
+  const tState = titration[p.id] || { level: 0, levelStartDate: p.startDate }
+  const { dose, level, maxLevel, rungs } = currentRung(p, tState)
+  const due = stepUpDue(p, tState, t)
+  const nextDate = nextStepUpDate(p, tState)
+
+  if (!(p.ladder?.ceiling > 0)) return null
+
+  return (
+    <div className="rounded-xl p-3" style={{ background: 'var(--surface2)' }}>
+      <p className="mb-1 text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--violet)' }}>
+        Where you are on the ladder
+      </p>
+      <p className="text-xl font-black tracking-tight" style={{ color: 'var(--lime)' }}>
+        {formatDose(dose, p.ladder.unit)}
+      </p>
+      <p className="text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
+        {maxLevel === 0 ? 'Fixed dose — no titration' : `Level ${level + 1} of ${maxLevel + 1}`}
+        {maxLevel > 0 && level < maxLevel && nextDate && ` · next step-up ${format(parseISO(nextDate), 'd MMM')}`}
+        {maxLevel > 0 && level === maxLevel && ' · at ceiling 🏔️'}
+      </p>
+
+      {maxLevel > 0 && (
+        <>
+          <div className="mt-3 flex items-end gap-1.5">
+            {rungs.map((r, i) => (
+              <motion.button key={i} onClick={() => setRungLevel(p.id, i)} whileTap={{ scale: 0.9 }}
+                className="flex-1 rounded-t-md" initial={false}
+                aria-label={`Set level ${i + 1}: ${formatDose(r, p.ladder.unit)}`}
+                animate={{ height: 14 + (i / Math.max(1, rungs.length - 1)) * 30 }}
+                style={{
+                  background: i <= level ? 'linear-gradient(180deg, var(--violet), var(--indigo))' : 'var(--surface-solid)',
+                  opacity: i <= level ? 1 : 0.7,
+                }}
+                title={`Set level ${i + 1}: ${formatDose(r, p.ladder.unit)}`} />
+            ))}
+          </div>
+          <div className="mt-1 flex justify-between text-[10px] font-bold" style={{ color: 'var(--muted)' }}>
+            <span>{formatDose(rungs[0], p.ladder.unit)}</span>
+            <span>tap a rung to hand-set</span>
+            <span>{formatDose(rungs[maxLevel], p.ladder.unit)}</span>
+          </div>
+        </>
+      )}
+
+      {due && (
+        <motion.div initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }}
+          className="mt-3 rounded-xl p-3"
+          style={{ background: 'var(--surface-solid)', border: '1px solid color-mix(in srgb, var(--violet) 45%, transparent)' }}>
+          <p className="flex items-center gap-1.5 text-xs font-black">
+            <Zap size={14} style={{ color: 'var(--violet)' }} />
+            Tolerating well — advance to {formatDose(rungs[level + 1], p.ladder.unit)}?
+          </p>
+          <p className="mt-1 text-[11px] font-medium" style={{ color: 'var(--muted)' }}>
+            You've held {formatDose(dose, p.ladder.unit)} for {p.ladder.intervalWeeks} week{p.ladder.intervalWeeks > 1 ? 's' : ''}.
+            Declining holds the dose and asks again next interval.
+          </p>
+          <div className="mt-2 flex gap-2">
+            <motion.button whileTap={{ scale: 0.95 }} onClick={() => confirmStepUp(p.id)}
+              className="btn-violet flex flex-1 items-center justify-center gap-1 rounded-xl py-2 text-xs font-black">
+              <ChevronUp size={14} /> Advance — Lvl {level + 2}
+            </motion.button>
+            <motion.button whileTap={{ scale: 0.95 }} onClick={() => holdStepUp(p.id)}
+              className="flex flex-1 items-center justify-center gap-1 rounded-xl py-2 text-xs font-black"
+              style={{ background: 'var(--surface2)' }}>
+              <Pause size={13} /> Hold dose
+            </motion.button>
+          </div>
+        </motion.div>
+      )}
+
+      {maxLevel > 0 && (
+        <>
+          <button className="mt-2.5 flex w-full items-center justify-between text-xs font-bold"
+            onClick={() => setShowOverride(!showOverride)}>
+            <span className="flex items-center gap-1.5"><SlidersHorizontal size={13} style={{ color: 'var(--amber)' }} /> Per-step override</span>
+            <span className="font-semibold" style={{ color: 'var(--muted)' }}>{showOverride ? 'hide' : 'show'}</span>
+          </button>
+          {showOverride && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-2 grid grid-cols-2 gap-2">
+              <button className="rounded-xl px-2 py-2 text-[11px] font-bold disabled:opacity-40"
+                style={{ background: 'var(--surface-solid)' }} disabled={level >= maxLevel}
+                onClick={() => confirmStepUp(p.id)}>
+                Advance early → {level < maxLevel ? formatDose(rungs[level + 1], p.ladder.unit) : '—'}
+              </button>
+              <button className="rounded-xl px-2 py-2 text-[11px] font-bold disabled:opacity-40"
+                style={{ background: 'var(--surface-solid)' }} disabled={level >= maxLevel}
+                onClick={() => setRungLevel(p.id, Math.min(level + 2, maxLevel))}>
+                Skip a rung → {formatDose(rungs[Math.min(level + 2, maxLevel)], p.ladder.unit)}
+              </button>
+              <button className="rounded-xl px-2 py-2 text-[11px] font-bold"
+                style={{ background: 'var(--surface-solid)' }} onClick={() => holdStepUp(p.id)}>
+                Hold — restart interval
+              </button>
+              <button className="rounded-xl px-2 py-2 text-[11px] font-bold disabled:opacity-40"
+                style={{ background: 'var(--surface-solid)' }} disabled={level === 0}
+                onClick={() => setRungLevel(p.id, level - 1)}>
+                Step back down
+              </button>
+              <p className="col-span-2 text-[10px] font-medium" style={{ color: 'var(--muted)' }}>
+                Any override re-anchors the interval to today and regenerates the downstream schedule.
+                The Calendar picks the change up straight away.
+              </p>
+            </motion.div>
+          )}
+        </>
+      )}
+    </div>
   )
 }
 

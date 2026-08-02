@@ -14,6 +14,7 @@ import { toPeptide } from '../lib/wizardDefaults'
 import { countEntries } from '../lib/backup'
 import { toMg, doseToUnits, concentration, isNasal, convertLadderForRoute } from '../lib/calc'
 import { XP, rankUpInfo } from '../lib/gamification'
+import { DEFAULT_BODY_REFS } from '../lib/metrics'
 
 export const todayStr = () => format(new Date(), 'yyyy-MM-dd')
 
@@ -60,6 +61,9 @@ function initialState() {
     measurements: [], // body-comp entries (structured; no blobs)
     photos: [], // progress-photo metadata; blobs live in IndexedDB by blobKey
     bodyGoals: {}, // { metric: targetValue }
+    // Fixed distances up a limb, in cm, so every arm/thigh reading is taken at
+    // the identical spot. Set once, editable, shown next to the field each time.
+    bodyRefs: { ...DEFAULT_BODY_REFS },
     backupMeta: { lastBackupAt: null, lastBackupEntryCount: 0, nudgeDismissedAt: null },
     coachMarks: {}, // one-time beginner tips already seen, by id
     // restock list: horizon, per-line quantity overrides, what's been ordered,
@@ -464,6 +468,10 @@ const useStore = create(
       setBodyGoal(metric, value) {
         set((s) => ({ bodyGoals: { ...s.bodyGoals, [metric]: value } }))
       },
+      setBodyRef(key, cm) {
+        const v = Math.max(0, Math.round((+cm || 0) * 10) / 10)
+        set((s) => ({ bodyRefs: { ...s.bodyRefs, [key]: v } }))
+      },
       // award body-comp milestone badges vs goals / trend
       checkBodyMilestones(collector) {
         const s = get()
@@ -685,6 +693,7 @@ const useStore = create(
         backupMeta: { ...current.backupMeta, ...(persisted?.backupMeta || {}) },
         coachMarks: { ...current.coachMarks, ...(persisted?.coachMarks || {}) },
         restock: { ...current.restock, ...(persisted?.restock || {}) },
+        bodyRefs: { ...current.bodyRefs, ...(persisted?.bodyRefs || {}) },
       }),
       onRehydrateStorage: () => (state) => {
         state?.enrichLibraryFromReference?.()

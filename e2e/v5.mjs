@@ -86,7 +86,9 @@ await step('selecting a compound adds it with name + id and blank protocol', asy
 await page.screenshot({ path: `${SHOT}/v5-02-added.png` })
 
 await step('new peptide resolves in the Mix tab (no "no data")', async () => {
-  await page.click('nav button:has-text("Mix")')
+  await page.click('nav button[aria-label="More"]')
+  await page.waitForTimeout(320)
+  await page.click('text=Can these two share a syringe')
   await waitText(/Compatibility Codex/)
   await page.click('button:has-text("TB-500")')
   await page.click('button:has-text("BPC-157")')

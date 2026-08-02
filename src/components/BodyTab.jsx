@@ -2,17 +2,20 @@ import { useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Ruler, Images, PersonStanding, LineChart as LineChartIcon, Plus, FileText, Trash2, Play,
+  Info, Pencil,
 } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
 import { format, parseISO } from 'date-fns'
 import useStore, { todayStr } from '../store/useStore'
 import {
-  METRICS, METRIC_BY_KEY, PRIMARY_FIELDS, EXTRA_FIELDS, metricSeries, rollingAverage,
-  latest, delta,
+  METRICS, METRIC_BY_KEY, ALL_METRIC_BY_KEY, PRIMARY_FIELDS, EXTRA_GROUPS,
+  MEASURE_RULES, REF_DISTANCES, refPhrase, legacyMetricsPresent,
+  metricSeries, rollingAverage, latest, delta,
 } from '../lib/metrics'
 import { extractPdfText, parseScanText } from '../lib/scanParse'
 import Modal from './ui/Modal'
 import BodyModel from './BodyModel'
+import MeasureGuide from './MeasureGuide'
 import PhotosSection from './PhotosSection'
 import OutcomeEngine from './OutcomeEngine'
 
@@ -87,6 +90,9 @@ function StatsSection() {
         <Plus size={16} /> Log measurement
       </button>
 
+      <MeasuringRules />
+      <ReferenceDistances />
+
       {recent.length > 0 && (
         <div className="card p-4">
           <p className="mb-2 text-sm font-bold">Recent entries</p>
@@ -111,8 +117,115 @@ function StatsSection() {
   )
 }
 
+// The rules that apply to every reading — stated once, where they can't be
+// missed, instead of repeated under every field.
+function MeasuringRules() {
+  return (
+    <div className="card p-4">
+      <p className="mb-2 flex items-center gap-1.5 text-sm font-bold">
+        <Info size={15} style={{ color: 'var(--indigo)' }} /> How to measure — every time
+      </p>
+      <ul className="space-y-1">
+        {MEASURE_RULES.map((r) => (
+          <li key={r} className="flex gap-1.5 text-[11px] font-semibold leading-relaxed" style={{ color: 'var(--muted)' }}>
+            <span style={{ color: 'var(--indigo)' }}>•</span><span>{r}</span>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-2 text-[10px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+        Consistency beats precision. A tape 1 cm off but 1 cm off every time still shows the trend correctly;
+        a tape in a different place each time shows nothing.
+      </p>
+    </div>
+  )
+}
+
+/** Set-once, saved-forever distances so a limb is measured at the identical spot. */
+function ReferenceDistances({ compact }) {
+  const bodyRefs = useStore((s) => s.bodyRefs)
+  const setBodyRef = useStore((s) => s.setBodyRef)
+
+  return (
+    <div className={compact ? 'rounded-xl p-3' : 'card p-4'} style={compact ? { background: 'var(--surface2)' } : undefined}>
+      <p className="mb-2 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--violet)' }}>
+        <Pencil size={12} /> My saved reference distances
+      </p>
+      <div className="space-y-2.5">
+        {Object.values(REF_DISTANCES).map((r) => (
+          <div key={r.id}>
+            <label className="flex items-center gap-2">
+              <span className="min-w-0 flex-1 text-xs font-bold">{r.label}</span>
+              <input type="number" inputMode="decimal" step="0.5" min="0"
+                aria-label={`${r.label} in ${r.unit}`}
+                className="input !w-20 !py-1.5 text-center"
+                value={bodyRefs?.[r.id] ?? r.default}
+                onChange={(e) => setBodyRef(r.id, e.target.value)} />
+              <span className="text-xs font-bold" style={{ color: 'var(--muted)' }}>{r.unit}</span>
+            </label>
+            <p className="mt-0.5 text-[10px] font-semibold" style={{ color: 'var(--lime)' }}>
+              Measure at {refPhrase(bodyRefs, r.id)}.
+            </p>
+            <p className="text-[10px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>{r.help}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// One measurement (or one left/right pair) with its illustration and its exact
+// instruction sitting right beside the inputs.
+function MeasureField({ group, form, onSet, bodyRefs }) {
+  const keys = group.keys
+  const lead = METRIC_BY_KEY[keys[0]]
+  const pair = keys.length > 1
+  const ref = lead.refKey ? refPhrase(bodyRefs, lead.refKey) : null
+
+  return (
+    <div className="rounded-xl p-3" style={{ background: 'var(--surface2)' }}>
+      <div className="flex items-start gap-2">
+        {lead.guide && <MeasureGuide id={lead.guide} size={54} />}
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-black">{group.label} <span style={{ color: 'var(--muted)' }}>({lead.unit})</span></p>
+          <p className="mt-0.5 text-[10px] font-semibold leading-relaxed" style={{ color: 'var(--muted)' }}>{lead.how}</p>
+          {ref && (
+            <p className="mt-1 text-[10px] font-black" style={{ color: 'var(--lime)' }}>
+              Your saved spot: {ref}
+            </p>
+          )}
+        </div>
+      </div>
+      <div className={`mt-2 grid gap-2 ${pair ? 'grid-cols-2' : 'grid-cols-1'}`}>
+        {keys.map((k) => {
+          const m = METRIC_BY_KEY[k]
+          return (
+            <label key={k} className="block">
+              {pair && (
+                <span className="mb-0.5 block text-[9px] font-black uppercase tracking-wide"
+                  style={{ color: m.side === 'L' ? 'var(--indigo)' : 'var(--violet)' }}>
+                  {m.side === 'L' ? 'Left' : 'Right'}
+                </span>
+              )}
+              <input type="number" inputMode="decimal" className="input !py-2 text-center"
+                aria-label={`${m.label} in ${m.unit}`}
+                value={form[k] ?? ''}
+                onChange={(e) => onSet(k, e.target.value === '' ? undefined : parseFloat(e.target.value))} />
+            </label>
+          )
+        })}
+      </div>
+      {pair && (
+        <p className="mt-1 text-[9px] font-medium" style={{ color: 'var(--muted)' }}>
+          Left and right are stored separately — they're never averaged together.
+        </p>
+      )}
+    </div>
+  )
+}
+
 function AddMeasurement({ open, onClose }) {
   const addMeasurement = useStore((s) => s.addMeasurement)
+  const bodyRefs = useStore((s) => s.bodyRefs)
   const [form, setForm] = useState({ date: todayStr() })
   const [showExtra, setShowExtra] = useState(false)
   const [scanBusy, setScanBusy] = useState(false)
@@ -125,6 +238,7 @@ function AddMeasurement({ open, onClose }) {
       <label key={k} className="block">
         <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>{m.label} {m.unit && `(${m.unit})`}</span>
         <input type="number" inputMode="decimal" className="input" value={form[k] ?? ''} onChange={(e) => set(k, e.target.value === '' ? undefined : parseFloat(e.target.value))} />
+        {m.how && <span className="mt-1 block text-[10px] font-medium leading-snug" style={{ color: 'var(--muted)' }}>{m.how}</span>}
       </label>
     )
   }
@@ -178,11 +292,32 @@ function AddMeasurement({ open, onClose }) {
           <p className="mt-1 text-[10px] font-medium" style={{ color: 'var(--muted)' }}>Formats vary — imported values pre-fill for you to confirm, never auto-saved.</p>
         </div>
 
+        <div className="rounded-xl p-3" style={{ background: 'color-mix(in srgb, var(--indigo) 10%, var(--surface2))' }}>
+          <p className="mb-1 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--indigo)' }}>
+            <Info size={12} /> Every reading
+          </p>
+          <ul className="space-y-0.5">
+            {MEASURE_RULES.map((r) => (
+              <li key={r} className="flex gap-1.5 text-[10px] font-semibold leading-snug" style={{ color: 'var(--muted)' }}>
+                <span style={{ color: 'var(--indigo)' }}>•</span><span>{r}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
         <div className="grid grid-cols-2 gap-3">{PRIMARY_FIELDS.map(field)}</div>
+
         <button onClick={() => setShowExtra(!showExtra)} className="text-xs font-bold" style={{ color: 'var(--indigo)' }}>
-          {showExtra ? '− Hide' : '+ More'} measurements (chest, arms, thighs…)
+          {showExtra ? '− Hide' : '+ More'} measurements (neck, chest, hips, arms, forearms, thighs, calves)
         </button>
-        {showExtra && <div className="grid grid-cols-2 gap-3">{EXTRA_FIELDS.map(field)}</div>}
+        {showExtra && (
+          <div className="space-y-2.5">
+            <ReferenceDistances compact />
+            {EXTRA_GROUPS.map((g) => (
+              <MeasureField key={g.id} group={g} form={form} onSet={set} bodyRefs={bodyRefs} />
+            ))}
+          </div>
+        )}
 
         <button onClick={submit} className="btn-primary w-full rounded-xl py-2.5 text-sm font-black">Save measurement</button>
       </div>
@@ -194,7 +329,11 @@ function AddMeasurement({ open, onClose }) {
 function TrendsSection() {
   const measurements = useStore((s) => s.measurements)
   const [key, setKey] = useState('weight')
-  const m = METRIC_BY_KEY[key]
+  // Pre-split arm/thigh readings are still real data, so they stay chartable —
+  // they just aren't offered for new entries.
+  const bodyRefs = useStore((s) => s.bodyRefs)
+  const chips = useMemo(() => [...METRICS, ...legacyMetricsPresent(measurements)], [measurements])
+  const m = ALL_METRIC_BY_KEY[key] || METRIC_BY_KEY.weight
 
   const { data, hasData } = useMemo(() => {
     const raw = metricSeries(measurements, key)
@@ -210,7 +349,7 @@ function TrendsSection() {
   return (
     <div className="space-y-3">
       <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
-        {METRICS.map((mm) => (
+        {chips.map((mm) => (
           <button key={mm.key} onClick={() => setKey(mm.key)}
             className="shrink-0 rounded-full px-3 py-1.5 text-xs font-bold"
             style={key === mm.key
@@ -221,7 +360,14 @@ function TrendsSection() {
         ))}
       </div>
       <div className="card p-4">
-        <p className="mb-2 text-sm font-bold">{m.label} {m.unit && `(${m.unit})`}{key === 'weight' && <span className="ml-1 text-xs font-medium" style={{ color: 'var(--muted)' }}>· 7-day avg</span>}</p>
+        <p className="text-sm font-bold">{m.label} {m.unit && `(${m.unit})`}{key === 'weight' && <span className="ml-1 text-xs font-medium" style={{ color: 'var(--muted)' }}>· 7-day avg</span>}</p>
+        {m.how && (
+          <p className="mb-2 mt-0.5 text-[10px] font-medium leading-snug" style={{ color: 'var(--muted)' }}>
+            {m.how}
+            {m.refKey && <span className="font-black" style={{ color: 'var(--lime)' }}> ({refPhrase(bodyRefs, m.refKey)})</span>}
+          </p>
+        )}
+        {!m.how && <div className="mb-2" />}
         {!hasData ? (
           <p className="py-10 text-center text-xs font-semibold" style={{ color: 'var(--muted)' }}>No {m.label.toLowerCase()} entries yet — log a measurement to see the trend.</p>
         ) : (

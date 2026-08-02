@@ -45,11 +45,11 @@ await page.evaluate(() => localStorage.clear())
 await page.reload({ waitUntil: 'networkidle' })
 await page.click('text=Got it')
 
-await step('six-tab nav unchanged; History lives under More', async () => {
+await step('five-tab nav; History lives under More', async () => {
   const labels = await page.locator('nav button span').allTextContents()
-  const want = ['Home', 'Calculator', 'Body', 'Symptoms', 'Mix', 'More']
+  const want = ['Home', 'Calendar', 'Symptoms', 'Body', 'More']
   for (const w of want) if (!labels.includes(w)) throw new Error(`missing tab ${w}`)
-  if (await page.locator('nav button').count() !== 6) throw new Error('nav is not 6 tabs')
+  if (await page.locator('nav button').count() !== 5) throw new Error('nav is not 5 tabs')
   await page.click('nav button:has-text("More")')
   await waitText(/History & adherence/)
 })

@@ -35,6 +35,7 @@ export default function SettingsTab({ goTo }) {
         openVials: state.openVials, gamification: state.gamification, settings: state.settings,
         mixExplored: state.mixExplored, symptomLogs: state.symptomLogs,
         measurements: state.measurements, photos: state.photos, bodyGoals: state.bodyGoals,
+        bodyRefs: state.bodyRefs,
       }
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
       const url = URL.createObjectURL(blob)

@@ -25,8 +25,29 @@ const waitText = async (re, timeout = 12000) => {
   }
   throw new Error('timeout waiting for ' + re)
 }
+const PRIMARY_TABS = new Set(['Home', 'Calendar', 'Symptoms', 'Body', 'More'])
+// v13 moved everything but the five primary tabs under the More hub, so a
+// screen is reached by its More-hub description rather than a nav button.
+const MORE_LINK = {
+  Calculator: 'text=Reconstitution & syringe units',
+  Mix: 'text=Can these two share a syringe',
+  Stock: 'text=Vials, cost, expiry',
+  Library: 'text=Your peptides, ladders',
+  'Right Now': 'text=What your stack is doing today',
+  History: 'text=Every dose, rates',
+  Settings: 'text=Theme, badges',
+  Needle: 'text=SubQ, IM and nasal',
+  Wizard: 'text=Guided setup with suggestions',
+}
 const nav = async (label) => {
-  await page.click(`nav button:has-text("${label}")`)
+  if (PRIMARY_TABS.has(label)) {
+    await page.click(`nav button[aria-label="${label}"]`)
+  } else {
+    await page.click('nav button[aria-label="More"]')
+    await page.waitForTimeout(320)
+    await page.click(MORE_LINK[label])
+  }
+  await page.waitForTimeout(380)
   // Home defaults to the current wall-clock slot; these suites want the morning
   if (label === 'Home') { await page.click('button:has-text("AM")'); await page.waitForTimeout(400) }
 }

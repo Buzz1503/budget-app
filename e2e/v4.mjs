@@ -29,11 +29,12 @@ await page.click('text=Got it')
 await page.click('button:has-text("AM")')
 await page.waitForTimeout(300)
 
-await step('Change 2: bottom nav has exactly 6 tabs', async () => {
+// v13 narrowed the bar to five tabs and moved Calculator and Mix under More.
+await step('Change 2: bottom nav has exactly 5 tabs', async () => {
   const labels = await page.locator('nav button span').allTextContents()
-  const want = ['Home', 'Calculator', 'Body', 'Symptoms', 'Mix', 'More']
+  const want = ['Home', 'Calendar', 'Symptoms', 'Body', 'More']
   const got = labels.filter((l) => want.includes(l))
-  if (got.length !== 6) throw new Error(`expected 6 named tabs, got ${labels.join(',')}`)
+  if (got.length !== 5) throw new Error(`expected 5 named tabs, got ${labels.join(',')}`)
   for (const w of want) if (!labels.includes(w)) throw new Error(`missing tab ${w}`)
 })
 await page.screenshot({ path: `${SHOT}/v4-01-nav.png` })
@@ -41,7 +42,7 @@ await page.screenshot({ path: `${SHOT}/v4-01-nav.png` })
 await step('Change 2: moved screens reachable under More', async () => {
   await page.click('nav button:has-text("More")')
   await waitText(/Right Now/)
-  for (const l of ['Right Now', 'Plan', 'Library', 'Stock', 'Needle guide', 'Settings']) {
+  for (const l of ['Right Now', 'Calculator', 'Mix', 'Library', 'Stock', 'Needle guide', 'Settings']) {
     if (!(await page.locator(`text=${l}`).count())) throw new Error(`More missing ${l}`)
   }
   // drill into one to confirm it renders + back works
@@ -53,8 +54,10 @@ await step('Change 2: moved screens reachable under More', async () => {
 })
 await page.screenshot({ path: `${SHOT}/v4-02-more.png` })
 
-await step('Change 2: Calculator is a primary tab', async () => {
-  await page.click('nav button:has-text("Calculator")')
+await step('Change 2: Calculator lives under More', async () => {
+  await page.click('nav button[aria-label="More"]')
+  await page.waitForTimeout(320)
+  await page.click('text=Reconstitution & syringe units')
   await waitText(/Concentration/)
 })
 

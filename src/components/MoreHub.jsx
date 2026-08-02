@@ -1,22 +1,24 @@
 import { motion } from 'framer-motion'
 import {
   BookOpen, Package, Syringe, Settings, Zap, Flame, ChevronRight, Award,
-  Activity, CalendarRange, PersonStanding, History, ShoppingCart, Wand2,
+  Activity, History, Wand2, FlaskConical, Combine,
 } from 'lucide-react'
 import useStore from '../store/useStore'
 import { levelProgress, rankForLevel, BADGES } from '../lib/gamification'
 
+// Nothing here re-opens a bottom-nav tab — Home, Calendar, Symptoms and Body are
+// one tap away already, so a duplicate row would just be a longer route to the
+// same screen. Every id below is a screen that exists nowhere else.
 const LINKS = [
-  { id: 'now', label: 'Right Now', desc: 'What your stack is doing today', icon: Activity, color: 'var(--lime)' },
-  { id: 'schedule', label: 'Plan', desc: 'Titration ladders & cycles', icon: CalendarRange, color: 'var(--violet)' },
-  { id: 'history', label: 'History & adherence', desc: 'Every dose, rates, shareable summary', icon: History, color: 'var(--indigo)' },
-  { id: 'library', label: 'Library', desc: 'Your peptides & ladders', icon: BookOpen, color: 'var(--lime)' },
-  { id: 'inventory', label: 'Stock', desc: 'Vials, cost & expiry', icon: Package, color: 'var(--amber)' },
-  { id: 'restock', label: 'Restock list', desc: 'What to order, and when', icon: ShoppingCart, color: 'var(--coral)' },
   { id: 'wizard', label: 'Build / rebuild my schedule', desc: 'Guided setup with suggestions pre-loaded', icon: Wand2, color: 'var(--violet)' },
-  { id: 'needle', label: 'Needle guide', desc: 'SubQ technique', icon: Syringe, color: 'var(--coral)' },
-  { id: 'body', label: 'Outcomes & body', desc: 'Trends, photos, outcome engine', icon: PersonStanding, color: 'var(--indigo)' },
-  { id: 'settings', label: 'Settings & badges', desc: 'Theme, badges, export', icon: Settings, color: 'var(--violet)' },
+  { id: 'library', label: 'Library', desc: 'Your peptides, ladders, cycles & protocols', icon: BookOpen, color: 'var(--lime)' },
+  { id: 'calc', label: 'Calculator', desc: 'Reconstitution & syringe units', icon: FlaskConical, color: 'var(--lime)' },
+  { id: 'mix', label: 'Mix', desc: 'Can these two share a syringe?', icon: Combine, color: 'var(--indigo)' },
+  { id: 'supplies', label: 'Stock & restock', desc: 'Vials, cost, expiry, and what to order', icon: Package, color: 'var(--amber)' },
+  { id: 'now', label: 'Right Now', desc: 'What your stack is doing today', icon: Activity, color: 'var(--lime)' },
+  { id: 'history', label: 'History & adherence', desc: 'Every dose, rates, shareable summary', icon: History, color: 'var(--indigo)' },
+  { id: 'needle', label: 'Needle guide', desc: 'SubQ, IM and nasal technique', icon: Syringe, color: 'var(--coral)' },
+  { id: 'settings', label: 'Settings & badges', desc: 'Theme, badges, backup & export', icon: Settings, color: 'var(--violet)' },
 ]
 
 export default function MoreHub({ goTo }) {

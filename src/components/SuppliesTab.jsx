@@ -2,9 +2,12 @@ import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import {
   ShoppingCart, Check, Truck, AlertTriangle, Clock, Package, Wind, RotateCcw, Pencil,
+  Droplets, DollarSign, Plus, Trash2, ChevronDown,
 } from 'lucide-react'
+import { format, parseISO } from 'date-fns'
 import useStore, { todayStr } from '../store/useStore'
 import { restockPlan, HORIZONS, DEFAULT_UNIT_COSTS } from '../lib/restock'
+import { totalSpend, vialsFor } from '../lib/inventory'
 import { loadMatrix, LIB_TO_COMPOUND } from '../lib/mixMatrix'
 import { formatDose, round } from '../lib/calc'
 import CoachTip from './ui/CoachTip'
@@ -17,12 +20,18 @@ const PRIORITY = {
   ok: { label: 'Covered', tone: 'var(--muted)' },
 }
 
-export default function RestockTab() {
+/**
+ * One screen for everything supplies: what you hold, how fast it burns, when it
+ * runs out, and what to order. Every number on this page comes from `restockPlan`
+ * — there is no second copy of the burn-rate, run-out or cost math anywhere.
+ */
+export default function SuppliesTab() {
   const peptides = useStore((s) => s.peptides)
   const titration = useStore((s) => s.titration)
   const vials = useStore((s) => s.vials)
   const openVials = useStore((s) => s.openVials)
   const restock = useStore((s) => s.restock)
+  const settings = useStore((s) => s.settings)
   const leadDays = useStore((s) => s.settings.restockLeadDays)
   const setRestockHorizon = useStore((s) => s.setRestockHorizon)
   const resetRestock = useStore((s) => s.resetRestock)
@@ -47,18 +56,24 @@ export default function RestockTab() {
     () => restockPlan({ peptides, titration, vials, openVials, todayStr: t, restock, leadDays, verdictOf }),
     [peptides, titration, vials, openVials, t, restock, leadDays, verdictOf]
   )
+  const spend = useMemo(() => totalSpend(vials), [vials])
 
   return (
     <div className="space-y-3">
-      <div>
-        <h1 className="text-2xl font-black tracking-tight">Restock</h1>
-        <p className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>
-          What to order for {plan.label.toLowerCase()} — through {plan.until}
-        </p>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-black tracking-tight">Stock &amp; restock</h1>
+          <p className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>
+            What you hold, and what to order for {plan.label.toLowerCase()} — through {plan.until}
+          </p>
+        </div>
+        <span className="chip shrink-0 !py-1.5" style={{ color: 'var(--amber)' }}>
+          <DollarSign size={13} /> {round(spend, 0)} {settings.currency} spent
+        </span>
       </div>
 
-      <CoachTip id="restock-intro" tone="indigo">
-        Counted from your actual schedule, not an average: doses that fall in an off-cycle stretch cost nothing,
+      <CoachTip id="supplies-intro" tone="indigo">
+        Counted from your actual schedule, not an average: doses in an off-cycle stretch cost nothing,
         and a co-draw needs one syringe between them. Every quantity is editable.
       </CoachTip>
 
@@ -75,7 +90,7 @@ export default function RestockTab() {
         ))}
       </div>
 
-      {/* total */}
+      {/* order total */}
       <motion.div layout className="card p-4"
         style={{ backgroundImage: 'linear-gradient(135deg, color-mix(in srgb, var(--lime) 12%, var(--surface)), var(--surface))' }}>
         <div className="flex items-center gap-3">
@@ -106,7 +121,7 @@ export default function RestockTab() {
           Nothing with a set protocol yet — build your schedule first.
         </div>
       )}
-      {plan.rows.map((r) => <VialRow key={r.key} row={r} days={plan.days} />)}
+      {plan.rows.map((r) => <CompoundCard key={r.key} row={r} days={plan.days} currency={settings.currency} />)}
 
       {/* consumables */}
       <p className="px-1 pt-2 text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--amber)' }}>
@@ -129,9 +144,13 @@ export default function RestockTab() {
   )
 }
 
-function Row({ children, checked, onToggle, checkLabel }) {
+function Row({ children, checked, onToggle, checkLabel, warn }) {
   return (
-    <motion.div layout className="card p-3" style={checked ? { opacity: 0.6 } : undefined}>
+    <motion.div layout className="card p-3"
+      style={{
+        opacity: checked ? 0.6 : 1,
+        ...(warn && !checked ? { borderColor: 'color-mix(in srgb, var(--amber) 40%, transparent)' } : null),
+      }}>
       <div className="flex items-start gap-2.5">
         <button onClick={onToggle} aria-label={checkLabel}
           className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md"
@@ -182,18 +201,48 @@ function DeliveryField({ value, onChange }) {
   )
 }
 
-function VialRow({ row, days }) {
+function Stat({ label, value, sub, warn, title }) {
+  return (
+    <div className="rounded-xl py-2 text-center" style={{ background: 'var(--surface2)' }} title={title}>
+      <p className="text-sm font-extrabold" style={warn ? { color: 'var(--amber)' } : undefined}>{value}</p>
+      <p className="text-[9px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>{label}{sub ? ` · ${sub}` : ''}</p>
+    </div>
+  )
+}
+
+function VField({ label, children }) {
+  return (
+    <label className="block">
+      <span className="mb-0.5 block text-[9px] font-bold uppercase" style={{ color: 'var(--muted)' }}>{label}</span>
+      {children}
+    </label>
+  )
+}
+
+/** Holdings and the order line for one compound — one card, one set of numbers. */
+function CompoundCard({ row, days, currency }) {
+  const vials = useStore((s) => s.vials)
   const restock = useStore((s) => s.restock)
   const setRestockQty = useStore((s) => s.setRestockQty)
   const clearRestockQty = useStore((s) => s.clearRestockQty)
   const toggleRestockChecked = useStore((s) => s.toggleRestockChecked)
   const setRestockDelivery = useStore((s) => s.setRestockDelivery)
+  const addVial = useStore((s) => s.addVial)
+  const updateVial = useStore((s) => s.updateVial)
+  const removeVial = useStore((s) => s.removeVial)
+  const reconstituteVial = useStore((s) => s.reconstituteVial)
+  const peptides = useStore((s) => s.peptides)
+  const [expanded, setExpanded] = useState(false)
+
+  const p = peptides.find((x) => x.id === row.peptideId)
   const checked = !!restock.checked?.[row.key]
   const eta = restock.delivery?.[row.key] || ''
   const pri = PRIORITY[row.priority]
+  const mine = vialsFor(vials, row.peptideId)
+  const exp = row.expiry
 
   return (
-    <Row checked={checked} onToggle={() => toggleRestockChecked(row.key)}
+    <Row checked={checked} onToggle={() => toggleRestockChecked(row.key)} warn={row.priority === 'now'}
       checkLabel={`${checked ? 'Un-tick' : 'Tick'} ${row.name} as ordered`}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
@@ -208,28 +257,86 @@ function VialRow({ row, days }) {
         <span className="chip shrink-0 !py-0.5 text-[10px] font-black" style={{ color: pri.tone }}>{pri.label}</span>
       </div>
 
-      <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
-        <span className="flex items-center gap-1">
-          <Package size={11} />
-          {row.nasal ? `${row.spraysLeft} sprays left` : `${round(row.stockMg, 2)} mg on hand`}
-        </span>
-        <span className="flex items-center gap-1">
-          <Clock size={11} />
-          {row.runOutDate ? `runs out ${row.runOutDate}` : 'no burn rate yet'}
-        </span>
+      {/* holdings — the Stock half */}
+      <div className="mt-2 grid grid-cols-3 gap-2">
+        <Stat label="on hand" value={row.nasal ? `${row.spraysLeft} sprays` : `${round(row.stockMg, 1)} mg`} />
+        <Stat label="runs out" warn={row.priority === 'now'}
+          value={isFinite(row.daysLeft) ? `~${row.daysLeft}d` : '—'}
+          title={row.runOutDate ? `runs out ${row.runOutDate}` : 'no burn rate yet'}
+          sub={row.runOutDate ? format(parseISO(row.runOutDate), row.daysLeft > 300 ? 'MMM yyyy' : 'd MMM') : ''} />
+        <Stat label="cost/dose" value={row.costPerDose != null ? `$${round(row.costPerDose, 2)}` : '—'} />
       </div>
 
-      <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+      {exp && (
+        <p className="mt-2 flex items-center gap-1.5 text-xs font-semibold"
+          style={{ color: exp.daysLeft < 0 ? 'var(--coral)' : exp.daysLeft <= 5 ? 'var(--amber)' : 'var(--muted)' }}>
+          <Droplets size={12} />
+          Open vial ({round(row.openMg, 1)} mg left) — {exp.daysLeft < 0 ? `expired ${-exp.daysLeft}d ago` : `expires ${format(parseISO(exp.expiresAt), 'd MMM')} (${exp.daysLeft}d)`}
+        </p>
+      )}
+      {!exp && row.openMg > 0 && (
+        <p className="mt-2 flex items-center gap-1.5 text-xs font-semibold" style={{ color: 'var(--muted)' }}>
+          <Droplets size={12} /> Open vial: {round(row.openMg, 1)} mg — not reconstituted yet
+        </p>
+      )}
+      {!exp && !row.premixed && (
+        <button className="mt-2 rounded-lg px-3 py-1.5 text-xs font-bold"
+          style={{ background: 'var(--surface2)', color: 'var(--lime)' }}
+          onClick={() => reconstituteVial(row.peptideId)}>
+          Mark reconstituted today → starts {p?.recon?.expiryDays ?? 28}d fridge timer
+        </button>
+      )}
+
+      {/* order line — the Restock half */}
+      <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t pt-2.5" style={{ borderColor: 'var(--border)' }}>
         <QtyStepper value={row.qty} suggested={row.suggestedVials}
           onChange={(n) => setRestockQty(row.key, n)} onReset={() => clearRestockQty(row.key)} />
         <span className="text-xs font-black tabular-nums">
           {row.unitCost > 0 ? money(row.qty * row.unitCost) : <span style={{ color: 'var(--muted)' }}>no price set</span>}
         </span>
       </div>
-
-      <div className="mt-1.5">
+      <div className="mt-1.5 flex items-center justify-between gap-2">
         <DeliveryField value={eta} onChange={(d) => setRestockDelivery(row.key, d)} />
+        <button onClick={() => setExpanded(!expanded)} className="flex items-center gap-0.5 text-[11px] font-bold"
+          style={{ color: 'var(--muted)' }}>
+          {expanded ? 'Hide' : 'Purchases'} ({mine.length})
+          <motion.span animate={{ rotate: expanded ? 180 : 0 }} style={{ display: 'inline-flex' }}><ChevronDown size={13} /></motion.span>
+        </button>
       </div>
+
+      {expanded && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-2 space-y-2 border-t pt-2" style={{ borderColor: 'var(--border)' }}>
+          {mine.map((v) => (
+            <div key={v.id} className="grid grid-cols-[1fr_1fr_1fr_1fr_auto] items-end gap-2">
+              <VField label="qty">
+                <input type="number" className="input !px-2 !py-1.5 text-center" value={v.qtyOnHand} min="0" step="1"
+                  aria-label={`${row.name} vials on hand`}
+                  onChange={(e) => updateVial(v.id, { qtyOnHand: Math.max(0, Math.round(+e.target.value || 0)) })} />
+              </VField>
+              <VField label="mg/vial">
+                <input type="number" className="input !px-2 !py-1.5 text-center" value={v.vialMg}
+                  onChange={(e) => updateVial(v.id, { vialMg: +e.target.value || 0 })} />
+              </VField>
+              <VField label={`cost (${currency})`}>
+                <input type="number" className="input !px-2 !py-1.5 text-center" value={v.costAud}
+                  onChange={(e) => updateVial(v.id, { costAud: +e.target.value || 0 })} />
+              </VField>
+              <VField label="vendor">
+                <input className="input !px-2 !py-1.5" value={v.vendor} placeholder="—"
+                  onChange={(e) => updateVial(v.id, { vendor: e.target.value })} />
+              </VField>
+              <button className="pb-1" onClick={() => removeVial(v.id)} aria-label="Remove vial row">
+                <Trash2 size={15} style={{ color: 'var(--coral)' }} />
+              </button>
+            </div>
+          ))}
+          <button className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-bold"
+            style={{ background: 'var(--surface2)' }}
+            onClick={() => addVial(row.peptideId, { vialMg: row.vialMg })}>
+            <Plus size={13} /> Add vial purchase
+          </button>
+        </motion.div>
+      )}
     </Row>
   )
 }

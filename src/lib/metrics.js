@@ -3,24 +3,144 @@ import { parseISO } from 'date-fns'
 import { cycleInfo, currentRung, daysBetween, addDaysStr } from './schedule'
 import { toMg } from './calc'
 
+// Rules that apply to every measurement — shown once, not repeated per field.
+export const MEASURE_RULES = [
+  'Measure at the same time of day every time.',
+  'Same tape tension — snug against the skin, not compressing it.',
+  'Muscle relaxed, never flexed.',
+  'For any girth, read the tape at the end of a normal exhale.',
+]
+
+// Limb measurements are only repeatable if you return to the identical spot, so
+// the distance up the limb is set once and saved. Defaults are examples — the
+// number that matters is whichever one the user actually uses.
+export const REF_DISTANCES = {
+  arm: {
+    id: 'arm', label: 'Upper arm reference', default: 18, unit: 'cm',
+    from: 'up from the elbow crease',
+    help: 'Pick a distance up from the elbow crease and keep it forever — that is the spot you measure every time.',
+  },
+  thigh: {
+    id: 'thigh', label: 'Thigh reference', default: 15, unit: 'cm',
+    from: 'above the top of the kneecap',
+    help: 'Pick a distance above the top of the kneecap and keep it forever, so it is the identical spot each time.',
+  },
+}
+
+export const DEFAULT_BODY_REFS = { arm: REF_DISTANCES.arm.default, thigh: REF_DISTANCES.thigh.default }
+
+/** The saved reference distance rendered as the phrase shown next to the field. */
+export function refPhrase(refs, refKey) {
+  const meta = REF_DISTANCES[refKey]
+  if (!meta) return null
+  const value = refs?.[refKey] ?? meta.default
+  return `${value} ${meta.unit} ${meta.from}`
+}
+
 // better: direction that counts as progress (down = smaller is better).
+// how: exactly where and how to take the reading, so two readings are comparable.
+// side: 'L'/'R' — left and right are stored separately and never averaged.
+// refKey: this measurement depends on a saved fixed reference distance.
+// guide: which schematic illustration to draw beside it.
 export const METRICS = [
-  { key: 'weight', label: 'Weight', unit: 'kg', better: 'down', color: 'var(--lime)', roll: true },
-  { key: 'bodyFat', label: 'Body fat', unit: '%', better: 'down', color: 'var(--amber)' },
-  { key: 'visceralFat', label: 'Visceral fat', unit: '', better: 'down', color: 'var(--coral)' },
-  { key: 'muscleMass', label: 'Muscle mass', unit: 'kg', better: 'up', color: 'var(--violet)' },
-  { key: 'waist', label: 'Waist', unit: 'cm', better: 'down', color: 'var(--indigo)' },
-  { key: 'hips', label: 'Hips', unit: 'cm', better: 'down', color: 'var(--indigo)' },
-  { key: 'chest', label: 'Chest', unit: 'cm', better: 'up', color: 'var(--indigo)' },
-  { key: 'arms', label: 'Arms', unit: 'cm', better: 'up', color: 'var(--violet)' },
-  { key: 'thighs', label: 'Thighs', unit: 'cm', better: 'up', color: 'var(--violet)' },
-  { key: 'neck', label: 'Neck', unit: 'cm', better: 'down', color: 'var(--indigo)' },
+  {
+    key: 'weight', label: 'Weight', unit: 'kg', better: 'down', color: 'var(--lime)', roll: true,
+    guide: 'weight',
+    how: 'Morning, after the bathroom, before eating or drinking.',
+  },
+  { key: 'bodyFat', label: 'Body fat', unit: '%', better: 'down', color: 'var(--amber)', how: 'From a scan or a body-composition scale — same device and same conditions each time.' },
+  { key: 'visceralFat', label: 'Visceral fat', unit: '', better: 'down', color: 'var(--coral)', how: 'Scan or scale reading — same device each time.' },
+  { key: 'muscleMass', label: 'Muscle mass', unit: 'kg', better: 'up', color: 'var(--violet)', how: 'Scan or scale reading — same device each time.' },
+  {
+    key: 'neck', label: 'Neck', unit: 'cm', better: 'down', color: 'var(--indigo)', guide: 'neck',
+    how: "Around the neck just below the Adam's apple, tape level.",
+  },
+  {
+    key: 'chest', label: 'Chest', unit: 'cm', better: 'up', color: 'var(--indigo)', guide: 'chest',
+    how: 'Around the fullest part at nipple level, arms relaxed, end of a normal exhale.',
+  },
+  {
+    key: 'waist', label: 'Waist', unit: 'cm', better: 'down', color: 'var(--indigo)', guide: 'waist',
+    how: 'Tape horizontal around the belly button (navel) the whole way round, relaxed, end of a normal exhale.',
+  },
+  {
+    key: 'hips', label: 'Hips', unit: 'cm', better: 'down', color: 'var(--indigo)', guide: 'hips',
+    how: 'Around the widest part of the buttocks, feet together, tape horizontal.',
+  },
+
+  {
+    key: 'armL', label: 'Upper arm — left', short: 'Left', unit: 'cm', better: 'up', color: 'var(--violet)',
+    group: 'arm', side: 'L', refKey: 'arm', guide: 'arm',
+    how: 'Arm relaxed at your side; measure at your saved distance up from the elbow crease. Always the same arm position.',
+  },
+  {
+    key: 'armR', label: 'Upper arm — right', short: 'Right', unit: 'cm', better: 'up', color: 'var(--violet)',
+    group: 'arm', side: 'R', refKey: 'arm', guide: 'arm',
+    how: 'Arm relaxed at your side; measure at your saved distance up from the elbow crease. Always the same arm position.',
+  },
+  {
+    key: 'forearmL', label: 'Forearm — left', short: 'Left', unit: 'cm', better: 'up', color: 'var(--violet)',
+    group: 'forearm', side: 'L', guide: 'forearm',
+    how: 'Widest part below the elbow, arm relaxed.',
+  },
+  {
+    key: 'forearmR', label: 'Forearm — right', short: 'Right', unit: 'cm', better: 'up', color: 'var(--violet)',
+    group: 'forearm', side: 'R', guide: 'forearm',
+    how: 'Widest part below the elbow, arm relaxed.',
+  },
+  {
+    key: 'thighL', label: 'Thigh — left', short: 'Left', unit: 'cm', better: 'up', color: 'var(--violet)',
+    group: 'thigh', side: 'L', refKey: 'thigh', guide: 'thigh',
+    how: 'Standing, weight even on both feet; measure at your saved distance above the top of the kneecap.',
+  },
+  {
+    key: 'thighR', label: 'Thigh — right', short: 'Right', unit: 'cm', better: 'up', color: 'var(--violet)',
+    group: 'thigh', side: 'R', refKey: 'thigh', guide: 'thigh',
+    how: 'Standing, weight even on both feet; measure at your saved distance above the top of the kneecap.',
+  },
+  {
+    key: 'calfL', label: 'Calf — left', short: 'Left', unit: 'cm', better: 'up', color: 'var(--violet)',
+    group: 'calf', side: 'L', guide: 'calf',
+    how: 'Widest part, standing.',
+  },
+  {
+    key: 'calfR', label: 'Calf — right', short: 'Right', unit: 'cm', better: 'up', color: 'var(--violet)',
+    group: 'calf', side: 'R', guide: 'calf',
+    how: 'Widest part, standing.',
+  },
 ]
 export const METRIC_BY_KEY = Object.fromEntries(METRICS.map((m) => [m.key, m]))
 
+// Single-value arm/thigh fields from before the left/right split. They are never
+// offered for new entries — a single old number can't be split into two sides
+// without inventing one — but old readings stay visible in Trends.
+export const LEGACY_METRICS = [
+  { key: 'arms', label: 'Arms (before L/R split)', unit: 'cm', better: 'up', color: 'var(--muted)', legacy: true },
+  { key: 'thighs', label: 'Thighs (before L/R split)', unit: 'cm', better: 'up', color: 'var(--muted)', legacy: true },
+]
+export const ALL_METRIC_BY_KEY = {
+  ...METRIC_BY_KEY,
+  ...Object.fromEntries(LEGACY_METRICS.map((m) => [m.key, m])),
+}
+
+export function legacyMetricsPresent(measurements) {
+  return LEGACY_METRICS.filter((m) => measurements.some((x) => x[m.key] != null && x[m.key] !== ''))
+}
+
 // Primary fields shown in the quick-entry form (rest are optional extras).
 export const PRIMARY_FIELDS = ['weight', 'bodyFat', 'visceralFat', 'muscleMass', 'waist']
-export const EXTRA_FIELDS = ['hips', 'chest', 'arms', 'thighs', 'neck']
+
+// Extras, grouped so a left/right pair sits on one row under one instruction.
+export const EXTRA_GROUPS = [
+  { id: 'neck', label: 'Neck', keys: ['neck'] },
+  { id: 'chest', label: 'Chest', keys: ['chest'] },
+  { id: 'hips', label: 'Hips', keys: ['hips'] },
+  { id: 'arm', label: 'Upper arm', keys: ['armL', 'armR'] },
+  { id: 'forearm', label: 'Forearm', keys: ['forearmL', 'forearmR'] },
+  { id: 'thigh', label: 'Thigh', keys: ['thighL', 'thighR'] },
+  { id: 'calf', label: 'Calf', keys: ['calfL', 'calfR'] },
+]
+export const EXTRA_FIELDS = EXTRA_GROUPS.flatMap((g) => g.keys)
 
 // Sorted, deduped-by-date series of a single metric.
 export function metricSeries(measurements, key) {

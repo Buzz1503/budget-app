@@ -25,10 +25,36 @@ const waitText = async (re, timeout = 20000) => {
   }
   throw new Error('timeout waiting for ' + re)
 }
-const nav = (label) => page.click(`nav button:has-text("${label}")`)
+const PRIMARY_TABS = new Set(['Home', 'Calendar', 'Symptoms', 'Body', 'More'])
+// v13 moved everything but the five primary tabs under the More hub, so a
+// screen is reached by its More-hub description rather than a nav button.
+const MORE_LINK = {
+  Calculator: 'text=Reconstitution & syringe units',
+  Mix: 'text=Can these two share a syringe',
+  Stock: 'text=Vials, cost, expiry',
+  Library: 'text=Your peptides, ladders',
+  'Right Now': 'text=What your stack is doing today',
+  History: 'text=Every dose, rates',
+  Settings: 'text=Theme, badges',
+  Needle: 'text=SubQ, IM and nasal',
+  Wizard: 'text=Guided setup with suggestions',
+}
+const nav = async (label) => {
+  if (PRIMARY_TABS.has(label)) {
+    await page.click(`nav button[aria-label="${label}"]`)
+  } else {
+    await page.click('nav button[aria-label="More"]')
+    await page.waitForTimeout(320)
+    await page.click(MORE_LINK[label])
+  }
+  await page.waitForTimeout(380)
+  // Home defaults to the current wall-clock slot; these suites want the morning
+  if (label === 'Home') { await page.click('button:has-text("AM")'); await page.waitForTimeout(400) }
+}
 const modal = () => page.locator('div.fixed.inset-0.z-50 > div.card')
 const state = () => page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state)
-const openRestock = async () => { await nav('More'); await page.click('text=Restock list'); await waitText(/What to order/) }
+// v13 merged Stock and Restock into one screen
+const openRestock = async () => { await nav('Stock'); await waitText(/what to order for/i) }
 const openWizard = async () => { await nav('More'); await page.click('text=Build / rebuild my schedule'); await waitText(/A few minutes/) }
 // the card for one restock line, found by the compound it names
 const rowFor = (name) => page.locator('div.card', { hasText: name })
@@ -84,14 +110,14 @@ await waitText(/not medical advice/)
 await page.click('text=Got it')
 
 // ================= 1 · RESTOCK =================
-await step('the restock list opens from More and from Stock', async () => {
+await step('stock and the restock list are one screen under More', async () => {
   await openRestock()
   await waitText(/Compounds · soonest to run out first/i)
-  await nav('More')
-  await page.click('text=Stock')
-  await waitText(/Restock list/)
-  await page.click('button:has-text("Restock list")')
-  await waitText(/What to order/)
+  const txt = await page.textContent('body')
+  // both halves live here now: holdings and the order line
+  for (const w of ['on hand', 'runs out', 'cost/dose', 'Consumables']) {
+    if (!txt.includes(w)) throw new Error(`the merged screen is missing "${w}"`)
+  }
 })
 
 await step('vials to order come from real burn-rate over the horizon', async () => {
@@ -114,17 +140,19 @@ await step('vials to order come from real burn-rate over the horizon', async () 
 
 await step('run-out dates and "order now" flags are consistent', async () => {
   const body = await page.textContent('body')
-  if (!/runs out \d{4}-\d{2}-\d{2}/.test(body)) throw new Error('no run-out dates shown')
+  const titles = (await page.locator('[title^="runs out "]').evaluateAll((els) => els.map((e) => e.getAttribute('title')))).join(' ')
+  if (!/runs out \d{4}-\d{2}-\d{2}/.test(titles)) throw new Error('no run-out dates shown')
   if (!/Order now/.test(body)) throw new Error('nothing flagged "order now" despite a 30-day lead time')
   if (!/within your 30-day lead time/.test(body)) throw new Error('the lead time is not explained')
   // an "order now" row must run out sooner than a "coming up" row
   const rows = await page.evaluate(() => [...document.querySelectorAll('div.card')]
-    .filter((d) => /runs out|no burn rate/.test(d.textContent) && d.querySelector('button[aria-label*="as ordered"]'))
+    .filter((d) => d.querySelector('button[aria-label*="as ordered"]') && d.querySelector('[title^="runs out"], [title^="no burn rate"]'))
     .map((d) => {
       const t = d.textContent
+      const title = d.querySelector('[title^="runs out "]')?.getAttribute('title') || ''
       return {
         pri: /Order now/.test(t) ? 0 : /Coming up/.test(t) ? 1 : 2,
-        date: (t.match(/runs out (\d{4}-\d{2}-\d{2})/) || [])[1] || null,
+        date: (title.match(/runs out (\d{4}-\d{2}-\d{2})/) || [])[1] || null,
       }
     }))
   const dated = rows.filter((r) => r.date)
@@ -235,9 +263,8 @@ await step('an expected delivery silences the low-stock alert and reaches the ca
   if (/Tesamorelin runs out in ~\d+d — restock soon/.test(home)) throw new Error('the plain restock nag is still there')
 
   // and it rides along in the calendar export
-  await nav('More')
-  await page.click('text=Settings')
-  await waitText(/Calendar/)
+  await nav('Settings')
+  await waitText(/Calendar export/)
   const [dl] = await Promise.all([
     page.waitForEvent('download', { timeout: 20000 }),
     page.click('button:has-text("Download .ics")'),
@@ -258,8 +285,7 @@ await step('the wizard opens from More and from Settings', async () => {
   await openWizard()
   await wiz('button[aria-label="Close"]').click()
   await page.waitForTimeout(400)
-  await nav('More')
-  await page.click('text=Settings')
+  await nav('Settings')
   await page.click('button:has-text("Build / rebuild my schedule")')
   await waitText(/A few minutes/)
   const intro = await modal().textContent()
@@ -368,7 +394,7 @@ await step('start date and review build the schedule without wiping anything', a
 })
 
 await step('the new compounds populate Home, Library and the restock list', async () => {
-  await nav('More'); await page.click('text=Library')
+  await nav('Library')
   await waitText(/Ipamorelin/)
   const lib = await page.textContent('body')
   if (!/ACE-031/.test(lib)) throw new Error('the TX compound is not in the Library')

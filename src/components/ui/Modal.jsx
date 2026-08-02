@@ -1,7 +1,23 @@
+import { useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X } from 'lucide-react'
 
 export default function Modal({ open, onClose, title, children, wide }) {
+  // Escape closes it, the way every other sheet on the phone does — but it
+  // dismisses one layer at a time. With a term explanation open on top, Escape
+  // belongs to the tooltip; closing the whole sheet out from under it would
+  // lose whatever the user was in the middle of.
+  useEffect(() => {
+    if (!open || !onClose) return
+    const onKey = (e) => {
+      if (e.key !== 'Escape') return
+      if (document.querySelector('[role="tooltip"]')) return
+      onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open, onClose])
+
   return (
     <AnimatePresence>
       {open && (

@@ -6,7 +6,7 @@
 import { addDaysStr, currentRung, cycleInfo, daysBetween } from './schedule'
 import { isDueToday, slotOf, needsProtocolSetup, SLOTS } from './daily'
 import { toMg, isNasal, isPremixed, nasalStrength, NASAL_RECIPE, fromMg } from './calc'
-import { totalMgOnHand, vialsFor, runOutInfo } from './inventory'
+import { totalMgOnHand, vialsFor, runOutInfo, costPerDose, expiryInfo } from './inventory'
 import { planShots } from './grouping'
 import { LIB_TO_COMPOUND } from './mixMatrix'
 
@@ -138,6 +138,12 @@ export function restockRows({ peptides, titration, vials, openVials, todayStr, d
       qty: override ?? suggestedVials,
       runOutDate: isFinite(ro.daysLeft) ? ro.runOutDate : null,
       daysLeft: ro.daysLeft,
+      // the open vial's post-reconstitution clock, so Stock and Restock can't
+      // disagree about when it goes off
+      expiry: expiryInfo(p, openVials?.[p.id], todayStr),
+      openMg: Math.max(0, openVials?.[p.id]?.remainingMg || 0),
+      reconstituted: !!openVials?.[p.id]?.reconstitutedAt,
+      costPerDose: costPerDose(p, titration?.[p.id], vials),
       unitCost: costPerVial(p.id, vials),
       priority: !isFinite(ro.daysLeft) ? 'ok' : ro.daysLeft <= leadDays ? 'now' : ro.daysLeft <= days ? 'soon' : 'ok',
     })

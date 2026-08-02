@@ -18,6 +18,7 @@ import CoachTip from './ui/CoachTip'
 import Term from './ui/Term'
 import SitePicker from './SitePicker'
 import CoDrawModal from './CoDrawModal'
+import { NextSevenDays } from './CalendarTab'
 
 const spring = { type: 'spring', stiffness: 260, damping: 22 }
 
@@ -283,7 +284,7 @@ export default function Home({ goTo }) {
       {alerts.length > 0 && (
         <motion.div layout className="card space-y-2 p-3" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
           {alerts.map((a) => (
-            <button key={a.id} onClick={() => goTo(a.kind === 'stock' || a.kind === 'ordered' ? 'restock' : 'inventory')} className="flex w-full items-center gap-2 text-left text-xs font-semibold">
+            <button key={a.id} onClick={() => goTo('supplies')} className="flex w-full items-center gap-2 text-left text-xs font-semibold">
               <AlertTriangle size={14} className="shrink-0" style={{ color: a.kind === 'expired' ? 'var(--coral)' : a.kind === 'ordered' ? 'var(--indigo)' : 'var(--amber)' }} />
               <span style={{ color: a.kind === 'expired' ? 'var(--coral)' : 'var(--text)' }}>{a.text}</span>
             </button>
@@ -338,6 +339,9 @@ export default function Home({ goTo }) {
             beckon={firstRun && i === slotDue.findIndex((x) => !loggedToday.has(x.id))} />
         ))}
       </div>
+
+      {/* what's coming — taps through to the full calendar */}
+      <NextSevenDays goTo={goTo} />
 
       {/* keeps the last card clear of the floating co-draw bar */}
       {selected.size > 0 && <div aria-hidden className="h-20" />}
@@ -559,7 +563,7 @@ function DueCard({ peptide: p, index, done, titration, partners, slot, onLog, go
         </motion.button>
       </div>
       {stepDue && (
-        <button onClick={() => goTo('schedule')}
+        <button onClick={() => goTo('library')}
           className="mt-3 flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2 text-xs font-bold"
           style={{ background: 'color-mix(in srgb, var(--violet) 16%, transparent)', color: 'var(--violet)' }}>
           <span className="flex items-center gap-2"><Zap size={13} /> Step-up ready — tolerating well?</span>

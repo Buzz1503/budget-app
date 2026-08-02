@@ -24,7 +24,7 @@ const BASE_PATH = new URL(BASE).pathname
 
 await step(`app boots at the ${new URL(BASE).pathname} base path`, async () => {
   await page.waitForSelector('nav button', { timeout: 10000 })
-  if ((await page.locator('nav button').count()) !== 6) throw new Error('nav did not render')
+  if ((await page.locator('nav button').count()) !== 5) throw new Error('nav did not render')
 })
 
 await step('manifest is linked, valid, and standalone/portrait', async () => {
@@ -105,8 +105,11 @@ await step('OFFLINE: app still opens and data tabs work with no network', async 
   await page.waitForSelector('nav button', { timeout: 15000 })
   const dismiss = page.locator('text=Got it')
   if (await dismiss.count()) await dismiss.click()
-  // Mix tab is the hard case: it lazy-loads the 1.8 MB matrix chunk
-  await page.click('nav button:has-text("Mix")')
+  // Mix is the hard case: it lazy-loads the 1.8 MB matrix chunk. v13 moved it
+  // under More, so it takes two taps.
+  await page.click('nav button[aria-label="More"]')
+  await page.waitForTimeout(400)
+  await page.click('text=Can these two share a syringe')
   const start = Date.now()
   let ok = false
   while (Date.now() - start < 20000) {
