@@ -129,7 +129,7 @@ await step('Body: second measurement (later date) enables scrubber + milestone',
 await step('Outcomes: peptide × subjective renders after a symptom log', async () => {
   // add a symptom check-in first
   await nav('Symptoms')
-  await page.click('button:has-text("Great energy")')
+  await page.click('button:has-text("More energy")')
   await page.click('button:has-text("Log check-in")')
   await page.waitForTimeout(800)
   await nav('Body')

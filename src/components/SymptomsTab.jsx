@@ -1,18 +1,26 @@
 import { useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { HeartPulse, Flame, Check, TrendingUp, X } from 'lucide-react'
+import { HeartPulse, Flame, Check, TrendingUp, X, Search, ChevronDown, Info } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import useStore, { todayStr } from '../store/useStore'
 import { addDaysStr } from '../lib/schedule'
 import {
   SYMPTOM_TAGS, TAG_BY_ID, INJECTION_SITES, SEVERITY, findPatterns,
 } from '../lib/symptoms'
+import {
+  stackSymptoms, stackSymptomIndex, attributeSymptom, symptomIcon, symptomLabel,
+  ATTRIBUTION_CAVEAT, LIKELIHOOD_TONE, TIER_WORDS,
+} from '../lib/attribution'
+import Term from './ui/Term'
+import CoachTip from './ui/CoachTip'
 
 const SEV_COLOR = { mild: 'var(--amber)', moderate: 'var(--coral)', strong: 'var(--rose)' }
 
 export default function SymptomsTab() {
   const symptomLogs = useStore((s) => s.symptomLogs)
   const peptides = useStore((s) => s.peptides)
+  const titration = useStore((s) => s.titration)
+  const doseLogs = useStore((s) => s.doseLogs)
   const gamification = useStore((s) => s.gamification)
   const logSymptomCheckin = useStore((s) => s.logSymptomCheckin)
   const t = todayStr()
@@ -25,6 +33,18 @@ export default function SymptomsTab() {
   })
   const [note, setNote] = useState(todayLog?.note || '')
   const [site, setSite] = useState(todayLog?.site || null)
+
+  // Only what the stack could plausibly cause. Showing the whole 66-symptom
+  // catalogue to someone running five compounds buries the handful that apply.
+  const stack = useMemo(() => stackSymptoms(peptides), [peptides])
+  const stackIndex = useMemo(() => stackSymptomIndex(peptides), [peptides])
+  const attributions = useMemo(() => {
+    const ctx = { peptides, titration, doseLogs, todayStr: t }
+    return Object.keys(selected)
+      .filter((id) => stackIndex[id])
+      .map((id) => attributeSymptom(id, ctx))
+      .filter((a) => a.top)
+  }, [selected, stackIndex, peptides, titration, doseLogs, t])
 
   const toggle = (id) => {
     setSelected((s) => {
@@ -43,17 +63,24 @@ export default function SymptomsTab() {
   }
 
   const submit = () => {
-    const tags = Object.entries(selected).map(([id, severity]) => ({
-      id, severity, polarity: TAG_BY_ID[id].polarity, label: TAG_BY_ID[id].label,
-    }))
+    // an id can come from the stack list or, on an older check-in being
+    // updated, from the original fixed palette
+    const tags = Object.entries(selected).map(([id, severity]) => {
+      const meta = stackIndex[id] || TAG_BY_ID[id]
+      return {
+        id, severity,
+        polarity: meta?.polarity || 'neg',
+        label: meta?.label || symptomLabel(id),
+      }
+    })
     if (tags.length === 0) return
     logSymptomCheckin({ tags, note, site })
   }
 
-  const negs = SYMPTOM_TAGS.filter((tg) => tg.polarity === 'neg')
-  const pos = SYMPTOM_TAGS.filter((tg) => tg.polarity === 'pos')
   const patterns = useMemo(() => findPatterns(symptomLogs), [symptomLogs])
   const selectedCount = Object.keys(selected).length
+  // ids on an existing check-in that predate the stack-relevant list
+  const legacySelected = Object.keys(selected).filter((id) => !stackIndex[id] && TAG_BY_ID[id])
 
   return (
     <div className="space-y-4">
@@ -67,6 +94,12 @@ export default function SymptomsTab() {
         </span>
       </div>
 
+      <CoachTip id="symptom-attribution" tone="violet">
+        Tick anything you've noticed and the app names the compound in your stack most likely behind it —
+        weighted towards whatever you <span className="font-black">started or stepped up recently</span>,
+        because that's usually the thing that changed.
+      </CoachTip>
+
       {/* check-in */}
       <div className="card p-4">
         <p className="mb-2 flex items-center gap-1.5 text-sm font-bold">
@@ -74,15 +107,56 @@ export default function SymptomsTab() {
           {todayLog ? "Today's check-in" : 'Daily check-in'}
         </p>
 
-        <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--lime)' }}>Positives</p>
-        <div className="flex flex-wrap gap-1.5">
-          {pos.map((tg) => <Tag key={tg.id} tag={tg} sev={selected[tg.id]} onToggle={() => toggle(tg.id)} onSev={() => cycleSeverity(tg.id)} />)}
-        </div>
+        <p className="mb-2 text-[11px] font-semibold leading-relaxed" style={{ color: 'var(--muted)' }}>
+          Only what your current stack is known for — good effects and issues both.
+        </p>
 
-        <p className="mb-1.5 mt-3 text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--coral)' }}>Negatives</p>
-        <div className="flex flex-wrap gap-1.5">
-          {negs.map((tg) => <Tag key={tg.id} tag={tg} sev={selected[tg.id]} onToggle={() => toggle(tg.id)} onSev={() => cycleSeverity(tg.id)} />)}
-        </div>
+        {stack.positive.length === 0 && stack.negative.length === 0 && (
+          <p className="py-4 text-center text-xs font-semibold" style={{ color: 'var(--muted)' }}>
+            Nothing in your stack has known effects on file yet. Add a compound from the list to see
+            what to watch for.
+          </p>
+        )}
+
+        {stack.positive.length > 0 && (
+          <>
+            <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--lime)' }}>
+              Good effects
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {stack.positive.map((tg) => (
+                <Tag key={tg.id} tag={tg} sev={selected[tg.id]} onToggle={() => toggle(tg.id)} onSev={() => cycleSeverity(tg.id)} />
+              ))}
+            </div>
+          </>
+        )}
+
+        {stack.negative.length > 0 && (
+          <>
+            <p className="mb-1.5 mt-3 text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--coral)' }}>
+              Issues
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {stack.negative.map((tg) => (
+                <Tag key={tg.id} tag={tg} sev={selected[tg.id]} onToggle={() => toggle(tg.id)} onSev={() => cycleSeverity(tg.id)} />
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* anything already ticked from a check-in written before this list */}
+        {legacySelected.length > 0 && (
+          <>
+            <p className="mb-1.5 mt-3 text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>
+              Also on this check-in
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {legacySelected.map((id) => (
+                <Tag key={id} tag={TAG_BY_ID[id]} sev={selected[id]} onToggle={() => toggle(id)} onSev={() => cycleSeverity(id)} />
+              ))}
+            </div>
+          </>
+        )}
 
         {/* injection site */}
         <p className="mb-1.5 mt-3 text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>Injection site (optional)</p>
@@ -111,6 +185,26 @@ export default function SymptomsTab() {
         </p>
       </div>
 
+      {/* what might be behind it */}
+      <AnimatePresence>
+        {attributions.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+            className="card space-y-3 p-4" data-testid="attribution-panel"
+          >
+            <p className="flex items-center gap-1.5 text-sm font-bold">
+              <Search size={15} style={{ color: 'var(--violet)' }} /> What might be behind this?
+            </p>
+            {attributions.map((a) => <Attribution key={a.symptomId} result={a} />)}
+            <p className="flex items-start gap-1.5 rounded-xl p-2.5 text-[10px] font-medium leading-relaxed"
+              style={{ background: 'var(--surface2)', color: 'var(--muted)' }}>
+              <Info size={13} className="mt-0.5 shrink-0" style={{ color: 'var(--amber)' }} />
+              <span>{ATTRIBUTION_CAVEAT}</span>
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* timeline heatmap */}
       <Timeline logs={symptomLogs} peptides={peptides} today={t} />
 
@@ -136,6 +230,106 @@ export default function SymptomsTab() {
         </div>
       )}
     </div>
+  )
+}
+
+// One symptom: the single most-likely compound headlined, everything else that
+// could contribute listed underneath with its relative likelihood and how solid
+// the evidence for that link actually is.
+function Attribution({ result }) {
+  const [open, setOpen] = useState(false)
+  const { top, others } = result
+  const pos = result.polarity === 'pos'
+
+  return (
+    <div className="rounded-xl p-3" style={{ background: 'var(--surface2)' }}>
+      <p className="text-[11px] font-bold" style={{ color: pos ? 'var(--lime)' : 'var(--coral)' }}>
+        {result.icon} {result.label}
+      </p>
+
+      <div className="mt-1.5 flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="text-[9px] font-black uppercase tracking-wide" style={{ color: 'var(--muted)' }}>
+            Most likely
+          </p>
+          <p className="truncate text-base font-black">{top.name}</p>
+          <div className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5">
+            {top.reasons.map((r) => (
+              <span key={r} className="text-[10px] font-semibold" style={{ color: 'var(--muted)' }}>· {r}</span>
+            ))}
+          </div>
+        </div>
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          <span className="rounded-full px-2 py-0.5 text-[10px] font-black"
+            style={{ background: `color-mix(in srgb, ${LIKELIHOOD_TONE[top.likelihood]} 20%, transparent)`, color: LIKELIHOOD_TONE[top.likelihood] }}>
+            {top.likelihood}
+          </span>
+          <TierChip tier={top.tier} />
+        </div>
+      </div>
+
+      {others.length > 0 && (
+        <>
+          <button onClick={() => setOpen(!open)}
+            className="mt-2 flex w-full items-center justify-between text-[11px] font-bold"
+            style={{ color: 'var(--indigo)' }}>
+            <span>{open ? 'Hide' : `${others.length} other${others.length === 1 ? '' : 's'} could contribute`}</span>
+            <motion.span animate={{ rotate: open ? 180 : 0 }} style={{ display: 'inline-flex' }}>
+              <ChevronDown size={14} />
+            </motion.span>
+          </button>
+          {open && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-1.5 space-y-1.5">
+              {others.map((c) => (
+                <div key={c.peptideId} className="flex items-center justify-between gap-2">
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-xs font-bold">{c.name}</span>
+                    <span className="block text-[10px] font-semibold" style={{ color: 'var(--muted)' }}>
+                      {c.reasons[0]}
+                    </span>
+                  </span>
+                  <span className="flex shrink-0 items-center gap-1.5">
+                    <span className="text-[10px] font-black" style={{ color: LIKELIHOOD_TONE[c.likelihood] }}>
+                      {c.likelihood}
+                    </span>
+                    <TierChip tier={c.tier} />
+                  </span>
+                </div>
+              ))}
+            </motion.div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
+// Evidence tier, tappable for what it actually means — T4 shouldn't read the
+// same as T1 just because both are three characters.
+function TierChip({ tier }) {
+  const [open, setOpen] = useState(false)
+  const strong = tier === 'T1' || tier === 'T2'
+  return (
+    <span className="relative inline-block">
+      <button onClick={() => setOpen(!open)}
+        aria-label={`What does evidence tier ${tier} mean?`}
+        className="rounded px-1.5 py-0.5 text-[9px] font-black"
+        style={{
+          background: 'var(--surface-solid)',
+          color: strong ? 'var(--lime)' : tier === 'T3' ? 'var(--amber)' : 'var(--muted)',
+        }}>
+        {tier}
+      </button>
+      {open && (
+        <span role="tooltip" onClick={() => setOpen(false)}
+          className="absolute right-0 top-full z-[60] mt-1 block w-44 rounded-xl p-2 text-right text-[10px] font-semibold leading-relaxed shadow-lg"
+          style={{ background: 'var(--surface-solid)', border: '1px solid var(--border)', color: 'var(--muted)' }}>
+          <span className="block font-black" style={{ color: 'var(--text)' }}>{tier} · {TIER_WORDS[tier]}</span>
+          How solid the link between this compound and this effect is — T1 is well established,
+          T5 is one person's report.
+        </span>
+      )}
+    </span>
   )
 }
 
@@ -226,10 +420,25 @@ function Timeline({ logs, peptides, today }) {
                 {openLog.log.tags.map((tg) => (
                   <span key={tg.id} className="rounded-full px-2 py-0.5 text-[10px] font-bold"
                     style={{ background: 'var(--surface-solid)', color: tg.polarity === 'pos' ? 'var(--lime)' : SEV_COLOR[tg.severity] }}>
-                    {TAG_BY_ID[tg.id]?.icon} {tg.label}{tg.polarity === 'neg' ? ` · ${tg.severity}` : ''}
+                    {TAG_BY_ID[tg.id]?.icon || symptomIcon(tg.id)} {tg.label}{tg.polarity === 'neg' ? ` · ${tg.severity}` : ''}
                   </span>
                 ))}
               </div>
+              {/* what the suspects were on the day, not re-ranked against today's stack */}
+              {openLog.log.tags.some((tg) => tg.attribution) && (
+                <div className="mt-2 space-y-0.5">
+                  {openLog.log.tags.filter((tg) => tg.attribution).map((tg) => (
+                    <p key={tg.id} className="text-[10px] font-semibold" style={{ color: 'var(--muted)' }}>
+                      {tg.label} → <span className="font-black" style={{ color: 'var(--text)' }}>{tg.attribution.top.name}</span>
+                      {' '}({tg.attribution.top.likelihood} · {tg.attribution.top.tier})
+                      {tg.attribution.others.length > 0 && ` +${tg.attribution.others.length} other${tg.attribution.others.length === 1 ? '' : 's'}`}
+                    </p>
+                  ))}
+                  <p className="pt-0.5 text-[9px] font-medium italic" style={{ color: 'var(--muted)' }}>
+                    Candidates recorded at the time — not a diagnosis.
+                  </p>
+                </div>
+              )}
               {openLog.log.activePeptides?.length > 0 && (
                 <p className="mt-2 text-[10px] font-semibold" style={{ color: 'var(--muted)' }}>
                   Active: {openLog.log.activePeptides.map((a) => `${a.name} (d${a.cycleDay})`).join(', ')}

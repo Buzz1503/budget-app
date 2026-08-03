@@ -1,0 +1,587 @@
+{
+ "schema": "pepito-side-effects/v1",
+ "note": "Associations are CANDIDATES, not a diagnosis. On a multi-compound stack several things can contribute to one symptom. Evidence tiers T1 (strongest) to T5 (anecdotal) mirror the dosing reference; some entries are community-reported, not proven. Not medical advice.",
+ "symptoms": {
+  "nausea": {
+   "label": "Nausea",
+   "type": "neg"
+  },
+  "vomiting": {
+   "label": "Vomiting",
+   "type": "neg"
+  },
+  "diarrhea": {
+   "label": "Diarrhoea",
+   "type": "neg"
+  },
+  "constipation": {
+   "label": "Constipation",
+   "type": "neg"
+  },
+  "appetite_loss": {
+   "label": "Loss of appetite",
+   "type": "neg"
+  },
+  "fatigue": {
+   "label": "Fatigue / low energy",
+   "type": "neg"
+  },
+  "flushing": {
+   "label": "Flushing / feeling hot",
+   "type": "neg"
+  },
+  "inj_reaction": {
+   "label": "Injection-site reaction (redness/swelling/pain)",
+   "type": "neg"
+  },
+  "inj_pain": {
+   "label": "Painful injection",
+   "type": "neg"
+  },
+  "skin_staining": {
+   "label": "Skin staining at site",
+   "type": "neg"
+  },
+  "water_retention": {
+   "label": "Water retention / puffiness",
+   "type": "neg"
+  },
+  "edema": {
+   "label": "Swelling in ankles/limbs",
+   "type": "neg"
+  },
+  "joint_pain": {
+   "label": "Joint / muscle aches",
+   "type": "neg"
+  },
+  "high_glucose": {
+   "label": "High blood sugar / glucose swings",
+   "type": "neg"
+  },
+  "tingling": {
+   "label": "Skin tingling / burning (dysaesthesia)",
+   "type": "neg"
+  },
+  "numbness": {
+   "label": "Numbness / carpal-tunnel tingling in hands",
+   "type": "neg"
+  },
+  "raised_hr": {
+   "label": "Raised resting heart rate",
+   "type": "neg"
+  },
+  "head_rush": {
+   "label": "Head rush / light-headedness after injection",
+   "type": "neg"
+  },
+  "headache": {
+   "label": "Headache",
+   "type": "neg"
+  },
+  "mole_change": {
+   "label": "Moles darkening or changing",
+   "type": "neg"
+  },
+  "freckling": {
+   "label": "New freckles / pigment spots",
+   "type": "neg"
+  },
+  "priapism": {
+   "label": "Prolonged / unwanted erections",
+   "type": "neg"
+  },
+  "bp_change": {
+   "label": "Blood-pressure changes",
+   "type": "neg"
+  },
+  "acne": {
+   "label": "Acne / oily skin",
+   "type": "neg"
+  },
+  "hair_loss": {
+   "label": "Scalp hair thinning",
+   "type": "neg"
+  },
+  "body_hair": {
+   "label": "Increased body/face hair",
+   "type": "neg"
+  },
+  "gyno": {
+   "label": "Breast tissue tenderness / growth (gyno)",
+   "type": "neg"
+  },
+  "testicular_atrophy": {
+   "label": "Testicular shrinkage",
+   "type": "neg"
+  },
+  "low_fertility": {
+   "label": "Reduced fertility / lower sperm",
+   "type": "neg"
+  },
+  "high_hct": {
+   "label": "Thick blood / high haematocrit (flag on bloods)",
+   "type": "neg"
+  },
+  "mood_swings": {
+   "label": "Irritability / mood swings",
+   "type": "neg"
+  },
+  "aggression": {
+   "label": "Increased aggression",
+   "type": "neg"
+  },
+  "anxiety": {
+   "label": "Anxiety",
+   "type": "neg"
+  },
+  "low_mood": {
+   "label": "Low mood / depression",
+   "type": "neg"
+  },
+  "sleep_apnea": {
+   "label": "Worsened snoring / sleep apnoea",
+   "type": "neg"
+  },
+  "night_sweats": {
+   "label": "Night sweats",
+   "type": "neg"
+  },
+  "insomnia": {
+   "label": "Trouble sleeping / over-stimulation",
+   "type": "neg"
+  },
+  "grogginess": {
+   "label": "Morning grogginess",
+   "type": "neg"
+  },
+  "nasal_irritation": {
+   "label": "Nasal irritation (intranasal)",
+   "type": "neg"
+  },
+  "chest_tightness": {
+   "label": "Chest tightness (fast NAD+ push)",
+   "type": "neg"
+  },
+  "estradiol_up": {
+   "label": "High-oestrogen signs (bloat, moody, nipple sensitivity)",
+   "type": "neg"
+  },
+  "copper_load": {
+   "label": "Signs of copper build-up (with high GHK-Cu dosing)",
+   "type": "neg"
+  },
+  "head_pressure": {
+   "label": "Head pressure (anecdotal)",
+   "type": "neg"
+  },
+  "energy_up": {
+   "label": "More energy",
+   "type": "pos"
+  },
+  "clarity": {
+   "label": "Mental clarity / focus",
+   "type": "pos"
+  },
+  "endurance": {
+   "label": "Better endurance / stamina",
+   "type": "pos"
+  },
+  "reduced_anxiety": {
+   "label": "Calmer / less anxious",
+   "type": "pos"
+  },
+  "better_sleep": {
+   "label": "Better / deeper sleep",
+   "type": "pos"
+  },
+  "recovery": {
+   "label": "Faster soft-tissue recovery",
+   "type": "pos"
+  },
+  "less_joint_pain": {
+   "label": "Less joint / tendon pain",
+   "type": "pos"
+  },
+  "gut_relief": {
+   "label": "Gut symptom relief",
+   "type": "pos"
+  },
+  "skin_quality": {
+   "label": "Better skin quality",
+   "type": "pos"
+  },
+  "hair_quality": {
+   "label": "Better hair / nails",
+   "type": "pos"
+  },
+  "fat_loss": {
+   "label": "Fat loss",
+   "type": "pos"
+  },
+  "visceral_fat": {
+   "label": "Visceral (belly) fat reduction",
+   "type": "pos"
+  },
+  "appetite_suppression": {
+   "label": "Reduced appetite",
+   "type": "pos"
+  },
+  "satiety": {
+   "label": "Fuller / more satisfied after meals",
+   "type": "pos"
+  },
+  "muscle_strength": {
+   "label": "Muscle / strength gains",
+   "type": "pos"
+  },
+  "libido_up": {
+   "label": "Higher libido",
+   "type": "pos"
+  },
+  "mood_up": {
+   "label": "Improved mood / confidence",
+   "type": "pos"
+  },
+  "immune": {
+   "label": "Fewer infections / immune resilience",
+   "type": "pos"
+  },
+  "tanning": {
+   "label": "Tanning / darker skin",
+   "type": "pos"
+  },
+  "warmth": {
+   "label": "Warmth / thermogenic feeling",
+   "type": "pos"
+  },
+  "wellbeing": {
+   "label": "General wellbeing",
+   "type": "pos"
+  },
+  "verbal": {
+   "label": "Verbal fluency / mental stamina",
+   "type": "pos"
+  },
+  "metabolic": {
+   "label": "Better metabolic flexibility",
+   "type": "pos"
+  }
+ },
+ "compounds": {
+  "motsc": {
+   "name": "MOTS-c",
+   "tier": "T4",
+   "positive": [
+    "endurance",
+    "metabolic",
+    "energy_up"
+   ],
+   "negative": [
+    "inj_reaction"
+   ]
+  },
+  "retatrutide": {
+   "name": "Retatrutide",
+   "tier": "T2",
+   "positive": [
+    "appetite_suppression",
+    "fat_loss",
+    "warmth"
+   ],
+   "negative": [
+    "nausea",
+    "vomiting",
+    "diarrhea",
+    "constipation",
+    "tingling",
+    "raised_hr",
+    "fatigue",
+    "appetite_loss"
+   ]
+  },
+  "ss31": {
+   "name": "SS-31 (Elamipretide)",
+   "tier": "T2",
+   "positive": [
+    "energy_up",
+    "endurance"
+   ],
+   "negative": [
+    "inj_reaction"
+   ]
+  },
+  "epithalon": {
+   "name": "Epithalon",
+   "tier": "T3",
+   "positive": [
+    "better_sleep",
+    "wellbeing"
+   ],
+   "negative": []
+  },
+  "nad": {
+   "name": "NAD+",
+   "tier": "T3",
+   "positive": [
+    "energy_up",
+    "clarity"
+   ],
+   "negative": [
+    "inj_pain",
+    "flushing",
+    "nausea",
+    "chest_tightness"
+   ]
+  },
+  "cjc1295_nodac": {
+   "name": "CJC-1295 no-DAC",
+   "tier": "T4",
+   "positive": [
+    "better_sleep"
+   ],
+   "negative": [
+    "flushing",
+    "water_retention",
+    "tingling"
+   ]
+  },
+  "ipamorelin": {
+   "name": "Ipamorelin",
+   "tier": "T4",
+   "positive": [
+    "better_sleep",
+    "recovery"
+   ],
+   "negative": [
+    "head_rush",
+    "flushing"
+   ]
+  },
+  "tesamorelin": {
+   "name": "Tesamorelin",
+   "tier": "T1",
+   "positive": [
+    "visceral_fat",
+    "fat_loss"
+   ],
+   "negative": [
+    "high_glucose",
+    "joint_pain",
+    "edema",
+    "inj_reaction"
+   ]
+  },
+  "kpv": {
+   "name": "KPV",
+   "tier": "T4",
+   "positive": [
+    "gut_relief",
+    "skin_quality"
+   ],
+   "negative": []
+  },
+  "bpc157": {
+   "name": "BPC-157",
+   "tier": "T4",
+   "positive": [
+    "recovery",
+    "less_joint_pain",
+    "gut_relief"
+   ],
+   "negative": [
+    "head_pressure"
+   ]
+  },
+  "tb500": {
+   "name": "TB-500",
+   "tier": "T4",
+   "positive": [
+    "recovery"
+   ],
+   "negative": [
+    "fatigue"
+   ]
+  },
+  "teste": {
+   "name": "Testosterone Enanthate",
+   "tier": "T1",
+   "positive": [
+    "muscle_strength",
+    "libido_up",
+    "mood_up",
+    "energy_up",
+    "fat_loss"
+   ],
+   "negative": [
+    "acne",
+    "hair_loss",
+    "water_retention",
+    "gyno",
+    "testicular_atrophy",
+    "low_fertility",
+    "high_hct",
+    "bp_change",
+    "mood_swings",
+    "aggression",
+    "low_mood",
+    "sleep_apnea",
+    "night_sweats",
+    "estradiol_up",
+    "inj_pain"
+   ]
+  },
+  "selank": {
+   "name": "Selank",
+   "tier": "T3",
+   "positive": [
+    "reduced_anxiety",
+    "clarity"
+   ],
+   "negative": [
+    "fatigue"
+   ]
+  },
+  "dsip": {
+   "name": "DSIP",
+   "tier": "T4",
+   "positive": [
+    "better_sleep"
+   ],
+   "negative": [
+    "grogginess",
+    "headache"
+   ]
+  },
+  "semax": {
+   "name": "Semax",
+   "tier": "T3",
+   "positive": [
+    "clarity",
+    "verbal"
+   ],
+   "negative": [
+    "nasal_irritation",
+    "insomnia"
+   ]
+  },
+  "ghkcu": {
+   "name": "GHK-Cu",
+   "tier": "T3",
+   "positive": [
+    "skin_quality",
+    "hair_quality"
+   ],
+   "negative": [
+    "inj_pain",
+    "skin_staining",
+    "copper_load"
+   ]
+  },
+  "melanotan1": {
+   "name": "Melanotan 1",
+   "tier": "T3",
+   "positive": [
+    "tanning"
+   ],
+   "negative": [
+    "nausea",
+    "flushing",
+    "mole_change"
+   ]
+  },
+  "melanotan2": {
+   "name": "Melanotan 2",
+   "tier": "T4",
+   "positive": [
+    "tanning",
+    "appetite_suppression",
+    "libido_up"
+   ],
+   "negative": [
+    "nausea",
+    "flushing",
+    "bp_change",
+    "priapism",
+    "mole_change",
+    "freckling"
+   ]
+  },
+  "hcg": {
+   "name": "HCG",
+   "tier": "T1",
+   "positive": [
+    "libido_up",
+    "mood_up"
+   ],
+   "negative": [
+    "estradiol_up",
+    "gyno"
+   ]
+  },
+  "thymosin_a1": {
+   "name": "Thymosin Alpha-1",
+   "tier": "T1",
+   "positive": [
+    "immune"
+   ],
+   "negative": []
+  },
+  "pinealon": {
+   "name": "Pinealon",
+   "tier": "T5",
+   "positive": [
+    "wellbeing"
+   ],
+   "negative": []
+  },
+  "hgh": {
+   "name": "HGH / Somatropin",
+   "tier": "T1",
+   "positive": [
+    "fat_loss",
+    "better_sleep",
+    "recovery",
+    "skin_quality"
+   ],
+   "negative": [
+    "water_retention",
+    "edema",
+    "numbness",
+    "joint_pain",
+    "high_glucose",
+    "headache"
+   ]
+  },
+  "aod9604": {
+   "name": "AOD-9604",
+   "tier": "T3",
+   "positive": [
+    "fat_loss"
+   ],
+   "negative": []
+  },
+  "cagrilintide": {
+   "name": "Cagrilintide",
+   "tier": "T2",
+   "positive": [
+    "satiety",
+    "fat_loss"
+   ],
+   "negative": [
+    "nausea",
+    "inj_reaction"
+   ]
+  },
+  "amino1mq": {
+   "name": "5-Amino-1MQ",
+   "tier": "T5",
+   "positive": [
+    "fat_loss",
+    "energy_up"
+   ],
+   "negative": [
+    "insomnia"
+   ]
+  }
+ }
+}

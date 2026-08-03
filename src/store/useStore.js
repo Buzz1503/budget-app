@@ -7,7 +7,7 @@ import {
 } from '../data/seed'
 import { SEED_KNOWN_GOOD } from '../lib/mixing'
 import { currentRung, cycleInfo, addDaysStr } from '../lib/schedule'
-import { isDueToday } from '../lib/daily'
+import { isDueToday, slotOf } from '../lib/daily'
 import { perfectRotation } from '../lib/sites'
 import { enrichPeptide } from '../lib/reference'
 import { toPeptide } from '../lib/wizardDefaults'
@@ -15,6 +15,8 @@ import { countEntries } from '../lib/backup'
 import { toMg, doseToUnits, concentration, isNasal, convertLadderForRoute } from '../lib/calc'
 import { XP, rankUpInfo } from '../lib/gamification'
 import { DEFAULT_BODY_REFS } from '../lib/metrics'
+import { drawMessage } from '../lib/motivation'
+import { attributeSymptom, attributionSnapshot } from '../lib/attribution'
 
 export const todayStr = () => format(new Date(), 'yyyy-MM-dd')
 
@@ -69,6 +71,9 @@ function initialState() {
     // restock list: horizon, per-line quantity overrides, what's been ordered,
     // expected delivery dates, and editable consumable unit costs
     restock: { horizon: 'cycles', qty: {}, checked: {}, delivery: {}, unitCosts: {} },
+    // Shuffle bag for the AM motivation line: indices already shown this cycle.
+    // Persisted, so the rotation survives a reload instead of restarting.
+    motivation: { used: [] },
     settings: { currency: 'AUD', restockLeadDays: 30, theme: 'dark', disclaimerDismissed: false, haptics: true, sound: false },
   }
 }
@@ -83,6 +88,15 @@ const useStore = create(
 
       fireCelebration(payload) {
         set({ celebration: { ...payload, nonce: ++celebrationNonce } })
+      },
+
+      // Draw the next motivation line and remember it, so nothing repeats until
+      // the whole list has been through.
+      drawMotivation() {
+        const { index, message, used } = drawMessage(get().motivation?.used || [])
+        if (!message) return null
+        set({ motivation: { used } })
+        return { index, message }
       },
 
       // ---------- peptides ----------
@@ -280,11 +294,18 @@ const useStore = create(
         g = { ...g, xp: oldXp + xpGain }
         set({ gamification: { ...get().gamification, ...g, badges: get().gamification.badges } })
 
+        // The motivation line rides the morning dose only. Evening logging is a
+        // different moment — the day's already been fought — and a pep talk at
+        // bedtime lands as noise, so PM never gets one.
+        const isAm = loggedPeptides.some((p) => slotOf(p) === 'AM')
+        const motivation = isAm ? get().drawMotivation() : null
+
         get().fireCelebration({
           type: fullDay ? 'fullday' : (opts.baseType || 'log'),
           peptide: opts.peptide, names: opts.names, count,
           xp: xpGain, fullDay, streak: g.currentStreak, badges: newBadges,
           rankUp: rankUpInfo(oldXp, g.xp),
+          motivation: motivation?.message || null,
         })
       },
 
@@ -393,9 +414,17 @@ const useStore = create(
         const active = s.peptides
           .filter((p) => cycleInfo(p, t).isOn)
           .map((p) => ({ id: p.id, name: p.name, cycleDay: cycleInfo(p, t).cycleDay, level: currentRung(p, s.titration[p.id]).level }))
+        // Attribution is snapshotted onto the entry rather than recomputed on
+        // read: months later the stack will have changed, and the honest answer
+        // is what the suspects were on the day, not what they'd be now.
+        const ctx = { peptides: s.peptides, titration: s.titration, doseLogs: s.doseLogs, todayStr: t }
+        const withCause = tags.map((tg) => {
+          const snap = attributionSnapshot(attributeSymptom(tg.id, ctx))
+          return snap ? { ...tg, attribution: snap } : tg
+        })
         const entry = {
           id: `sym-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-          date: t, tags, note: note || '', site: site || null, activePeptides: active,
+          date: t, tags: withCause, note: note || '', site: site || null, activePeptides: active,
         }
         // one check-in per day replaces the prior one
         const symptomLogs = [...s.symptomLogs.filter((l) => l.date !== t), entry]
@@ -694,6 +723,7 @@ const useStore = create(
         coachMarks: { ...current.coachMarks, ...(persisted?.coachMarks || {}) },
         restock: { ...current.restock, ...(persisted?.restock || {}) },
         bodyRefs: { ...current.bodyRefs, ...(persisted?.bodyRefs || {}) },
+        motivation: { ...current.motivation, ...(persisted?.motivation || {}) },
       }),
       onRehydrateStorage: () => (state) => {
         state?.enrichLibraryFromReference?.()

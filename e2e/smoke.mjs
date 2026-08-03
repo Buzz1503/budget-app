@@ -154,8 +154,8 @@ await step('Mix: browse all 86 compounds', async () => {
 await step('Symptoms: check-in logs, streak advances, timeline', async () => {
   await nav('Symptoms')
   await waitText(/Daily check-in|Today's check-in/)
-  await page.click('button:has-text("Great energy")')
-  await page.click('button:has-text("Better sleep")')
+  await page.click('button:has-text("More energy")')
+  await page.click('button:has-text("Better / deeper sleep")')
   await page.click('button:has-text("Log check-in")')
   await page.waitForTimeout(900)
   const store = await page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state)

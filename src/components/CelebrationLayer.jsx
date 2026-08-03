@@ -35,7 +35,9 @@ export default function CelebrationLayer() {
 
     setToast(celebration)
     clearTimeout(timer.current)
-    timer.current = setTimeout(() => setToast(null), big ? 3200 : 2200)
+    // a motivation line is a sentence to read, not a status — give it time
+    const dwell = celebration.motivation ? 5200 : big ? 3200 : 2200
+    timer.current = setTimeout(() => setToast(null), dwell)
 
     if (celebration.rankUp) {
       setOverlay(celebration.rankUp)
@@ -58,16 +60,34 @@ export default function CelebrationLayer() {
             exit={{ y: -16, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 320, damping: 22 }}
           >
-            <div className="card flex items-center gap-3 px-4 py-3" style={{ background: 'var(--surface-solid)' }}>
-              <ToastIcon toast={toast} />
-              <div>
-                <ToastBody toast={toast} />
-                {toast.badges?.length > 0 && (
-                  <p className="mt-0.5 flex items-center gap-1 text-xs font-bold" style={{ color: 'var(--gold)' }}>
-                    <Award size={12} /> {toast.badges.map((b) => badgeById(b)?.name).filter(Boolean).join(' · ')}
-                  </p>
-                )}
+            <div className="card max-w-sm px-4 py-3" style={{ background: 'var(--surface-solid)' }}>
+              <div className="flex items-center gap-3">
+                <ToastIcon toast={toast} />
+                <div className="min-w-0">
+                  <ToastBody toast={toast} />
+                  {toast.badges?.length > 0 && (
+                    <p className="mt-0.5 flex items-center gap-1 text-xs font-bold" style={{ color: 'var(--gold)' }}>
+                      <Award size={12} /> {toast.badges.map((b) => badgeById(b)?.name).filter(Boolean).join(' · ')}
+                    </p>
+                  )}
+                </div>
               </div>
+              {toast.motivation && (
+                <motion.p
+                  data-testid="motivation-line"
+                  initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }}
+                  className="mt-2.5 border-t pt-2.5 text-[13px] font-black leading-snug"
+                  style={{ borderColor: 'var(--border)' }}
+                >
+                  <span style={{
+                    color: 'transparent',
+                    backgroundImage: 'linear-gradient(100deg, var(--lime), var(--violet))',
+                    backgroundClip: 'text', WebkitBackgroundClip: 'text',
+                  }}>
+                    {toast.motivation}
+                  </span>
+                </motion.p>
+              )}
             </div>
           </motion.div>
         )}
