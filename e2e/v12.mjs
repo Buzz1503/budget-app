@@ -438,6 +438,9 @@ await step('"start over" clears the stack but keeps the history', async () => {
     const raw = JSON.parse(localStorage.getItem('peptide-command-center'))
     raw.state.doseLogs = [{ id: 'keep-me', peptideId: 'bpc157', date: '2026-01-01', doseValue: 250, unit: 'mcg', loggedAt: '2026-01-01T08:00:00Z' }]
     raw.state.coachMarks = { 'wizard-offered': true }
+    // v16 shows the framing as a first-launch sheet; a mid-run localStorage
+    // clear brings it back and it would block every click after this
+    raw.state.settings.disclaimerDismissed = true
     localStorage.setItem('peptide-command-center', JSON.stringify(raw))
   })
   await page.reload({ waitUntil: 'networkidle' })

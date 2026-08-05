@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Flame, Zap, Check, Info, Clock, AlertTriangle, Combine, Sun, Moon, ChevronRight, MapPin, Syringe, X, Circle, CheckCircle2, ShieldCheck, Ban, Layers, Wind, Bell } from 'lucide-react'
+import { Check, Info, Clock, AlertTriangle, Combine, Sun, Moon, ChevronRight, MapPin, Syringe, X, Circle, CheckCircle2, ShieldCheck, Layers, Wind, Bell, Zap } from 'lucide-react'
 import useStore, { todayStr } from '../store/useStore'
 import { cycleInfo, currentRung, stepUpDue } from '../lib/schedule'
 import { isDueToday, slotOf, isDueSlot, currentSlot, slotIsFlexible, needsProtocolSetup } from '../lib/daily'
@@ -12,6 +12,7 @@ import { expiryInfo, runOutInfo } from '../lib/inventory'
 import { daysSince, SITE_BY_ID } from '../lib/sites'
 import { backupNudge, countEntries } from '../lib/backup'
 import { deliveryCovers } from '../lib/restock'
+import Modal from './ui/Modal'
 import Ring from './ui/Ring'
 import CountUp from './ui/CountUp'
 import CoachTip from './ui/CoachTip'
@@ -38,6 +39,7 @@ export default function Home({ goTo }) {
   const [picker, setPicker] = useState(null) // peptide being logged (single)
   const [selected, setSelected] = useState(() => new Set()) // co-draw selection
   const [coDraw, setCoDraw] = useState(false)
+  const [showAbout, setShowAbout] = useState(false)
 
   const toggleSelect = (id) => setSelected((prev) => {
     const next = new Set(prev)
@@ -63,8 +65,6 @@ export default function Home({ goTo }) {
   const ringPct = slotDue.length ? slotDone / slotDue.length : (scheduledToday.length === 0 ? 0 : 1)
   const lp = levelProgress(gamification.xp)
   const firstRun = (gamification.totalLogs || 0) === 0
-  const evening = new Date().getHours() >= 18
-  const atRisk = evening && dayDone < scheduledToday.length && gamification.currentStreak > 0
 
   // "back up your data" nudge — weekly, or after a batch of new entries
   const backupMeta = useStore((s) => s.backupMeta)
@@ -172,22 +172,25 @@ export default function Home({ goTo }) {
 
   return (
     <div className="space-y-3">
-      {!settings.disclaimerDismissed && (
-        <motion.p layout initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-          className="text-[11px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
-          <span className="font-bold" style={{ color: 'var(--text)' }}>Personal tracking tool — not medical advice.</span>{' '}
-          Every dose, ladder and cycle is an editable starting point.
-          <button className="ml-1.5 font-bold underline" style={{ color: 'var(--text)' }}
-            onClick={() => updateSettings({ disclaimerDismissed: true })}>Got it</button>
-        </motion.p>
-      )}
+      {/* Shown once, on first launch, and never again — it is not a standing
+          row in the column. Afterwards it lives behind the ⓘ in the header. */}
+      <Disclaimer
+        open={!settings.disclaimerDismissed || showAbout}
+        firstRun={!settings.disclaimerDismissed}
+        onClose={() => { updateSettings({ disclaimerDismissed: true }); setShowAbout(false) }}
+      />
 
       {/* date + alerts + slot toggle */}
       <div className="flex items-end justify-between gap-2">
         <div>
-          <p className="text-[11px] font-black uppercase tracking-[0.18em]"
-            style={{ color: 'transparent', backgroundImage: 'linear-gradient(100deg, var(--lime), var(--violet))', backgroundClip: 'text', WebkitBackgroundClip: 'text' }}>
-            Pepito +
+          <p className="flex items-center gap-1 text-[11px] font-black uppercase tracking-[0.18em]">
+            <span style={{ color: 'transparent', backgroundImage: 'linear-gradient(100deg, var(--lime), var(--violet))', backgroundClip: 'text', WebkitBackgroundClip: 'text' }}>
+              Pepito +
+            </span>
+            <button onClick={() => setShowAbout(true)} aria-label="About this app"
+              className="opacity-50" style={{ color: 'var(--muted)' }}>
+              <Info size={11} />
+            </button>
           </p>
           <p className="text-xl font-black leading-tight tracking-tight">
             {now.toLocaleDateString(undefined, { weekday: 'long' })}
@@ -213,60 +216,32 @@ export default function Home({ goTo }) {
         </div>
       </div>
 
-      {/* hero: one unit — progress, streak and level, no box around it */}
-      <motion.div layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={spring}>
-        <div className="flex items-center gap-4">
-          <Ring pct={ringPct} size={76} stroke={8}
-            from={slot === 'AM' ? 'var(--amber)' : 'var(--indigo)'}
-            to={slot === 'AM' ? '#ff8a1a' : 'var(--violet)'}>
-            <div className="text-center leading-tight">
-              <p className="text-lg font-black"><CountUp value={slotDone} />/{slotDue.length}</p>
-              <p className="text-[9px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>this {slot === 'AM' ? 'AM' : 'PM'}</p>
-            </div>
-          </Ring>
-          <div className="flex-1 space-y-1.5">
-            <div className="flex items-center justify-between gap-2">
-              <div>
-                <p className="text-lg font-black leading-tight">
-                  {slotDue.length === 0 ? (slot === 'AM' ? 'Clear morning' : 'Clear evening')
-                    : ringPct === 1 ? `${slot} done 💪` : `${slotDue.length - slotDone} to inject`}
-                </p>
-                <p className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>
-                  {dayDone}/{scheduledToday.length} today · {otherCount} this {otherSlot}
-                </p>
-              </div>
-              <StreakFlame streak={gamification.currentStreak} atRisk={atRisk} />
-            </div>
-            <div>
-              <div className="mb-1 flex items-center justify-between text-[11px] font-bold">
-                <span className="flex items-center gap-1" style={{ color: 'var(--violet)' }}>
-                  <Zap size={12} /> Lvl {lp.level} · {rankForLevel(lp.level)}
-                </span>
-                <span style={{ color: 'var(--muted)' }} className="tabular-nums">{lp.current}/{lp.needed} XP</span>
-              </div>
-              <div className="h-1.5 overflow-hidden rounded-full" style={{ background: 'var(--surface2)' }}>
-                <motion.div className="h-full rounded-full"
-                  style={{ backgroundImage: 'linear-gradient(90deg, var(--violet), var(--indigo))' }}
-                  initial={false} animate={{ width: `${Math.max(2, lp.pct * 100)}%` }} transition={spring} />
-              </div>
-            </div>
+      {/* Hero: how much is left, and nothing else. Level and XP are a footnote
+          under the divider — they are a reward for using the app, not the
+          reason to open it. */}
+      <motion.div layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={spring}
+        className="flex items-center gap-4" data-testid="hero">
+        <Ring pct={ringPct} size={72} stroke={7}
+          from={slot === 'AM' ? 'var(--amber)' : 'var(--indigo)'}
+          to={slot === 'AM' ? '#ff8a1a' : 'var(--violet)'}>
+          <div className="text-center leading-tight">
+            <p className="text-base font-black"><CountUp value={slotDone} />/{slotDue.length}</p>
+            <p className="text-[9px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>this {slot}</p>
           </div>
-        </div>
-        {atRisk && (
-          <p className="mt-2.5 flex items-center gap-1.5 text-xs font-bold" style={{ color: 'var(--amber)' }}>
-            <Flame size={13} /> Don't break the chain — {scheduledToday.length - dayDone} dose{scheduledToday.length - dayDone > 1 ? 's' : ''} left to keep your {gamification.currentStreak}-day streak.
+        </Ring>
+        <div className="min-w-0 flex-1">
+          <p className="text-xl font-black leading-tight tracking-tight">
+            {slotDue.length === 0 ? (slot === 'AM' ? 'Clear morning' : 'Clear evening')
+              : ringPct === 1 ? `${slot} done` : `${slotDue.length - slotDone} to inject`}
           </p>
-        )}
+          <p className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>
+            {dayDone}/{scheduledToday.length} today · {otherCount} this {otherSlot}
+          </p>
+        </div>
       </motion.div>
 
       {/* a hairline between "how the day is going" and "what to inject" */}
       <div className="h-px" style={{ background: 'var(--border)' }} />
-
-      {firstRun && slotDue.length > 0 && (
-        <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="px-1 text-center text-xs font-bold" style={{ color: 'var(--lime)' }}>
-          👋 Tap Log to record your first injection and start your streak.
-        </motion.p>
-      )}
 
       {/* combine-your-shots plan — only when there is actually something to
           combine. "Nothing is combinable" is not news worth a block of screen;
@@ -291,7 +266,7 @@ export default function Home({ goTo }) {
       {/* due list for slot */}
       <div className="space-y-3">
         {slotDue.length === 0 && (
-          <div className="card p-6 text-center" style={{ color: 'var(--muted)' }}>
+          <div className="py-8 text-center" style={{ color: 'var(--muted)' }}>
             <p className="text-sm font-bold">
               {slot === 'AM' ? "Nothing this morning — you're clear ☀️" : "Nothing tonight — you're clear 🌙"}
             </p>
@@ -314,6 +289,11 @@ export default function Home({ goTo }) {
 
       {/* what's coming — taps through to the full calendar */}
       <NextSevenDays goTo={goTo} />
+
+      {/* level, as a footnote */}
+      <p className="px-1 pb-1 text-center text-[10px] font-bold" style={{ color: 'var(--muted)' }}>
+        Lvl {lp.level} · {rankForLevel(lp.level)} · {lp.current}/{lp.needed} XP
+      </p>
 
       {/* keeps the last card clear of the floating co-draw bar */}
       {selected.size > 0 && <div aria-hidden className="h-20" />}
@@ -386,13 +366,14 @@ function AlertBell({ alerts, nudge, goTo, onDismissNudge }) {
   if (count === 0) return null
 
   return (
-    // z-46 keeps the bell above its own dismiss backdrop, so tapping it again
-    // closes the panel instead of being swallowed by the overlay
+    // The dismiss backdrop is a child of this wrapper, so lifting the wrapper
+    // lifts both. The button needs its own z-index *inside* that context to
+    // stay tappable — otherwise the second tap (to close) hits the overlay.
     <div className={`relative ${open ? 'z-[46]' : ''}`}>
       <motion.button whileTap={{ scale: 0.9 }} onClick={() => setOpen((v) => !v)}
         aria-label={`${count} thing${count === 1 ? '' : 's'} to look at`}
         data-testid="alert-bell"
-        className="relative flex h-10 w-10 items-center justify-center rounded-xl"
+        className="relative z-[47] flex h-10 w-10 items-center justify-center rounded-xl"
         style={{ background: 'var(--surface2)', color: urgent ? 'var(--amber)' : 'var(--muted)' }}>
         <Bell size={18} />
         <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-black"
@@ -449,6 +430,35 @@ function AlertBell({ alerts, nudge, goTo, onDismissNudge }) {
   )
 }
 
+/**
+ * The framing, shown once. It used to sit permanently at the top of Home, which
+ * meant the first thing on the screen every single morning was a caveat the
+ * user had already read. Dismissal is persisted in settings, so it never comes
+ * back; the ⓘ in the header reopens it on demand.
+ */
+function Disclaimer({ open, firstRun, onClose }) {
+  return (
+    <Modal open={open} onClose={firstRun ? undefined : onClose} title="Pepito +">
+      <div className="space-y-3">
+        <p className="text-sm font-bold leading-relaxed">
+          Personal tracking tool — not medical advice.
+        </p>
+        <p className="text-xs font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+          Every dose, ladder, cycle and reconstitution in here is an editable starting point drawn from
+          anecdotal reports, not a prescription. Verify everything for yourself, and talk to someone
+          qualified before you change what you're doing.
+        </p>
+        <p className="text-xs font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+          Your logs, photos and measurements stay on this device — they're never uploaded anywhere.
+        </p>
+        <button onClick={onClose} className="btn-primary w-full rounded-xl py-2.5 text-sm font-black">
+          Got it
+        </button>
+      </div>
+    </Modal>
+  )
+}
+
 // Fewest-syringes plan for the selected slot. Accepting a group hands straight
 // off to the existing co-draw flow, which re-runs the mix check, gates CAUTION
 // on visual inspection, and takes one site for the whole group.
@@ -497,22 +507,30 @@ function ShotPlan({ plan, slot, onAccept }) {
 
 function ShotRow({ group, onAccept }) {
   const many = group.items.length > 1
-  const names = group.items.map((i) => i.name).join(' + ')
 
   return (
     <div className="rounded-xl p-2.5" style={{ background: 'var(--surface2)' }}>
-      <div className="flex items-center gap-2">
-        <span className="min-w-0 flex-1">
-          <span className="block text-[11px] font-black uppercase tracking-wide"
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] font-black uppercase tracking-wide"
             style={{ color: many ? 'var(--lime)' : 'var(--muted)' }}>
             {many ? `Combine into 1 shot · ${group.items.length}` : group.separate ? 'Separate shot' : 'On its own'}
-          </span>
-          <span className="block truncate text-sm font-bold">{names}</span>
-          <span className="block text-[11px] font-bold" style={{ color: 'var(--lime)' }}>
+          </p>
+          {/* Every compound in the draw, listed — this is the one place that
+              answers "what exactly am I about to put in one syringe", so it
+              wraps rather than truncating. */}
+          <ul className="mt-0.5" data-testid="codraw-names">
+            {group.items.map((it) => (
+              <li key={it.id} className="text-sm font-bold leading-snug">
+                {many && <span style={{ color: 'var(--lime)' }}>· </span>}{it.name}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-0.5 text-[11px] font-bold" style={{ color: 'var(--lime)' }}>
             {formatUnitsLong(group.units)}{many ? ' total' : ''}
             <span className="font-semibold" style={{ color: 'var(--muted)' }}> · {round(group.ml, 2)} mL</span>
-          </span>
-        </span>
+          </p>
+        </div>
         {many && (
           <motion.button whileTap={{ scale: 0.94 }} onClick={() => onAccept(group)}
             className="btn-primary shrink-0 rounded-xl px-3 py-2 text-xs font-black">
@@ -521,28 +539,13 @@ function ShotRow({ group, onAccept }) {
         )}
       </div>
 
+      {/* Stated plainly, in the same muted voice as everything else. It is a
+          fact about how this compound is given, not an alarm. */}
       {group.separate && (
-        <p className="mt-1.5 flex items-start gap-1.5 text-[10px] font-bold" style={{ color: 'var(--rose)' }}>
-          <Ban size={12} className="mt-0.5 shrink-0" />
-          <span>{group.separateReason || 'Always injected on its own.'}</span>
+        <p className="mt-1.5 text-[10px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+          {group.separateReason || 'Always injected on its own.'}
         </p>
       )}
-    </div>
-  )
-}
-
-export function StreakFlame({ streak, atRisk }) {
-  if (streak === 0) {
-    return <div className="chip" style={{ color: 'var(--muted)' }}><Flame size={13} /> Start your streak</div>
-  }
-  const scale = Math.min(1.4, 1 + streak * 0.03)
-  return (
-    <div className="chip" style={{ color: 'var(--amber)', background: 'color-mix(in srgb, var(--amber) 16%, transparent)' }}>
-      <motion.span animate={atRisk ? { rotate: [-8, 8, -8], scale } : { scale: [scale, scale * 1.08, scale] }}
-        transition={{ duration: atRisk ? 0.4 : 1.6, repeat: Infinity }} style={{ display: 'inline-flex' }}>
-        <Flame size={13 + Math.min(6, streak * 0.4)} fill={streak >= 3 ? 'var(--amber)' : 'none'} />
-      </motion.span>
-      <CountUp value={streak} /> day{streak === 1 ? '' : 's'}
     </div>
   )
 }
@@ -586,8 +589,8 @@ function DueCard({ peptide: p, index, done, titration, partners, slot, onLog, go
           <span className="shrink-0"
             title={nasal ? 'Sprayed, not injected — cannot be co-drawn' : 'Always injected on its own — cannot be co-drawn'}
             aria-label={`${p.name} cannot be co-drawn`}
-            style={{ color: nasal ? 'var(--indigo)' : 'var(--rose)', opacity: 0.8 }}>
-            {nasal ? <Wind size={24} /> : <Ban size={24} />}
+            style={{ color: 'var(--muted)', opacity: 0.7 }}>
+            {nasal ? <Wind size={24} /> : <Syringe size={24} />}
           </span>
         ) : (
           <motion.button whileTap={{ scale: 0.85 }} onClick={onToggleSelect}

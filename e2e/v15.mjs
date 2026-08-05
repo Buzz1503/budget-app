@@ -116,12 +116,18 @@ await step('the dose list leads the screen', async () => {
   await waitText(/Pepito/)
   await page.click('button:has-text("AM")')
   await page.waitForTimeout(500)
+  // v16 lists every compound in the combine plan rather than truncating to one
+  // line, which makes the plan taller — but the plan IS dose content, not
+  // chrome. Measure to whichever dose block comes first; v16 asserts the
+  // tighter 200px bound on this same quantity.
   const y = await page.evaluate(() => {
-    const card = [...document.querySelectorAll('main button[aria-label^="Log "]')][0]
-    return card ? card.getBoundingClientRect().top + window.scrollY : null
+    const card = document.querySelector('main button[aria-label^="Log "]')
+    const plan = document.querySelector('[data-testid="shot-plan"]')
+    const tops = [card, plan].filter(Boolean).map((el) => el.getBoundingClientRect().top + window.scrollY)
+    return tops.length ? Math.min(...tops) : null
   })
-  if (y == null) throw new Error('no dose card found')
-  if (y > 520) throw new Error(`the first dose card starts ${Math.round(y)}px down — too much above it`)
+  if (y == null) throw new Error('no dose content found')
+  if (y > 300) throw new Error(`the dose content starts ${Math.round(y)}px down — too much above it`)
 })
 
 await step('the mix explanation is behind an info tap', async () => {

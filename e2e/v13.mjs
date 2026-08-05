@@ -48,6 +48,10 @@ const closeModal = async () => {
 
 await page.goto(BASE, { waitUntil: 'networkidle' })
 await waitText(/Pepito/)
+// v16 shows the framing once, on first launch, as a sheet with no dismiss
+// other than "Got it" — acknowledge it before anything else.
+const gotIt = page.locator('button:has-text("Got it")')
+if (await gotIt.count()) { await gotIt.first().click(); await page.waitForTimeout(500) }
 // the wizard auto-offers on an empty stack; the seed stack is not empty, but be safe
 if (await modal().count()) {
   const close = modal().locator('button[aria-label="Close"], button:has-text("Not now")')

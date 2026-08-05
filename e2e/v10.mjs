@@ -85,14 +85,15 @@ await waitText(/shots? instead of|nothing safely combinable/, 30000)
 // ---------------- CHANGE 1 · only MIX pairs are combined ----------------
 await step('every proposed group contains only MIX pairs', async () => {
   // read the plan out of the DOM, then check each group against the matrix
+  // v16 lists every compound in the draw as its own <li> instead of one
+  // truncated "A + B + …" line, so the group is read back from the items.
   const groups = await page.evaluate(() => {
-    const rows = [...document.querySelectorAll('div')]
-      .filter((d) => /Combine into 1 shot/.test(d.textContent) && d.querySelector('button'))
-    const names = rows.map((r) => {
-      const name = r.querySelector('span.block.truncate, span.truncate')
-      return name ? name.textContent.trim() : ''
-    }).filter(Boolean)
-    return [...new Set(names)]
+    const out = []
+    for (const ul of document.querySelectorAll('[data-testid="codraw-names"]')) {
+      const items = [...ul.querySelectorAll('li')].map((li) => li.textContent.replace(/^·\s*/, '').trim())
+      if (items.length > 1) out.push(items.join(' + '))
+    }
+    return [...new Set(out)]
   })
   if (!groups.length) throw new Error('no combined group proposed at all')
   const NAME_TO_ID = {
@@ -173,9 +174,15 @@ await step('DSIP and GHK-Cu agree between the card hint and the plan', async () 
     throw new Error(`GHK-Cu hint should offer DSIP — got: ${ghk.slice(0, 200)}`)
   }
   // and the plan agrees
-  const planText = await plan().textContent()
-  if (!/DSIP \+ GHK-Cu|GHK-Cu \+ DSIP/.test(planText)) {
-    throw new Error(`the plan does not combine them — got: ${planText.slice(0, 200)}`)
+  const combined = await page.evaluate(() => {
+    for (const ul of document.querySelectorAll('[data-testid="codraw-names"]')) {
+      const items = [...ul.querySelectorAll('li')].map((li) => li.textContent.replace(/^·\s*/, '').trim())
+      if (items.includes('DSIP') && items.includes('GHK-Cu')) return items
+    }
+    return null
+  })
+  if (!combined) {
+    throw new Error(`the plan does not combine them — got: ${(await plan().textContent()).slice(0, 200)}`)
   }
   console.log('  card hint and plan both combine DSIP + GHK-Cu')
 })
