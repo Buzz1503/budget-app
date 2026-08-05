@@ -1,17 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  MapPin, Check, ChevronDown, ChevronLeft, Sparkles, Clock, HelpCircle, Syringe, Wind,
+  Check, ChevronDown, Clock, HelpCircle, Syringe, Wind,
 } from 'lucide-react'
 import useStore, { todayStr } from '../store/useStore'
 import Modal from './ui/Modal'
 import CoachTip from './ui/CoachTip'
 import Term from './ui/Term'
-import BodyMap from './BodyMap'
-import {
-  SITE_BY_ID, suggestSite, daysSince, sitesForRoute, regionsForRoute,
-  sitesInRegionGroup, daysWords, restedWords, lastShot, suggestionReason,
-} from '../lib/sites'
+import SiteChooser from './SiteChooser'
+import { SITE_BY_ID, lastShot } from '../lib/sites'
+import { nextOnPath, suggestBest } from '../lib/rotation'
 import {
   formatDose, formatUnitsLong, isPremixed, isNasal, fromMg, nasalStrength, NASAL_RECIPE, round,
 } from '../lib/calc'
@@ -21,29 +19,26 @@ import {
 // every spot answers "when did I last use this?" in words rather than colour.
 export default function SitePicker({ open, onClose, peptide, dose, unit, units }) {
   const doseLogs = useStore((s) => s.doseLogs)
+  const reactions = useStore((s) => s.siteReactions)
+  const mode = useStore((s) => s.rotation?.mode || 'suggest')
   const logDose = useStore((s) => s.logDose)
   const openVial = useStore((s) => s.openVials?.[peptide?.id])
   const t = todayStr()
 
   const route = peptide?.route === 'IM' ? 'IM' : 'SubQ'
-  const sites = useMemo(() => sitesForRoute(route), [route])
-  const groups = useMemo(() => regionsForRoute(route), [route])
-  const suggestion = useMemo(() => suggestSite(doseLogs, t, route), [doseLogs, t, route])
 
   const [picked, setPicked] = useState(null)
-  const [zoom, setZoom] = useState(null)   // region group being enlarged
+  const [resolved, setResolved] = useState(null)
   const [howTo, setHowTo] = useState(false)
   const [done, setDone] = useState(null)   // post-log confirmation
 
   // a spot picked for one peptide isn't on the other route's map
-  useEffect(() => { setPicked(null); setZoom(null); setDone(null) }, [peptide?.id])
-  useEffect(() => { if (open) { setPicked(null); setZoom(null); setDone(null) } }, [open])
+  useEffect(() => { setPicked(null); setDone(null) }, [peptide?.id])
+  useEffect(() => { if (open) { setPicked(null); setDone(null) } }, [open])
 
-  const chosen = picked || suggestion
+  const chosen = picked || resolved
   const chosenSite = SITE_BY_ID[chosen]
-  const rested = daysSince(chosen, doseLogs, t)
   const last = useMemo(() => lastShot(doseLogs, t, route), [doseLogs, t, route])
-  const reason = useMemo(() => suggestionReason(suggestion, doseLogs, t), [suggestion, doseLogs, t])
 
   const confirmNasal = () => {
     logDose(peptide.id, null)
@@ -53,13 +48,15 @@ export default function SitePicker({ open, onClose, peptide, dose, unit, units }
   const confirm = () => {
     const site = SITE_BY_ID[chosen]
     logDose(peptide.id, chosen)
-    // work out where we'd send them next, from the logs that now include this shot
-    const after = useStore.getState().doseLogs
-    const next = SITE_BY_ID[suggestSite(after, t, route)]
+    // where we'd send them next, from the logs that now include this shot
+    const after = useStore.getState()
+    const ctx = { doseLogs: after.doseLogs, reactions: after.siteReactions, todayStr: t, route }
+    const nextId = mode === 'path' ? nextOnPath(ctx).siteId : suggestBest(ctx)
+    const next = SITE_BY_ID[nextId]
     setDone({ label: site?.short || site?.label || chosen, next: next?.short || next?.label })
   }
 
-  const close = () => { setPicked(null); setZoom(null); setDone(null); onClose() }
+  const close = () => { setPicked(null); setDone(null); onClose() }
 
   if (!peptide) return <Modal open={open} onClose={close} title="Log" />
 
@@ -154,8 +151,6 @@ export default function SitePicker({ open, onClose, peptide, dose, unit, units }
     )
   }
 
-  const zoomSites = zoom ? sitesInRegionGroup(zoom, route) : sites
-
   return (
     <Modal open={open} onClose={close} title={`Where to inject ${peptide.name}`}>
       <div className="space-y-3">
@@ -200,79 +195,7 @@ export default function SitePicker({ open, onClose, peptide, dose, unit, units }
           </p>
         </div>
 
-        {/* the recommendation, spelled out */}
-        {!picked && chosenSite && (
-          <motion.div layout className="rounded-2xl p-3.5"
-            style={{
-              background: 'color-mix(in srgb, var(--lime) 14%, transparent)',
-              border: '1.5px solid color-mix(in srgb, var(--lime) 45%, transparent)',
-            }}>
-            <p className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wide" style={{ color: 'var(--lime)' }}>
-              <Sparkles size={13} /> Inject here — spot {chosenSite.n}
-            </p>
-            <p className="mt-1 text-sm font-black">{chosenSite.short || chosenSite.label}</p>
-            <p className="mt-0.5 text-xs font-semibold leading-relaxed" style={{ color: 'var(--muted)' }}>
-              {chosenSite.plain}
-            </p>
-            <p className="mt-1.5 text-[11px] font-bold" style={{ color: 'var(--lime)' }}>{reason}</p>
-          </motion.div>
-        )}
-
-        {/* region zoom controls */}
-        <div>
-          <p className="mb-1.5 flex items-center gap-1.5 text-xs font-bold">
-            <MapPin size={13} style={{ color: 'var(--lime)' }} />
-            {zoom ? zoom.label : 'Tap a spot on the map, or zoom into an area'}
-          </p>
-          <div className="mb-2 flex flex-wrap gap-1.5">
-            {zoom ? (
-              <button onClick={() => setZoom(null)}
-                className="flex items-center gap-1 rounded-full px-3 py-1.5 text-[11px] font-black"
-                style={{ background: 'var(--surface2)' }}>
-                <ChevronLeft size={12} /> Whole body
-              </button>
-            ) : groups.map((g) => (
-              <button key={g.id} onClick={() => setZoom(g)}
-                className="rounded-full px-3 py-1.5 text-[11px] font-black"
-                style={{ background: 'var(--surface2)' }}>
-                {g.label}
-              </button>
-            ))}
-          </div>
-
-          <BodyMap
-            doseLogs={doseLogs} today={t} selected={picked} suggestion={suggestion}
-            onPick={setPicked} sites={zoomSites} view={zoom?.view} zoom={!!zoom}
-          />
-        </div>
-
-        {/* numbered list — the map's spots as readable text */}
-        <div className="space-y-1" data-testid="spot-list">
-          {zoomSites.map((s) => {
-            const d = daysSince(s.id, doseLogs, t)
-            const isSel = (picked || suggestion) === s.id
-            return (
-              <button key={s.id} onClick={() => setPicked(s.id)}
-                className="flex w-full items-start gap-2.5 rounded-xl p-2.5 text-left"
-                style={isSel
-                  ? { background: 'color-mix(in srgb, var(--lime) 16%, transparent)', border: '1px solid color-mix(in srgb, var(--lime) 45%, transparent)' }
-                  : { background: 'var(--surface2)', border: '1px solid transparent' }}>
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-black"
-                  style={{ background: isSel ? 'var(--lime)' : 'var(--surface-solid)', color: isSel ? '#0c1200' : 'var(--muted)' }}>
-                  {s.n}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-xs font-black">{s.short || s.label}</span>
-                  <span className="block text-[11px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>{s.plain}</span>
-                  <span className="mt-0.5 block text-[11px] font-bold"
-                    style={{ color: d == null || d > 4 ? 'var(--lime)' : d <= 1 ? 'var(--coral)' : 'var(--amber)' }}>
-                    {daysWords(d)}
-                  </span>
-                </span>
-              </button>
-            )
-          })}
-        </div>
+        <SiteChooser route={route} picked={picked} onPick={setPicked} onResolve={setResolved} />
 
         {/* how-to, at the moment of injecting */}
         <div className="rounded-xl" style={{ background: 'var(--surface2)' }}>
@@ -298,14 +221,6 @@ export default function SitePicker({ open, onClose, peptide, dose, unit, units }
               </motion.div>
             )}
           </AnimatePresence>
-        </div>
-
-        {/* selection readout + confirm */}
-        <div className="rounded-xl p-3" style={{ background: 'color-mix(in srgb, var(--lime) 12%, transparent)' }}>
-          <p className="text-xs font-black">
-            {picked ? 'You picked: ' : 'Suggested: '}{chosenSite?.short || chosenSite?.label}
-          </p>
-          <p className="text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>{restedWords(rested)}</p>
         </div>
 
         <motion.button whileTap={{ scale: 0.97 }} onClick={confirm}

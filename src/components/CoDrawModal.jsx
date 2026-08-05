@@ -3,8 +3,8 @@ import { motion } from 'framer-motion'
 import { MapPin, Check, Ban, Clock } from 'lucide-react'
 import useStore, { todayStr } from '../store/useStore'
 import Modal from './ui/Modal'
-import BodyMap from './BodyMap'
-import { suggestSite, SITE_BY_ID, daysSince, lastShot, restedWords } from '../lib/sites'
+import SiteChooser from './SiteChooser'
+import { SITE_BY_ID, lastShot } from '../lib/sites'
 import { loadMatrix, LIB_TO_COMPOUND } from '../lib/mixMatrix'
 import { currentRung } from '../lib/schedule'
 import { toMg, doseToUnits, concentration, formatDose, formatUnits } from '../lib/calc'
@@ -82,11 +82,10 @@ export default function CoDrawModal({ open, onClose, peptides }) {
     setPhase(review.problems.length ? 'blocked' : 'site')
   }, [review])
 
-  const suggestion = useMemo(() => suggestSite(doseLogs, t), [doseLogs, t])
   const last = useMemo(() => lastShot(doseLogs, t), [doseLogs, t])
-  const chosen = picked || suggestion
+  const [resolved, setResolved] = useState(null)
+  const chosen = picked || resolved
   const chosenSite = SITE_BY_ID[chosen]
-  const rested = daysSince(chosen, doseLogs, t)
 
   const confirm = () => {
     logCoDraw(peptides.map((p) => p.id), chosen)
@@ -155,23 +154,10 @@ export default function CoDrawModal({ open, onClose, peptides }) {
                 Last shot: {last.when} — {last.label}.
               </p>
             )}
-            <div>
-              <p className="mb-1 flex items-center gap-1.5 text-xs font-bold">
-                <MapPin size={13} style={{ color: 'var(--lime)' }} /> One shot, so pick one spot
-              </p>
-              <BodyMap doseLogs={doseLogs} today={t} selected={picked} suggestion={suggestion} onPick={setPicked} />
-            </div>
-            <div className="rounded-xl p-3" style={{ background: 'color-mix(in srgb, var(--lime) 12%, transparent)' }}>
-              <p className="text-xs font-black" style={{ color: picked ? 'var(--text)' : 'var(--lime)' }}>
-                {picked ? 'You picked: ' : `Inject here — spot ${chosenSite?.n}: `}{chosenSite?.short || chosenSite?.label}
-              </p>
-              {chosenSite?.plain && (
-                <p className="mt-0.5 text-[11px] font-semibold leading-relaxed" style={{ color: 'var(--muted)' }}>
-                  {chosenSite.plain}
-                </p>
-              )}
-              <p className="mt-1 text-[11px] font-bold" style={{ color: 'var(--muted)' }}>{restedWords(rested)}</p>
-            </div>
+            <p className="flex items-center gap-1.5 text-xs font-bold">
+              <MapPin size={13} style={{ color: 'var(--lime)' }} /> One shot, so pick one spot
+            </p>
+            <SiteChooser route="SubQ" picked={picked} onPick={setPicked} onResolve={setResolved} />
             <motion.button whileTap={{ scale: 0.97 }} onClick={confirm}
               className="btn-primary flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-black">
               <Check size={18} strokeWidth={3} /> Log {peptides.length} together — {chosenSite?.label}

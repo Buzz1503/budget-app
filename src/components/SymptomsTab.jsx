@@ -83,7 +83,7 @@ export default function SymptomsTab() {
   const legacySelected = Object.keys(selected).filter((id) => !stackIndex[id] && TAG_BY_ID[id])
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="flex items-end justify-between">
         <div>
           <h1 className="text-2xl font-black tracking-tight">Symptoms</h1>

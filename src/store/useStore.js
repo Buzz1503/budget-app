@@ -7,15 +7,15 @@ import {
 } from '../data/seed'
 import { SEED_KNOWN_GOOD } from '../lib/mixing'
 import { currentRung, cycleInfo, addDaysStr } from '../lib/schedule'
-import { isDueToday, slotOf } from '../lib/daily'
+import { isDueToday } from '../lib/daily'
 import { perfectRotation } from '../lib/sites'
+import { rotationHealth } from '../lib/rotation'
 import { enrichPeptide } from '../lib/reference'
 import { toPeptide } from '../lib/wizardDefaults'
 import { countEntries } from '../lib/backup'
 import { toMg, doseToUnits, concentration, isNasal, convertLadderForRoute } from '../lib/calc'
 import { XP, rankUpInfo } from '../lib/gamification'
 import { DEFAULT_BODY_REFS } from '../lib/metrics'
-import { drawMessage } from '../lib/motivation'
 import { attributeSymptom, attributionSnapshot } from '../lib/attribution'
 
 export const todayStr = () => format(new Date(), 'yyyy-MM-dd')
@@ -71,9 +71,11 @@ function initialState() {
     // restock list: horizon, per-line quantity overrides, what's been ordered,
     // expected delivery dates, and editable consumable unit costs
     restock: { horizon: 'cycles', qty: {}, checked: {}, delivery: {}, unitCosts: {} },
-    // Shuffle bag for the AM motivation line: indices already shown this cycle.
-    // Persisted, so the rotation survives a reload instead of restarting.
-    motivation: { used: [] },
+    // Reactions logged against an injection site: { siteId: [{ id, kind, date, note, cleared }] }.
+    // An uncleared reaction parks the site — nothing routes to it until it's cleared.
+    siteReactions: {},
+    // 'suggest' picks one spot each time; 'path' walks a pre-planned even sequence.
+    rotation: { mode: 'suggest' },
     settings: { currency: 'AUD', restockLeadDays: 30, theme: 'dark', disclaimerDismissed: false, haptics: true, sound: false },
   }
 }
@@ -88,15 +90,6 @@ const useStore = create(
 
       fireCelebration(payload) {
         set({ celebration: { ...payload, nonce: ++celebrationNonce } })
-      },
-
-      // Draw the next motivation line and remember it, so nothing repeats until
-      // the whole list has been through.
-      drawMotivation() {
-        const { index, message, used } = drawMessage(get().motivation?.used || [])
-        if (!message) return null
-        set({ motivation: { used } })
-        return { index, message }
       },
 
       // ---------- peptides ----------
@@ -267,6 +260,12 @@ const useStore = create(
         const fullDay = due.length > 0 && due.every((x) => loggedToday.has(x.id))
 
         if (perfectRotation(after.doseLogs, t)) after.awardBadge('perfect-rotation', newBadges)
+        // rotating well over a whole month is a different achievement to seven
+        // clean shots in a row, and worth its own badge
+        for (const route of ['SubQ', 'IM']) {
+          const h = rotationHealth({ doseLogs: after.doseLogs, todayStr: t, route }, { minLogs: 8, window: 28 })
+          if (h.ready && h.score >= 90) { after.awardBadge('rotation-health', newBadges); break }
+        }
 
         let g = { ...after.gamification, totalLogs: (after.gamification.totalLogs || 0) + count }
         if (fullDay && g.lastFullDay !== t) {
@@ -294,18 +293,11 @@ const useStore = create(
         g = { ...g, xp: oldXp + xpGain }
         set({ gamification: { ...get().gamification, ...g, badges: get().gamification.badges } })
 
-        // The motivation line rides the morning dose only. Evening logging is a
-        // different moment — the day's already been fought — and a pep talk at
-        // bedtime lands as noise, so PM never gets one.
-        const isAm = loggedPeptides.some((p) => slotOf(p) === 'AM')
-        const motivation = isAm ? get().drawMotivation() : null
-
         get().fireCelebration({
           type: fullDay ? 'fullday' : (opts.baseType || 'log'),
           peptide: opts.peptide, names: opts.names, count,
           xp: xpGain, fullDay, streak: g.currentStreak, badges: newBadges,
           rankUp: rankUpInfo(oldXp, g.xp),
-          motivation: motivation?.message || null,
         })
       },
 
@@ -331,6 +323,39 @@ const useStore = create(
           peptide: logged[0].name, names: logged.map((p) => p.name),
         })
       },
+      // ---------- injection-site reactions ----------
+      logSiteReaction(siteId, kind, note) {
+        if (!siteId || !kind) return
+        const entry = {
+          id: `rx-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          kind, date: todayStr(), note: note || '', cleared: false,
+        }
+        set((s) => ({
+          siteReactions: { ...s.siteReactions, [siteId]: [...(s.siteReactions[siteId] || []), entry] },
+        }))
+      },
+      // Clearing marks the history rather than deleting it — a site that keeps
+      // reacting is worth knowing about even after each one settles.
+      clearSiteReactions(siteId) {
+        set((s) => ({
+          siteReactions: {
+            ...s.siteReactions,
+            [siteId]: (s.siteReactions[siteId] || []).map((r) => (r.cleared ? r : { ...r, cleared: true, clearedAt: todayStr() })),
+          },
+        }))
+      },
+      removeSiteReaction(siteId, reactionId) {
+        set((s) => ({
+          siteReactions: {
+            ...s.siteReactions,
+            [siteId]: (s.siteReactions[siteId] || []).filter((r) => r.id !== reactionId),
+          },
+        }))
+      },
+      setRotationMode(mode) {
+        set({ rotation: { mode: mode === 'path' ? 'path' : 'suggest' } })
+      },
+
       undoLog(logId) {
         set((s) => {
           const log = s.doseLogs.find((l) => l.id === logId)
@@ -723,7 +748,8 @@ const useStore = create(
         coachMarks: { ...current.coachMarks, ...(persisted?.coachMarks || {}) },
         restock: { ...current.restock, ...(persisted?.restock || {}) },
         bodyRefs: { ...current.bodyRefs, ...(persisted?.bodyRefs || {}) },
-        motivation: { ...current.motivation, ...(persisted?.motivation || {}) },
+        siteReactions: { ...current.siteReactions, ...(persisted?.siteReactions || {}) },
+        rotation: { ...current.rotation, ...(persisted?.rotation || {}) },
       }),
       onRehydrateStorage: () => (state) => {
         state?.enrichLibraryFromReference?.()

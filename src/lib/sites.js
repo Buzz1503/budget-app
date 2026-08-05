@@ -57,19 +57,23 @@ export const SITES = [
 // Intramuscular sites — a different map entirely. Oil injectables go into muscle,
 // not the SubQ belly/thigh fat the insulin-syringe peptides use, so they get their
 // own rotation pool instead of being forced onto the wrong plane.
+// `face` puts each site on the front or the back view. Glutes genuinely need
+// you to turn around, so they live on the back; shoulders and quads are reached
+// from the front. Both views keep the same convention — left on the picture is
+// your left — so a site never swaps sides when you flip the map.
 export const IM_SITES = [
-  { id: 'im-delt-l', n: 1, region: 'delt-L', route: 'IM', label: 'Left deltoid', short: 'Left shoulder', x: 28, y: 31,
+  { id: 'im-delt-l', n: 1, region: 'delt-L', route: 'IM', face: 'front', label: 'Left deltoid', short: 'Left shoulder', x: 28, y: 31,
     plain: 'Meaty part of your left shoulder muscle, about three finger-widths below the bony tip of the shoulder.', neighbors: [] },
-  { id: 'im-delt-r', n: 2, region: 'delt-R', route: 'IM', label: 'Right deltoid', short: 'Right shoulder', x: 72, y: 31,
+  { id: 'im-delt-r', n: 2, region: 'delt-R', route: 'IM', face: 'front', label: 'Right deltoid', short: 'Right shoulder', x: 72, y: 31,
     plain: 'Meaty part of your right shoulder muscle, about three finger-widths below the bony tip of the shoulder.', neighbors: [] },
-  { id: 'im-glute-l', n: 3, region: 'glute-L', route: 'IM', label: 'Left glute (ventrogluteal)', short: 'Left glute', x: 32, y: 72,
-    plain: 'Left upper-outer buttock — palm on your hip bone, inject in the V between your fingers.', neighbors: [] },
-  { id: 'im-glute-r', n: 4, region: 'glute-R', route: 'IM', label: 'Right glute (ventrogluteal)', short: 'Right glute', x: 68, y: 72,
-    plain: 'Right upper-outer buttock — palm on your hip bone, inject in the V between your fingers.', neighbors: [] },
-  { id: 'im-quad-l', n: 5, region: 'quad-L', route: 'IM', label: 'Left quad (vastus lateralis)', short: 'Left quad', x: 39, y: 90,
+  { id: 'im-quad-l', n: 3, region: 'quad-L', route: 'IM', face: 'front', label: 'Left quad (vastus lateralis)', short: 'Left quad', x: 39, y: 90,
     plain: 'Outer front of your left thigh, halfway between hip and knee — the thick muscle you can grip.', neighbors: [] },
-  { id: 'im-quad-r', n: 6, region: 'quad-R', route: 'IM', label: 'Right quad (vastus lateralis)', short: 'Right quad', x: 61, y: 90,
+  { id: 'im-quad-r', n: 4, region: 'quad-R', route: 'IM', face: 'front', label: 'Right quad (vastus lateralis)', short: 'Right quad', x: 61, y: 90,
     plain: 'Outer front of your right thigh, halfway between hip and knee — the thick muscle you can grip.', neighbors: [] },
+  { id: 'im-glute-l', n: 5, region: 'glute-L', route: 'IM', face: 'back', label: 'Left glute (upper-outer)', short: 'Left glute', x: 38, y: 70,
+    plain: 'Left upper-outer buttock — the top outer quarter, well away from the middle. Palm on your hip bone, inject in the V between your fingers.', neighbors: [] },
+  { id: 'im-glute-r', n: 6, region: 'glute-R', route: 'IM', face: 'back', label: 'Right glute (upper-outer)', short: 'Right glute', x: 62, y: 70,
+    plain: 'Right upper-outer buttock — the top outer quarter, well away from the middle. Palm on your hip bone, inject in the V between your fingers.', neighbors: [] },
 ]
 
 export const ALL_SITES = [...SITES, ...IM_SITES]
@@ -85,16 +89,16 @@ export function sitesForRoute(route) {
 // Region groupings drive the zoom view: tap a region, get just that patch of
 // the body enlarged with its spots numbered and described.
 export const SUBQ_REGIONS = [
-  { id: 'belly', label: 'Belly', hint: 'Around your belly button', view: '30 38 40 32', regions: ['abdomen'] },
-  { id: 'love', label: 'Love handles', hint: 'Sides of your waist', view: '24 54 52 20', regions: ['love-handle-L', 'love-handle-R'] },
-  { id: 'thigh-l', label: 'Left thigh', hint: 'Hip to knee', view: '30 76 24 32', regions: ['thigh-L'] },
-  { id: 'thigh-r', label: 'Right thigh', hint: 'Hip to knee', view: '46 76 24 32', regions: ['thigh-R'] },
+  { id: 'belly', label: 'Belly', hint: 'Around your belly button', view: '30 38 40 32', face: 'front', regions: ['abdomen'] },
+  { id: 'love', label: 'Love handles', hint: 'Sides of your waist', view: '24 54 52 20', face: 'front', regions: ['love-handle-L', 'love-handle-R'] },
+  { id: 'thigh-l', label: 'Left thigh', hint: 'Hip to knee', view: '30 76 24 32', face: 'front', regions: ['thigh-L'] },
+  { id: 'thigh-r', label: 'Right thigh', hint: 'Hip to knee', view: '46 76 24 32', face: 'front', regions: ['thigh-R'] },
 ]
 
 export const IM_REGIONS = [
-  { id: 'shoulders', label: 'Shoulders', hint: 'Deltoid muscle', view: '18 20 64 24', regions: ['delt-L', 'delt-R'] },
-  { id: 'glutes', label: 'Glutes', hint: 'Upper-outer buttock', view: '24 62 52 22', regions: ['glute-L', 'glute-R'] },
-  { id: 'quads', label: 'Quads', hint: 'Outer front of thigh', view: '30 80 40 22', regions: ['quad-L', 'quad-R'] },
+  { id: 'shoulders', label: 'Shoulders', hint: 'Deltoid muscle', view: '18 20 64 24', face: 'front', regions: ['delt-L', 'delt-R'] },
+  { id: 'quads', label: 'Quads', hint: 'Outer front of thigh', view: '30 80 40 22', face: 'front', regions: ['quad-L', 'quad-R'] },
+  { id: 'glutes', label: 'Glutes', hint: 'Upper-outer buttock', view: '26 58 48 24', face: 'back', regions: ['glute-L', 'glute-R'] },
 ]
 
 export function regionsForRoute(route) {

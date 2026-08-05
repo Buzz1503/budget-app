@@ -252,15 +252,21 @@ await step('an expected delivery silences the low-stock alert and reaches the ca
   if (s.restock.delivery['vial:tesamorelin'] !== soon) throw new Error('delivery date did not persist')
 
   await nav('Home')
-  await page.locator('button:has-text("Log together"), div:has-text("Pepito +")').first().waitFor({ timeout: 15000 })
+  // v15 moved the standing alerts off the main column into the bell
+  const bell = page.locator('[data-testid="alert-bell"]')
+  await bell.waitFor({ timeout: 15000 })
+  await bell.click()
+  await page.waitForTimeout(500)
   await waitText(/runs out in ~\d+d/, 15000)
   const home = await page.textContent('body')
   if (!new RegExp(`delivery expected ${soon}`).test(home)) {
-    const shown = await page.evaluate(() => [...document.querySelectorAll('main button')]
+    const shown = await page.evaluate(() => [...document.querySelectorAll('[data-testid="alert-panel"] button')]
       .map((b) => b.textContent.trim()).filter((x) => /runs out|expire|delivery/i.test(x)))
     throw new Error(`no delivery on the Home alert (eta ${soon}) — alerts read: ${JSON.stringify(shown)}`)
   }
   if (/Tesamorelin runs out in ~\d+d — restock soon/.test(home)) throw new Error('the plain restock nag is still there')
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(400)
 
   // and it rides along in the calendar export
   await nav('Settings')

@@ -66,7 +66,7 @@ await step('Home: disclaimer + ring + 5-tab bar', async () => {
 
 await step('Home: log a dose via site picker fires XP + done state', async () => {
   await page.locator('button[aria-label^="Log "]').first().click()
-  await waitText(/Tap a spot on the map/)
+  await waitText(/Tap any spot to pick it|INJECT HERE|Next on your path/)
   await page.click('button:has-text("Log here")')
   await page.waitForTimeout(400)
   await page.click('button:has-text("Done")') // v9: dismiss the written confirmation

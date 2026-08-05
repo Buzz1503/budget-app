@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Flame, Zap, Check, Info, Clock, AlertTriangle, Combine, Sun, Moon, ChevronRight, MapPin, Syringe, X, Circle, CheckCircle2, ShieldCheck, Ban, Layers, Wind } from 'lucide-react'
+import { Flame, Zap, Check, Info, Clock, AlertTriangle, Combine, Sun, Moon, ChevronRight, MapPin, Syringe, X, Circle, CheckCircle2, ShieldCheck, Ban, Layers, Wind, Bell } from 'lucide-react'
 import useStore, { todayStr } from '../store/useStore'
 import { cycleInfo, currentRung, stepUpDue } from '../lib/schedule'
 import { isDueToday, slotOf, isDueSlot, currentSlot, slotIsFlexible, needsProtocolSetup } from '../lib/daily'
@@ -171,34 +171,34 @@ export default function Home({ goTo }) {
   const now = new Date()
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {!settings.disclaimerDismissed && (
-        <motion.div layout className="card flex items-start gap-3 p-4" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-          <Info size={18} className="mt-0.5 shrink-0" style={{ color: 'var(--indigo)' }} />
-          <div className="text-xs leading-relaxed" style={{ color: 'var(--muted)' }}>
-            <span className="font-semibold" style={{ color: 'var(--text)' }}>Personal tracking tool — not medical advice.</span>{' '}
-            All doses, ladders and cycles are editable anecdotal starting points. Verify everything for yourself.
-            <button className="ml-2 font-bold underline" style={{ color: 'var(--text)' }}
-              onClick={() => updateSettings({ disclaimerDismissed: true })}>Got it</button>
-          </div>
-        </motion.div>
+        <motion.p layout initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+          className="text-[11px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+          <span className="font-bold" style={{ color: 'var(--text)' }}>Personal tracking tool — not medical advice.</span>{' '}
+          Every dose, ladder and cycle is an editable starting point.
+          <button className="ml-1.5 font-bold underline" style={{ color: 'var(--text)' }}
+            onClick={() => updateSettings({ disclaimerDismissed: true })}>Got it</button>
+        </motion.p>
       )}
 
-      {/* date + slot toggle */}
-      <div className="flex items-end justify-between">
+      {/* date + alerts + slot toggle */}
+      <div className="flex items-end justify-between gap-2">
         <div>
           <p className="text-[11px] font-black uppercase tracking-[0.18em]"
             style={{ color: 'transparent', backgroundImage: 'linear-gradient(100deg, var(--lime), var(--violet))', backgroundClip: 'text', WebkitBackgroundClip: 'text' }}>
             Pepito +
           </p>
-          <p className="text-2xl font-black leading-tight tracking-tight">
+          <p className="text-xl font-black leading-tight tracking-tight">
             {now.toLocaleDateString(undefined, { weekday: 'long' })}
-          </p>
-          <p className="text-sm font-bold" style={{ color: 'var(--muted)' }}>
-            {now.toLocaleDateString(undefined, { day: 'numeric', month: 'long' })}
+            <span className="ml-1.5 text-sm font-bold" style={{ color: 'var(--muted)' }}>
+              {now.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
+            </span>
           </p>
         </div>
-        <div className="flex rounded-xl p-1" style={{ background: 'var(--surface2)' }}>
+        <div className="flex items-center gap-2">
+          <AlertBell alerts={alerts} nudge={nudge} goTo={goTo} onDismissNudge={dismissBackupNudge} />
+          <div className="flex rounded-xl p-1" style={{ background: 'var(--surface2)' }}>
           {['AM', 'PM'].map((s) => (
             <button key={s} onClick={() => setSlot(s)}
               className="relative flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm font-black">
@@ -209,14 +209,14 @@ export default function Home({ goTo }) {
               </span>
             </button>
           ))}
+          </div>
         </div>
       </div>
 
-      {/* hero: slot ring + streak + XP */}
-      <motion.div layout className="card p-4" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={spring}
-        style={ringPct === 1 && slotDue.length > 0 ? { backgroundImage: 'linear-gradient(135deg, color-mix(in srgb, var(--lime) 14%, var(--surface)), var(--surface))' } : undefined}>
+      {/* hero: one unit — progress, streak and level, no box around it */}
+      <motion.div layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={spring}>
         <div className="flex items-center gap-4">
-          <Ring pct={ringPct} size={88} stroke={9}
+          <Ring pct={ringPct} size={76} stroke={8}
             from={slot === 'AM' ? 'var(--amber)' : 'var(--indigo)'}
             to={slot === 'AM' ? '#ff8a1a' : 'var(--violet)'}>
             <div className="text-center leading-tight">
@@ -224,7 +224,7 @@ export default function Home({ goTo }) {
               <p className="text-[9px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>this {slot === 'AM' ? 'AM' : 'PM'}</p>
             </div>
           </Ring>
-          <div className="flex-1 space-y-2">
+          <div className="flex-1 space-y-1.5">
             <div className="flex items-center justify-between gap-2">
               <div>
                 <p className="text-lg font-black leading-tight">
@@ -244,7 +244,7 @@ export default function Home({ goTo }) {
                 </span>
                 <span style={{ color: 'var(--muted)' }} className="tabular-nums">{lp.current}/{lp.needed} XP</span>
               </div>
-              <div className="h-2.5 overflow-hidden rounded-full" style={{ background: 'var(--surface2)' }}>
+              <div className="h-1.5 overflow-hidden rounded-full" style={{ background: 'var(--surface2)' }}>
                 <motion.div className="h-full rounded-full"
                   style={{ backgroundImage: 'linear-gradient(90deg, var(--violet), var(--indigo))' }}
                   initial={false} animate={{ width: `${Math.max(2, lp.pct * 100)}%` }} transition={spring} />
@@ -253,44 +253,14 @@ export default function Home({ goTo }) {
           </div>
         </div>
         {atRisk && (
-          <p className="mt-3 flex items-center gap-1.5 text-xs font-bold" style={{ color: 'var(--amber)' }}>
+          <p className="mt-2.5 flex items-center gap-1.5 text-xs font-bold" style={{ color: 'var(--amber)' }}>
             <Flame size={13} /> Don't break the chain — {scheduledToday.length - dayDone} dose{scheduledToday.length - dayDone > 1 ? 's' : ''} left to keep your {gamification.currentStreak}-day streak.
           </p>
         )}
       </motion.div>
 
-      {nudge && (
-        <motion.div layout className="card flex items-start gap-2.5 p-3"
-          initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
-          style={{ background: 'color-mix(in srgb, var(--indigo) 12%, var(--surface))' }}>
-          <ShieldCheck size={16} className="mt-0.5 shrink-0" style={{ color: 'var(--indigo)' }} />
-          <div className="min-w-0 flex-1">
-            <p className="text-xs font-bold">{nudge.text}</p>
-            <div className="mt-1.5 flex gap-2">
-              <button onClick={() => goTo('settings')}
-                className="rounded-lg px-2.5 py-1 text-[11px] font-black"
-                style={{ background: 'var(--indigo)', color: '#fff' }}>
-                Back up now
-              </button>
-              <button onClick={dismissBackupNudge}
-                className="rounded-lg px-2.5 py-1 text-[11px] font-bold" style={{ background: 'var(--surface2)' }}>
-                Later
-              </button>
-            </div>
-          </div>
-        </motion.div>
-      )}
-
-      {alerts.length > 0 && (
-        <motion.div layout className="card space-y-2 p-3" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-          {alerts.map((a) => (
-            <button key={a.id} onClick={() => goTo('supplies')} className="flex w-full items-center gap-2 text-left text-xs font-semibold">
-              <AlertTriangle size={14} className="shrink-0" style={{ color: a.kind === 'expired' ? 'var(--coral)' : a.kind === 'ordered' ? 'var(--indigo)' : 'var(--amber)' }} />
-              <span style={{ color: a.kind === 'expired' ? 'var(--coral)' : 'var(--text)' }}>{a.text}</span>
-            </button>
-          ))}
-        </motion.div>
-      )}
+      {/* a hairline between "how the day is going" and "what to inject" */}
+      <div className="h-px" style={{ background: 'var(--border)' }} />
 
       {firstRun && slotDue.length > 0 && (
         <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="px-1 text-center text-xs font-bold" style={{ color: 'var(--lime)' }}>
@@ -298,8 +268,10 @@ export default function Home({ goTo }) {
         </motion.p>
       )}
 
-      {/* combine-your-shots plan */}
-      {plan && selected.size === 0 && (
+      {/* combine-your-shots plan — only when there is actually something to
+          combine. "Nothing is combinable" is not news worth a block of screen;
+          each card already says whether it can share a syringe. */}
+      {plan && plan.saved > 0 && selected.size === 0 && (
         <ShotPlan plan={plan} slot={slot} onAccept={acceptGroup} />
       )}
 
@@ -393,33 +365,132 @@ export default function Home({ goTo }) {
   )
 }
 
+/**
+ * Every standing nudge in one place: a bell that carries a count and opens on
+ * tap. They used to be full-width cards stacked above the doses, which meant
+ * the first thing on the screen was housekeeping rather than the one question
+ * Home exists to answer.
+ */
+function AlertBell({ alerts, nudge, goTo, onDismissNudge }) {
+  const [open, setOpen] = useState(false)
+  const count = alerts.length + (nudge ? 1 : 0)
+  const urgent = alerts.some((a) => a.kind === 'expired' || a.kind === 'stock')
+
+  useEffect(() => { if (count === 0) setOpen(false) }, [count])
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e) => { if (e.key === 'Escape') setOpen(false) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open])
+  if (count === 0) return null
+
+  return (
+    // z-46 keeps the bell above its own dismiss backdrop, so tapping it again
+    // closes the panel instead of being swallowed by the overlay
+    <div className={`relative ${open ? 'z-[46]' : ''}`}>
+      <motion.button whileTap={{ scale: 0.9 }} onClick={() => setOpen((v) => !v)}
+        aria-label={`${count} thing${count === 1 ? '' : 's'} to look at`}
+        data-testid="alert-bell"
+        className="relative flex h-10 w-10 items-center justify-center rounded-xl"
+        style={{ background: 'var(--surface2)', color: urgent ? 'var(--amber)' : 'var(--muted)' }}>
+        <Bell size={18} />
+        <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-black"
+          style={{ background: urgent ? 'var(--amber)' : 'var(--indigo)', color: '#0c1200' }}>
+          {count}
+        </span>
+      </motion.button>
+
+      <AnimatePresence>
+        {open && (
+          <>
+            <div className="fixed inset-0 z-[44]" onClick={() => setOpen(false)} />
+            <motion.div
+              initial={{ opacity: 0, y: -6, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -6, scale: 0.97 }}
+              transition={{ type: 'spring', stiffness: 340, damping: 26 }}
+              data-testid="alert-panel"
+              className="absolute right-0 top-12 z-[45] w-72 rounded-2xl p-3 shadow-lg"
+              style={{ background: 'var(--surface-solid)', border: '1px solid var(--border)', boxShadow: '0 10px 34px rgba(0,0,0,0.45)' }}>
+              <div className="space-y-2.5">
+                {alerts.map((a) => (
+                  <button key={a.id} onClick={() => { setOpen(false); goTo('supplies') }}
+                    className="flex w-full items-start gap-2 text-left text-[11px] font-semibold">
+                    <AlertTriangle size={13} className="mt-0.5 shrink-0"
+                      style={{ color: a.kind === 'expired' ? 'var(--coral)' : a.kind === 'ordered' ? 'var(--indigo)' : 'var(--amber)' }} />
+                    <span style={{ color: a.kind === 'expired' ? 'var(--coral)' : 'var(--text)' }}>{a.text}</span>
+                  </button>
+                ))}
+                {nudge && (
+                  <div className="flex items-start gap-2">
+                    <ShieldCheck size={13} className="mt-0.5 shrink-0" style={{ color: 'var(--indigo)' }} />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[11px] font-semibold">{nudge.text}</p>
+                      <div className="mt-1.5 flex gap-2">
+                        <button onClick={() => { setOpen(false); goTo('settings') }}
+                          className="rounded-lg px-2.5 py-1 text-[10px] font-black"
+                          style={{ background: 'var(--indigo)', color: '#fff' }}>
+                          Back up now
+                        </button>
+                        <button onClick={() => { onDismissNudge(); setOpen(false) }}
+                          className="rounded-lg px-2.5 py-1 text-[10px] font-bold" style={{ background: 'var(--surface2)' }}>
+                          Later
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
 // Fewest-syringes plan for the selected slot. Accepting a group hands straight
 // off to the existing co-draw flow, which re-runs the mix check, gates CAUTION
 // on visual inspection, and takes one site for the whole group.
 function ShotPlan({ plan, slot, onAccept }) {
   const headline = shotsHeadline(plan, slot)
   const combinable = plan.groups.filter((g) => g.items.length > 1)
+  const [why, setWhy] = useState(false)
 
   return (
-    <motion.div layout className="card space-y-2.5 p-4"
-      initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-      style={{ backgroundImage: 'linear-gradient(135deg, color-mix(in srgb, var(--lime) 12%, var(--surface)), var(--surface))' }}>
+    <motion.div layout className="space-y-2" data-testid="shot-plan"
+      initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
       <div className="flex items-center gap-2">
-        <Layers size={16} className="shrink-0" style={{ color: 'var(--lime)' }} />
-        <p className="text-sm font-black leading-tight">{headline}</p>
+        <Layers size={15} className="shrink-0" style={{ color: 'var(--lime)' }} />
+        <p className="flex-1 text-sm font-black leading-tight">{headline}</p>
+        {/* the reasoning is real, but it isn't the point of the screen */}
+        <button onClick={() => setWhy((v) => !v)} aria-label="Why these are combined"
+          className="shrink-0 rounded-full p-1.5"
+          style={{ background: 'var(--surface2)', color: why ? 'var(--lime)' : 'var(--muted)' }}>
+          <Info size={13} />
+        </button>
       </div>
 
+      <AnimatePresence initial={false}>
+        {why && (
+          <motion.p initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden text-[10px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+            {combinable.length > 0
+              ? <>Only pairs the matrix rates <span className="font-bold">safe to mix</span> are combined, capped at {MAX_GROUP_ML} mL a syringe. That still isn't proof of compatibility — inspect every draw.</>
+              : <>Nothing here shares a syringe: a pair is combined only on a confirmed “safe to mix”, so caution, don't-mix and unrated pairs all get their own shot.</>}
+          </motion.p>
+        )}
+      </AnimatePresence>
+
+      {/* Only the rows that say something. A plain "on its own" row repeated
+          the card directly below it and was most of this block's height; a
+          *separate* shot stays, because "never share a syringe with this" is a
+          safety statement, not a restatement of the schedule. */}
       <div className="space-y-2">
-        {plan.groups.map((g, i) => (
+        {plan.groups.filter((g) => g.items.length > 1 || g.separate).map((g, i) => (
           <ShotRow key={g.items.map((x) => x.id).join('+') || i} group={g} onAccept={onAccept} />
         ))}
       </div>
-
-      <p className="text-[10px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
-        {combinable.length > 0
-          ? <>Only pairs the matrix rates <span className="font-bold">safe to mix</span> are combined, capped at {MAX_GROUP_ML} mL a syringe. That still isn't proof of compatibility — inspect every draw.</>
-          : <>Nothing here shares a syringe: a pair is combined only on a confirmed “safe to mix”, so caution, don't-mix and unrated pairs all get their own shot.</>}
-      </p>
     </motion.div>
   )
 }

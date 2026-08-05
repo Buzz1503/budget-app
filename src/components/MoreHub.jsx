@@ -27,7 +27,7 @@ export default function MoreHub({ goTo }) {
   const earned = gamification.badges.length
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <h1 className="text-2xl font-black tracking-tight">More</h1>
 
       {/* profile snapshot */}

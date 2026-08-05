@@ -30,7 +30,7 @@ const SECTIONS = [
 export default function BodyTab() {
   const [section, setSection] = useState('stats')
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <h1 className="text-2xl font-black tracking-tight">Body & Outcomes</h1>
       <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
         {SECTIONS.map((s) => (

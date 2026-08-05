@@ -48,6 +48,7 @@ export const BADGES = [
   { id: 'first-checkin', name: 'Self Aware', desc: 'Logged your first symptom check-in', icon: 'HeartPulse' },
   { id: 'clear-week', name: 'Clean Run', desc: '7 clear days in a row', icon: 'Sun' },
   { id: 'perfect-rotation', name: 'Perfect Rotation', desc: '7 injections, no site repeated', icon: 'Repeat' },
+  { id: 'rotation-health', name: 'Rotation Master', desc: 'Rotation health 90+ over a full month', icon: 'ShieldCheck' },
   { id: 'first-measurement', name: 'Baseline', desc: 'Logged your first measurement', icon: 'Ruler' },
   { id: 'first-photo', name: 'Say Cheese', desc: 'Captured your first progress photo', icon: 'Camera' },
   { id: 'first-scan', name: 'Scan Imported', desc: 'Imported a DEXA/InBody scan', icon: 'ScanLine' },

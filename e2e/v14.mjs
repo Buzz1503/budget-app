@@ -192,79 +192,6 @@ await step('the attribution is stored on the check-in and shown in history', asy
   if (!/Candidates recorded at the time/.test(await body())) throw new Error('history does not show the attribution')
 })
 
-// ---------- 3 · AM motivation ----------
-await step('an AM dose log shows a motivation message', async () => {
-  await nav('Home')
-  await page.click('button:has-text("AM")')
-  await page.waitForTimeout(400)
-  await logFirstShot()
-  const line = page.locator('[data-testid="motivation-line"]')
-  if (!(await line.count())) throw new Error('no motivation line on an AM log')
-  const text = (await line.textContent()).trim()
-  if (text.length < 20) throw new Error(`motivation line looks empty: "${text}"`)
-  console.log(`  “${text.slice(0, 60)}…”`)
-  await closeSitePicker()
-})
-
-await step('the message is recorded so it cannot repeat', async () => {
-  const st = await state()
-  if (!st.motivation?.used?.length) throw new Error('the shuffle bag did not record the draw')
-  console.log(`  bag: ${st.motivation.used.length} drawn`)
-})
-
-await step('a PM dose log shows no motivation message', async () => {
-  await page.waitForTimeout(5500) // let the AM toast clear
-  await nav('Home')
-  await page.click('button:has-text("PM")')
-  await page.waitForTimeout(500)
-  if (!(await page.locator('button[aria-label^="Log "]').count())) {
-    throw new Error('nothing due in the PM slot to test with')
-  }
-  await logFirstShot()
-  if (await page.locator('[data-testid="motivation-line"]').count()) {
-    throw new Error('a PM log showed a motivation message')
-  }
-  // the dose still logged and still celebrated — it just gets no pep talk
-  if (!/logged/i.test(await body())) throw new Error('the PM dose did not log')
-  await closeSitePicker()
-})
-
-await step('successive AM logs draw different messages, one per log', async () => {
-  await nav('Home')
-  await page.click('button:has-text("AM")')
-  await page.waitForTimeout(400)
-  const seen = []
-  for (let i = 0; i < 4; i++) {
-    const before = (await state()).motivation.used.length
-    const btn = page.locator('button[aria-label^="Log "]').first()
-    if (!(await btn.count())) break // nothing left due this morning
-    await btn.click()
-    await waitText(/INJECT HERE/, 10000)
-    await page.locator('button:has-text("Log here")').first().click()
-    await page.waitForTimeout(1100)
-    const line = page.locator('[data-testid="motivation-line"]')
-    if (!(await line.count())) throw new Error(`AM log ${i + 2} showed no message`)
-    seen.push((await line.textContent()).trim())
-    const used = (await state()).motivation.used
-    if (used.length !== before + 1) throw new Error(`the bag moved by ${used.length - before}, not 1`)
-    if (new Set(used).size !== used.length) throw new Error('the bag recorded a duplicate index')
-    await closeSitePicker()
-    await page.waitForTimeout(300)
-  }
-  if (seen.length < 2) throw new Error('not enough AM doses left to compare messages')
-  if (new Set(seen).size !== seen.length) throw new Error('a message repeated before the list was exhausted')
-  console.log(`  ${seen.length} distinct messages across ${seen.length} logs`)
-})
-
-await step('the shuffle bag survives a reload', async () => {
-  const before = (await state()).motivation.used
-  await page.reload({ waitUntil: 'networkidle' })
-  await waitText(/Pepito/)
-  const after = (await state()).motivation.used
-  if (JSON.stringify(before) !== JSON.stringify(after)) throw new Error('the used set was lost on reload')
-  if (!after.length) throw new Error('the used set came back empty')
-})
-
 // ---------- 4 · layout + persistence ----------
 await step('no horizontal overflow at 390px on any tab', async () => {
   for (const tab of ['Home', 'Calendar', 'Symptoms', 'Body', 'More']) {
@@ -275,11 +202,12 @@ await step('no horizontal overflow at 390px on any tab', async () => {
   }
 })
 
-await step('symptom and dose data persist across a reload', async () => {
+// v15 removed this suite's dose-logging section along with the motivation
+// feature it existed to exercise, so only the symptom data is seeded here.
+await step('symptom data persists across a reload', async () => {
   const st = await state()
   if (!st.symptomLogs.length) throw new Error('symptom check-in lost')
-  if (!st.doseLogs.length) throw new Error('dose logs lost')
-  if (!st.motivation.used.length) throw new Error('motivation bag lost')
+  if (!st.symptomLogs.at(-1).tags?.length) throw new Error('check-in tags lost')
 })
 
 await nav('Symptoms')

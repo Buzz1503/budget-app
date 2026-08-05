@@ -58,7 +58,15 @@ const nav = async (label) => {
   if (label === 'Home') { await page.click('button:has-text("AM")'); await page.waitForTimeout(400) }
 }
 const modal = () => page.locator('div.fixed.inset-0.z-50 > div.card')
-const plan = () => page.locator('div.card', { hasText: 'instead of' }).first()
+// v15 unboxed the combine plan and tucked its reasoning behind an info tap
+const plan = () => page.locator('[data-testid="shot-plan"]').first()
+const planNote = async () => {
+  const info = page.locator('button[aria-label="Why these are combined"]').first()
+  if (await info.count()) { await info.click(); await page.waitForTimeout(400) }
+  const txt = await plan().textContent()
+  if (await info.count()) { await info.click(); await page.waitForTimeout(300) }
+  return txt
+}
 // the due card for a peptide, identified by the Log button only it has
 const dueCard = (name) => page.locator('div.card', { hasText: name })
   .filter({ has: page.locator(`button[aria-label="Log ${name}"]`) }).first()
@@ -112,7 +120,7 @@ await step('the plan never offers a caution combine path', async () => {
   if (/confirm the drawn solution is clear before it logs/.test(body)) {
     throw new Error('the caution-then-confirm combine path is still present')
   }
-  const note = await plan().textContent()
+  const note = await planNote()
   if (!/safe to mix/.test(note)) throw new Error('the plan does not say it only combines confirmed mixes')
 })
 await page.screenshot({ path: `${SHOT}/v10-01-mix-only-plan.png` })

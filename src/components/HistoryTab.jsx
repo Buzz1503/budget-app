@@ -31,7 +31,7 @@ export default function HistoryTab() {
   const pct = summary.overall.pct
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div>
         <h1 className="text-2xl font-black tracking-tight">History</h1>
         <p className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>

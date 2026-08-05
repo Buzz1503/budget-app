@@ -30,6 +30,12 @@ const openPicker = async () => {
   await page.locator('button[aria-label^="Log "]').first().click()
   await waitText(/INJECT HERE/)
 }
+// v15 hides the full written list behind a toggle to quieten the map; these
+// checks are about the words, so open it.
+const openList = async () => {
+  const more = modal().locator('button:has-text("spots in words")')
+  if (await more.count()) { await more.first().click(); await page.waitForTimeout(400) }
+}
 
 await page.goto(BASE, { waitUntil: 'networkidle' })
 await page.evaluate(() => localStorage.clear())
@@ -105,17 +111,22 @@ await page.waitForTimeout(400)
 // ---------------- FIX 2 · the injection map ----------------
 await step('the map draws a landmarked body with a keep-clear zone', async () => {
   await openPicker()
-  const svg = modal().locator('svg[aria-label="Injection site map"]')
+  const svg = modal().locator('svg[aria-label^="Injection site map"]')
   const text = await svg.textContent()
   for (const want of ['belly button', 'waist', 'hip bone', 'knee']) {
     if (!text.includes(want)) throw new Error(`landmark "${want}" not labelled on the diagram`)
   }
+  await modal().locator('button[aria-label="What do the colours mean?"]').first().click()
+  await page.waitForTimeout(400)
   const body = await modal().textContent()
   if (!/Shaded ring = keep clear/.test(body)) throw new Error('keep-clear zone not explained')
   if (!/2 in \/ 5 cm/.test(body)) throw new Error('keep-clear distance not given')
+  await modal().locator('button[aria-label="What do the colours mean?"]').first().click()
+  await page.waitForTimeout(300)
 })
 
 await step('every spot is numbered with a plain-language location', async () => {
+  await openList()
   const body = await modal().textContent()
   // all 16 SubQ spots listed, each with its description
   for (const want of [
@@ -130,7 +141,7 @@ await step('every spot is numbered with a plain-language location', async () => 
   if (!/between hip and knee/i.test(body)) throw new Error('thigh spot has no hip-to-knee description')
   if (!/above your hip bone/i.test(body)) throw new Error('love handle has no hip-bone description')
   // numbers are printed on the targets themselves
-  const nums = await modal().locator('svg[aria-label="Injection site map"] text').allTextContents()
+  const nums = await modal().locator('svg[aria-label^="Injection site map"] text').allTextContents()
   for (const n of ['1', '8', '16']) {
     if (!nums.includes(n)) throw new Error(`spot number ${n} is not printed on the map`)
   }
@@ -143,7 +154,7 @@ await step('the recommendation is unmistakable and gives a reason', async () => 
     throw new Error('recommendation gives no reason')
   }
   // and the same call-out is on the diagram
-  const svgText = await modal().locator('svg[aria-label="Injection site map"]').textContent()
+  const svgText = await modal().locator('svg[aria-label^="Injection site map"]').textContent()
   if (!/INJECT HERE/.test(svgText)) throw new Error('no INJECT HERE marker on the map itself')
 })
 
@@ -156,21 +167,23 @@ await step('"when did I last inject" is answered in words', async () => {
 await step('region zoom enlarges one area at a time', async () => {
   await modal().locator('button:has-text("Left thigh")').first().click()
   await page.waitForTimeout(500)
-  const spots = await modal().locator('svg[aria-label="Injection site map"] g[role="button"]').count()
+  const spots = await modal().locator('svg[aria-label^="Injection site map"] g[role="button"]').count()
   if (spots !== 4) throw new Error(`left-thigh zoom shows ${spots} spots, expected 4`)
+  await openList()
   const list = modal().locator('[data-testid="spot-list"]')
-  if (await list.locator('> button').count() !== 4) throw new Error('the spot list did not narrow to the region')
+  if (await list.locator('> div').count() !== 4) throw new Error('the spot list did not narrow to the region')
   const listText = await list.textContent()
   if (!/Left thigh · upper-outer/.test(listText)) throw new Error('zoomed list lost its descriptions')
   if (/Belly · upper-left/.test(listText)) throw new Error('zoom still lists belly spots')
-  const view = await modal().locator('svg[aria-label="Injection site map"]').getAttribute('viewBox')
+  const view = await modal().locator('svg[aria-label^="Injection site map"]').getAttribute('viewBox')
   if (view === '0 0 100 130') throw new Error('viewBox did not zoom')
   await page.screenshot({ path: `${SHOT}/v9-02-region-zoom.png` })
   await modal().locator('button:has-text("Whole body")').click()
   await page.waitForTimeout(400)
-  const back = await modal().locator('svg[aria-label="Injection site map"] g[role="button"]').count()
+  const back = await modal().locator('svg[aria-label^="Injection site map"] g[role="button"]').count()
   if (back !== 16) throw new Error(`back on the whole body we should see 16 spots, saw ${back}`)
-  if (await modal().locator('[data-testid="spot-list"] > button').count() !== 16) {
+  await openList()
+  if (await modal().locator('[data-testid="spot-list"] > div').count() !== 16) {
     throw new Error('the spot list did not return to all 16')
   }
 })
@@ -186,10 +199,11 @@ await step('the "how do I inject here?" helper opens with plain steps', async ()
 await page.screenshot({ path: `${SHOT}/v9-03-site-picker.png` })
 
 await step('picking a different spot updates the readout', async () => {
-  await modal().locator('[data-testid="spot-list"] > button:has-text("Right thigh · lower-inner")').click()
+  await openList()
+  await modal().locator('[data-testid="spot-list"] button:has-text("Right thigh · lower-inner")').first().click()
   await page.waitForTimeout(400)
   const body = await modal().textContent()
-  if (!/You picked: Right thigh · lower-inner/.test(body)) throw new Error('selection readout did not update')
+  if (!/Your pick/.test(body) || !/Right thigh · lower-inner/.test(body)) throw new Error('selection readout did not update')
   if (!/Log here — Right thigh · lower-inner/.test(body)) throw new Error('confirm button did not follow the selection')
 })
 

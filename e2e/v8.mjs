@@ -212,9 +212,19 @@ await step('logging it opens the IM map, not the SubQ one', async () => {
   if (!/23–25 g/.test(body)) throw new Error('IM needle guidance missing from the picker')
   if (!/glute|deltoid|quad/i.test(body)) throw new Error('no IM site offered')
   if (/Abdomen|love handle/i.test(body)) throw new Error('SubQ sites offered for an IM injection')
-  // the silhouette is a <g> too — count only the clickable site groups
-  const offered = await modal().locator('svg g[style*="cursor"]').count()
-  if (offered !== 6) throw new Error(`IM map should offer 6 sites, offers ${offered}`)
+  // v15 split the IM pool across a front and a back view — glutes need you to
+  // turn around — so the six are counted across both faces.
+  const onFace = () => modal().locator('svg [data-site]')
+    .evaluateAll((els) => els.map((e) => e.getAttribute('data-site')))
+  const front = await onFace()
+  await modal().locator('button[aria-label="back view"]').click()
+  await page.waitForTimeout(500)
+  const back = await onFace()
+  const offered = new Set([...front, ...back])
+  if (offered.size !== 6) throw new Error(`IM map should offer 6 sites, offers ${offered.size}: ${[...offered].join(', ')}`)
+  if (!back.includes('im-glute-l')) throw new Error('the glutes are not on the back view')
+  await modal().locator('button[aria-label="front view"]').click()
+  await page.waitForTimeout(500)
   await page.click('button:has-text("Log here")')
   await page.waitForTimeout(400)
   await page.click('button:has-text("Done")') // v9: dismiss the written confirmation

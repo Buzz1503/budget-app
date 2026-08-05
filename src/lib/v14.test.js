@@ -5,7 +5,6 @@ import {
   recencyScore, proximityScore, likelihoodFor, lastChange, tierWeight,
   RECENCY_WINDOW, WEIGHTS, ATTRIBUTION_CAVEAT, TIER_WORDS, SYMPTOM_META, EFFECT_COMPOUNDS,
 } from './attribution'
-import { drawMessage, bagProgress, MESSAGES } from './motivation'
 import { addDaysStr } from './schedule'
 
 const T = '2026-05-20'
@@ -316,61 +315,5 @@ describe('attributionSnapshot', () => {
   it('is null when there was nothing to attribute', () => {
     expect(attributionSnapshot({ top: null, others: [] })).toBeNull()
     expect(attributionSnapshot(null)).toBeNull()
-  })
-})
-
-// ---------- motivation ----------
-describe('motivation shuffle bag', () => {
-  it('ships a non-trivial list of unique messages', () => {
-    expect(MESSAGES.length).toBeGreaterThan(100)
-    expect(new Set(MESSAGES).size).toBe(MESSAGES.length)
-  })
-
-  it('draws a message and records it', () => {
-    const d = drawMessage([], () => 0)
-    expect(d.message).toBe(MESSAGES[0])
-    expect(d.used).toEqual([0])
-    expect(d.reshuffled).toBe(false)
-  })
-
-  it('never repeats until the whole list is exhausted', () => {
-    let used = []
-    const seen = []
-    for (let i = 0; i < MESSAGES.length; i++) {
-      const d = drawMessage(used)
-      expect(d.reshuffled).toBe(false)
-      seen.push(d.index)
-      used = d.used
-    }
-    expect(new Set(seen).size).toBe(MESSAGES.length)
-    expect(used).toHaveLength(MESSAGES.length)
-  })
-
-  it('reshuffles once the bag empties, and starts a fresh cycle', () => {
-    const full = MESSAGES.map((_, i) => i)
-    const d = drawMessage(full)
-    expect(d.reshuffled).toBe(true)
-    expect(d.used).toHaveLength(1)
-    expect(d.index).toBeGreaterThanOrEqual(0)
-  })
-
-  it('resumes mid-bag rather than restarting — the point of persisting it', () => {
-    const used = [0, 1, 2, 3, 4]
-    const d = drawMessage(used)
-    expect(used).not.toContain(d.index)
-    expect(d.used).toHaveLength(6)
-  })
-
-  it('drops stale indices from a shorter list instead of jamming the bag', () => {
-    const d = drawMessage([0, 1, 9999, -3, null])
-    expect(d.reshuffled).toBe(false)
-    expect(d.used.every((i) => i >= 0 && i < MESSAGES.length)).toBe(true)
-    expect(d.used).toHaveLength(3)
-  })
-
-  it('reports how far through the bag it is', () => {
-    expect(bagProgress([])).toEqual({ drawn: 0, total: MESSAGES.length, remaining: MESSAGES.length })
-    expect(bagProgress([0, 1, 2]).remaining).toBe(MESSAGES.length - 3)
-    expect(bagProgress([0, 0, 1]).drawn).toBe(2) // deduped
   })
 })

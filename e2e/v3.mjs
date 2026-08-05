@@ -66,7 +66,7 @@ await step('Rotation: Log opens body map with suggestion, records site', async (
   await page.click('button:has-text("AM")')
   await page.waitForTimeout(300)
   await page.locator('button[aria-label^="Log "]').first().click()
-  await waitText(/Tap a spot on the map/)
+  await waitText(/Tap any spot to pick it|INJECT HERE|Next on your path/)
   await waitText(/Inject here — spot \d+/i)
   // confirm the suggested site
   await page.click('button:has-text("Log here")')

@@ -5,6 +5,7 @@ import {
 } from 'lucide-react'
 
 import useStore, { onStorageError } from './store/useStore'
+import { haptic } from './lib/feedback'
 import Home from './components/Home'
 import Library from './components/Library'
 import CalendarTab from './components/CalendarTab'
@@ -78,6 +79,7 @@ export default function App() {
   }, [peptides.length, coachMarks, markCoachSeen])
   const [storageError, setStorageError] = useState(false)
   const theme = useStore((s) => s.settings.theme)
+  const haptics = useStore((s) => s.settings.haptics)
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
@@ -150,7 +152,7 @@ export default function App() {
               <motion.button
                 key={id}
                 whileTap={{ scale: 0.86 }}
-                onClick={() => setTab(id)}
+                onClick={() => { if (haptics) { try { haptic(6) } catch { /* optional */ } } setTab(id) }}
                 className="flex flex-col items-center gap-1 rounded-xl py-1.5"
                 style={{ color: active ? 'var(--lime)' : 'var(--muted)' }}
                 aria-label={label}
