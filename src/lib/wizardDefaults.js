@@ -13,7 +13,7 @@
 // oral") — turning any of them into a floor would invent a dose. When nothing
 // parses, the ladder is left blank and the wizard says so rather than guessing.
 import { referenceFor, isExcludedTier, referenceAttachment, protocolTextFrom } from './reference'
-import { seedPeptides } from '../data/seed'
+import { seedPeptides, DEFAULT_BAC_ML } from '../data/seed'
 import { NASAL_RECIPE, MCG_PER_SPRAY } from './calc'
 
 const SEED_BY_ID = new Map(seedPeptides('2026-01-01').map((p) => [p.id, p]))
@@ -109,7 +109,7 @@ export function cycleFrom(reference) {
 // A generic vial to start from when the reference says nothing about the
 // container — the same default `addPeptide` already uses. Labelled as a default
 // to check against the actual vial, never presented as a fact.
-export const DEFAULT_RECON = { vialMg: 10, bacMl: 2, expiryDays: 28 }
+export const DEFAULT_RECON = { vialMg: 10, bacMl: DEFAULT_BAC_ML, expiryDays: 28 }
 
 export const INTRANASAL_IDS = new Set(['semax', 'selank'])
 

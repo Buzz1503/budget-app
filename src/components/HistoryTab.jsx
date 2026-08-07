@@ -6,6 +6,7 @@ import useStore, { todayStr } from '../store/useStore'
 import { adherenceSummary, historyEvents, WINDOWS, windowRange } from '../lib/adherence'
 import { formatDose } from '../lib/calc'
 import { openSummaryDocument } from '../lib/summaryDoc'
+import { SymptomHistory } from './SymptomsTab'
 
 export default function HistoryTab() {
   const peptides = useStore((s) => s.peptides)
@@ -85,6 +86,9 @@ export default function HistoryTab() {
           </p>
         )}
       </div>
+
+      {/* symptoms — the 14-day heatmap lives here, not on the logging screen */}
+      <SymptomHistory />
 
       {/* shareable summary */}
       <button

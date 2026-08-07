@@ -20,6 +20,7 @@ import Term from './ui/Term'
 import SitePicker from './SitePicker'
 import CoDrawModal from './CoDrawModal'
 import { NextSevenDays } from './CalendarTab'
+import { HomeInsightCard, HomeRecapCard } from './InsightsTab'
 
 const spring = { type: 'spring', stiffness: 260, damping: 22 }
 
@@ -289,6 +290,11 @@ export default function Home({ goTo }) {
 
       {/* what's coming — taps through to the full calendar */}
       <NextSevenDays goTo={goTo} />
+
+      {/* Both of these render nothing most days: the recap waits for the week to
+          turn, and the highlight waits until the logs support saying something. */}
+      <HomeRecapCard goTo={goTo} />
+      <HomeInsightCard goTo={goTo} />
 
       {/* level, as a footnote */}
       <p className="px-1 pb-1 text-center text-[10px] font-bold" style={{ color: 'var(--muted)' }}>

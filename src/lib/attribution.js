@@ -70,6 +70,64 @@ export function symptomLabel(id) {
 }
 
 /**
+ * Categories, so 66 symptoms read as ten short lists instead of one wall.
+ * Every symptom belongs to exactly one; `other` catches anything unmapped so a
+ * future data addition can never silently vanish from the UI.
+ */
+export const CATEGORIES = [
+  { id: 'sleep', label: 'Sleep', icon: 'Moon' },
+  { id: 'energy', label: 'Energy', icon: 'Zap' },
+  { id: 'mood', label: 'Mood', icon: 'Smile' },
+  { id: 'cognition', label: 'Cognition', icon: 'Brain' },
+  { id: 'skin', label: 'Skin & hair', icon: 'Sparkles' },
+  { id: 'gut', label: 'Gut', icon: 'Soup' },
+  { id: 'hormonal', label: 'Hormonal', icon: 'Activity' },
+  { id: 'cardio', label: 'Cardio & blood', icon: 'HeartPulse' },
+  { id: 'injection', label: 'Injection site', icon: 'Syringe' },
+  { id: 'other', label: 'Other', icon: 'CircleDot' },
+]
+export const CATEGORY_BY_ID = Object.fromEntries(CATEGORIES.map((c) => [c.id, c]))
+
+const CATEGORY_OF = {
+  // sleep
+  insomnia: 'sleep', grogginess: 'sleep', sleep_apnea: 'sleep', night_sweats: 'sleep',
+  better_sleep: 'sleep',
+  // energy
+  fatigue: 'energy', energy_up: 'energy', endurance: 'energy', warmth: 'energy',
+  metabolic: 'energy', flushing: 'energy',
+  // mood
+  mood_swings: 'mood', aggression: 'mood', anxiety: 'mood', low_mood: 'mood',
+  reduced_anxiety: 'mood', mood_up: 'mood', wellbeing: 'mood',
+  // cognition
+  clarity: 'cognition', verbal: 'cognition', headache: 'cognition',
+  head_pressure: 'cognition', head_rush: 'cognition',
+  // skin & hair
+  acne: 'skin', hair_loss: 'skin', body_hair: 'skin', mole_change: 'skin',
+  freckling: 'skin', skin_quality: 'skin', hair_quality: 'skin', tanning: 'skin',
+  tingling: 'skin', numbness: 'skin',
+  // gut
+  nausea: 'gut', vomiting: 'gut', diarrhea: 'gut', constipation: 'gut',
+  appetite_loss: 'gut', gut_relief: 'gut', appetite_suppression: 'gut', satiety: 'gut',
+  // hormonal
+  gyno: 'hormonal', testicular_atrophy: 'hormonal', low_fertility: 'hormonal',
+  estradiol_up: 'hormonal', libido_up: 'hormonal', priapism: 'hormonal',
+  muscle_strength: 'hormonal', fat_loss: 'hormonal', visceral_fat: 'hormonal',
+  water_retention: 'hormonal', edema: 'hormonal', high_glucose: 'hormonal',
+  // cardio & blood
+  raised_hr: 'cardio', bp_change: 'cardio', high_hct: 'cardio',
+  chest_tightness: 'cardio', copper_load: 'cardio',
+  // injection site
+  inj_reaction: 'injection', inj_pain: 'injection', skin_staining: 'injection',
+  nasal_irritation: 'injection',
+  // other
+  joint_pain: 'other', less_joint_pain: 'other', recovery: 'other', immune: 'other',
+}
+
+export function categoryOf(symptomId) {
+  return CATEGORY_OF[symptomId] || 'other'
+}
+
+/**
  * How distinctive a symptom is across the whole data set. Nausea is claimed by
  * half the catalogue and says little; skin staining points at one compound.
  * Computed once, since the data set is static.
@@ -114,6 +172,84 @@ export function stackSymptoms(peptides = []) {
 export function stackSymptomIndex(peptides = []) {
   const { positive, negative } = stackSymptoms(peptides)
   return Object.fromEntries([...positive, ...negative].map((s) => [s.id, s]))
+}
+
+/**
+ * The stack's symptoms, bucketed into categories, for one polarity.
+ * Empty categories are dropped — an accordion of nothing is worse than no
+ * accordion.
+ */
+export function groupedStackSymptoms(peptides = [], polarity = 'neg') {
+  const { positive, negative } = stackSymptoms(peptides)
+  const list = polarity === 'pos' ? positive : negative
+  const byCat = new Map()
+  for (const s of list) {
+    const cat = categoryOf(s.id)
+    if (!byCat.has(cat)) byCat.set(cat, [])
+    byCat.get(cat).push({ ...s, category: cat })
+  }
+  return CATEGORIES
+    .filter((c) => byCat.has(c.id))
+    .map((c) => ({ ...c, symptoms: byCat.get(c.id) }))
+}
+
+/** Substring match over the plain labels — what the search box filters on. */
+export function searchStackSymptoms(peptides = [], query = '') {
+  const q = query.trim().toLowerCase()
+  if (!q) return []
+  const { positive, negative } = stackSymptoms(peptides)
+  return [...positive, ...negative]
+    .filter((s) => s.label.toLowerCase().includes(q))
+    .map((s) => ({ ...s, category: categoryOf(s.id) }))
+    .sort((a, b) => {
+      // a label that starts with the query is the better match
+      const as = a.label.toLowerCase().startsWith(q) ? 0 : 1
+      const bs = b.label.toLowerCase().startsWith(q) ? 0 : 1
+      return as - bs || a.label.localeCompare(b.label)
+    })
+}
+
+/**
+ * "Likely for you right now": the handful of symptoms most worth offering,
+ * ranked by the same timing-weighted scoring the attribution uses — so a
+ * compound started or stepped up in the last three weeks pushes its own effects
+ * to the top of the list, which is exactly when you want them one tap away.
+ */
+export function likelyNow(ctx, { limit = 6, polarity = null } = {}) {
+  const { peptides = [] } = ctx
+  const { positive, negative } = stackSymptoms(peptides)
+  const pool = polarity === 'pos' ? positive : polarity === 'neg' ? negative : [...positive, ...negative]
+
+  const scored = pool.map((s) => {
+    const result = attributeSymptom(s.id, ctx)
+    return { ...s, category: categoryOf(s.id), score: result.top?.score || 0, top: result.top }
+  })
+  return scored
+    .filter((s) => s.score > 0)
+    .sort((a, b) => b.score - a.score || a.label.localeCompare(b.label))
+    .slice(0, limit)
+}
+
+/** The symptom ids logged most recently, newest first, for one-tap re-logging. */
+export function recentlyLogged(symptomLogs = [], { limit = 6, exclude = new Set() } = {}) {
+  const seen = []
+  const have = new Set()
+  const sorted = [...symptomLogs].sort((a, b) => String(b.date).localeCompare(String(a.date)))
+  for (const log of sorted) {
+    for (const tag of log.tags || []) {
+      if (have.has(tag.id) || exclude.has(tag.id)) continue
+      have.add(tag.id)
+      seen.push({
+        id: tag.id,
+        label: SYMPTOM_META[tag.id]?.label || tag.label || tag.id,
+        polarity: tag.polarity || SYMPTOM_META[tag.id]?.type || 'neg',
+        category: categoryOf(tag.id),
+        lastDate: log.date,
+      })
+      if (seen.length >= limit) return seen
+    }
+  }
+  return seen
 }
 
 // ---------- scoring ----------

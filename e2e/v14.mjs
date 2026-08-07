@@ -29,15 +29,34 @@ const body = () => page.textContent('body')
 const state = () => page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state)
 const TAB_MARK = {
   Home: /Pepito \+/, Calendar: /This week|Adherence this month/,
-  Symptoms: /Daily check-in|Today's check-in/, Body: /How to measure/, More: /Build \/ rebuild my schedule/,
+  Symptoms: /How are you feeling/, Body: /How to measure/, More: /Build \/ rebuild my schedule/,
 }
 const nav = async (label) => {
   await page.click(`nav button[aria-label="${label}"]`)
   await waitText(TAB_MARK[label])
   await page.waitForTimeout(250)
 }
-// a symptom chip in the check-in card, by its plain label
-const chip = (label) => page.locator('button', { hasText: label }).first()
+// v18 replaced the flat chip wall with search + collapsed categories, so a chip
+// is now reached by searching for it — the fastest path, and the one a user
+// takes. The search results replace the browse UI but leave the selected and
+// attribution panels on screen, so everything below still reads the same.
+const chip = (label) => {
+  const find = async () => {
+    await page.fill('input[placeholder*="Search" i]', label)
+    await page.waitForTimeout(350)
+    return page.locator(`[data-testid="symptom-search-results"] button:has-text("${label}")`).first()
+  }
+  return { click: async () => (await find()).click() }
+}
+const clearSearch = async () => {
+  await page.fill('input[placeholder*="Search" i]', '')
+  await page.waitForTimeout(300)
+}
+// v18 renamed the submit: it counts what you picked, or updates today's entry.
+const logCheckin = async () => {
+  await page.locator('main button').filter({ hasText: /^(Log \d|Update check-in)$/ }).last().click()
+  await page.waitForTimeout(900)
+}
 // log the first due shot in the current slot, and clear the confirmation sheet
 // that otherwise covers the nav
 const logFirstShot = async () => {
@@ -64,19 +83,33 @@ await step('the Symptoms tab lists only what the stack is known for, grouped', a
   const txt = await body()
   if (!txt.includes('Good effects')) throw new Error('no positive group')
   if (!txt.includes('Issues')) throw new Error('no negative group')
+  // v18 collapsed the flat wall into categories, so presence is checked through
+  // the search rather than by scanning for every label at once.
+  const matches = async (label) => {
+    await page.fill('input[placeholder*="Search" i]', label)
+    await page.waitForTimeout(350)
+    return page.locator(`[data-testid="symptom-search-results"] button:has-text("${label}")`).count()
+  }
   // seed stack: BPC-157, Retatrutide, Semax, Selank, KPV, SS-31, DSIP, MOTS-c,
   // GHK-Cu, NAD+, Tesamorelin, Testosterone E
   for (const w of ['Faster soft-tissue recovery', 'Gut symptom relief', 'Acne / oily skin', 'Morning grogginess']) {
-    if (!txt.includes(w)) throw new Error(`missing stack symptom "${w}"`)
+    if ((await matches(w)) === 0) throw new Error(`missing stack symptom "${w}"`)
   }
   // nothing from a compound that is NOT in the stack
   for (const w of ['Tanning / darker skin', 'Prolonged / unwanted erections', 'Numbness / carpal-tunnel']) {
-    if (txt.includes(w)) throw new Error(`"${w}" is shown but no stack compound causes it`)
+    if ((await matches(w)) > 0) throw new Error(`"${w}" is shown but no stack compound causes it`)
   }
+  await clearSearch()
 })
 
 await step('labels are plain language, not raw ids', async () => {
-  const txt = await body()
+  // every category expanded, so this reads the real rendered labels
+  for (const h of await page.locator('[data-testid="symptom-categories"] > div > button').all()) {
+    await h.click()
+    await page.waitForTimeout(120)
+  }
+  await page.waitForTimeout(400)
+  const txt = await page.locator('[data-testid="symptom-categories"]').textContent()
   for (const raw of ['inj_reaction', 'high_hct', 'appetite_suppression', 'better_sleep']) {
     if (txt.includes(raw)) throw new Error(`raw id "${raw}" leaked into the UI`)
   }
@@ -177,16 +210,19 @@ await step('a compound started recently outranks a long-running one', async () =
 })
 
 await step('the attribution is stored on the check-in and shown in history', async () => {
-  await page.click('button:has-text("Log check-in")')
-  await page.waitForTimeout(900)
+  await logCheckin()
   const st = await state()
   const log = st.symptomLogs.at(-1)
   const tag = log.tags.find((t) => t.id === 'fatigue')
   if (!tag?.attribution?.top?.name) throw new Error('no attribution snapshot on the log')
   if (tag.attribution.top.name !== 'Selank') throw new Error(`snapshot headlines ${tag.attribution.top.name}`)
   if (!tag.attribution.top.tier) throw new Error('snapshot drops the evidence tier')
-  // and it reads back in the 14-day timeline
-  const bars = page.locator('.card:has-text("Last 14 days") button')
+  // and it reads back in the 14-day timeline, which v18 moved to History
+  await page.click('nav button[aria-label="More"]')
+  await page.waitForTimeout(400)
+  await page.click('button:has-text("History & adherence")')
+  await waitText(/last 14 days/i)
+  const bars = page.locator('[data-testid="symptom-history"] button')
   await bars.nth(13).click()
   await page.waitForTimeout(500)
   if (!/Candidates recorded at the time/.test(await body())) throw new Error('history does not show the attribution')

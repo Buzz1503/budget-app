@@ -5,6 +5,7 @@ import {
 } from 'lucide-react'
 import useStore, { todayStr } from '../store/useStore'
 import Modal from './ui/Modal'
+import NumberField from './ui/NumberField'
 import Term from './ui/Term'
 import ReferenceInfo, { TierBadge } from './ReferenceInfo'
 import { loadMatrix, compoundColor } from '../lib/mixMatrix'
@@ -302,8 +303,7 @@ function Field({ label, children }) {
 
 function Num({ value, onChange, step = 'any' }) {
   return (
-    <input type="number" inputMode="decimal" className="input" value={value} step={step} min="0"
-      onChange={(e) => onChange(parseFloat(e.target.value) || 0)} />
+    <NumberField value={value} onChange={(v) => onChange(v ?? 0)} step={step} min={0} />
   )
 }
 

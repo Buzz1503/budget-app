@@ -3,7 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware'
 import { format } from 'date-fns'
 import {
   seedPeptides, seedVials, seedTitration, seedOpenVials, SEED_NEEDLE_NOTES,
-  testosteroneEnanthate, TEST_E_ID,
+  testosteroneEnanthate, TEST_E_ID, DEFAULT_BAC_ML, LEGACY_BAC_ML,
 } from '../data/seed'
 import { SEED_KNOWN_GOOD } from '../lib/mixing'
 import { currentRung, cycleInfo, addDaysStr } from '../lib/schedule'
@@ -68,6 +68,9 @@ function initialState() {
     bodyRefs: { ...DEFAULT_BODY_REFS },
     backupMeta: { lastBackupAt: null, lastBackupEntryCount: 0, nudgeDismissedAt: null },
     coachMarks: {}, // one-time beginner tips already seen, by id
+    // The week whose recap has already been read on Home, as its Monday date.
+    // Stored rather than derived so dismissing it holds until the week turns.
+    recapSeen: null,
     // restock list: horizon, per-line quantity overrides, what's been ordered,
     // expected delivery dates, and editable consumable unit costs
     restock: { horizon: 'cycles', qty: {}, checked: {}, delivery: {}, unitCosts: {} },
@@ -661,6 +664,11 @@ const useStore = create(
         set({ coachMarks: {} })
       },
 
+      // Recap read for this week — it comes back on its own next Monday.
+      markRecapSeen(periodId) {
+        set({ recapSeen: periodId })
+      },
+
       // ---------- backup bookkeeping ----------
       markBackedUp(when = new Date().toISOString()) {
         const s = get()
@@ -693,17 +701,28 @@ const useStore = create(
     }),
     {
       name: 'peptide-command-center', // storage key is history — renaming it would orphan existing data
-      version: 2,
+      version: 3,
       storage: createJSONStorage(() => safeStorage),
       // Saves written before a release can't pick new library entries up from
       // the seed, so each version bump backfills them here — once. Deleting one
       // afterwards sticks, because the migration only runs on the bump.
       //   v1: the oil-based injectable
       //   v2: the intranasal-capable flag on Semax / Selank
+      //   v3: 2 mL reconstitution default
       migrate: (persisted, from) => {
-        if (!persisted || from >= 2) return persisted
+        if (!persisted || from >= 3) return persisted
         const s = { ...persisted }
         const t = todayStr()
+        if (from < 3) {
+          // v3: one reconstitution volume across the board. Only peptides still
+          // sitting on their original seeded value are moved — a volume the user
+          // chose themselves is theirs, and gets left alone.
+          s.peptides = (s.peptides || []).map((p) => {
+            const wasSeeded = LEGACY_BAC_ML[p.id]
+            if (!wasSeeded || p.recon?.bacMl !== wasSeeded) return p
+            return { ...p, recon: { ...p.recon, bacMl: DEFAULT_BAC_ML } }
+          })
+        }
         if (from < 2) {
           // v2: Semax and Selank can be switched to a nasal spray. The flag only
           // offers the choice — the route itself stays whatever the user has.

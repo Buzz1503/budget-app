@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import useStore, { todayStr } from '../store/useStore'
+import NumberField from './ui/NumberField'
 import { BADGES, levelProgress, rankForLevel } from '../lib/gamification'
 import { formatDose } from '../lib/calc'
 import { buildBackup, restoreBackup, validateBackup, describeBackup, backupFilename } from '../lib/backup'
@@ -100,8 +101,9 @@ export default function SettingsTab({ goTo }) {
             onChange={(e) => updateSettings({ currency: e.target.value.toUpperCase().slice(0, 3) })} />
         </Row>
         <Row label="Restock lead time (days)">
-          <input type="number" className="input !w-20 text-center" value={settings.restockLeadDays} min="1"
-            onChange={(e) => updateSettings({ restockLeadDays: Math.max(1, Math.round(+e.target.value || 30)) })} />
+          <NumberField className="!w-20 text-center" value={settings.restockLeadDays} min={1} integer
+            aria-label="Restock lead time in days"
+            onChange={(n) => updateSettings({ restockLeadDays: n ?? 1 })} />
         </Row>
         <Row label="Haptics">
           <button onClick={() => updateSettings({ haptics: !settings.haptics })}

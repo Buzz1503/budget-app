@@ -11,6 +11,7 @@ import { totalSpend, vialsFor } from '../lib/inventory'
 import { loadMatrix, LIB_TO_COMPOUND } from '../lib/mixMatrix'
 import { formatDose, round } from '../lib/calc'
 import CoachTip from './ui/CoachTip'
+import NumberField from './ui/NumberField'
 
 const money = (n) => `$${(Math.round((n || 0) * 100) / 100).toFixed(2)}`
 
@@ -309,17 +310,19 @@ function CompoundCard({ row, days, currency }) {
           {mine.map((v) => (
             <div key={v.id} className="grid grid-cols-[1fr_1fr_1fr_1fr_auto] items-end gap-2">
               <VField label="qty">
-                <input type="number" className="input !px-2 !py-1.5 text-center" value={v.qtyOnHand} min="0" step="1"
+                <NumberField className="!px-2 !py-1.5 text-center" value={v.qtyOnHand} min={0} step="1" integer
                   aria-label={`${row.name} vials on hand`}
-                  onChange={(e) => updateVial(v.id, { qtyOnHand: Math.max(0, Math.round(+e.target.value || 0)) })} />
+                  onChange={(n) => updateVial(v.id, { qtyOnHand: n ?? 0 })} />
               </VField>
               <VField label="mg/vial">
-                <input type="number" className="input !px-2 !py-1.5 text-center" value={v.vialMg}
-                  onChange={(e) => updateVial(v.id, { vialMg: +e.target.value || 0 })} />
+                <NumberField className="!px-2 !py-1.5 text-center" value={v.vialMg} min={0}
+                  aria-label={`${row.name} mg per vial`}
+                  onChange={(n) => updateVial(v.id, { vialMg: n ?? 0 })} />
               </VField>
               <VField label={`cost (${currency})`}>
-                <input type="number" className="input !px-2 !py-1.5 text-center" value={v.costAud}
-                  onChange={(e) => updateVial(v.id, { costAud: +e.target.value || 0 })} />
+                <NumberField className="!px-2 !py-1.5 text-center" value={v.costAud} min={0}
+                  aria-label={`${row.name} cost per vial`}
+                  onChange={(n) => updateVial(v.id, { costAud: n ?? 0 })} />
               </VField>
               <VField label="vendor">
                 <input className="input !px-2 !py-1.5" value={v.vendor} placeholder="—"
@@ -369,10 +372,10 @@ function ConsumableRow({ row }) {
         {editing ? (
           <label className="flex items-center gap-1 text-[11px] font-bold">
             $
-            <input type="number" inputMode="decimal" step="0.01" className="input !w-20 !py-1 !text-[11px]"
+            <NumberField step="0.01" className="!w-20 !py-1 !text-[11px]"
               aria-label={`Unit cost for ${row.label}`}
-              value={row.unitCost}
-              onChange={(e) => setRestockUnitCost(row.id, parseFloat(e.target.value) || 0)}
+              value={row.unitCost} min={0}
+              onChange={(n) => setRestockUnitCost(row.id, n ?? 0)}
               onBlur={() => setEditing(false)} autoFocus />
             each
           </label>

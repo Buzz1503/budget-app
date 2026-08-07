@@ -35,7 +35,7 @@ const patch = (fn) => page.evaluate((src) => {
 }, fn)
 const TAB_MARK = {
   Home: /Pepito \+/, Calendar: /This week|Adherence this month/,
-  Symptoms: /check-in/i, Body: /How to measure/, More: /Build \/ rebuild my schedule/,
+  Symptoms: /How are you feeling/i, Body: /How to measure/, More: /Build \/ rebuild my schedule/,
 }
 const nav = async (label) => {
   await page.click(`nav button[aria-label="${label}"]`)

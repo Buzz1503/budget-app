@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { ArrowLeftRight, Droplet } from 'lucide-react'
 import useStore from '../store/useStore'
+import NumberField from './ui/NumberField'
 import {
   concentration, concentrationOf, doseToUnits, unitsToDoseMg, unitsToMl,
   toMg, fromMg, round, isPremixed, premixedVialMg, isNasal,
@@ -96,22 +97,22 @@ export default function CalcTab() {
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
               <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>Concentration (mg/mL)</span>
-              <input type="number" inputMode="decimal" className="input" value={concIn} onChange={(e) => setConcIn(e.target.value)} />
+              <NumberField value={concIn} onChange={(n) => setConcIn(n ?? 0)} min={0} />
             </label>
             <label className="block">
               <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>Vial size (mL)</span>
-              <input type="number" inputMode="decimal" className="input" value={vialMl} onChange={(e) => setVialMl(e.target.value)} />
+              <NumberField value={vialMl} onChange={(n) => setVialMl(n ?? 0)} min={0} />
             </label>
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
               <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>Vial (mg)</span>
-              <input type="number" inputMode="decimal" className="input" value={vialMg} onChange={(e) => setVialMg(e.target.value)} />
+              <NumberField value={vialMg} onChange={(n) => setVialMg(n ?? 0)} min={0} />
             </label>
             <label className="block">
               <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>BAC water (mL)</span>
-              <input type="number" inputMode="decimal" className="input" value={bacMl} onChange={(e) => setBacMl(e.target.value)} />
+              <NumberField value={bacMl} onChange={(n) => setBacMl(n ?? 0)} min={0} />
             </label>
           </div>
         )}
@@ -130,7 +131,7 @@ export default function CalcTab() {
             <div className="grid grid-cols-2 gap-3">
               <label className="block">
                 <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>Target dose</span>
-                <input type="number" inputMode="decimal" className="input" value={doseVal} onChange={(e) => setDoseVal(e.target.value)} />
+                <NumberField value={doseVal} onChange={(n) => setDoseVal(n ?? 0)} min={0} />
               </label>
               <label className="block">
                 <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>Unit</span>
@@ -169,7 +170,7 @@ export default function CalcTab() {
           <>
             <label className="block">
               <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>Units drawn (U-100)</span>
-              <input type="number" inputMode="decimal" className="input" value={unitsIn} onChange={(e) => setUnitsIn(e.target.value)} />
+              <NumberField value={unitsIn} onChange={(n) => setUnitsIn(n ?? 0)} min={0} />
             </label>
             <motion.div layout className="rounded-2xl p-4 text-center"
               style={{ backgroundImage: 'linear-gradient(135deg, color-mix(in srgb, var(--violet) 18%, transparent), color-mix(in srgb, var(--indigo) 14%, transparent))' }}>

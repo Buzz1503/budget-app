@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion'
 import {
   BookOpen, Package, Syringe, Settings, Zap, Flame, ChevronRight, Award,
-  Activity, History, Wand2, FlaskConical, Combine,
+  Activity, History, Wand2, FlaskConical, Combine, Sparkles, CalendarRange,
 } from 'lucide-react'
 import useStore from '../store/useStore'
 import { levelProgress, rankForLevel, BADGES } from '../lib/gamification'
@@ -15,6 +15,8 @@ const LINKS = [
   { id: 'calc', label: 'Calculator', desc: 'Reconstitution & syringe units', icon: FlaskConical, color: 'var(--lime)' },
   { id: 'mix', label: 'Mix', desc: 'Can these two share a syringe?', icon: Combine, color: 'var(--indigo)' },
   { id: 'supplies', label: 'Stock & restock', desc: 'Vials, cost, expiry, and what to order', icon: Package, color: 'var(--amber)' },
+  { id: 'insights', label: 'Insights', desc: 'Patterns in your own logged data', icon: Sparkles, color: 'var(--violet)' },
+  { id: 'recap', label: 'Your week', desc: 'Doses, body, symptoms and what’s coming', icon: CalendarRange, color: 'var(--lime)' },
   { id: 'now', label: 'Right Now', desc: 'What your stack is doing today', icon: Activity, color: 'var(--lime)' },
   { id: 'history', label: 'History & adherence', desc: 'Every dose, rates, shareable summary', icon: History, color: 'var(--indigo)' },
   { id: 'needle', label: 'Needle guide', desc: 'SubQ, IM and nasal technique', icon: Syringe, color: 'var(--coral)' },

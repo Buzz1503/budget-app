@@ -13,6 +13,7 @@ import { loadMatrix, compoundColor } from '../lib/mixMatrix'
 import { referenceFor, protocolTextFrom, referenceAttachment, isExcludedTier } from '../lib/reference'
 import ReferenceInfo, { TierBadge } from './ReferenceInfo'
 import Modal from './ui/Modal'
+import NumberField from './ui/NumberField'
 import Term from './ui/Term'
 import { NasalRecipe } from './SitePicker'
 
@@ -228,11 +229,8 @@ function Field({ label, children }) {
   )
 }
 
-function Num({ value, onChange, step = 'any', min = 0 }) {
-  return (
-    <input type="number" inputMode="decimal" className="input" value={value} step={step} min={min}
-      onChange={(e) => onChange(parseFloat(e.target.value) || 0)} />
-  )
+function Num({ value, onChange, step = 'any', min = 0, integer = false }) {
+  return <NumberField value={value} onChange={(v) => onChange(v ?? 0)} step={step} min={min} integer={integer} />
 }
 
 export function PeptideEditor({ peptide: p }) {
@@ -277,10 +275,10 @@ export function PeptideEditor({ peptide: p }) {
             </select>
           </Field>
           <Field label="Cycle on (days, 0 = ongoing)">
-            <Num value={p.cycleOnDays} step="1" onChange={(v) => updatePeptide(p.id, { cycleOnDays: Math.round(v) })} />
+            <Num value={p.cycleOnDays} step="1" integer onChange={(v) => updatePeptide(p.id, { cycleOnDays: v })} />
           </Field>
           <Field label="Cycle off (days)">
-            <Num value={p.cycleOffDays} step="1" onChange={(v) => updatePeptide(p.id, { cycleOffDays: Math.round(v) })} />
+            <Num value={p.cycleOffDays} step="1" integer onChange={(v) => updatePeptide(p.id, { cycleOffDays: v })} />
           </Field>
         </div>
 
@@ -341,7 +339,7 @@ export function PeptideEditor({ peptide: p }) {
         <div className="grid grid-cols-2 gap-3">
           <Field label={`Floor (${unitLabel(p.ladder.unit)})`}><Num value={p.ladder.floor} onChange={(v) => updateLadder(p.id, { floor: v })} /></Field>
           <Field label={`Step (${unitLabel(p.ladder.unit)})`}><Num value={p.ladder.step} onChange={(v) => updateLadder(p.id, { step: v })} /></Field>
-          <Field label="Interval (weeks)"><Num value={p.ladder.intervalWeeks} step="1" onChange={(v) => updateLadder(p.id, { intervalWeeks: Math.max(1, Math.round(v)) })} /></Field>
+          <Field label="Interval (weeks)"><Num value={p.ladder.intervalWeeks} step="1" min={1} integer onChange={(v) => updateLadder(p.id, { intervalWeeks: Math.max(1, v) })} /></Field>
           <Field label={`Ceiling (${unitLabel(p.ladder.unit)})`}><Num value={p.ladder.ceiling} onChange={(v) => updateLadder(p.id, { ceiling: v })} /></Field>
           <Field label="Unit">
             <select className="input" value={p.ladder.unit} onChange={(e) => updateLadder(p.id, { unit: e.target.value })}
@@ -371,7 +369,7 @@ export function PeptideEditor({ peptide: p }) {
             <div className="grid grid-cols-3 gap-3">
               <Field label="Vial (mg)"><Num value={p.recon.vialMg} onChange={(v) => updateRecon(p.id, { vialMg: v })} /></Field>
               <Field label="BAC water (mL)"><Num value={p.recon.bacMl} onChange={(v) => updateRecon(p.id, { bacMl: v })} /></Field>
-              <Field label="Expiry (days)"><Num value={p.recon.expiryDays} step="1" onChange={(v) => updateRecon(p.id, { expiryDays: Math.round(v) })} /></Field>
+              <Field label="Expiry (days)"><Num value={p.recon.expiryDays} step="1" integer onChange={(v) => updateRecon(p.id, { expiryDays: v })} /></Field>
             </div>
             <p className="text-[10px] font-medium" style={{ color: 'var(--muted)' }}>
               One bottle is about {nasalStrength(p.nasal || NASAL_RECIPE).spraysPerBottle} sprays; stock counts down as you log.
@@ -394,7 +392,7 @@ export function PeptideEditor({ peptide: p }) {
                 })} />
               </Field>
               <Field label="Expiry (days, 0 = none)">
-                <Num value={p.recon.expiryDays} step="1" onChange={(v) => updateRecon(p.id, { expiryDays: Math.max(0, Math.round(v)) })} />
+                <Num value={p.recon.expiryDays} step="1" integer onChange={(v) => updateRecon(p.id, { expiryDays: v })} />
               </Field>
             </div>
             <p className="text-[10px] font-medium" style={{ color: 'var(--muted)' }}>
@@ -408,7 +406,7 @@ export function PeptideEditor({ peptide: p }) {
             <div className="grid grid-cols-3 gap-3">
               <Field label="Vial (mg)"><Num value={p.recon.vialMg} onChange={(v) => updateRecon(p.id, { vialMg: v })} /></Field>
               <Field label="BAC water (mL)"><Num value={p.recon.bacMl} onChange={(v) => updateRecon(p.id, { bacMl: v })} /></Field>
-              <Field label="Expiry (days)"><Num value={p.recon.expiryDays} step="1" onChange={(v) => updateRecon(p.id, { expiryDays: Math.round(v) })} /></Field>
+              <Field label="Expiry (days)"><Num value={p.recon.expiryDays} step="1" integer onChange={(v) => updateRecon(p.id, { expiryDays: v })} /></Field>
             </div>
           </>
         )}
@@ -569,6 +567,9 @@ function LadderClimb({ peptide: p }) {
 }
 
 // Blank protocol — the matrix has no dosing data, so we never invent values.
+// The 2 mL reconstitution default deliberately does NOT apply here: this is the
+// "nothing is known about this compound" path, and a BAC volume beside a vial
+// size of zero would be a fabricated number dressed as a suggestion.
 const BLANK_PROTOCOL = {
   frequency: 'daily', timing: '', cycleOnDays: 0, cycleOffDays: 0,
   ladder: { floor: 0, step: 0, intervalWeeks: 1, ceiling: 0, unit: 'mcg' },

@@ -18,6 +18,7 @@ import RightNowTab from './components/RightNowTab'
 import SymptomsTab from './components/SymptomsTab'
 import BodyTab from './components/BodyTab'
 import HistoryTab from './components/HistoryTab'
+import InsightsTab, { RecapTab } from './components/InsightsTab'
 import ScheduleWizard from './components/ScheduleWizard'
 import MoreHub from './components/MoreHub'
 import CelebrationLayer from './components/CelebrationLayer'
@@ -38,6 +39,8 @@ const SCREENS = {
   needle: NeedleTab,
   settings: SettingsTab,
   history: HistoryTab,
+  insights: InsightsTab,
+  recap: RecapTab,
 }
 
 // Five primary tabs in the bottom bar; everything else lives under More.
@@ -53,6 +56,7 @@ const PRIMARY_IDS = new Set(PRIMARY.map((t) => t.id))
 const SUB_TITLES = {
   now: 'Right Now', library: 'Library', supplies: 'Stock & restock', calc: 'Calculator',
   mix: 'Mix', needle: 'Needle guide', settings: 'Settings', history: 'History',
+  insights: 'Insights', recap: 'Your week',
 }
 
 // Screens that were their own destination in an earlier version. Old deep links

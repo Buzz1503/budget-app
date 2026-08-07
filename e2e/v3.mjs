@@ -127,10 +127,14 @@ await step('Body: second measurement (later date) enables scrubber + milestone',
 })
 
 await step('Outcomes: peptide × subjective renders after a symptom log', async () => {
-  // add a symptom check-in first
+  // add a symptom check-in first — v18 made the tab search-first, and the
+  // submit button now counts what was picked
   await nav('Symptoms')
-  await page.click('button:has-text("More energy")')
-  await page.click('button:has-text("Log check-in")')
+  await page.fill('input[placeholder*="Search" i]', 'More energy')
+  await page.waitForTimeout(350)
+  await page.locator('[data-testid="symptom-search-results"] button:has-text("More energy")').first().click()
+  await page.waitForTimeout(300)
+  await page.locator('main button').filter({ hasText: /^(Log \d|Update check-in)$/ }).last().click()
   await page.waitForTimeout(800)
   await nav('Body')
   await page.click('button:has-text("Outcomes")')

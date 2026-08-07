@@ -14,6 +14,7 @@ import {
 } from '../lib/metrics'
 import { extractPdfText, parseScanText } from '../lib/scanParse'
 import Modal from './ui/Modal'
+import NumberField from './ui/NumberField'
 import BodyModel from './BodyModel'
 import MeasureGuide from './MeasureGuide'
 import PhotosSection from './PhotosSection'
@@ -155,11 +156,11 @@ function ReferenceDistances({ compact }) {
           <div key={r.id}>
             <label className="flex items-center gap-2">
               <span className="min-w-0 flex-1 text-xs font-bold">{r.label}</span>
-              <input type="number" inputMode="decimal" step="0.5" min="0"
+              <NumberField step="0.5" min={0}
                 aria-label={`${r.label} in ${r.unit}`}
-                className="input !w-20 !py-1.5 text-center"
+                className="!w-20 !py-1.5 text-center"
                 value={bodyRefs?.[r.id] ?? r.default}
-                onChange={(e) => setBodyRef(r.id, e.target.value)} />
+                onChange={(n) => setBodyRef(r.id, n ?? r.default)} />
               <span className="text-xs font-bold" style={{ color: 'var(--muted)' }}>{r.unit}</span>
             </label>
             <p className="mt-0.5 text-[10px] font-semibold" style={{ color: 'var(--lime)' }}>
@@ -206,10 +207,11 @@ function MeasureField({ group, form, onSet, bodyRefs }) {
                   {m.side === 'L' ? 'Left' : 'Right'}
                 </span>
               )}
-              <input type="number" inputMode="decimal" className="input !py-2 text-center"
+              <NumberField className="!py-2 text-center"
                 aria-label={`${m.label} in ${m.unit}`}
-                value={form[k] ?? ''}
-                onChange={(e) => onSet(k, e.target.value === '' ? undefined : parseFloat(e.target.value))} />
+                allowEmpty min={0}
+                value={form[k]}
+                onChange={(n) => onSet(k, n)} />
             </label>
           )
         })}
@@ -237,7 +239,7 @@ function AddMeasurement({ open, onClose }) {
     return (
       <label key={k} className="block">
         <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>{m.label} {m.unit && `(${m.unit})`}</span>
-        <input type="number" inputMode="decimal" className="input" value={form[k] ?? ''} onChange={(e) => set(k, e.target.value === '' ? undefined : parseFloat(e.target.value))} />
+        <NumberField allowEmpty min={0} value={form[k]} onChange={(n) => set(k, n)} aria-label={`${m.label}${m.unit ? ` in ${m.unit}` : ''}`} />
         {m.how && <span className="mt-1 block text-[10px] font-medium leading-snug" style={{ color: 'var(--muted)' }}>{m.how}</span>}
       </label>
     )
