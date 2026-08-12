@@ -1,270 +1,713 @@
 {
- "schema": "pepito-side-effects/v1",
- "note": "Associations are CANDIDATES, not a diagnosis. On a multi-compound stack several things can contribute to one symptom. Evidence tiers T1 (strongest) to T5 (anecdotal) mirror the dosing reference; some entries are community-reported, not proven. Not medical advice.",
+ "schema": "pepito-side-effects/v2",
+ "note": "Negative symptoms are a broad review-of-systems catalogue so anything can be logged, not only known stack effects. Attribution shows CANDIDATES from the active stack, not a diagnosis; on a multi-compound stack several things can contribute. A symptom with no active-stack link is still worth logging. Tiers T1(strongest)-T5(anecdotal). Not medical advice.",
+ "categories": [
+  {
+   "id": "sleep",
+   "label": "Sleep"
+  },
+  {
+   "id": "general",
+   "label": "General & energy"
+  },
+  {
+   "id": "mood",
+   "label": "Mood"
+  },
+  {
+   "id": "cognition",
+   "label": "Focus & memory"
+  },
+  {
+   "id": "head_nerves",
+   "label": "Head & nerves"
+  },
+  {
+   "id": "gut",
+   "label": "Gut & digestion"
+  },
+  {
+   "id": "heart_blood",
+   "label": "Heart & blood"
+  },
+  {
+   "id": "breathing",
+   "label": "Breathing"
+  },
+  {
+   "id": "skin_hair",
+   "label": "Skin & hair"
+  },
+  {
+   "id": "hormonal_sexual",
+   "label": "Hormonal & sexual"
+  },
+  {
+   "id": "muscles_joints",
+   "label": "Muscles & joints"
+  },
+  {
+   "id": "injection_site",
+   "label": "Injection site"
+  },
+  {
+   "id": "urinary",
+   "label": "Urinary"
+  },
+  {
+   "id": "metabolic",
+   "label": "Blood sugar & weight"
+  },
+  {
+   "id": "other",
+   "label": "Other"
+  }
+ ],
  "symptoms": {
-  "nausea": {
-   "label": "Nausea",
-   "type": "neg"
-  },
-  "vomiting": {
-   "label": "Vomiting",
-   "type": "neg"
-  },
-  "diarrhea": {
-   "label": "Diarrhoea",
-   "type": "neg"
-  },
-  "constipation": {
-   "label": "Constipation",
-   "type": "neg"
-  },
-  "appetite_loss": {
-   "label": "Loss of appetite",
-   "type": "neg"
-  },
-  "fatigue": {
-   "label": "Fatigue / low energy",
-   "type": "neg"
-  },
-  "flushing": {
-   "label": "Flushing / feeling hot",
-   "type": "neg"
-  },
-  "inj_reaction": {
-   "label": "Injection-site reaction (redness/swelling/pain)",
-   "type": "neg"
-  },
-  "inj_pain": {
-   "label": "Painful injection",
-   "type": "neg"
-  },
-  "skin_staining": {
-   "label": "Skin staining at site",
-   "type": "neg"
-  },
-  "water_retention": {
-   "label": "Water retention / puffiness",
-   "type": "neg"
-  },
-  "edema": {
-   "label": "Swelling in ankles/limbs",
-   "type": "neg"
-  },
-  "joint_pain": {
-   "label": "Joint / muscle aches",
-   "type": "neg"
-  },
-  "high_glucose": {
-   "label": "High blood sugar / glucose swings",
-   "type": "neg"
-  },
-  "tingling": {
-   "label": "Skin tingling / burning (dysaesthesia)",
-   "type": "neg"
-  },
-  "numbness": {
-   "label": "Numbness / carpal-tunnel tingling in hands",
-   "type": "neg"
-  },
-  "raised_hr": {
-   "label": "Raised resting heart rate",
-   "type": "neg"
-  },
-  "head_rush": {
-   "label": "Head rush / light-headedness after injection",
-   "type": "neg"
-  },
-  "headache": {
-   "label": "Headache",
-   "type": "neg"
-  },
-  "mole_change": {
-   "label": "Moles darkening or changing",
-   "type": "neg"
-  },
-  "freckling": {
-   "label": "New freckles / pigment spots",
-   "type": "neg"
-  },
-  "priapism": {
-   "label": "Prolonged / unwanted erections",
-   "type": "neg"
-  },
-  "bp_change": {
-   "label": "Blood-pressure changes",
-   "type": "neg"
-  },
-  "acne": {
-   "label": "Acne / oily skin",
-   "type": "neg"
-  },
-  "hair_loss": {
-   "label": "Scalp hair thinning",
-   "type": "neg"
-  },
-  "body_hair": {
-   "label": "Increased body/face hair",
-   "type": "neg"
-  },
-  "gyno": {
-   "label": "Breast tissue tenderness / growth (gyno)",
-   "type": "neg"
-  },
-  "testicular_atrophy": {
-   "label": "Testicular shrinkage",
-   "type": "neg"
-  },
-  "low_fertility": {
-   "label": "Reduced fertility / lower sperm",
-   "type": "neg"
-  },
-  "high_hct": {
-   "label": "Thick blood / high haematocrit (flag on bloods)",
-   "type": "neg"
-  },
-  "mood_swings": {
-   "label": "Irritability / mood swings",
-   "type": "neg"
-  },
-  "aggression": {
-   "label": "Increased aggression",
-   "type": "neg"
-  },
-  "anxiety": {
-   "label": "Anxiety",
-   "type": "neg"
-  },
-  "low_mood": {
-   "label": "Low mood / depression",
-   "type": "neg"
-  },
-  "sleep_apnea": {
-   "label": "Worsened snoring / sleep apnoea",
-   "type": "neg"
-  },
-  "night_sweats": {
-   "label": "Night sweats",
-   "type": "neg"
-  },
-  "insomnia": {
-   "label": "Trouble sleeping / over-stimulation",
-   "type": "neg"
-  },
-  "grogginess": {
-   "label": "Morning grogginess",
-   "type": "neg"
-  },
-  "nasal_irritation": {
-   "label": "Nasal irritation (intranasal)",
-   "type": "neg"
-  },
-  "chest_tightness": {
-   "label": "Chest tightness (fast NAD+ push)",
-   "type": "neg"
-  },
-  "estradiol_up": {
-   "label": "High-oestrogen signs (bloat, moody, nipple sensitivity)",
-   "type": "neg"
-  },
-  "copper_load": {
-   "label": "Signs of copper build-up (with high GHK-Cu dosing)",
-   "type": "neg"
-  },
-  "head_pressure": {
-   "label": "Head pressure (anecdotal)",
-   "type": "neg"
-  },
   "energy_up": {
    "label": "More energy",
-   "type": "pos"
+   "type": "pos",
+   "category": "good"
   },
   "clarity": {
    "label": "Mental clarity / focus",
-   "type": "pos"
+   "type": "pos",
+   "category": "good"
   },
   "endurance": {
    "label": "Better endurance / stamina",
-   "type": "pos"
+   "type": "pos",
+   "category": "good"
   },
   "reduced_anxiety": {
    "label": "Calmer / less anxious",
-   "type": "pos"
+   "type": "pos",
+   "category": "good"
   },
   "better_sleep": {
    "label": "Better / deeper sleep",
-   "type": "pos"
+   "type": "pos",
+   "category": "good"
   },
   "recovery": {
    "label": "Faster soft-tissue recovery",
-   "type": "pos"
+   "type": "pos",
+   "category": "good"
   },
   "less_joint_pain": {
    "label": "Less joint / tendon pain",
-   "type": "pos"
+   "type": "pos",
+   "category": "good"
   },
   "gut_relief": {
    "label": "Gut symptom relief",
-   "type": "pos"
+   "type": "pos",
+   "category": "good"
   },
   "skin_quality": {
    "label": "Better skin quality",
-   "type": "pos"
+   "type": "pos",
+   "category": "good"
   },
   "hair_quality": {
    "label": "Better hair / nails",
-   "type": "pos"
+   "type": "pos",
+   "category": "good"
   },
   "fat_loss": {
    "label": "Fat loss",
-   "type": "pos"
+   "type": "pos",
+   "category": "good"
   },
   "visceral_fat": {
    "label": "Visceral (belly) fat reduction",
-   "type": "pos"
+   "type": "pos",
+   "category": "good"
   },
   "appetite_suppression": {
    "label": "Reduced appetite",
-   "type": "pos"
+   "type": "pos",
+   "category": "good"
   },
   "satiety": {
    "label": "Fuller / more satisfied after meals",
-   "type": "pos"
+   "type": "pos",
+   "category": "good"
   },
   "muscle_strength": {
    "label": "Muscle / strength gains",
-   "type": "pos"
+   "type": "pos",
+   "category": "good"
   },
   "libido_up": {
    "label": "Higher libido",
-   "type": "pos"
+   "type": "pos",
+   "category": "good"
   },
   "mood_up": {
    "label": "Improved mood / confidence",
-   "type": "pos"
+   "type": "pos",
+   "category": "good"
   },
   "immune": {
    "label": "Fewer infections / immune resilience",
-   "type": "pos"
+   "type": "pos",
+   "category": "good"
   },
   "tanning": {
    "label": "Tanning / darker skin",
-   "type": "pos"
+   "type": "pos",
+   "category": "good"
   },
   "warmth": {
    "label": "Warmth / thermogenic feeling",
-   "type": "pos"
+   "type": "pos",
+   "category": "good"
   },
   "wellbeing": {
    "label": "General wellbeing",
-   "type": "pos"
+   "type": "pos",
+   "category": "good"
   },
   "verbal": {
    "label": "Verbal fluency / mental stamina",
-   "type": "pos"
+   "type": "pos",
+   "category": "good"
   },
   "metabolic": {
    "label": "Better metabolic flexibility",
-   "type": "pos"
+   "type": "pos",
+   "category": "good"
+  },
+  "insomnia": {
+   "label": "Trouble falling asleep",
+   "type": "neg",
+   "category": "sleep"
+  },
+  "broken_sleep": {
+   "label": "Waking through the night",
+   "type": "neg",
+   "category": "sleep"
+  },
+  "early_waking": {
+   "label": "Waking too early",
+   "type": "neg",
+   "category": "sleep"
+  },
+  "unrefreshing_sleep": {
+   "label": "Unrefreshing / poor sleep",
+   "type": "neg",
+   "category": "sleep"
+  },
+  "restless_sleep": {
+   "label": "Restless sleep",
+   "type": "neg",
+   "category": "sleep"
+  },
+  "vivid_dreams": {
+   "label": "Vivid dreams / nightmares",
+   "type": "neg",
+   "category": "sleep"
+  },
+  "daytime_sleepiness": {
+   "label": "Daytime sleepiness",
+   "type": "neg",
+   "category": "sleep"
+  },
+  "grogginess": {
+   "label": "Morning grogginess",
+   "type": "neg",
+   "category": "sleep"
+  },
+  "sleep_apnea": {
+   "label": "Worsened snoring / sleep apnoea",
+   "type": "neg",
+   "category": "sleep"
+  },
+  "fatigue": {
+   "label": "Fatigue / low energy",
+   "type": "neg",
+   "category": "general"
+  },
+  "weakness": {
+   "label": "Weakness",
+   "type": "neg",
+   "category": "general"
+  },
+  "malaise": {
+   "label": "Run-down / off feeling",
+   "type": "neg",
+   "category": "general"
+  },
+  "chills": {
+   "label": "Chills",
+   "type": "neg",
+   "category": "general"
+  },
+  "feverish": {
+   "label": "Feeling feverish",
+   "type": "neg",
+   "category": "general"
+  },
+  "night_sweats": {
+   "label": "Night sweats",
+   "type": "neg",
+   "category": "general"
+  },
+  "excess_sweat": {
+   "label": "Excessive sweating",
+   "type": "neg",
+   "category": "general"
+  },
+  "flushing": {
+   "label": "Flushing / feeling hot",
+   "type": "neg",
+   "category": "general"
+  },
+  "feeling_cold": {
+   "label": "Feeling cold",
+   "type": "neg",
+   "category": "general"
+  },
+  "thirst": {
+   "label": "Excessive thirst",
+   "type": "neg",
+   "category": "general"
+  },
+  "dehydration": {
+   "label": "Dehydration / dry mouth",
+   "type": "neg",
+   "category": "general"
+  },
+  "anxiety": {
+   "label": "Anxiety",
+   "type": "neg",
+   "category": "mood"
+  },
+  "low_mood": {
+   "label": "Low mood / depression",
+   "type": "neg",
+   "category": "mood"
+  },
+  "irritability": {
+   "label": "Irritability",
+   "type": "neg",
+   "category": "mood"
+  },
+  "mood_swings": {
+   "label": "Mood swings",
+   "type": "neg",
+   "category": "mood"
+  },
+  "aggression": {
+   "label": "Increased aggression",
+   "type": "neg",
+   "category": "mood"
+  },
+  "restlessness": {
+   "label": "Restlessness / agitation",
+   "type": "neg",
+   "category": "mood"
+  },
+  "overstimulated": {
+   "label": "Wired / over-stimulated",
+   "type": "neg",
+   "category": "mood"
+  },
+  "apathy": {
+   "label": "Flat / low motivation",
+   "type": "neg",
+   "category": "mood"
+  },
+  "panic": {
+   "label": "Panicky feelings",
+   "type": "neg",
+   "category": "mood"
+  },
+  "brain_fog": {
+   "label": "Brain fog",
+   "type": "neg",
+   "category": "cognition"
+  },
+  "poor_focus": {
+   "label": "Poor concentration",
+   "type": "neg",
+   "category": "cognition"
+  },
+  "memory_issues": {
+   "label": "Forgetfulness / memory issues",
+   "type": "neg",
+   "category": "cognition"
+  },
+  "mental_fatigue": {
+   "label": "Mental fatigue",
+   "type": "neg",
+   "category": "cognition"
+  },
+  "headache": {
+   "label": "Headache",
+   "type": "neg",
+   "category": "head_nerves"
+  },
+  "migraine": {
+   "label": "Migraine",
+   "type": "neg",
+   "category": "head_nerves"
+  },
+  "head_pressure": {
+   "label": "Head pressure",
+   "type": "neg",
+   "category": "head_nerves"
+  },
+  "dizziness": {
+   "label": "Dizziness / light-headed",
+   "type": "neg",
+   "category": "head_nerves"
+  },
+  "vertigo": {
+   "label": "Vertigo / spinning",
+   "type": "neg",
+   "category": "head_nerves"
+  },
+  "tingling": {
+   "label": "Skin tingling / burning",
+   "type": "neg",
+   "category": "head_nerves"
+  },
+  "numbness": {
+   "label": "Numbness / pins & needles",
+   "type": "neg",
+   "category": "head_nerves"
+  },
+  "tremor": {
+   "label": "Tremor / shakiness",
+   "type": "neg",
+   "category": "head_nerves"
+  },
+  "blurred_vision": {
+   "label": "Blurred vision",
+   "type": "neg",
+   "category": "head_nerves"
+  },
+  "nausea": {
+   "label": "Nausea",
+   "type": "neg",
+   "category": "gut"
+  },
+  "vomiting": {
+   "label": "Vomiting",
+   "type": "neg",
+   "category": "gut"
+  },
+  "diarrhea": {
+   "label": "Diarrhoea",
+   "type": "neg",
+   "category": "gut"
+  },
+  "constipation": {
+   "label": "Constipation",
+   "type": "neg",
+   "category": "gut"
+  },
+  "bloating": {
+   "label": "Bloating",
+   "type": "neg",
+   "category": "gut"
+  },
+  "abdo_pain": {
+   "label": "Abdominal cramps / pain",
+   "type": "neg",
+   "category": "gut"
+  },
+  "reflux": {
+   "label": "Reflux / heartburn",
+   "type": "neg",
+   "category": "gut"
+  },
+  "burping": {
+   "label": "Burping",
+   "type": "neg",
+   "category": "gut"
+  },
+  "appetite_loss": {
+   "label": "Loss of appetite",
+   "type": "neg",
+   "category": "gut"
+  },
+  "increased_appetite": {
+   "label": "Increased appetite",
+   "type": "neg",
+   "category": "gut"
+  },
+  "early_fullness": {
+   "label": "Early fullness",
+   "type": "neg",
+   "category": "gut"
+  },
+  "raised_hr": {
+   "label": "Raised resting heart rate",
+   "type": "neg",
+   "category": "heart_blood"
+  },
+  "palpitations": {
+   "label": "Palpitations",
+   "type": "neg",
+   "category": "heart_blood"
+  },
+  "bp_change": {
+   "label": "Blood-pressure changes",
+   "type": "neg",
+   "category": "heart_blood"
+  },
+  "chest_tightness": {
+   "label": "Chest tightness",
+   "type": "neg",
+   "category": "heart_blood"
+  },
+  "faint": {
+   "label": "Feeling faint",
+   "type": "neg",
+   "category": "heart_blood"
+  },
+  "edema": {
+   "label": "Swelling in ankles / limbs",
+   "type": "neg",
+   "category": "heart_blood"
+  },
+  "high_hct": {
+   "label": "Thick blood / high haematocrit (bloods)",
+   "type": "neg",
+   "category": "heart_blood"
+  },
+  "easy_bruising": {
+   "label": "Bruising easily",
+   "type": "neg",
+   "category": "heart_blood"
+  },
+  "poor_circulation": {
+   "label": "Cold / poor circulation in hands & feet",
+   "type": "neg",
+   "category": "heart_blood"
+  },
+  "short_breath": {
+   "label": "Shortness of breath",
+   "type": "neg",
+   "category": "breathing"
+  },
+  "cough": {
+   "label": "Cough",
+   "type": "neg",
+   "category": "breathing"
+  },
+  "wheeze": {
+   "label": "Wheezing",
+   "type": "neg",
+   "category": "breathing"
+  },
+  "acne": {
+   "label": "Acne / oily skin",
+   "type": "neg",
+   "category": "skin_hair"
+  },
+  "dry_skin": {
+   "label": "Dry skin",
+   "type": "neg",
+   "category": "skin_hair"
+  },
+  "itching": {
+   "label": "Itching",
+   "type": "neg",
+   "category": "skin_hair"
+  },
+  "rash": {
+   "label": "Rash / hives",
+   "type": "neg",
+   "category": "skin_hair"
+  },
+  "redness": {
+   "label": "Skin redness",
+   "type": "neg",
+   "category": "skin_hair"
+  },
+  "hair_loss": {
+   "label": "Scalp hair thinning",
+   "type": "neg",
+   "category": "skin_hair"
+  },
+  "body_hair": {
+   "label": "Increased body / facial hair",
+   "type": "neg",
+   "category": "skin_hair"
+  },
+  "skin_staining": {
+   "label": "Skin staining at site",
+   "type": "neg",
+   "category": "skin_hair"
+  },
+  "mole_change": {
+   "label": "Moles darkening / changing",
+   "type": "neg",
+   "category": "skin_hair"
+  },
+  "freckling": {
+   "label": "New freckles",
+   "type": "neg",
+   "category": "skin_hair"
+  },
+  "gyno": {
+   "label": "Breast tenderness / growth (gyno)",
+   "type": "neg",
+   "category": "hormonal_sexual"
+  },
+  "estradiol_up": {
+   "label": "High-oestrogen signs (bloat, moody, nipple sensitivity)",
+   "type": "neg",
+   "category": "hormonal_sexual"
+  },
+  "low_libido": {
+   "label": "Lower libido",
+   "type": "neg",
+   "category": "hormonal_sexual"
+  },
+  "erectile_diff": {
+   "label": "Erectile difficulty",
+   "type": "neg",
+   "category": "hormonal_sexual"
+  },
+  "priapism": {
+   "label": "Prolonged / unwanted erections",
+   "type": "neg",
+   "category": "hormonal_sexual"
+  },
+  "testicular_atrophy": {
+   "label": "Testicular shrinkage",
+   "type": "neg",
+   "category": "hormonal_sexual"
+  },
+  "low_fertility": {
+   "label": "Reduced fertility / lower sperm",
+   "type": "neg",
+   "category": "hormonal_sexual"
+  },
+  "water_retention": {
+   "label": "Water retention / puffiness",
+   "type": "neg",
+   "category": "hormonal_sexual"
+  },
+  "puffy_face": {
+   "label": "Puffy face",
+   "type": "neg",
+   "category": "hormonal_sexual"
+  },
+  "joint_pain": {
+   "label": "Joint / muscle aches",
+   "type": "neg",
+   "category": "muscles_joints"
+  },
+  "muscle_cramps": {
+   "label": "Muscle cramps",
+   "type": "neg",
+   "category": "muscles_joints"
+  },
+  "stiffness": {
+   "label": "Stiffness",
+   "type": "neg",
+   "category": "muscles_joints"
+  },
+  "back_pain": {
+   "label": "Back pain",
+   "type": "neg",
+   "category": "muscles_joints"
+  },
+  "inj_reaction": {
+   "label": "Injection-site reaction (redness/swelling/pain)",
+   "type": "neg",
+   "category": "injection_site"
+  },
+  "inj_pain": {
+   "label": "Painful injection",
+   "type": "neg",
+   "category": "injection_site"
+  },
+  "site_lump": {
+   "label": "Lump / nodule at site",
+   "type": "neg",
+   "category": "injection_site"
+  },
+  "site_bruise": {
+   "label": "Bruise at site",
+   "type": "neg",
+   "category": "injection_site"
+  },
+  "site_bleed": {
+   "label": "Bleeding at site",
+   "type": "neg",
+   "category": "injection_site"
+  },
+  "site_itch": {
+   "label": "Itching at site",
+   "type": "neg",
+   "category": "injection_site"
+  },
+  "frequent_urination": {
+   "label": "Frequent urination",
+   "type": "neg",
+   "category": "urinary"
+  },
+  "difficulty_urinating": {
+   "label": "Difficulty urinating",
+   "type": "neg",
+   "category": "urinary"
+  },
+  "nocturia": {
+   "label": "Waking to urinate at night",
+   "type": "neg",
+   "category": "urinary"
+  },
+  "high_glucose": {
+   "label": "High blood sugar / glucose swings",
+   "type": "neg",
+   "category": "metabolic"
+  },
+  "low_glucose": {
+   "label": "Low blood sugar (shaky / sweaty / hungry)",
+   "type": "neg",
+   "category": "metabolic"
+  },
+  "weight_gain": {
+   "label": "Unexpected weight gain",
+   "type": "neg",
+   "category": "metabolic"
+  },
+  "rapid_weight_loss": {
+   "label": "Rapid weight loss",
+   "type": "neg",
+   "category": "metabolic"
+  },
+  "metallic_taste": {
+   "label": "Metallic taste",
+   "type": "neg",
+   "category": "metabolic"
+  },
+  "head_rush": {
+   "label": "Head rush after injection",
+   "type": "neg",
+   "category": "other"
+  },
+  "chest_tightness_nad": {
+   "label": "Chest tightness (fast NAD+ push)",
+   "type": "neg",
+   "category": "other"
+  },
+  "copper_load": {
+   "label": "Signs of copper build-up (high GHK-Cu)",
+   "type": "neg",
+   "category": "other"
+  },
+  "nasal_irritation": {
+   "label": "Nasal irritation (intranasal)",
+   "type": "neg",
+   "category": "other"
   }
  },
  "compounds": {
@@ -296,7 +739,9 @@
     "tingling",
     "raised_hr",
     "fatigue",
-    "appetite_loss"
+    "appetite_loss",
+    "early_fullness",
+    "reflux"
    ]
   },
   "ss31": {
@@ -330,7 +775,7 @@
     "inj_pain",
     "flushing",
     "nausea",
-    "chest_tightness"
+    "chest_tightness_nad"
    ]
   },
   "cjc1295_nodac": {
@@ -342,7 +787,8 @@
    "negative": [
     "flushing",
     "water_retention",
-    "tingling"
+    "tingling",
+    "numbness"
    ]
   },
   "ipamorelin": {
@@ -368,7 +814,8 @@
     "high_glucose",
     "joint_pain",
     "edema",
-    "inj_reaction"
+    "inj_reaction",
+    "numbness"
    ]
   },
   "kpv": {
@@ -415,6 +862,7 @@
    "negative": [
     "acne",
     "hair_loss",
+    "body_hair",
     "water_retention",
     "gyno",
     "testicular_atrophy",
@@ -423,11 +871,13 @@
     "bp_change",
     "mood_swings",
     "aggression",
+    "irritability",
     "low_mood",
     "sleep_apnea",
     "night_sweats",
     "estradiol_up",
-    "inj_pain"
+    "inj_pain",
+    "insomnia"
    ]
   },
   "selank": {
@@ -461,7 +911,9 @@
    ],
    "negative": [
     "nasal_irritation",
-    "insomnia"
+    "insomnia",
+    "overstimulated",
+    "irritability"
    ]
   },
   "ghkcu": {
@@ -549,7 +1001,8 @@
     "numbness",
     "joint_pain",
     "high_glucose",
-    "headache"
+    "headache",
+    "stiffness"
    ]
   },
   "aod9604": {
@@ -569,7 +1022,8 @@
    ],
    "negative": [
     "nausea",
-    "inj_reaction"
+    "inj_reaction",
+    "early_fullness"
    ]
   },
   "amino1mq": {
@@ -580,7 +1034,8 @@
     "energy_up"
    ],
    "negative": [
-    "insomnia"
+    "insomnia",
+    "overstimulated"
    ]
   }
  }

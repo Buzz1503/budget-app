@@ -139,6 +139,70 @@ await step('the Symptoms tab opens search-first', async () => {
   }
 })
 
+await step('Issues is the FULL negative catalogue, not just the stack', async () => {
+  await symptoms()
+  const cats = page.locator('[data-testid="symptom-categories"] > div > button')
+  const heads = (await cats.allInnerTexts()).map((t) => t.split('\n')[0].trim())
+  for (const want of ['Sleep', 'General & energy', 'Mood', 'Focus & memory', 'Head & nerves',
+    'Gut & digestion', 'Heart & blood', 'Breathing', 'Skin & hair', 'Hormonal & sexual',
+    'Muscles & joints', 'Injection site', 'Urinary', 'Blood sugar & weight', 'Other']) {
+    if (!heads.includes(want)) throw new Error(`missing category "${want}" — got [${heads.join(', ')}]`)
+  }
+  // the counts across the categories should add up to the whole catalogue
+  const total = (await cats.allInnerTexts())
+    .map((t) => parseInt(t.split('\n')[1] || '0', 10)).reduce((a, b) => a + b, 0)
+  if (total < 100) throw new Error(`only ${total} negative symptoms on offer — expected 100+`)
+})
+
+await step('general symptoms no stack compound causes are still loggable', async () => {
+  await symptoms()
+  for (const label of ['Trouble falling asleep', 'Waking through the night',
+    'Dizziness / light-headed', 'Bloating', 'Back pain', 'Blurred vision']) {
+    await page.fill('input[placeholder*="Search" i]', label)
+    await page.waitForTimeout(320)
+    const n = await page.locator(`[data-testid="symptom-search-results"] button:has-text("${label}")`).count()
+    if (n === 0) throw new Error(`"${label}" is not in the catalogue`)
+  }
+  await page.fill('input[placeholder*="Search" i]', '')
+  await page.waitForTimeout(300)
+})
+
+await step('Good effects stays tied to the stack', async () => {
+  await symptoms()
+  await page.click('button:has-text("Good effects")')
+  await page.waitForTimeout(500)
+  const txt = await page.locator('[data-testid="symptom-categories"]').textContent()
+  // the positive list must be far shorter than 100 and must not be a review of systems
+  for (const bad of ['Sleep', 'Urinary', 'Breathing']) {
+    if (new RegExp(`\\b${bad}\\b`).test(txt.split('\n')[0] || '')) {
+      throw new Error(`Good effects is showing the negative categories (${bad})`)
+    }
+  }
+  await page.click('button:has-text("Issues")')
+  await page.waitForTimeout(400)
+})
+
+await step('an unassociated symptom logs anyway, with a soft note instead of a false cause', async () => {
+  await symptoms()
+  await page.fill('input[placeholder*="Search" i]', 'Waking through the night')
+  await page.waitForTimeout(350)
+  await page.locator('[data-testid="symptom-search-results"] button').first().click()
+  await page.waitForTimeout(600)
+  const note = page.locator('[data-testid="unattributed-note"]')
+  if (!(await note.count())) throw new Error('no soft note for an unattributed symptom')
+  const t = await note.textContent()
+  if (!/not a known effect of your current stack/i.test(t)) throw new Error('the note does not say so plainly')
+  if (!/logged anyway/i.test(t)) throw new Error('the note does not say it was logged regardless')
+  await page.fill('input[placeholder*="Search" i]', '')
+  await page.waitForTimeout(300)
+  // and it really does save
+  await page.locator('main button').filter({ hasText: /^(Log \d|Update check-in)$/ }).last().click()
+  await page.waitForTimeout(900)
+  const st = await state()
+  const ids = (st.symptomLogs.at(-1)?.tags || []).map((x) => x.id)
+  if (!ids.includes('broken_sleep')) throw new Error(`the unattributed symptom was not saved — got [${ids}]`)
+})
+
 await step('search filters the stack-relevant list', async () => {
   await symptoms()
   await page.fill('input[placeholder*="Search" i]', 'sleep')

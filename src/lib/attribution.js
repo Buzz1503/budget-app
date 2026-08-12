@@ -70,61 +70,44 @@ export function symptomLabel(id) {
 }
 
 /**
- * Categories, so 66 symptoms read as ten short lists instead of one wall.
- * Every symptom belongs to exactly one; `other` catches anything unmapped so a
- * future data addition can never silently vanish from the UI.
+ * Categories come from the data file, in its own order — a review-of-systems
+ * sequence, not alphabetical — so adding a symptom to the JSON files it in the
+ * right drawer with no code change. `other` is the fallback for anything whose
+ * category is missing or unrecognised, so a data addition can never silently
+ * vanish from the UI.
  */
-export const CATEGORIES = [
-  { id: 'sleep', label: 'Sleep', icon: 'Moon' },
-  { id: 'energy', label: 'Energy', icon: 'Zap' },
-  { id: 'mood', label: 'Mood', icon: 'Smile' },
-  { id: 'cognition', label: 'Cognition', icon: 'Brain' },
-  { id: 'skin', label: 'Skin & hair', icon: 'Sparkles' },
-  { id: 'gut', label: 'Gut', icon: 'Soup' },
-  { id: 'hormonal', label: 'Hormonal', icon: 'Activity' },
-  { id: 'cardio', label: 'Cardio & blood', icon: 'HeartPulse' },
-  { id: 'injection', label: 'Injection site', icon: 'Syringe' },
-  { id: 'other', label: 'Other', icon: 'CircleDot' },
-]
-export const CATEGORY_BY_ID = Object.fromEntries(CATEGORIES.map((c) => [c.id, c]))
-
-const CATEGORY_OF = {
-  // sleep
-  insomnia: 'sleep', grogginess: 'sleep', sleep_apnea: 'sleep', night_sweats: 'sleep',
-  better_sleep: 'sleep',
-  // energy
-  fatigue: 'energy', energy_up: 'energy', endurance: 'energy', warmth: 'energy',
-  metabolic: 'energy', flushing: 'energy',
-  // mood
-  mood_swings: 'mood', aggression: 'mood', anxiety: 'mood', low_mood: 'mood',
-  reduced_anxiety: 'mood', mood_up: 'mood', wellbeing: 'mood',
-  // cognition
-  clarity: 'cognition', verbal: 'cognition', headache: 'cognition',
-  head_pressure: 'cognition', head_rush: 'cognition',
-  // skin & hair
-  acne: 'skin', hair_loss: 'skin', body_hair: 'skin', mole_change: 'skin',
-  freckling: 'skin', skin_quality: 'skin', hair_quality: 'skin', tanning: 'skin',
-  tingling: 'skin', numbness: 'skin',
-  // gut
-  nausea: 'gut', vomiting: 'gut', diarrhea: 'gut', constipation: 'gut',
-  appetite_loss: 'gut', gut_relief: 'gut', appetite_suppression: 'gut', satiety: 'gut',
-  // hormonal
-  gyno: 'hormonal', testicular_atrophy: 'hormonal', low_fertility: 'hormonal',
-  estradiol_up: 'hormonal', libido_up: 'hormonal', priapism: 'hormonal',
-  muscle_strength: 'hormonal', fat_loss: 'hormonal', visceral_fat: 'hormonal',
-  water_retention: 'hormonal', edema: 'hormonal', high_glucose: 'hormonal',
-  // cardio & blood
-  raised_hr: 'cardio', bp_change: 'cardio', high_hct: 'cardio',
-  chest_tightness: 'cardio', copper_load: 'cardio',
-  // injection site
-  inj_reaction: 'injection', inj_pain: 'injection', skin_staining: 'injection',
-  nasal_irritation: 'injection',
-  // other
-  joint_pain: 'other', less_joint_pain: 'other', recovery: 'other', immune: 'other',
+const CATEGORY_ICONS = {
+  sleep: 'Moon', general: 'Thermometer', mood: 'Smile', cognition: 'Brain',
+  head_nerves: 'Zap', gut: 'Soup', heart_blood: 'HeartPulse', breathing: 'Wind',
+  skin_hair: 'Sparkles', hormonal_sexual: 'Activity', muscles_joints: 'Dumbbell',
+  injection_site: 'Syringe', urinary: 'Droplet', metabolic: 'Scale', other: 'CircleDot',
 }
 
+export const CATEGORIES = (DATA.categories || []).map((c) => ({
+  ...c, icon: CATEGORY_ICONS[c.id] || 'CircleDot',
+}))
+export const CATEGORY_BY_ID = Object.fromEntries(CATEGORIES.map((c) => [c.id, c]))
+
+/** The category a symptom belongs to, per the data file. */
 export function categoryOf(symptomId) {
-  return CATEGORY_OF[symptomId] || 'other'
+  const cat = SYMPTOM_META[symptomId]?.category
+  return cat && CATEGORY_BY_ID[cat] ? cat : 'other'
+}
+
+/**
+ * Every negative symptom in the catalogue, regardless of the stack.
+ *
+ * The Issues list is deliberately the whole review-of-systems catalogue rather
+ * than only what the stack is known for: something the user is actually feeling
+ * is worth recording even when nothing they're running is a known cause — that
+ * is precisely the case worth having on record. The stack still drives what gets
+ * surfaced first (`likelyNow`) and what attribution can say.
+ */
+export function allNegativeSymptoms() {
+  return Object.entries(SYMPTOM_META)
+    .filter(([, m]) => m.type === 'neg')
+    .map(([id, m]) => ({ id, label: m.label, polarity: 'neg', category: categoryOf(id) }))
+    .sort((a, b) => a.label.localeCompare(b.label))
 }
 
 /**
@@ -168,37 +151,60 @@ export function stackSymptoms(peptides = []) {
   return { positive: build(pos, 'pos'), negative: build(neg, 'neg') }
 }
 
+/**
+ * What the browse UI offers for one polarity.
+ *
+ * Issues is the entire negative catalogue — the user must be able to log
+ * anything they feel. Good effects stays stack-relevant, because a positive is
+ * a claim about what a compound is doing for you, and offering the full list of
+ * benefits nothing in the stack is associated with would invite exactly the
+ * wishful logging this app should not encourage.
+ */
+export function browseSymptoms(peptides = [], polarity = 'neg') {
+  if (polarity === 'pos') return stackSymptoms(peptides).positive
+  return allNegativeSymptoms()
+}
+
 /** Flat lookup for anything that needs a label/polarity by id. */
 export function stackSymptomIndex(peptides = []) {
-  const { positive, negative } = stackSymptoms(peptides)
-  return Object.fromEntries([...positive, ...negative].map((s) => [s.id, s]))
+  const { positive } = stackSymptoms(peptides)
+  const all = [...allNegativeSymptoms(), ...positive]
+  return Object.fromEntries(all.map((s) => [s.id, s]))
 }
 
 /**
- * The stack's symptoms, bucketed into categories, for one polarity.
+ * The browse list bucketed into categories, in the data file's order.
  * Empty categories are dropped — an accordion of nothing is worse than no
  * accordion.
  */
-export function groupedStackSymptoms(peptides = [], polarity = 'neg') {
-  const { positive, negative } = stackSymptoms(peptides)
-  const list = polarity === 'pos' ? positive : negative
+export function groupedSymptoms(peptides = [], polarity = 'neg') {
+  const list = browseSymptoms(peptides, polarity)
   const byCat = new Map()
   for (const s of list) {
     const cat = categoryOf(s.id)
     if (!byCat.has(cat)) byCat.set(cat, [])
     byCat.get(cat).push({ ...s, category: cat })
   }
+  // positives carry no review-of-systems category, so they group under one head
+  if (polarity === 'pos') {
+    const flat = list.map((s) => ({ ...s, category: 'good' }))
+    return flat.length ? [{ id: 'good', label: 'Good effects', icon: 'Sparkles', symptoms: flat }] : []
+  }
   return CATEGORIES
     .filter((c) => byCat.has(c.id))
     .map((c) => ({ ...c, symptoms: byCat.get(c.id) }))
 }
 
-/** Substring match over the plain labels — what the search box filters on. */
-export function searchStackSymptoms(peptides = [], query = '') {
+/**
+ * Substring match over the plain labels — what the search box filters on.
+ * Searches the whole catalogue the user can log: every negative, plus the
+ * positives their stack is associated with.
+ */
+export function searchSymptoms(peptides = [], query = '') {
   const q = query.trim().toLowerCase()
   if (!q) return []
-  const { positive, negative } = stackSymptoms(peptides)
-  return [...positive, ...negative]
+  const { positive } = stackSymptoms(peptides)
+  return [...allNegativeSymptoms(), ...positive]
     .filter((s) => s.label.toLowerCase().includes(q))
     .map((s) => ({ ...s, category: categoryOf(s.id) }))
     .sort((a, b) => {

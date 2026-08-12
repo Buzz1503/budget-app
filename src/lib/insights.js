@@ -326,7 +326,7 @@ export function siteConcentration({ symptomLogs = [], todayStr }) {
   let total = 0
   for (const l of symptomLogs) {
     if (l.date < from || !l.site) continue
-    const hasSiteSymptom = (l.tags || []).some((t) => categoryOf(t.id) === 'injection')
+    const hasSiteSymptom = (l.tags || []).some((t) => categoryOf(t.id) === 'injection_site')
     if (!hasSiteSymptom) continue
     counts.set(l.site, (counts.get(l.site) || 0) + 1)
     total += 1

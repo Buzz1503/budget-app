@@ -89,7 +89,7 @@ describe('stackSymptoms', () => {
 
   it('carries plain labels and is sorted for scanning', () => {
     const { negative } = stackSymptoms(stack)
-    expect(negative.find((s) => s.id === 'high_hct').label).toBe('Thick blood / high haematocrit (flag on bloods)')
+    expect(negative.find((s) => s.id === 'high_hct').label).toBe('Thick blood / high haematocrit (bloods)')
     const labels = negative.map((s) => s.label)
     expect(labels).toEqual([...labels].sort((a, b) => a.localeCompare(b)))
   })

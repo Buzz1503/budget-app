@@ -78,13 +78,16 @@ await waitText(/not medical advice/)
 await page.click('text=Got it')
 
 // ---------- 1 · stack-relevant symptom list ----------
-await step('the Symptoms tab lists only what the stack is known for, grouped', async () => {
+// v18 deliberately reversed half of the v14 rule here. Negatives are now the
+// whole review-of-systems catalogue, because a symptom you are actually feeling
+// is worth recording even when nothing you run is a known cause. Positives are
+// still stack-scoped — claiming a benefit no compound of yours is associated
+// with is the wishful logging this app should not invite.
+await step('Issues is the whole catalogue; Good effects stays stack-relevant', async () => {
   await nav('Symptoms')
   const txt = await body()
   if (!txt.includes('Good effects')) throw new Error('no positive group')
   if (!txt.includes('Issues')) throw new Error('no negative group')
-  // v18 collapsed the flat wall into categories, so presence is checked through
-  // the search rather than by scanning for every label at once.
   const matches = async (label) => {
     await page.fill('input[placeholder*="Search" i]', label)
     await page.waitForTimeout(350)
@@ -95,9 +98,13 @@ await step('the Symptoms tab lists only what the stack is known for, grouped', a
   for (const w of ['Faster soft-tissue recovery', 'Gut symptom relief', 'Acne / oily skin', 'Morning grogginess']) {
     if ((await matches(w)) === 0) throw new Error(`missing stack symptom "${w}"`)
   }
-  // nothing from a compound that is NOT in the stack
-  for (const w of ['Tanning / darker skin', 'Prolonged / unwanted erections', 'Numbness / carpal-tunnel']) {
-    if ((await matches(w)) > 0) throw new Error(`"${w}" is shown but no stack compound causes it`)
+  // a negative no stack compound causes is still offered
+  for (const w of ['Prolonged / unwanted erections', 'Waking to urinate at night', 'Wheezing']) {
+    if ((await matches(w)) === 0) throw new Error(`"${w}" should be loggable from the full catalogue`)
+  }
+  // but a positive tied to a compound that is NOT in the stack is not
+  if ((await matches('Tanning / darker skin')) > 0) {
+    throw new Error('a good effect is offered that no stack compound is associated with')
   }
   await clearSearch()
 })
@@ -173,7 +180,8 @@ await step('Testosterone E is attributed for its own known effects', async () =>
   for (const [label, expected] of [
     ['Acne / oily skin', 'Testosterone Enanthate'],
     ['Thick blood / high haematocrit', 'Testosterone Enanthate'],
-    ['Irritability / mood swings', 'Testosterone Enanthate'],
+    // v18's catalogue splits the old combined chip into two distinct symptoms
+    ['Mood swings', 'Testosterone Enanthate'],
   ]) {
     await chip(label).click()
     await page.waitForTimeout(450)

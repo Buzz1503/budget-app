@@ -10,7 +10,7 @@ import useStore, { todayStr } from '../store/useStore'
 import { addDaysStr } from '../lib/schedule'
 import { TAG_BY_ID, INJECTION_SITES, SEVERITY, findPatterns } from '../lib/symptoms'
 import {
-  stackSymptoms, stackSymptomIndex, groupedStackSymptoms, searchStackSymptoms,
+  stackSymptoms, stackSymptomIndex, groupedSymptoms, searchSymptoms,
   likelyNow, recentlyLogged, attributeSymptom, symptomLabel, categoryOf,
   CATEGORY_BY_ID, ATTRIBUTION_CAVEAT, LIKELIHOOD_TONE, TIER_WORDS,
 } from '../lib/attribution'
@@ -55,8 +55,8 @@ export default function SymptomsTab() {
   )
   const stackIndex = useMemo(() => stackSymptomIndex(peptides), [peptides])
   const stack = useMemo(() => stackSymptoms(peptides), [peptides])
-  const groups = useMemo(() => groupedStackSymptoms(peptides, polarity), [peptides, polarity])
-  const results = useMemo(() => searchStackSymptoms(peptides, query), [peptides, query])
+  const groups = useMemo(() => groupedSymptoms(peptides, polarity), [peptides, polarity])
+  const results = useMemo(() => searchSymptoms(peptides, query), [peptides, query])
   const likely = useMemo(() => likelyNow(ctx, { limit: 6, polarity }), [ctx, polarity])
   const recent = useMemo(
     () => recentlyLogged(symptomLogs, { limit: 6, exclude: new Set(likely.map((s) => s.id)) }),
@@ -64,10 +64,14 @@ export default function SymptomsTab() {
   )
 
   const selectedIds = Object.keys(selected)
+  // Unattributed symptoms are kept, not filtered out: "nothing you're running is
+  // a known cause of this" is a real answer, and hiding the row would look like
+  // the app simply failed to consider it.
   const attributions = useMemo(() => selectedIds
     .filter((id) => stackIndex[id])
-    .map((id) => attributeSymptom(id, ctx))
-    .filter((a) => a.top), [selectedIds.join('|'), stackIndex, ctx]) // eslint-disable-line react-hooks/exhaustive-deps
+    .map((id) => attributeSymptom(id, ctx)), [selectedIds.join('|'), stackIndex, ctx]) // eslint-disable-line react-hooks/exhaustive-deps
+  const attributed = attributions.filter((a) => a.top)
+  const unattributed = attributions.filter((a) => !a.top)
 
   const toggle = (id) => setSelected((s) => {
     const next = { ...s }
@@ -82,7 +86,7 @@ export default function SymptomsTab() {
   })
 
   // an injection-site reaction is the only thing the site picker is for
-  const siteRelevant = selectedIds.some((id) => categoryOf(id) === 'injection')
+  const siteRelevant = selectedIds.some((id) => categoryOf(id) === 'injection_site')
 
   const submit = () => {
     const tags = selectedIds.map((id) => {
@@ -357,18 +361,35 @@ export default function SymptomsTab() {
             <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--violet)' }}>
               <Search size={12} /> What might be behind this?
             </p>
-            {attributions.map((a) => <Attribution key={a.symptomId} result={a} />)}
-            <p className="flex items-start gap-1.5 text-[10px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
-              <Info size={12} className="mt-0.5 shrink-0" style={{ color: 'var(--amber)' }} />
-              <span>{ATTRIBUTION_CAVEAT}</span>
-            </p>
+            {attributed.map((a) => <Attribution key={a.symptomId} result={a} />)}
+
+            {/* logged all the same — the app just has nothing to point at */}
+            {unattributed.length > 0 && (
+              <div className="card p-3" data-testid="unattributed-note">
+                <p className="text-[11px] font-bold">
+                  {unattributed.map((a) => a.label).join(' · ')}
+                </p>
+                <p className="mt-1 text-[11px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+                  Not a known effect of your current stack — logged anyway. Plenty of things
+                  outside this app cause symptoms, and a record of it is still worth having.
+                </p>
+              </div>
+            )}
+
+            {attributed.length > 0 && (
+              <p className="flex items-start gap-1.5 text-[10px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+                <Info size={12} className="mt-0.5 shrink-0" style={{ color: 'var(--amber)' }} />
+                <span>{ATTRIBUTION_CAVEAT}</span>
+              </p>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
 
       <CoachTip id="symptom-attribution" tone="violet">
-        Tap to log, then set how bad it was. The app names the compound in your stack most likely
-        behind it — weighted towards whatever you started or stepped up recently.
+        Log anything you notice — the Issues list is the full catalogue, not just your stack.
+        Where something in your stack is a known cause, the app names the most likely candidate,
+        weighted towards whatever you started or stepped up recently.
       </CoachTip>
     </div>
   )
