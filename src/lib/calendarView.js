@@ -102,6 +102,7 @@ export function datesBetween(fromStr, toStr) {
  */
 export function buildCalendar({
   peptides = [], titration = {}, doseLogs = [], openVials = {}, vials = [],
+  supplements = [], supplementLogs = [],
   restock = {}, todayStr, from, to, verdictOf = null, leadDays = 30,
 }) {
   const dates = datesBetween(from, to)
@@ -122,6 +123,11 @@ export function buildCalendar({
   for (const l of doseLogs) {
     if (!l.date) continue
     ;(logsByDate[l.date] ||= new Set()).add(l.peptideId)
+  }
+  const takenByDate = {}
+  for (const l of supplementLogs) {
+    if (!l.date) continue
+    ;(takenByDate[l.date] ||= new Set()).add(l.supplementId)
   }
 
   const dayEvents = {}
@@ -199,7 +205,12 @@ export function buildCalendar({
   const days = dates.map((date) => {
     const rel = daysBetween(todayStr, date) // <0 past, 0 today, >0 future
     const taken = logsByDate[date] || new Set()
+    const tookOral = takenByDate[date] || new Set()
     const slots = { AM: [], PM: [] }
+    // Orals are kept in their own bucket rather than mixed into `slots`: every
+    // consumer of `entries` reasons about syringes, units and co-draws, none of
+    // which a capsule has. They still count towards the day's totals.
+    const orals = { AM: [], PM: [] }
 
     for (const p of active) {
       if (!isDueToday(p, date)) continue
@@ -221,13 +232,28 @@ export function buildCalendar({
       })
     }
 
+    for (const sup of supplements) {
+      // nothing was missed on a day before it was on the shelf
+      if (sup.addedOn && date < sup.addedOn) continue
+      orals[sup.slot === 'PM' ? 'PM' : 'AM'].push({
+        supplementId: sup.id,
+        name: sup.name,
+        dose: sup.dose || '',
+        form: sup.form,
+        oral: true,
+        projected: rel > 0,
+        taken: tookOral.has(sup.id),
+      })
+    }
+
+    const oralEntries = [...orals.AM, ...orals.PM]
     const entries = [...slots.AM, ...slots.PM]
     const plans = { AM: planFor(slots.AM), PM: planFor(slots.PM) }
     const shots = SLOTS.reduce((s, k) => s + (plans[k]?.shots || 0), 0)
       + entries.filter((e) => e.nasal).length
 
-    const scheduled = entries.length
-    const done = entries.filter((e) => e.taken).length
+    const scheduled = entries.length + oralEntries.length
+    const done = entries.filter((e) => e.taken).length + oralEntries.filter((e) => e.taken).length
     let adherence = 'none'
     if (scheduled > 0) {
       if (done === scheduled) adherence = 'all'
@@ -243,8 +269,10 @@ export function buildCalendar({
       isPast: rel < 0,
       isFuture: rel > 0,
       slots,
+      orals,
       plans,
       entries,
+      oralEntries,
       shots,
       scheduled,
       done,

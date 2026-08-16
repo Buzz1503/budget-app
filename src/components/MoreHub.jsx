@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion'
 import {
   BookOpen, Package, Syringe, Settings, Zap, Flame, ChevronRight, Award,
-  Activity, History, Wand2, FlaskConical, Combine, Sparkles, CalendarRange,
+  Activity, History, Wand2, FlaskConical, Combine, Sparkles, CalendarRange, Pill,
 } from 'lucide-react'
 import useStore from '../store/useStore'
 import { levelProgress, rankForLevel, BADGES } from '../lib/gamification'
@@ -14,6 +14,7 @@ const LINKS = [
   { id: 'library', label: 'Library', desc: 'Your peptides, ladders, cycles & protocols', icon: BookOpen, color: 'var(--lime)' },
   { id: 'calc', label: 'Calculator', desc: 'Reconstitution & syringe units', icon: FlaskConical, color: 'var(--lime)' },
   { id: 'mix', label: 'Mix', desc: 'Can these two share a syringe?', icon: Combine, color: 'var(--indigo)' },
+  { id: 'supplements', label: 'Supplements', desc: 'What you take by mouth, AM and PM', icon: Pill, color: 'var(--amber)' },
   { id: 'supplies', label: 'Stock & restock', desc: 'Vials, cost, expiry, and what to order', icon: Package, color: 'var(--amber)' },
   { id: 'insights', label: 'Insights', desc: 'Patterns in your own logged data', icon: Sparkles, color: 'var(--violet)' },
   { id: 'recap', label: 'Your week', desc: 'Doses, body, symptoms and what’s coming', icon: CalendarRange, color: 'var(--lime)' },

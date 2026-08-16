@@ -1,0 +1,280 @@
+{
+ "schema": "pepito-supplements/v1",
+ "note": "Doses are evidence-based OPTIMAL ranges for a healthy adult (not label RDIs), editable, and not medical advice. Some (e.g. vitamin D) are best guided by bloodwork. 'daily' supplements default to AM, 'sleep' to PM.",
+ "forms": [
+  "tablet",
+  "capsule",
+  "powder",
+  "spray",
+  "liquid"
+ ],
+ "supplements": [
+  {
+   "id": "d3k2",
+   "name": "Vitamin D3 + K2 Spray",
+   "brand": "BioCeuticals",
+   "form": "spray",
+   "slot": "AM",
+   "optimal_dose": "2 sprays daily",
+   "dose_note": "Each spray ~1000 IU D3 + 45 mcg K2 (MK-7). 2 sprays = ~2000 IU D3 + 90 mcg K2. Take with a fat-containing meal. D3 dose is best guided by a 25-OH-vitamin-D blood level.",
+   "category": "daily",
+   "owned": true
+  },
+  {
+   "id": "thorne_b",
+   "name": "B-Complex #12",
+   "brand": "Thorne",
+   "form": "capsule",
+   "slot": "AM",
+   "optimal_dose": "1 capsule daily",
+   "dose_note": "Active-form B vitamins (methylfolate, methyl-B12). Morning with food \u2014 B vitamins can be mildly energising.",
+   "category": "daily",
+   "owned": true
+  },
+  {
+   "id": "dha_omega",
+   "name": "UltraClean DHA Omega",
+   "brand": "BioCeuticals",
+   "form": "capsule",
+   "slot": "AM",
+   "optimal_dose": "1-2 capsules with a fatty meal",
+   "dose_note": "500 mg DHA + 100 mg EPA per cap. Optimal general intake ~1-2 g omega-3/day; DHA-weighted, which suits an APOE E4 profile. Take with fat for absorption.",
+   "category": "daily",
+   "owned": true
+  },
+  {
+   "id": "glycine",
+   "name": "Glycine",
+   "brand": "Switch Nutrition",
+   "form": "powder",
+   "slot": "PM",
+   "optimal_dose": "3 g, 30-60 min before bed",
+   "dose_note": "3 g glycine before bed is the sleep-studied dose (improves sleep quality and next-day alertness). ~1 g per serve, so ~3 serves.",
+   "category": "sleep",
+   "owned": true
+  },
+  {
+   "id": "pillar_mag",
+   "name": "Triple Magnesium",
+   "brand": "Pillar Performance",
+   "form": "powder",
+   "slot": "PM",
+   "optimal_dose": "1 x 5 g scoop, 30-60 min before bed",
+   "dose_note": "~250-300 mg elemental magnesium (glycinate/citrate) per scoop \u2014 a strong sleep/recovery form.",
+   "category": "sleep",
+   "owned": true,
+   "caution": "You also have MagZorb magnesium \u2014 don't run both at full dose. Keep total supplemental elemental magnesium ~300-400 mg/day to avoid loose stools."
+  },
+  {
+   "id": "tongkat",
+   "name": "Tongkat Ali (Long Jack)",
+   "brand": "Underground Labs",
+   "form": "capsule",
+   "slot": "AM",
+   "optimal_dose": "~200-400 mg standardised extract daily",
+   "dose_note": "Optimal ~200 mg/day of a standardised extract; take in the morning (can be mildly stimulating). Note: its main draw \u2014 raising testosterone \u2014 is largely redundant while you're on TRT, but it may still help cortisol/stress, mood and libido.",
+   "category": "daily",
+   "owned": true
+  },
+  {
+   "id": "inositol",
+   "name": "Inositol (40:1 Myo:D-Chiro)",
+   "brand": "Switch Nutrition",
+   "form": "powder",
+   "slot": "AM",
+   "optimal_dose": "2-4 g myo-inositol daily",
+   "dose_note": "Supports insulin sensitivity, mood and metabolic health \u2014 relevant to a rising fasting glucose. Also calming, so a PM dose is a fine option. Can be split.",
+   "category": "daily",
+   "owned": true
+  },
+  {
+   "id": "theanine",
+   "name": "L-Theanine 200mg",
+   "brand": "Herbs of Gold",
+   "form": "capsule",
+   "slot": "PM",
+   "optimal_dose": "200 mg",
+   "dose_note": "Dual use: PM for calm/sleep, OR AM alongside coffee to smooth out caffeine jitters and blunt the cortisol spike \u2014 a good fit given cortisol sensitivity and a morning stimulant routine.",
+   "category": "sleep",
+   "owned": true
+  },
+  {
+   "id": "vitc",
+   "name": "Vitamin C 1000mg",
+   "brand": "Healthy Care",
+   "form": "tablet",
+   "slot": "AM",
+   "optimal_dose": "500-1000 mg daily",
+   "dose_note": "1000 mg with food, or split morning/evening. Well above the RDI but a common optimal antioxidant/immune dose.",
+   "category": "daily",
+   "owned": true
+  },
+  {
+   "id": "magzorb",
+   "name": "Magnesium Glycinate 500mg",
+   "brand": "Vitaceuticals",
+   "form": "capsule",
+   "slot": "PM",
+   "optimal_dose": "1-2 caps before bed",
+   "dose_note": "~100 mg elemental magnesium per cap (label states 100 mg per dose). Good for sleep.",
+   "category": "sleep",
+   "owned": true,
+   "caution": "Counts toward your total magnesium alongside Pillar Triple Mag \u2014 keep combined elemental magnesium ~300-400 mg/day."
+  },
+  {
+   "id": "ps",
+   "name": "Phosphatidylserine 500mg",
+   "brand": "NatureBell",
+   "form": "capsule",
+   "slot": "PM",
+   "optimal_dose": "100-300 mg in the evening",
+   "dose_note": "Lowers cortisol \u2014 directly relevant to cortisol sensitivity \u2014 and supports sleep and stress. The label serving is 500 mg; the evidence-based optimal is ~100-300 mg, so you likely don't need a full serving. Also useful post-training.",
+   "category": "sleep",
+   "owned": true
+  },
+  {
+   "id": "apigenin",
+   "name": "Liposomal Apigenin",
+   "brand": "Codeage",
+   "form": "capsule",
+   "slot": "PM",
+   "optimal_dose": "~50 mg, 30-60 min before bed",
+   "dose_note": "Apigenin (~50 mg) is a popular sleep aid; liposomal form is more bioavailable. Stacks well with magnesium, theanine and glycine as a sleep protocol.",
+   "category": "sleep",
+   "owned": true
+  },
+  {
+   "id": "creatine",
+   "name": "Creatine Monohydrate",
+   "brand": "(any)",
+   "form": "powder",
+   "slot": "AM",
+   "optimal_dose": "3-5 g daily",
+   "dose_note": "The most evidence-backed supplement for strength, muscle and cognition. Timing doesn't matter; daily consistency does.",
+   "category": "daily",
+   "owned": false
+  },
+  {
+   "id": "ashwagandha",
+   "name": "Ashwagandha (KSM-66)",
+   "brand": "(any)",
+   "form": "capsule",
+   "slot": "PM",
+   "optimal_dose": "300-600 mg daily",
+   "dose_note": "Lowers cortisol and perceived stress \u2014 a strong fit given cortisol sensitivity. Evening dose is common; can also be AM.",
+   "category": "daily",
+   "owned": false
+  },
+  {
+   "id": "berberine",
+   "name": "Berberine",
+   "brand": "(any)",
+   "form": "capsule",
+   "slot": "AM",
+   "optimal_dose": "500 mg, 2-3x daily with meals",
+   "dose_note": "Improves fasting glucose and lipids \u2014 relevant to a rising fasting glucose.",
+   "category": "daily",
+   "owned": false,
+   "caution": "Adds to the glucose-lowering effect of your retatrutide/tesamorelin/MOTS-c \u2014 watch for lows, especially early."
+  },
+  {
+   "id": "zinc",
+   "name": "Zinc",
+   "brand": "(any)",
+   "form": "capsule",
+   "slot": "AM",
+   "optimal_dose": "15-30 mg daily with food",
+   "dose_note": "Supports testosterone, immunity and skin. Don't take with coffee, calcium or iron; long-term high doses need balancing copper.",
+   "category": "daily",
+   "owned": false
+  },
+  {
+   "id": "taurine",
+   "name": "Taurine",
+   "brand": "(any)",
+   "form": "powder",
+   "slot": "AM",
+   "optimal_dose": "1-3 g daily",
+   "dose_note": "Supports cardiovascular health, exercise capacity and glucose handling.",
+   "category": "daily",
+   "owned": false
+  },
+  {
+   "id": "ubiquinol",
+   "name": "Ubiquinol (CoQ10)",
+   "brand": "(any)",
+   "form": "capsule",
+   "slot": "AM",
+   "optimal_dose": "100-200 mg daily with fat",
+   "dose_note": "Mitochondrial and cardiovascular support; take with a fatty meal.",
+   "category": "daily",
+   "owned": false
+  },
+  {
+   "id": "curcumin",
+   "name": "Curcumin (phytosome)",
+   "brand": "(any)",
+   "form": "capsule",
+   "slot": "AM",
+   "optimal_dose": "500-1000 mg daily with food",
+   "dose_note": "Anti-inflammatory \u2014 useful for joint/knee issues. Use a bioavailable form (phytosome or with piperine).",
+   "category": "daily",
+   "owned": false
+  },
+  {
+   "id": "collagen",
+   "name": "Collagen Peptides",
+   "brand": "(any)",
+   "form": "powder",
+   "slot": "AM",
+   "optimal_dose": "10-15 g daily",
+   "dose_note": "Supports tendon, joint and skin \u2014 complements tissue-repair goals. Pairs well with vitamin C.",
+   "category": "daily",
+   "owned": false
+  },
+  {
+   "id": "nac",
+   "name": "NAC",
+   "brand": "(any)",
+   "form": "capsule",
+   "slot": "AM",
+   "optimal_dose": "600-1200 mg daily",
+   "dose_note": "Glutathione precursor; antioxidant and liver support.",
+   "category": "daily",
+   "owned": false
+  },
+  {
+   "id": "boron",
+   "name": "Boron",
+   "brand": "(any)",
+   "form": "capsule",
+   "slot": "AM",
+   "optimal_dose": "6-10 mg daily",
+   "dose_note": "Can raise free testosterone by lowering SHBG; also supports bone.",
+   "category": "daily",
+   "owned": false
+  },
+  {
+   "id": "melatonin",
+   "name": "Melatonin",
+   "brand": "(any)",
+   "form": "tablet",
+   "slot": "PM",
+   "optimal_dose": "0.5-3 mg, 30-60 min before bed",
+   "dose_note": "Low doses (0.5-1 mg) are often as effective as higher ones for sleep onset with fewer next-day effects.",
+   "category": "sleep",
+   "owned": false
+  },
+  {
+   "id": "electrolytes",
+   "name": "Electrolytes (Na/K/Mg)",
+   "brand": "(any)",
+   "form": "powder",
+   "slot": "AM",
+   "optimal_dose": "As needed",
+   "dose_note": "Useful on GLP-1s or lower-carb eating, where sodium/potassium can drop and cause fatigue or cramps.",
+   "category": "daily",
+   "owned": false
+  }
+ ]
+}

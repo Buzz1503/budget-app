@@ -11,6 +11,7 @@ export const XP = {
   clearDay: 20,
   measurement: 15,
   photo: 15,
+  supplement: 5,
 }
 
 // Level curve: level n starts at 50*(n-1)^2 XP → 1, 50, 200, 450, 800...
@@ -49,6 +50,7 @@ export const BADGES = [
   { id: 'clear-week', name: 'Clean Run', desc: '7 clear days in a row', icon: 'Sun' },
   { id: 'perfect-rotation', name: 'Perfect Rotation', desc: '7 injections, no site repeated', icon: 'Repeat' },
   { id: 'rotation-health', name: 'Rotation Master', desc: 'Rotation health 90+ over a full month', icon: 'ShieldCheck' },
+  { id: 'first-supplement', name: 'Shelf Stocked', desc: 'Logged your first supplement', icon: 'Pill' },
   { id: 'first-measurement', name: 'Baseline', desc: 'Logged your first measurement', icon: 'Ruler' },
   { id: 'first-photo', name: 'Say Cheese', desc: 'Captured your first progress photo', icon: 'Camera' },
   { id: 'first-scan', name: 'Scan Imported', desc: 'Imported a DEXA/InBody scan', icon: 'ScanLine' },

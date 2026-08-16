@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Check, Info, Clock, AlertTriangle, Combine, Sun, Moon, ChevronRight, MapPin, Syringe, X, Circle, CheckCircle2, ShieldCheck, Layers, Wind, Bell, Zap } from 'lucide-react'
+import { Check, Info, Clock, AlertTriangle, Combine, Sun, Moon, ChevronRight, MapPin, Syringe, X, Circle, CheckCircle2, ShieldCheck, Layers, Wind, Bell, Zap, Pill } from 'lucide-react'
 import useStore, { todayStr } from '../store/useStore'
 import { cycleInfo, currentRung, stepUpDue } from '../lib/schedule'
 import { isDueToday, slotOf, isDueSlot, currentSlot, slotIsFlexible, needsProtocolSetup } from '../lib/daily'
@@ -20,6 +20,8 @@ import Term from './ui/Term'
 import SitePicker from './SitePicker'
 import CoDrawModal from './CoDrawModal'
 import { NextSevenDays } from './CalendarTab'
+import { dueInSlot, takenOn, FORM_LABEL } from '../lib/supplements'
+import { FormIcon } from './SupplementsTab'
 import { HomeInsightCard, HomeRecapCard } from './InsightsTab'
 
 const spring = { type: 'spring', stiffness: 260, damping: 22 }
@@ -53,6 +55,18 @@ export default function Home({ goTo }) {
   const otherSlot = slot === 'AM' ? 'PM' : 'AM'
   const otherCount = scheduledToday.filter((p) => slotOf(p) === otherSlot).length
 
+  // Oral supplements ride alongside the injections but never mix with them:
+  // no site, no co-draw, no units. They do count towards the day, because a
+  // morning is not finished while half of it is still on the shelf.
+  const supplements = useStore((s) => s.supplements)
+  const supplementLogs = useStore((s) => s.supplementLogs)
+  const toggleSupplementTaken = useStore((s) => s.toggleSupplementTaken)
+  const slotSupps = useMemo(() => dueInSlot(supplements, slot), [supplements, slot])
+  const takenIds = useMemo(() => takenOn(supplementLogs, t), [supplementLogs, t])
+  const suppDone = slotSupps.filter((x) => takenIds.has(x.id)).length
+  const suppDayTotal = supplements.length
+  const suppDayDone = supplements.filter((x) => takenIds.has(x.id)).length
+
   const loggedToday = useMemo(
     () => new Set(doseLogs.filter((l) => l.date === t).map((l) => l.peptideId)),
     [doseLogs, t]
@@ -63,7 +77,9 @@ export default function Home({ goTo }) {
   const unloggedCount = unlogged.length
   // selection resolved against the live slot list so done/removed ids drop out
   const selectedPeptides = slotDue.filter((p) => selected.has(p.id) && !loggedToday.has(p.id))
-  const ringPct = slotDue.length ? slotDone / slotDue.length : (scheduledToday.length === 0 ? 0 : 1)
+  const slotTotal = slotDue.length + slotSupps.length
+  const slotDoneAll = slotDone + suppDone
+  const ringPct = slotTotal ? slotDoneAll / slotTotal : (scheduledToday.length === 0 ? 0 : 1)
   const lp = levelProgress(gamification.xp)
   const firstRun = (gamification.totalLogs || 0) === 0
 
@@ -226,17 +242,20 @@ export default function Home({ goTo }) {
           from={slot === 'AM' ? 'var(--amber)' : 'var(--indigo)'}
           to={slot === 'AM' ? '#ff8a1a' : 'var(--violet)'}>
           <div className="text-center leading-tight">
-            <p className="text-base font-black"><CountUp value={slotDone} />/{slotDue.length}</p>
+            <p className="text-base font-black"><CountUp value={slotDoneAll} />/{slotTotal}</p>
             <p className="text-[9px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>this {slot}</p>
           </div>
         </Ring>
         <div className="min-w-0 flex-1">
           <p className="text-xl font-black leading-tight tracking-tight">
-            {slotDue.length === 0 ? (slot === 'AM' ? 'Clear morning' : 'Clear evening')
-              : ringPct === 1 ? `${slot} done` : `${slotDue.length - slotDone} to inject`}
+            {slotTotal === 0 ? (slot === 'AM' ? 'Clear morning' : 'Clear evening')
+              : ringPct === 1 ? `${slot} done`
+                : slotDue.length - slotDone > 0
+                  ? `${slotDue.length - slotDone} to inject`
+                  : `${slotSupps.length - suppDone} to take`}
           </p>
           <p className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>
-            {dayDone}/{scheduledToday.length} today · {otherCount} this {otherSlot}
+            {dayDone + suppDayDone}/{scheduledToday.length + suppDayTotal} today · {otherCount} this {otherSlot}
           </p>
         </div>
       </motion.div>
@@ -266,7 +285,7 @@ export default function Home({ goTo }) {
 
       {/* due list for slot */}
       <div className="space-y-3">
-        {slotDue.length === 0 && (
+        {slotTotal === 0 && (
           <div className="py-8 text-center" style={{ color: 'var(--muted)' }}>
             <p className="text-sm font-bold">
               {slot === 'AM' ? "Nothing this morning — you're clear ☀️" : "Nothing tonight — you're clear 🌙"}
@@ -278,6 +297,14 @@ export default function Home({ goTo }) {
             )}
           </div>
         )}
+        {/* The heading only earns its space once both kinds are on screen —
+            with injections alone the old unlabelled list is cleaner. */}
+        {slotDue.length > 0 && slotSupps.length > 0 && (
+          <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide"
+            style={{ color: 'var(--lime)' }} data-testid="inject-heading">
+            <Syringe size={12} /> Inject · {slotDue.length}
+          </p>
+        )}
         {slotDue.map((p, i) => (
           <DueCard key={p.id} peptide={p} index={i} done={loggedToday.has(p.id)}
             titration={titration} partners={partnersById[p.id]} slot={slot}
@@ -287,6 +314,21 @@ export default function Home({ goTo }) {
             beckon={firstRun && i === slotDue.findIndex((x) => !loggedToday.has(x.id))} />
         ))}
       </div>
+
+      {/* Oral group — deliberately its own block. No site, no co-draw, no
+          units: tapping it is the whole interaction. */}
+      {slotSupps.length > 0 && (
+        <div className="space-y-2" data-testid="take-group">
+          <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide"
+            style={{ color: 'var(--amber)' }}>
+            <Pill size={12} /> Take · {suppDone}/{slotSupps.length}
+          </p>
+          {slotSupps.map((sup, i) => (
+            <TakeRow key={sup.id} supplement={sup} taken={takenIds.has(sup.id)} index={i}
+              onToggle={() => toggleSupplementTaken(sup.id)} />
+          ))}
+        </div>
+      )}
 
       {/* what's coming — taps through to the full calendar */}
       <NextSevenDays goTo={goTo} />
@@ -357,6 +399,49 @@ export default function Home({ goTo }) {
  * the first thing on the screen was housekeeping rather than the one question
  * Home exists to answer.
  */
+/**
+ * One oral supplement on the Home list. Deliberately the simplest row in the
+ * app: name, dose, and a single tap that toggles. Tapping again undoes it,
+ * because the common mistake is a mis-tap, not a genuine second dose.
+ */
+function TakeRow({ supplement: s, taken, onToggle, index = 0 }) {
+  return (
+    <motion.button
+      layout
+      initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: Math.min(index * 0.04, 0.25) }}
+      whileTap={{ scale: 0.98 }}
+      onClick={onToggle}
+      aria-label={`${taken ? 'Undo' : 'Taken'}: ${s.name}`}
+      aria-pressed={taken}
+      data-testid="take-row"
+      className="card flex w-full items-center gap-3 p-3 text-left"
+      style={taken ? { background: 'color-mix(in srgb, var(--lime) 10%, var(--surface))' } : undefined}
+    >
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
+        style={taken
+          ? { background: 'color-mix(in srgb, var(--lime) 20%, transparent)', color: 'var(--lime)' }
+          : { background: 'color-mix(in srgb, var(--amber) 16%, transparent)', color: 'var(--amber)' }}>
+        <FormIcon form={s.form} size={16} />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-bold" style={taken ? { textDecoration: 'line-through', opacity: 0.7 } : undefined}>
+          {s.name}
+        </p>
+        <p className="truncate text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
+          {s.dose || FORM_LABEL[s.form] || s.form}
+        </p>
+      </div>
+      <span className="flex h-8 shrink-0 items-center gap-1 rounded-full px-3 text-[11px] font-black"
+        style={taken
+          ? { background: 'color-mix(in srgb, var(--lime) 20%, transparent)', color: 'var(--lime)' }
+          : { backgroundImage: 'linear-gradient(135deg, var(--lime), var(--lime-deep))', color: '#0c1200' }}>
+        {taken ? <><Check size={12} /> Taken</> : 'Taken'}
+      </span>
+    </motion.button>
+  )
+}
+
 function AlertBell({ alerts, nudge, goTo, onDismissNudge }) {
   const [open, setOpen] = useState(false)
   const count = alerts.length + (nudge ? 1 : 0)

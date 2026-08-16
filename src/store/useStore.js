@@ -17,6 +17,7 @@ import { toMg, doseToUnits, concentration, isNasal, convertLadderForRoute } from
 import { XP, rankUpInfo } from '../lib/gamification'
 import { DEFAULT_BODY_REFS } from '../lib/metrics'
 import { attributeSymptom, attributionSnapshot } from '../lib/attribution'
+import { slotForCategory } from '../lib/supplements'
 
 export const todayStr = () => format(new Date(), 'yyyy-MM-dd')
 
@@ -67,6 +68,10 @@ function initialState() {
     // the identical spot. Set once, editable, shown next to the field each time.
     bodyRefs: { ...DEFAULT_BODY_REFS },
     backupMeta: { lastBackupAt: null, lastBackupEntryCount: 0, nudgeDismissedAt: null },
+    // Oral supplements: the same daily-habit shape as the peptide stack, minus
+    // everything that belongs to a needle. Logs are one row per taken-day.
+    supplements: [],
+    supplementLogs: [],
     coachMarks: {}, // one-time beginner tips already seen, by id
     // The week whose recap has already been read on Home, as its Monday date.
     // Stored rather than derived so dismissing it holds until the week turns.
@@ -434,6 +439,64 @@ const useStore = create(
         })
       },
 
+      // ---------- supplements ----------
+      addSupplement(data = {}) {
+        const t = todayStr()
+        const id = data.id || `sup-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`
+        if (get().supplements.some((x) => x.id === id)) return null
+        // A library row already carries a considered slot; anything hand-entered
+        // falls back to the category rule (daily → AM, sleep → PM).
+        const entry = {
+          name: '', brand: '', form: 'capsule', dose: '', doseNote: '', caution: '',
+          category: 'daily', libraryId: null,
+          ...data,
+          slot: data.slot || slotForCategory(data.category),
+          id,
+          addedOn: data.addedOn || t,
+        }
+        set((s) => ({ supplements: [...s.supplements, entry] }))
+        return id
+      },
+      updateSupplement(id, patch) {
+        set((s) => ({
+          supplements: s.supplements.map((x) => (x.id === id ? { ...x, ...patch } : x)),
+        }))
+      },
+      removeSupplement(id) {
+        set((s) => ({
+          supplements: s.supplements.filter((x) => x.id !== id),
+          supplementLogs: s.supplementLogs.filter((l) => l.supplementId !== id),
+        }))
+      },
+      // Taking a supplement is a toggle, not an event: tapping again on the same
+      // day undoes a mis-tap rather than recording a second dose.
+      toggleSupplementTaken(id) {
+        const t = todayStr()
+        const s = get()
+        const existing = s.supplementLogs.find((l) => l.supplementId === id && l.date === t)
+        if (existing) {
+          set({ supplementLogs: s.supplementLogs.filter((l) => l !== existing) })
+          return false
+        }
+        const supp = s.supplements.find((x) => x.id === id)
+        set({
+          supplementLogs: [...s.supplementLogs, {
+            id: `sl-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+            supplementId: id, date: t, takenAt: new Date().toISOString(),
+            name: supp?.name || '', slot: supp?.slot || 'AM', dose: supp?.dose || '',
+          }],
+        })
+        const oldXp = s.gamification.xp
+        const newBadges = []
+        get().awardBadge('first-supplement', newBadges)
+        get().awardXp(XP.supplement)
+        get().fireCelebration({
+          type: 'supplement', xp: XP.supplement, badges: newBadges,
+          rankUp: rankUpInfo(oldXp, get().gamification.xp),
+        })
+        return true
+      },
+
       // ---------- symptoms ----------
       logSymptomCheckin({ tags, note, site }) {
         const s = get()
@@ -701,7 +764,7 @@ const useStore = create(
     }),
     {
       name: 'peptide-command-center', // storage key is history — renaming it would orphan existing data
-      version: 3,
+      version: 4,
       storage: createJSONStorage(() => safeStorage),
       // Saves written before a release can't pick new library entries up from
       // the seed, so each version bump backfills them here — once. Deleting one
@@ -709,10 +772,16 @@ const useStore = create(
       //   v1: the oil-based injectable
       //   v2: the intranasal-capable flag on Semax / Selank
       //   v3: 2 mL reconstitution default
+      //   v4: oral supplements
       migrate: (persisted, from) => {
-        if (!persisted || from >= 3) return persisted
+        if (!persisted || from >= 4) return persisted
         const s = { ...persisted }
         const t = todayStr()
+        if (from < 4) {
+          // new slices, empty — nothing to convert, just present
+          s.supplements = s.supplements || []
+          s.supplementLogs = s.supplementLogs || []
+        }
         if (from < 3) {
           // v3: one reconstitution volume across the board. Only peptides still
           // sitting on their original seeded value are moved — a volume the user
@@ -769,6 +838,9 @@ const useStore = create(
         bodyRefs: { ...current.bodyRefs, ...(persisted?.bodyRefs || {}) },
         siteReactions: { ...current.siteReactions, ...(persisted?.siteReactions || {}) },
         rotation: { ...current.rotation, ...(persisted?.rotation || {}) },
+        // saves written before v19 have neither key
+        supplements: persisted?.supplements || current.supplements,
+        supplementLogs: persisted?.supplementLogs || current.supplementLogs,
       }),
       onRehydrateStorage: () => (state) => {
         state?.enrichLibraryFromReference?.()

@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { History, Syringe, MapPin, FileText, Filter } from 'lucide-react'
+import { History, Syringe, MapPin, FileText, Filter, Pill } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import useStore, { todayStr } from '../store/useStore'
 import { adherenceSummary, historyEvents, WINDOWS, windowRange } from '../lib/adherence'
 import { formatDose } from '../lib/calc'
 import { openSummaryDocument } from '../lib/summaryDoc'
 import { SymptomHistory } from './SymptomsTab'
+import { supplementAdherence } from '../lib/supplements'
 
 export default function HistoryTab() {
   const peptides = useStore((s) => s.peptides)
@@ -14,6 +15,8 @@ export default function HistoryTab() {
   const titration = useStore((s) => s.titration)
   const measurements = useStore((s) => s.measurements)
   const gamification = useStore((s) => s.gamification)
+  const supplements = useStore((s) => s.supplements)
+  const supplementLogs = useStore((s) => s.supplementLogs)
   const t = todayStr()
 
   const [days, setDays] = useState(30)
@@ -27,6 +30,12 @@ export default function HistoryTab() {
   const events = useMemo(
     () => historyEvents(doseLogs, peptides, { peptideId, from, to }),
     [doseLogs, peptides, peptideId, from, to]
+  )
+  // Kept as its own figure rather than folded into the injection rate: one is
+  // a needle and the other is a capsule, and averaging them hides both.
+  const supps = useMemo(
+    () => supplementAdherence(supplements, supplementLogs, from, to),
+    [supplements, supplementLogs, from, to]
   )
 
   const pct = summary.overall.pct
@@ -86,6 +95,38 @@ export default function HistoryTab() {
           </p>
         )}
       </div>
+
+      {/* supplements — counted separately from injections, on purpose */}
+      {supps.rows.length > 0 && (
+        <div className="card p-4" data-testid="supplement-adherence">
+          <div className="flex items-center justify-between">
+            <p className="flex items-center gap-1.5 text-sm font-bold">
+              <Pill size={14} style={{ color: 'var(--amber)' }} /> Supplements
+            </p>
+            <span className="text-2xl font-black tabular-nums"
+              style={{ color: supps.overall.pct == null ? 'var(--muted)' : supps.overall.pct >= 80 ? 'var(--lime)' : supps.overall.pct >= 50 ? 'var(--amber)' : 'var(--coral)' }}>
+              {supps.overall.pct == null ? '—' : `${supps.overall.pct}%`}
+            </span>
+          </div>
+          <p className="text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
+            {supps.overall.taken} of {supps.overall.scheduled} daily doses · last {days} days
+          </p>
+          <div className="mt-3 space-y-2">
+            {supps.rows.map((r) => (
+              <div key={r.supplementId}>
+                <div className="flex items-center justify-between text-[11px] font-bold">
+                  <span className="min-w-0 flex-1 truncate">{r.name}</span>
+                  <span className="shrink-0 tabular-nums" style={{ color: 'var(--muted)' }}>{r.taken}/{r.scheduled} · {r.pct}%</span>
+                </div>
+                <div className="mt-0.5 h-1.5 overflow-hidden rounded-full" style={{ background: 'var(--surface2)' }}>
+                  <motion.div className="h-full rounded-full" initial={{ width: 0 }} animate={{ width: `${r.pct}%` }}
+                    style={{ background: r.pct >= 80 ? 'var(--lime)' : r.pct >= 50 ? 'var(--amber)' : 'var(--coral)' }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* symptoms — the 14-day heatmap lives here, not on the logging screen */}
       <SymptomHistory />
