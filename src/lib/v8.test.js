@@ -91,8 +91,11 @@ describe('Testosterone Enanthate — oil-based injectable', () => {
     expect(TE.separateReason).toMatch(/matrix|own/i)
   })
 
-  it('is intramuscular oil by default', () => {
-    expect(TE.route).toBe('IM')
+  // v20 moved it onto the SubQ map, into thigh fat, to keep a reaction-prone
+  // compound off the belly. It is still oil, and still never co-drawn.
+  it('is subcutaneous oil into thigh fat by default', () => {
+    expect(TE.route).toBe('SubQ')
+    expect(TE.allowedZone).toBe('thigh')
     expect(TE.vehicle).toBe('oil')
   })
 

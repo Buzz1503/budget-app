@@ -30,6 +30,12 @@ export const WEAR_WINDOW = 90
 // Above this multiple of the pool's fair share, a site is carrying more than its
 // turn and gets an extended rest even when its recency looks fine.
 export const WEAR_OVERUSE_RATIO = 1.8
+// A quieter band below the cut-off, so a spot can be flagged while it is still
+// usable rather than only once it has already been parked. This matters most in
+// a narrowed zone: with several compounds sharing eight thigh sites instead of
+// sixteen, wear accumulates roughly twice as fast and a silent threshold would
+// be crossed before the warning was any use.
+export const WEAR_WARN_RATIO = 1.35
 export const WEAR_MIN_USES = 4 // below this there isn't enough history to judge
 
 /** Which half of the body a site is on — drives side-alternation in the path. */
@@ -83,8 +89,8 @@ export function siteHistory(siteId, doseLogs, peptides = []) {
 // ---------- wear ----------
 
 /** Uses of each site in the pool over the wear window. */
-export function wearCounts(doseLogs, todayStr, route) {
-  const pool = new Set(sitesForRoute(route).map((s) => s.id))
+export function wearCounts(doseLogs, todayStr, route, zone = 'all') {
+  const pool = new Set(sitesForRoute(route, zone).map((s) => s.id))
   const from = addDaysStr(todayStr, -WEAR_WINDOW)
   const counts = {}
   for (const s of pool) counts[s] = 0
@@ -100,8 +106,8 @@ export function wearCounts(doseLogs, todayStr, route) {
  * Wear per site relative to the pool's fair share. 1.0 means "exactly its turn";
  * above WEAR_OVERUSE_RATIO means it's been carrying the stack.
  */
-export function wearProfile(doseLogs, todayStr, route) {
-  const counts = wearCounts(doseLogs, todayStr, route)
+export function wearProfile(doseLogs, todayStr, route, zone = 'all') {
+  const counts = wearCounts(doseLogs, todayStr, route, zone)
   const ids = Object.keys(counts)
   const total = ids.reduce((s, id) => s + counts[id], 0)
   const fairShare = ids.length ? total / ids.length : 0
@@ -109,10 +115,13 @@ export function wearProfile(doseLogs, todayStr, route) {
   for (const id of ids) {
     const uses = counts[id]
     const ratio = fairShare > 0 ? uses / fairShare : 0
+    const overworn = uses >= WEAR_MIN_USES && ratio >= WEAR_OVERUSE_RATIO
     out[id] = {
       uses,
       ratio: Math.round(ratio * 100) / 100,
-      overworn: uses >= WEAR_MIN_USES && ratio >= WEAR_OVERUSE_RATIO,
+      overworn,
+      // heading that way, but still fair game today
+      nearing: !overworn && uses >= WEAR_MIN_USES && ratio >= WEAR_WARN_RATIO,
     }
   }
   return { sites: out, total, fairShare: Math.round(fairShare * 100) / 100 }
@@ -184,10 +193,10 @@ export const SITE_STATUS = {
  * `usable` is the single answer to "may I send them here" — both the suggestion
  * and the path route around anything that isn't.
  */
-export function siteState(siteId, { doseLogs = [], reactions = {}, todayStr, route, wear = null }) {
+export function siteState(siteId, { doseLogs = [], reactions = {}, todayStr, route, zone = 'all', wear = null }) {
   const days = daysSinceUse(siteId, doseLogs, todayStr)
   const heat = heatOf(siteId, doseLogs, todayStr, route)
-  const w = (wear || wearProfile(doseLogs, todayStr, route)).sites[siteId] || { uses: 0, ratio: 0, overworn: false }
+  const w = (wear || wearProfile(doseLogs, todayStr, route, zone)).sites[siteId] || { uses: 0, ratio: 0, overworn: false, nearing: false }
   const reaction = reactionState(siteId, reactions, todayStr)
 
   let status
@@ -206,6 +215,7 @@ export function siteState(siteId, { doseLogs = [], reactions = {}, todayStr, rou
     uses: w.uses,
     wearRatio: w.ratio,
     overworn: w.overworn,
+    nearingOveruse: !!w.nearing,
     resting: reaction.resting,
     reaction,
     status,
@@ -217,9 +227,10 @@ export function siteState(siteId, { doseLogs = [], reactions = {}, todayStr, rou
 }
 
 export function allSiteStates(ctx) {
-  const wear = wearProfile(ctx.doseLogs || [], ctx.todayStr, ctx.route)
+  const zone = ctx.zone || 'all'
+  const wear = wearProfile(ctx.doseLogs || [], ctx.todayStr, ctx.route, zone)
   const out = {}
-  for (const s of sitesForRoute(ctx.route)) out[s.id] = siteState(s.id, { ...ctx, wear })
+  for (const s of sitesForRoute(ctx.route, zone)) out[s.id] = siteState(s.id, { ...ctx, zone, wear })
   return out
 }
 
@@ -234,9 +245,9 @@ export function allSiteStates(ctx) {
  * move to a different region wherever possible — so it maximises the distance
  * between reuses of anything adjacent.
  */
-export function rotationPath(route, excluded = []) {
+export function rotationPath(route, excluded = [], zone = 'all') {
   const skip = new Set(excluded)
-  const pool = sitesForRoute(route).filter((s) => !skip.has(s.id))
+  const pool = sitesForRoute(route, zone).filter((s) => !skip.has(s.id))
   if (pool.length <= 1) return pool.map((s) => s.id)
 
   const remaining = [...pool]
@@ -294,12 +305,13 @@ export function excludedSites(ctx) {
  * started resting.
  */
 export function nextOnPath(ctx) {
+  const zone = ctx.zone || 'all'
   const excluded = excludedSites(ctx)
-  const seq = rotationPath(ctx.route, excluded)
+  const seq = rotationPath(ctx.route, excluded, zone)
   if (!seq.length) {
     // everything is parked — fall back to the least-bad option rather than
     // refusing to answer, and say so at the call site
-    const all = rotationPath(ctx.route, [])
+    const all = rotationPath(ctx.route, [], zone)
     return { siteId: all[0] || null, seq: all, index: 0, allParked: true }
   }
   const pool = new Set(seq)
@@ -307,6 +319,9 @@ export function nextOnPath(ctx) {
   let lastStamp = ''
   for (const l of ctx.doseLogs || []) {
     if (!l.siteId) continue
+    // a shot placed outside this zone says nothing about where this compound is
+    // up to in its own rotation
+    if (!pool.has(l.siteId)) continue
     const stamp = String(l.loggedAt || l.date || '')
     if (stamp > lastStamp) { lastStamp = stamp; last = l.siteId }
   }
@@ -377,8 +392,8 @@ export function gradeFor(score) {
  * would be noise dressed as feedback.
  */
 export function rotationHealth(ctx, { minLogs = 4, window = 28 } = {}) {
-  const { doseLogs = [], todayStr, route } = ctx
-  const pool = sitesForRoute(route)
+  const { doseLogs = [], todayStr, route, zone = 'all' } = ctx
+  const pool = sitesForRoute(route, zone)
   const poolIds = new Set(pool.map((s) => s.id))
   const from = addDaysStr(todayStr, -window)
   const recent = doseLogs
@@ -477,3 +492,47 @@ export function sitesOnFace(route, face) {
 }
 
 export { ALL_SITES }
+
+/**
+ * A warning about the pool as a whole, rather than about one spot.
+ *
+ * A narrowed zone is the case that needs this. Eight thigh sites carrying what
+ * sixteen used to carry wear out roughly twice as fast, and the per-site
+ * "over-used" flag only fires once a spot is already parked. This fires earlier
+ * and talks about the pool: how many spots are still fair game, and how many
+ * are heading for a forced rest.
+ */
+export function zoneLoad(ctx) {
+  const zone = ctx.zone || 'all'
+  const states = Object.values(allSiteStates(ctx))
+  const total = states.length
+  const parked = states.filter((s) => !s.usable)
+  const nearing = states.filter((s) => s.usable && s.nearingOveruse)
+  const usable = total - parked.length
+
+  let level = 'ok'
+  if (usable === 0) level = 'critical'
+  else if (usable <= 2 || parked.length >= total / 2) level = 'high'
+  else if (nearing.length > 0 || parked.length > 0) level = 'watch'
+
+  const thigh = zone === 'thigh'
+  let message = null
+  if (level === 'critical') {
+    message = thigh
+      ? 'Every thigh spot is resting or over-used. Give them a few days — or move this compound back to all SubQ sites for one shot.'
+      : 'Every spot in the pool is resting or over-used. Give them a few days.'
+  } else if (level === 'high') {
+    message = `Only ${usable} of ${total} ${thigh ? 'thigh ' : ''}spot${usable === 1 ? '' : 's'} left in rotation — the rest are resting or over-used.`
+  } else if (level === 'watch' && nearing.length) {
+    message = `${nearing.length} ${thigh ? 'thigh ' : ''}spot${nearing.length === 1 ? ' is' : 's are'} taking more than their share. They'll be rested automatically if it keeps up.`
+  } else if (level === 'watch') {
+    message = `${parked.length} of ${total} ${thigh ? 'thigh ' : ''}spots are resting — rotation is tighter than usual.`
+  }
+
+  return {
+    zone, level, total, usable,
+    parked: parked.map((s) => s.siteId),
+    nearing: nearing.map((s) => s.siteId),
+    message,
+  }
+}

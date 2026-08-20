@@ -4,6 +4,7 @@ import { Plus, ChevronDown, Trash2, Search, Check, AlertTriangle, Zap, Pause, Ch
 import { format, parseISO } from 'date-fns'
 import useStore, { todayStr } from '../store/useStore'
 import { currentRung, cycleInfo, stepUpDue, nextStepUpDate } from '../lib/schedule'
+import { ZONES, ZONE_BY_ID, zoneOf } from '../lib/sites'
 import {
   formatDose, formatUnitsLong, round, isPremixed, concentrationOf, premixedVialMg, unitsFor,
   isNasal, NASAL_RECIPE, nasalStrength,
@@ -267,6 +268,20 @@ export function PeptideEditor({ peptide: p }) {
               {routesFor(p).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
             </select>
           </Field>
+          {/* Only meaningful on the SubQ map — the IM pool has no belly sites
+              to keep a reaction-prone compound away from. */}
+          {p.route !== 'IM' && p.route !== 'Nasal' && (
+            <Field label="Allowed injection zone">
+              <select className="input" aria-label="Allowed injection zone"
+                value={zoneOf(p)}
+                onChange={(e) => updatePeptide(p.id, { allowedZone: e.target.value })}>
+                {ZONES.map((z) => <option key={z.id} value={z.id}>{z.label}</option>)}
+              </select>
+              <span className="mt-1 block text-[10px] font-medium" style={{ color: 'var(--muted)' }}>
+                {ZONE_BY_ID[zoneOf(p)]?.hint}
+              </span>
+            </Field>
+          )}
           <Field label="Preparation">
             <select className="input" value={isPremixed(p) ? 'premixed' : 'reconstituted'}
               onChange={(e) => updatePeptide(p.id, { preparation: e.target.value === 'premixed' ? 'premixed' : 'reconstituted' })}>

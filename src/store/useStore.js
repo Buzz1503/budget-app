@@ -3,7 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware'
 import { format } from 'date-fns'
 import {
   seedPeptides, seedVials, seedTitration, seedOpenVials, SEED_NEEDLE_NOTES,
-  testosteroneEnanthate, TEST_E_ID, DEFAULT_BAC_ML, LEGACY_BAC_ML,
+  testosteroneEnanthate, TEST_E_ID, DEFAULT_BAC_ML, LEGACY_BAC_ML, THIGH_ONLY_IDS,
 } from '../data/seed'
 import { SEED_KNOWN_GOOD } from '../lib/mixing'
 import { currentRung, cycleInfo, addDaysStr } from '../lib/schedule'
@@ -72,6 +72,10 @@ function initialState() {
     // everything that belongs to a needle. Logs are one row per taken-day.
     supplements: [],
     supplementLogs: [],
+    // Doses deliberately not taken. Kept apart from doseLogs because a skip is
+    // not a dose: nothing was drawn, nothing left the vial, and adherence has
+    // to be able to tell the two apart from a plain miss.
+    skips: [],
     coachMarks: {}, // one-time beginner tips already seen, by id
     // The week whose recap has already been read on Home, as its Monday date.
     // Stored rather than derived so dismissing it holds until the week turns.
@@ -439,6 +443,51 @@ const useStore = create(
         })
       },
 
+      // ---------- skipping ----------
+      // A skip is an explicit "not today", which is a different thing from
+      // forgetting. It never touches inventory — nothing was used — and it is
+      // stored rather than inferred so the distinction survives.
+      skipDose(peptideId, reason = '') {
+        const t = todayStr()
+        const s = get()
+        if (s.skips.some((k) => k.kind === 'peptide' && k.peptideId === peptideId && k.date === t)) return
+        const p = s.peptides.find((x) => x.id === peptideId)
+        set({
+          skips: [...s.skips, {
+            id: `sk-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+            kind: 'peptide', peptideId, date: t, at: new Date().toISOString(),
+            name: p?.name || '', reason: reason || '',
+          }],
+        })
+      },
+      skipSupplement(supplementId, reason = '') {
+        const t = todayStr()
+        const s = get()
+        if (s.skips.some((k) => k.kind === 'supplement' && k.supplementId === supplementId && k.date === t)) return
+        const sup = s.supplements.find((x) => x.id === supplementId)
+        set({
+          skips: [...s.skips, {
+            id: `sk-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+            kind: 'supplement', supplementId, date: t, at: new Date().toISOString(),
+            name: sup?.name || '', reason: reason || '',
+          }],
+        })
+      },
+      /** Skip several at once — a whole co-draw group, or a multi-selection. */
+      skipMany(peptideIds = [], reason = '') {
+        for (const id of peptideIds) get().skipDose(id, reason)
+      },
+      /** Undo a skip, putting the occurrence back on today's list. */
+      unskip(id) {
+        set((s) => ({ skips: s.skips.filter((k) => k.id !== id) }))
+      },
+      unskipToday(peptideId) {
+        const t = todayStr()
+        set((s) => ({
+          skips: s.skips.filter((k) => !(k.kind === 'peptide' && k.peptideId === peptideId && k.date === t)),
+        }))
+      },
+
       // ---------- supplements ----------
       addSupplement(data = {}) {
         const t = todayStr()
@@ -764,7 +813,7 @@ const useStore = create(
     }),
     {
       name: 'peptide-command-center', // storage key is history — renaming it would orphan existing data
-      version: 4,
+      version: 6,
       storage: createJSONStorage(() => safeStorage),
       // Saves written before a release can't pick new library entries up from
       // the seed, so each version bump backfills them here — once. Deleting one
@@ -773,10 +822,24 @@ const useStore = create(
       //   v2: the intranasal-capable flag on Semax / Selank
       //   v3: 2 mL reconstitution default
       //   v4: oral supplements
+      //   v5: thigh-only zone on the reaction-prone compounds
+      //   v6: skipped doses
       migrate: (persisted, from) => {
-        if (!persisted || from >= 4) return persisted
+        if (!persisted || from >= 6) return persisted
         const s = { ...persisted }
         const t = todayStr()
+        if (from < 6) s.skips = s.skips || []
+        if (from < 5) {
+          // Only set a zone where the save has none — a peptide the user has
+          // already given an explicit zone is their decision, not ours.
+          s.peptides = (s.peptides || []).map((p) => {
+            const patch = {}
+            if (p.allowedZone == null && THIGH_ONLY_IDS.includes(p.id)) patch.allowedZone = 'thigh'
+            // Test E moves off IM onto SubQ thigh fat, unless it was re-routed
+            if (p.id === TEST_E_ID && p.route === 'IM') patch.route = 'SubQ'
+            return Object.keys(patch).length ? { ...p, ...patch } : p
+          })
+        }
         if (from < 4) {
           // new slices, empty — nothing to convert, just present
           s.supplements = s.supplements || []
@@ -841,6 +904,7 @@ const useStore = create(
         // saves written before v19 have neither key
         supplements: persisted?.supplements || current.supplements,
         supplementLogs: persisted?.supplementLogs || current.supplementLogs,
+        skips: persisted?.skips || current.skips,
       }),
       onRehydrateStorage: () => (state) => {
         state?.enrichLibraryFromReference?.()

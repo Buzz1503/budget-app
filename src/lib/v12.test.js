@@ -349,10 +349,11 @@ describe('wizard suggestions', () => {
     }
   })
 
-  it('carries the oil injectable’s full setup, IM and never-co-drawn', () => {
+  it('carries the oil injectable’s full setup, SubQ thigh and never-co-drawn', () => {
     const s = wizardSuggestion({ id: TEST_E_ID, name: 'Testosterone Enanthate' })
     expect(s.source).toBe('seed')
-    expect(s.route).toBe('IM')
+    // v20: SubQ into thigh fat rather than IM
+    expect(s.route).toBe('SubQ')
     expect(s.alwaysSeparate).toBe(true)
     expect(s.preparation).toBe('premixed')
     expect(s.ladder.floor).toBe(50)

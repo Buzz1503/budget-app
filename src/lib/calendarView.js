@@ -32,6 +32,7 @@ export const ADHERENCE_TONE = {
   partial: 'var(--amber)',
   missed: 'var(--coral)',
   pending: 'var(--indigo)', // today, still to do — never counted as missed
+  skipped: 'var(--violet)', // deliberately cleared — a decision, not a lapse
   future: 'var(--surface2)',
   none: 'transparent',
 }
@@ -41,6 +42,7 @@ export const ADHERENCE_WORDS = {
   partial: 'some taken',
   missed: 'missed',
   pending: 'still to do',
+  skipped: 'skipped',
   future: 'scheduled',
   none: 'nothing scheduled',
 }
@@ -102,7 +104,7 @@ export function datesBetween(fromStr, toStr) {
  */
 export function buildCalendar({
   peptides = [], titration = {}, doseLogs = [], openVials = {}, vials = [],
-  supplements = [], supplementLogs = [],
+  supplements = [], supplementLogs = [], skips = [],
   restock = {}, todayStr, from, to, verdictOf = null, leadDays = 30,
 }) {
   const dates = datesBetween(from, to)
@@ -128,6 +130,11 @@ export function buildCalendar({
   for (const l of supplementLogs) {
     if (!l.date) continue
     ;(takenByDate[l.date] ||= new Set()).add(l.supplementId)
+  }
+  const skippedByDate = {}
+  for (const k of skips) {
+    if (!k.date) continue
+    ;(skippedByDate[k.date] ||= new Set()).add(k.peptideId || k.supplementId)
   }
 
   const dayEvents = {}
@@ -206,6 +213,7 @@ export function buildCalendar({
     const rel = daysBetween(todayStr, date) // <0 past, 0 today, >0 future
     const taken = logsByDate[date] || new Set()
     const tookOral = takenByDate[date] || new Set()
+    const skippedIds = skippedByDate[date] || new Set()
     const slots = { AM: [], PM: [] }
     // Orals are kept in their own bucket rather than mixed into `slots`: every
     // consumer of `entries` reasons about syringes, units and co-draws, none of
@@ -226,6 +234,7 @@ export function buildCalendar({
         units: nasal ? null : unitsFor(p, dose),
         projected: rel > 0,
         taken: taken.has(p.id),
+        skipped: skippedIds.has(p.id),
         alwaysSeparate: !!p.alwaysSeparate,
         separateReason: p.separateReason || null,
         route: p.route,
@@ -243,6 +252,7 @@ export function buildCalendar({
         oral: true,
         projected: rel > 0,
         taken: tookOral.has(sup.id),
+        skipped: skippedIds.has(sup.id),
       })
     }
 
@@ -252,11 +262,16 @@ export function buildCalendar({
     const shots = SLOTS.reduce((s, k) => s + (plans[k]?.shots || 0), 0)
       + entries.filter((e) => e.nasal).length
 
-    const scheduled = entries.length + oralEntries.length
-    const done = entries.filter((e) => e.taken).length + oralEntries.filter((e) => e.taken).length
+    const all = [...entries, ...oralEntries]
+    const scheduled = all.length
+    const done = all.filter((e) => e.taken).length
+    const skippedCount = all.filter((e) => e.skipped && !e.taken).length
+    // A day you deliberately cleared is not a lapse, so it never reads as
+    // missed — see dayOutcome in lib/skips.js for the same rule.
     let adherence = 'none'
     if (scheduled > 0) {
       if (done === scheduled) adherence = 'all'
+      else if (skippedCount > 0 && done + skippedCount === scheduled) adherence = done > 0 ? 'partial' : 'skipped'
       else if (rel > 0) adherence = 'future'
       else if (rel === 0) adherence = done === 0 ? 'pending' : 'partial'
       else adherence = done === 0 ? 'missed' : 'partial'
@@ -276,6 +291,7 @@ export function buildCalendar({
       shots,
       scheduled,
       done,
+      skipped: skippedCount,
       adherence,
       events: dayEvents[date] || [],
     }

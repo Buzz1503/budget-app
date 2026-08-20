@@ -80,31 +80,35 @@ await step('app is named "Pepito +" in the title and the header', async () => {
 })
 
 // ---------------- CHANGE 2 · Testosterone Enanthate ----------------
-await step('Library lists it: 50 mg, 2×/week, IM, ongoing, fixed dose', async () => {
+// v20 moved it onto the SubQ map, into thigh fat, to keep a reaction-prone
+// compound off the belly. Everything else about it is unchanged.
+await step('Library lists it: 50 mg, 2×/week, SubQ, ongoing, fixed dose', async () => {
   await nav('More')
   await page.click('text=Library')
   await waitText(new RegExp(TE))
   const text = await libCard().textContent()
-  for (const want of [/50 mg/, /2×\/week/, /· IM/, /Ongoing/, /Fixed dose/]) {
+  for (const want of [/50 mg/, /2×\/week/, /· SubQ/, /Ongoing/, /Fixed dose/]) {
     if (!want.test(text)) throw new Error(`library card missing ${want} — got: ${text.slice(0, 220)}`)
   }
 })
 
-await step('its protocol is pre-mixed mg/mL, Mon+Thu, IM, never co-drawn', async () => {
+await step('its protocol is pre-mixed mg/mL, Mon+Thu, SubQ thigh, never co-drawn', async () => {
   await page.click(`button:has-text("${TE}")`)
   await waitText(/Pre-mixed solution/)
   const body = await page.textContent('body')
   if (!/250/.test(body)) throw new Error('concentration 250 mg/mL not shown')
   if (!/0\.2 mL · 20 units/.test(body)) throw new Error('50 mg ÷ 250 mg/mL should read 0.2 mL · 20 units')
   if (/BAC water \(mL\)/.test(body)) throw new Error('pre-mixed compound still offers a BAC water field')
-  if (!/23–25 g/.test(body)) throw new Error('IM oil needle note missing')
+  // SubQ oil has its own needle line, distinct from both IM oil and aqueous SubQ
+  if (!/27–29 g/.test(body)) throw new Error('SubQ oil needle note missing')
   if (!/Never co-drawn/.test(body)) throw new Error('co-draw exclusion not stated')
   const p = await page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center'))
     .state.peptides.find((x) => x.id === 'testosterone-e'))
   if (String(p.scheduleWeekdays) !== '1,4') throw new Error(`weekdays are ${p.scheduleWeekdays}, want Mon+Thu (1,4)`)
-  if (p.route !== 'IM' || p.preparation !== 'premixed' || !p.alwaysSeparate) {
+  if (p.route !== 'SubQ' || p.preparation !== 'premixed' || !p.alwaysSeparate) {
     throw new Error('route / preparation / exclusion flags wrong')
   }
+  if (p.allowedZone !== 'thigh') throw new Error('it should be restricted to the thigh')
   if (p.ladder.floor !== 50 || p.ladder.ceiling !== 50) throw new Error('not a fixed dose')
   if (p.cycleOnDays || p.cycleOffDays) throw new Error('should be ongoing, not cycled')
 })
@@ -204,7 +208,22 @@ await step('accepting a suggestion routes into log-together → one site', async
 })
 
 // ---------------- CHANGE 2 · IM rotation ----------------
-await step('logging it opens the IM map, not the SubQ one', async () => {
+// v20 made Test E SubQ, so no seeded compound is IM any more. The IM map is
+// still a feature and still reachable — put a compound on that route the way
+// the Library would, so this keeps testing the map rather than the seed.
+await step('logging an IM compound opens the IM map, not the SubQ one', async () => {
+  await page.evaluate(() => {
+    const KEY = 'peptide-command-center'
+    const raw = JSON.parse(localStorage.getItem(KEY))
+    const te = raw.state.peptides.find((p) => p.id === 'testosterone-e')
+    te.route = 'IM'
+    delete te.allowedZone
+    localStorage.setItem(KEY, JSON.stringify(raw))
+  })
+  await page.reload({ waitUntil: 'networkidle' })
+  await page.waitForSelector('nav button')
+  const am = page.locator('button:has-text("AM")').first()
+  if (await am.count()) { await am.click(); await page.waitForTimeout(500) }
   await page.click(`button[aria-label="Log ${TE}"]`)
   await waitText(/INJECT HERE/)
   const body = await modal().textContent()
@@ -236,6 +255,17 @@ await step('logging it opens the IM map, not the SubQ one', async () => {
   if (!/^im-/.test(log.siteId)) throw new Error(`logged to a non-IM site: ${log.siteId}`)
   if (Math.round(log.insulinUnits) !== 20) throw new Error(`logged ${log.insulinUnits} units, want 20`)
   console.log(`  logged 50 mg → ${log.insulinUnits} units at ${log.siteId}`)
+  // put it back the way it ships
+  await page.evaluate(() => {
+    const KEY = 'peptide-command-center'
+    const raw = JSON.parse(localStorage.getItem(KEY))
+    const te = raw.state.peptides.find((p) => p.id === 'testosterone-e')
+    te.route = 'SubQ'
+    te.allowedZone = 'thigh'
+    localStorage.setItem(KEY, JSON.stringify(raw))
+  })
+  await page.reload({ waitUntil: 'networkidle' })
+  await page.waitForSelector('nav button')
 })
 await page.screenshot({ path: `${SHOT}/v8-03-im-map.png` })
 

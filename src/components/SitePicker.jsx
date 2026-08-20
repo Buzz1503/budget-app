@@ -8,7 +8,7 @@ import Modal from './ui/Modal'
 import CoachTip from './ui/CoachTip'
 import Term from './ui/Term'
 import SiteChooser from './SiteChooser'
-import { SITE_BY_ID, lastShot } from '../lib/sites'
+import { SITE_BY_ID, lastShot, zoneOf } from '../lib/sites'
 import { nextOnPath, suggestBest } from '../lib/rotation'
 import {
   formatDose, formatUnitsLong, isPremixed, isNasal, fromMg, nasalStrength, NASAL_RECIPE, round,
@@ -26,6 +26,7 @@ export default function SitePicker({ open, onClose, peptide, dose, unit, units }
   const t = todayStr()
 
   const route = peptide?.route === 'IM' ? 'IM' : 'SubQ'
+  const zone = zoneOf(peptide)
 
   const [picked, setPicked] = useState(null)
   const [resolved, setResolved] = useState(null)
@@ -195,7 +196,7 @@ export default function SitePicker({ open, onClose, peptide, dose, unit, units }
           </p>
         </div>
 
-        <SiteChooser route={route} picked={picked} onPick={setPicked} onResolve={setResolved} />
+        <SiteChooser route={route} zone={zone} picked={picked} onPick={setPicked} onResolve={setResolved} />
 
         {/* how-to, at the moment of injecting */}
         <div className="rounded-xl" style={{ background: 'var(--surface2)' }}>

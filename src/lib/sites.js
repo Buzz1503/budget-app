@@ -80,10 +80,55 @@ export const ALL_SITES = [...SITES, ...IM_SITES]
 
 export const SITE_BY_ID = Object.fromEntries(ALL_SITES.map((s) => [s.id, s]))
 
+/**
+ * Allowed injection zones.
+ *
+ * Some compounds reliably raise a welt, a lump or a stinging red patch where
+ * they go in. The belly takes the brunt of that — it is the thinnest fat and
+ * the most visible — so those compounds are kept to thigh fat, which tolerates
+ * them better and is easier to hide while it settles.
+ *
+ * This is a per-compound setting, not a fixed list: any peptide can be moved
+ * either way.
+ */
+export const ZONES = [
+  { id: 'all', label: 'All SubQ sites', hint: 'Belly, love handles and thighs' },
+  { id: 'thigh', label: 'Thigh only', hint: 'Keeps a reaction-prone compound off your stomach' },
+]
+export const ZONE_BY_ID = Object.fromEntries(ZONES.map((z) => [z.id, z]))
+
+export const THIGH_REGIONS = ['thigh-L', 'thigh-R']
+
+/** The line shown wherever a compound's sites have been narrowed. */
+export const THIGH_ONLY_NOTE = 'Thigh only — high reaction risk, keep it off your stomach.'
+
+/** A peptide's zone, defaulting to the whole SubQ map. */
+export function zoneOf(peptide) {
+  return peptide?.allowedZone === 'thigh' ? 'thigh' : 'all'
+}
+
+/**
+ * The zone for a whole shot. One thigh-only compound in a co-draw makes the
+ * entire syringe thigh-only — they go in together, so the strictest rule wins.
+ */
+export function zoneForGroup(peptides = []) {
+  return peptides.some((p) => zoneOf(p) === 'thigh') ? 'thigh' : 'all'
+}
+
 // Which rotation map a peptide draws from. Anything not explicitly IM uses the
-// SubQ map, so every existing peptide keeps the map it has always had.
-export function sitesForRoute(route) {
-  return route === 'IM' ? IM_SITES : SITES
+// SubQ map, so every existing peptide keeps the map it has always had. `zone`
+// narrows that map further; it only applies to SubQ, since the IM pool has no
+// belly sites to exclude in the first place.
+export function sitesForRoute(route, zone = 'all') {
+  if (route === 'IM') return IM_SITES
+  return zone === 'thigh' ? SITES.filter((s) => THIGH_REGIONS.includes(s.region)) : SITES
+}
+
+/** The region groups a compound may pick from, given its zone. */
+export function regionsForZone(route, zone = 'all') {
+  const groups = regionsForRoute(route)
+  if (route === 'IM' || zone !== 'thigh') return groups
+  return groups.filter((g) => g.regions.some((r) => THIGH_REGIONS.includes(r)))
 }
 
 // Region groupings drive the zoom view: tap a region, get just that patch of

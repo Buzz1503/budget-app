@@ -192,8 +192,12 @@ await step('consumables reflect the schedule, co-draws and routes', async () => 
   for (const want of [/Insulin syringes \(U-100\)/, /Bacteriostatic water/, /Alcohol swabs/, /Sharps container/]) {
     if (!want.test(body)) throw new Error(`consumable missing: ${want}`)
   }
-  // testosterone is IM by default, so IM needles are listed
-  if (!/IM needles \(23–25 g, 1–1\.5"\)/.test(body)) throw new Error('no IM needles despite an IM compound')
+  // v20 moved the oil injectable to SubQ, so nothing in the seed stack is IM
+  // and IM needles are correctly absent. The line still exists — it is driven by
+  // route, and appears as soon as any compound is set to IM.
+  if (/IM needles \(23–25 g, 1–1\.5"\)/.test(body)) {
+    throw new Error('IM needles listed with no IM compound in the stack')
+  }
   console.log(`  ${m[0]}`)
 })
 

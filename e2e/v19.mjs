@@ -328,17 +328,20 @@ await step('one tap logs it taken, and a second tap undoes it', async () => {
   if ((await page.locator('[data-testid="take-row"]').count()) === 0) {
     await page.click('button:has-text("PM")'); await page.waitForTimeout(600)
   }
+  // v20 split the row into its own buttons so Skip could sit beside Taken —
+  // the row itself is no longer the tap target.
   const row = page.locator('[data-testid="take-row"]').first()
-  await row.click()
+  const taken = () => row.locator('button[aria-label^="Taken:"], button[aria-label^="Undo:"]').first()
+  await taken().click()
   await page.waitForTimeout(1000)
   let st = await state()
   if (st.supplementLogs.length !== 1) throw new Error(`expected 1 log, got ${st.supplementLogs.length}`)
   if (!/Taken/.test(await row.textContent())) throw new Error('the row does not read as taken')
-  await row.click()
+  await taken().click()
   await page.waitForTimeout(900)
   st = await state()
   if (st.supplementLogs.length !== 0) throw new Error('tapping again did not undo it')
-  await row.click()
+  await taken().click()
   await page.waitForTimeout(1000)
 })
 

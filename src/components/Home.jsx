@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Check, Info, Clock, AlertTriangle, Combine, Sun, Moon, ChevronRight, MapPin, Syringe, X, Circle, CheckCircle2, ShieldCheck, Layers, Wind, Bell, Zap, Pill } from 'lucide-react'
+import { Check, Info, Clock, AlertTriangle, Combine, Sun, Moon, ChevronRight, MapPin, Syringe, X, Circle, CheckCircle2, ShieldCheck, Layers, Wind, Bell, Zap, Pill, SkipForward, Undo2 } from 'lucide-react'
 import useStore, { todayStr } from '../store/useStore'
 import { cycleInfo, currentRung, stepUpDue } from '../lib/schedule'
 import { isDueToday, slotOf, isDueSlot, currentSlot, slotIsFlexible, needsProtocolSetup } from '../lib/daily'
@@ -21,6 +21,7 @@ import SitePicker from './SitePicker'
 import CoDrawModal from './CoDrawModal'
 import { NextSevenDays } from './CalendarTab'
 import { dueInSlot, takenOn, FORM_LABEL } from '../lib/supplements'
+import { skippedOn, supplementsSkippedOn, skipFor, SKIP_REASONS, REASON_LABEL } from '../lib/skips'
 import { FormIcon } from './SupplementsTab'
 import { HomeInsightCard, HomeRecapCard } from './InsightsTab'
 
@@ -61,6 +62,17 @@ export default function Home({ goTo }) {
   const supplements = useStore((s) => s.supplements)
   const supplementLogs = useStore((s) => s.supplementLogs)
   const toggleSupplementTaken = useStore((s) => s.toggleSupplementTaken)
+  const skips = useStore((s) => s.skips)
+  const skipDose = useStore((s) => s.skipDose)
+  const skipSupplement = useStore((s) => s.skipSupplement)
+  const skipMany = useStore((s) => s.skipMany)
+  const unskipToday = useStore((s) => s.unskipToday)
+  const unskip = useStore((s) => s.unskip)
+  // what has been deliberately set aside today
+  const skippedIds = useMemo(() => skippedOn(skips, t), [skips, t])
+  const skippedSupps = useMemo(() => supplementsSkippedOn(skips, t), [skips, t])
+  // the sheet that asks why, shared by both kinds
+  const [skipping, setSkipping] = useState(null)
   const slotSupps = useMemo(() => dueInSlot(supplements, slot), [supplements, slot])
   const takenIds = useMemo(() => takenOn(supplementLogs, t), [supplementLogs, t])
   const suppDone = slotSupps.filter((x) => takenIds.has(x.id)).length
@@ -73,11 +85,23 @@ export default function Home({ goTo }) {
   )
   const slotDone = slotDue.filter((p) => loggedToday.has(p.id)).length
   const dayDone = scheduledToday.filter((p) => loggedToday.has(p.id)).length
-  const unlogged = useMemo(() => slotDue.filter((p) => !loggedToday.has(p.id)), [slotDue, loggedToday])
+  const unlogged = useMemo(
+    () => slotDue.filter((p) => !loggedToday.has(p.id) && !skippedIds.has(p.id)),
+    [slotDue, loggedToday, skippedIds]
+  )
   const unloggedCount = unlogged.length
-  // selection resolved against the live slot list so done/removed ids drop out
-  const selectedPeptides = slotDue.filter((p) => selected.has(p.id) && !loggedToday.has(p.id))
-  const slotTotal = slotDue.length + slotSupps.length
+  // selection resolved against the live slot list so done/removed/skipped ids drop out
+  const selectedPeptides = slotDue.filter(
+    (p) => selected.has(p.id) && !loggedToday.has(p.id) && !skippedIds.has(p.id)
+  )
+  // A skipped item is settled, not outstanding: it leaves the denominator
+  // entirely rather than sitting in it as a permanent shortfall. Deciding not
+  // to do something is a decision, and the ring should not scold you for it.
+  const slotSkipped = slotDue.filter((p) => skippedIds.has(p.id)).length
+    + slotSupps.filter((x) => skippedSupps.has(x.id)).length
+  const daySkipped = scheduledToday.filter((p) => skippedIds.has(p.id)).length
+    + supplements.filter((x) => skippedSupps.has(x.id)).length
+  const slotTotal = Math.max(0, slotDue.length + slotSupps.length - slotSkipped)
   const slotDoneAll = slotDone + suppDone
   const ringPct = slotTotal ? slotDoneAll / slotTotal : (scheduledToday.length === 0 ? 0 : 1)
   const lp = levelProgress(gamification.xp)
@@ -250,12 +274,13 @@ export default function Home({ goTo }) {
           <p className="text-xl font-black leading-tight tracking-tight">
             {slotTotal === 0 ? (slot === 'AM' ? 'Clear morning' : 'Clear evening')
               : ringPct === 1 ? `${slot} done`
-                : slotDue.length - slotDone > 0
-                  ? `${slotDue.length - slotDone} to inject`
-                  : `${slotSupps.length - suppDone} to take`}
+                : unloggedCount > 0
+                  ? `${unloggedCount} to inject`
+                  : `${slotSupps.filter((x) => !takenIds.has(x.id) && !skippedSupps.has(x.id)).length} to take`}
           </p>
           <p className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>
-            {dayDone + suppDayDone}/{scheduledToday.length + suppDayTotal} today · {otherCount} this {otherSlot}
+            {dayDone + suppDayDone}/{Math.max(0, scheduledToday.length + suppDayTotal - daySkipped)} today
+            {daySkipped > 0 && <> · {daySkipped} skipped</>} · {otherCount} this {otherSlot}
           </p>
         </div>
       </motion.div>
@@ -311,6 +336,10 @@ export default function Home({ goTo }) {
             onLog={() => setPicker(p)} goTo={goTo} today={t} doseLogs={doseLogs}
             selected={selected.has(p.id)} onToggleSelect={() => toggleSelect(p.id)}
             selectMode={selected.size > 0}
+            skipped={skippedIds.has(p.id)}
+            skipReason={skipFor(skips, p.id, t)?.reason}
+            onSkip={() => setSkipping({ kind: 'peptide', ids: [p.id], name: p.name })}
+            onUnskip={() => unskipToday(p.id)}
             beckon={firstRun && i === slotDue.findIndex((x) => !loggedToday.has(x.id))} />
         ))}
       </div>
@@ -325,7 +354,13 @@ export default function Home({ goTo }) {
           </p>
           {slotSupps.map((sup, i) => (
             <TakeRow key={sup.id} supplement={sup} taken={takenIds.has(sup.id)} index={i}
-              onToggle={() => toggleSupplementTaken(sup.id)} />
+              skipped={skippedSupps.has(sup.id)}
+              onToggle={() => toggleSupplementTaken(sup.id)}
+              onSkip={() => setSkipping({ kind: 'supplement', ids: [sup.id], name: sup.name })}
+              onUnskip={() => {
+                const rec = skips.find((k) => k.kind === 'supplement' && k.supplementId === sup.id && k.date === t)
+                if (rec) unskip(rec.id)
+              }} />
           ))}
         </div>
       )}
@@ -345,6 +380,17 @@ export default function Home({ goTo }) {
 
       {/* keeps the last card clear of the floating co-draw bar */}
       {selected.size > 0 && <div aria-hidden className="h-20" />}
+
+      <SkipSheet
+        target={skipping}
+        onClose={() => setSkipping(null)}
+        onConfirm={(reason) => {
+          if (!skipping) return
+          if (skipping.kind === 'supplement') skipSupplement(skipping.ids[0], reason)
+          else skipMany(skipping.ids, reason)
+          setSkipping(null)
+          setSelected(new Set())
+        }} />
 
       {/* co-draw action bar */}
       <AnimatePresence>
@@ -366,6 +412,17 @@ export default function Home({ goTo }) {
               <div className="min-w-0 flex-1 text-[11px] font-bold leading-tight">
                 {selected.size} selected{selected.size < 2 ? ' · pick 1 more' : ' · one shot, one site'}
               </div>
+              <motion.button whileTap={{ scale: 0.95 }} data-testid="skip-selected"
+                onClick={() => setSkipping({
+                  kind: 'peptide',
+                  ids: selectedPeptides.map((x) => x.id),
+                  name: selectedPeptides.map((x) => x.name).join(', '),
+                })}
+                className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-xl px-3 py-2.5 text-xs font-black"
+                style={{ background: 'var(--surface2)', color: 'var(--muted)' }}
+                aria-label="Skip the selected doses">
+                <SkipForward size={14} /> Skip
+              </motion.button>
               <motion.button whileTap={{ scale: 0.95 }} disabled={selected.size < 2}
                 onClick={() => setCoDraw(true)}
                 className="btn-primary flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl px-3.5 py-2.5 text-sm font-black disabled:opacity-40">
@@ -400,45 +457,115 @@ export default function Home({ goTo }) {
  * Home exists to answer.
  */
 /**
+ * Asks why, without insisting. A skip with no reason is still a skip — the
+ * point is to record the decision, and demanding an explanation for it is how
+ * a quick tap turns into something you avoid doing.
+ */
+function SkipSheet({ target, onClose, onConfirm }) {
+  const [reason, setReason] = useState('')
+  useEffect(() => { if (target) setReason('') }, [target])
+  if (!target) return null
+  const many = target.ids.length > 1
+
+  return (
+    <Modal open onClose={onClose} title={many ? `Skip ${target.ids.length} doses?` : `Skip ${target.name}?`}>
+      <div className="space-y-3" data-testid="skip-sheet">
+        <p className="text-[12px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+          Recorded as skipped, not missed. Nothing comes out of your stock, and it
+          won't count against you.
+        </p>
+        <div className="flex flex-wrap gap-1.5">
+          {SKIP_REASONS.map((r) => (
+            <button key={r.id} onClick={() => setReason(reason === r.id ? '' : r.id)}
+              className="rounded-full px-3 py-1.5 text-[11px] font-bold"
+              style={reason === r.id
+                ? { backgroundImage: 'linear-gradient(135deg, var(--violet), var(--indigo))', color: '#fff' }
+                : { background: 'var(--surface2)', color: 'var(--muted)' }}>
+              {r.label}
+            </button>
+          ))}
+        </div>
+        <p className="text-[10px] font-medium" style={{ color: 'var(--muted)' }}>Optional — tap Skip without one.</p>
+        <div className="flex gap-2">
+          <button onClick={onClose} className="flex-1 rounded-xl py-2.5 text-xs font-black"
+            style={{ background: 'var(--surface2)', color: 'var(--muted)' }}>
+            Cancel
+          </button>
+          <button onClick={() => onConfirm(reason)} data-testid="skip-confirm"
+            className="flex-1 rounded-xl py-2.5 text-xs font-black"
+            style={{ backgroundImage: 'linear-gradient(135deg, var(--violet), var(--indigo))', color: '#fff' }}>
+            Skip {many ? `all ${target.ids.length}` : ''}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+/**
  * One oral supplement on the Home list. Deliberately the simplest row in the
  * app: name, dose, and a single tap that toggles. Tapping again undoes it,
  * because the common mistake is a mis-tap, not a genuine second dose.
  */
-function TakeRow({ supplement: s, taken, onToggle, index = 0 }) {
+function TakeRow({ supplement: s, taken, skipped, onToggle, onSkip, onUnskip, index = 0 }) {
+  const settled = taken || skipped
   return (
-    <motion.button
+    <motion.div
       layout
       initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
       transition={{ delay: Math.min(index * 0.04, 0.25) }}
-      whileTap={{ scale: 0.98 }}
-      onClick={onToggle}
-      aria-label={`${taken ? 'Undo' : 'Taken'}: ${s.name}`}
-      aria-pressed={taken}
       data-testid="take-row"
-      className="card flex w-full items-center gap-3 p-3 text-left"
-      style={taken ? { background: 'color-mix(in srgb, var(--lime) 10%, var(--surface))' } : undefined}
+      className="card flex w-full items-center gap-3 p-3"
+      style={taken ? { background: 'color-mix(in srgb, var(--lime) 10%, var(--surface))' }
+        : skipped ? { background: 'color-mix(in srgb, var(--violet) 8%, var(--surface))' } : undefined}
     >
       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
         style={taken
           ? { background: 'color-mix(in srgb, var(--lime) 20%, transparent)', color: 'var(--lime)' }
-          : { background: 'color-mix(in srgb, var(--amber) 16%, transparent)', color: 'var(--amber)' }}>
-        <FormIcon form={s.form} size={16} />
+          : skipped
+            ? { background: 'color-mix(in srgb, var(--violet) 18%, transparent)', color: 'var(--violet)' }
+            : { background: 'color-mix(in srgb, var(--amber) 16%, transparent)', color: 'var(--amber)' }}>
+        {skipped ? <SkipForward size={16} /> : <FormIcon form={s.form} size={16} />}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-bold" style={taken ? { textDecoration: 'line-through', opacity: 0.7 } : undefined}>
+        <p className="truncate text-sm font-bold"
+          style={settled ? { textDecoration: 'line-through', opacity: 0.7 } : undefined}>
           {s.name}
         </p>
-        <p className="truncate text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
-          {s.dose || FORM_LABEL[s.form] || s.form}
+        <p className="truncate text-[11px] font-semibold"
+          style={{ color: skipped ? 'var(--violet)' : 'var(--muted)' }}>
+          {skipped ? 'Skipped today' : (s.dose || FORM_LABEL[s.form] || s.form)}
         </p>
       </div>
-      <span className="flex h-8 shrink-0 items-center gap-1 rounded-full px-3 text-[11px] font-black"
-        style={taken
-          ? { background: 'color-mix(in srgb, var(--lime) 20%, transparent)', color: 'var(--lime)' }
-          : { backgroundImage: 'linear-gradient(135deg, var(--lime), var(--lime-deep))', color: '#0c1200' }}>
-        {taken ? <><Check size={12} /> Taken</> : 'Taken'}
-      </span>
-    </motion.button>
+
+      {skipped ? (
+        <motion.button whileTap={{ scale: 0.94 }} onClick={onUnskip}
+          aria-label={`Undo skip: ${s.name}`}
+          className="flex h-8 shrink-0 items-center gap-1 rounded-full px-3 text-[11px] font-black"
+          style={{ background: 'var(--surface2)', color: 'var(--violet)' }}>
+          <Undo2 size={12} /> Undo
+        </motion.button>
+      ) : (
+        <>
+          {!taken && (
+            <motion.button whileTap={{ scale: 0.94 }} onClick={onSkip}
+              aria-label={`Skip ${s.name}`} data-testid="skip-supplement"
+              className="flex h-8 shrink-0 items-center justify-center rounded-full px-2.5"
+              style={{ background: 'var(--surface2)', color: 'var(--muted)' }}>
+              <SkipForward size={13} />
+            </motion.button>
+          )}
+          <motion.button whileTap={{ scale: 0.94 }} onClick={onToggle}
+            aria-label={`${taken ? 'Undo' : 'Taken'}: ${s.name}`} aria-pressed={taken}
+            className="flex h-8 shrink-0 items-center gap-1 rounded-full px-3 text-[11px] font-black"
+            style={taken
+              ? { background: 'color-mix(in srgb, var(--lime) 20%, transparent)', color: 'var(--lime)' }
+              : { backgroundImage: 'linear-gradient(135deg, var(--lime), var(--lime-deep))', color: '#0c1200' }}>
+            {taken ? <><Check size={12} /> Taken</> : 'Taken'}
+          </motion.button>
+        </>
+      )}
+    </motion.div>
   )
 }
 
@@ -641,7 +768,7 @@ function ShotRow({ group, onAccept }) {
   )
 }
 
-function DueCard({ peptide: p, index, done, titration, partners, slot, onLog, goTo, today, doseLogs, beckon, selected, onToggleSelect, selectMode }) {
+function DueCard({ peptide: p, index, done, titration, partners, slot, onLog, goTo, today, doseLogs, beckon, selected, onToggleSelect, selectMode, skipped, skipReason, onSkip, onUnskip }) {
   const tState = titration[p.id]
   const { dose, level, maxLevel } = currentRung(p, tState)
   const nasal = isNasal(p)
@@ -673,10 +800,11 @@ function DueCard({ peptide: p, index, done, titration, partners, slot, onLog, go
       initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ ...spring, delay: index * 0.04 }}
       style={selected
         ? { borderColor: 'var(--lime)', boxShadow: '0 0 0 1.5px var(--lime), var(--shadow)' }
-        : done ? { borderColor: 'color-mix(in srgb, var(--lime) 40%, transparent)' } : undefined}>
+        : done ? { borderColor: 'color-mix(in srgb, var(--lime) 40%, transparent)' }
+          : skipped ? { borderColor: 'color-mix(in srgb, var(--violet) 40%, transparent)', opacity: 0.75 } : undefined}>
       <div className="flex items-center gap-3">
         {/* co-draw select toggle */}
-        {!done && (noCoDraw ? (
+        {!done && !skipped && (noCoDraw ? (
           <span className="shrink-0"
             title={nasal ? 'Sprayed, not injected — cannot be co-drawn' : 'Always injected on its own — cannot be co-drawn'}
             aria-label={`${p.name} cannot be co-drawn`}
@@ -716,17 +844,45 @@ function DueCard({ peptide: p, index, done, titration, partners, slot, onLog, go
             )}
           </div>
         </div>
-        <motion.button whileTap={{ scale: 0.9 }} disabled={done} onClick={onLog}
-          className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-sm font-black ${done ? '' : 'btn-primary'}`}
-          style={done ? { background: 'var(--surface2)', color: 'var(--lime)' } : undefined}
-          aria-label={done ? `${p.name} logged` : `Log ${p.name}`}>
-          {done ? (
-            <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 400, damping: 15 }}>
-              <Check size={26} strokeWidth={3} />
-            </motion.span>
-          ) : 'Log'}
-        </motion.button>
+        {skipped ? (
+          <motion.button whileTap={{ scale: 0.92 }} onClick={onUnskip}
+            className="flex h-14 shrink-0 flex-col items-center justify-center gap-0.5 rounded-2xl px-3"
+            style={{ background: 'var(--surface2)', color: 'var(--violet)' }}
+            aria-label={`Undo skip: ${p.name}`}>
+            <Undo2 size={18} />
+            <span className="text-[9px] font-black">Undo</span>
+          </motion.button>
+        ) : (
+          <div className="flex shrink-0 items-center gap-1.5">
+            {!done && (
+              <motion.button whileTap={{ scale: 0.9 }} onClick={onSkip} data-testid="skip-peptide"
+                className="flex h-14 w-11 shrink-0 flex-col items-center justify-center gap-0.5 rounded-2xl"
+                style={{ background: 'var(--surface2)', color: 'var(--muted)' }}
+                aria-label={`Skip ${p.name}`}>
+                <SkipForward size={16} />
+                <span className="text-[9px] font-black">Skip</span>
+              </motion.button>
+            )}
+            <motion.button whileTap={{ scale: 0.9 }} disabled={done} onClick={onLog}
+              className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-sm font-black ${done ? '' : 'btn-primary'}`}
+              style={done ? { background: 'var(--surface2)', color: 'var(--lime)' } : undefined}
+              aria-label={done ? `${p.name} logged` : `Log ${p.name}`}>
+              {done ? (
+                <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 400, damping: 15 }}>
+                  <Check size={26} strokeWidth={3} />
+                </motion.span>
+              ) : 'Log'}
+            </motion.button>
+          </div>
+        )}
       </div>
+
+      {skipped && (
+        <p className="mt-2 flex items-center gap-1.5 text-[11px] font-bold" style={{ color: 'var(--violet)' }}>
+          <SkipForward size={12} /> Skipped today{skipReason ? ` · ${REASON_LABEL[skipReason] || skipReason}` : ''}
+          <span className="font-medium" style={{ color: 'var(--muted)' }}>· nothing taken from stock</span>
+        </p>
+      )}
       {stepDue && (
         <button onClick={() => goTo('library')}
           className="mt-3 flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2 text-xs font-bold"

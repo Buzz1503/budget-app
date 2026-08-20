@@ -287,6 +287,9 @@ await step('an IM peptide still gets the IM map, with its own how-to', async () 
     const te = raw.state.peptides.find((p) => p.id === 'testosterone-e')
     te.scheduleWeekdays = [0, 1, 2, 3, 4, 5, 6]
     te.frequency = 'daily'
+    // v20 ships it SubQ; this step is about the IM map, so put it on that route
+    te.route = 'IM'
+    delete te.allowedZone
     localStorage.setItem('peptide-command-center', JSON.stringify(raw))
   })
   await page.reload({ waitUntil: 'networkidle' })

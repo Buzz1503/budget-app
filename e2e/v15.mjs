@@ -303,18 +303,18 @@ await step('an IM peptide exposes a back view with the glutes on it', async () =
   await page.keyboard.press('Escape')
   await page.waitForTimeout(400)
   await nav('Home')
-  const te = page.locator('button[aria-label="Log Testosterone Enanthate"]')
-  if (!(await te.count())) {
-    // Test E is Mon/Thu — force it due so the IM map is reachable today
-    await patch(`
-      const wd = new Date().getDay();
-      s.peptides = s.peptides.map((p) => p.id === 'testosterone-e' ? { ...p, frequency: 'daily', scheduleWeekdays: [0,1,2,3,4,5,6] } : p);
-    `)
-    await page.reload({ waitUntil: 'networkidle' })
-    await waitText(/Pepito/)
-    await page.click('button:has-text("AM")')
-    await page.waitForTimeout(400)
-  }
+  // v20 ships Test E SubQ into thigh fat, so nothing in the seed stack is IM.
+  // The IM map is still a feature; put a compound on that route (as the Library
+  // would) and make it due today, so this keeps testing the map itself.
+  await patch(`
+    s.peptides = s.peptides.map((p) => p.id === 'testosterone-e'
+      ? { ...p, route: 'IM', allowedZone: undefined, frequency: 'daily', scheduleWeekdays: [0,1,2,3,4,5,6] }
+      : p);
+  `)
+  await page.reload({ waitUntil: 'networkidle' })
+  await waitText(/Pepito/)
+  await page.click('button:has-text("AM")')
+  await page.waitForTimeout(400)
   await page.locator('button[aria-label="Log Testosterone Enanthate"]').click()
   await waitText(/Intramuscular/, 10000)
   const backBtn = page.locator('button[aria-label="back view"]')

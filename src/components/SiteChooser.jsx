@@ -10,8 +10,12 @@ import BodyMap, { ColourKey, statusColor } from './BodyMap'
 import {
   allSiteStates, suggestBest, suggestReason, nextOnPath, pathPreview, rotationHealth,
   siteHistory, reactionState, repeatReactors, REACTION_KINDS, SITE_STATUS, restDaysFor,
+  zoneLoad,
 } from '../lib/rotation'
-import { SITE_BY_ID, regionsForRoute, sitesInRegionGroup, sitesForRoute, restedWords } from '../lib/sites'
+import {
+  SITE_BY_ID, regionsForRoute, regionsForZone, sitesInRegionGroup, sitesForRoute, restedWords,
+  THIGH_ONLY_NOTE,
+} from '../lib/sites'
 import { haptic } from '../lib/feedback'
 
 /**
@@ -21,7 +25,7 @@ import { haptic } from '../lib/feedback'
  * The caller owns the picked id; this reports the resolved choice back through
  * `onResolve` so it can label its own confirm button.
  */
-export default function SiteChooser({ route = 'SubQ', picked, onPick, onResolve }) {
+export default function SiteChooser({ route = 'SubQ', zone = 'all', picked, onPick, onResolve }) {
   const doseLogs = useStore((s) => s.doseLogs)
   const reactions = useStore((s) => s.siteReactions)
   const peptides = useStore((s) => s.peptides)
@@ -31,9 +35,10 @@ export default function SiteChooser({ route = 'SubQ', picked, onPick, onResolve 
   const t = todayStr()
 
   const ctx = useMemo(
-    () => ({ doseLogs, reactions, todayStr: t, route }),
-    [doseLogs, reactions, t, route]
+    () => ({ doseLogs, reactions, todayStr: t, route, zone }),
+    [doseLogs, reactions, t, route, zone]
   )
+  const load = useMemo(() => zoneLoad(ctx), [ctx])
 
   const states = useMemo(() => allSiteStates(ctx), [ctx])
   const suggestion = useMemo(() => suggestBest(ctx), [ctx])
@@ -52,9 +57,9 @@ export default function SiteChooser({ route = 'SubQ', picked, onPick, onResolve 
   // faces present in this route's pool — the toggle only appears when there's
   // genuinely something on the other side
   const faces = useMemo(() => {
-    const set = new Set(sitesForRoute(route).map((s) => s.face || 'front'))
+    const set = new Set(sitesForRoute(route, zone).map((s) => s.face || 'front'))
     return ['front', 'back'].filter((f) => set.has(f))
-  }, [route])
+  }, [route, zone])
   const [face, setFace] = useState('front')
   const [zoom, setZoom] = useState(null)
   const [detail, setDetail] = useState(null)
@@ -70,12 +75,12 @@ export default function SiteChooser({ route = 'SubQ', picked, onPick, onResolve 
   useEffect(() => { setZoom(null) }, [face])
 
   const groups = useMemo(
-    () => regionsForRoute(route).filter((g) => (g.face || 'front') === face),
-    [route, face]
+    () => regionsForZone(route, zone).filter((g) => (g.face || 'front') === face),
+    [route, zone, face]
   )
   const faceSites = useMemo(
-    () => sitesForRoute(route).filter((s) => (s.face || 'front') === face),
-    [route, face]
+    () => sitesForRoute(route, zone).filter((s) => (s.face || 'front') === face),
+    [route, zone, face]
   )
   const visible = zoom ? sitesInRegionGroup(zoom, route) : faceSites
 
@@ -118,6 +123,28 @@ export default function SiteChooser({ route = 'SubQ', picked, onPick, onResolve 
           </button>
         ))}
       </div>
+
+      {/* why two thirds of the map is missing */}
+      {zone === 'thigh' && (
+        <p className="flex items-start gap-1.5 rounded-xl p-2.5 text-[11px] font-semibold leading-relaxed"
+          data-testid="zone-note"
+          style={{ background: 'color-mix(in srgb, var(--amber) 14%, transparent)', color: 'var(--amber)' }}>
+          <AlertTriangle size={13} className="mt-px shrink-0" />
+          <span>{THIGH_ONLY_NOTE}</span>
+        </p>
+      )}
+
+      {/* the pool as a whole is running tight — said before it is too late */}
+      {load.message && (
+        <p className="flex items-start gap-1.5 rounded-xl p-2.5 text-[11px] font-semibold leading-relaxed"
+          data-testid="zone-load"
+          style={load.level === 'watch'
+            ? { background: 'var(--surface2)', color: 'var(--muted)' }
+            : { background: 'color-mix(in srgb, var(--coral) 14%, transparent)', color: 'var(--coral)' }}>
+          <AlertTriangle size={13} className="mt-px shrink-0" />
+          <span>{load.message}</span>
+        </p>
+      )}
 
       {/* the recommendation, spelled out */}
       {chosenSite && (

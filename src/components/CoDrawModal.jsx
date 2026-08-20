@@ -4,7 +4,7 @@ import { MapPin, Check, Ban, Clock } from 'lucide-react'
 import useStore, { todayStr } from '../store/useStore'
 import Modal from './ui/Modal'
 import SiteChooser from './SiteChooser'
-import { SITE_BY_ID, lastShot } from '../lib/sites'
+import { SITE_BY_ID, lastShot, zoneForGroup } from '../lib/sites'
 import { loadMatrix, LIB_TO_COMPOUND } from '../lib/mixMatrix'
 import { currentRung } from '../lib/schedule'
 import { toMg, doseToUnits, concentration, formatDose, formatUnits } from '../lib/calc'
@@ -26,6 +26,10 @@ export default function CoDrawModal({ open, onClose, peptides }) {
   const doseLogs = useStore((s) => s.doseLogs)
   const logCoDraw = useStore((s) => s.logCoDraw)
   const t = todayStr()
+
+  // One thigh-only compound in the syringe makes the whole shot thigh-only —
+  // they go in together, so the strictest rule wins.
+  const zone = zoneForGroup(peptides || [])
 
   const [matrix, setMatrix] = useState(null)
   const [phase, setPhase] = useState('loading') // loading | blocked | site
@@ -157,7 +161,7 @@ export default function CoDrawModal({ open, onClose, peptides }) {
             <p className="flex items-center gap-1.5 text-xs font-bold">
               <MapPin size={13} style={{ color: 'var(--lime)' }} /> One shot, so pick one spot
             </p>
-            <SiteChooser route="SubQ" picked={picked} onPick={setPicked} onResolve={setResolved} />
+            <SiteChooser route="SubQ" zone={zone} picked={picked} onPick={setPicked} onResolve={setResolved} />
             <motion.button whileTap={{ scale: 0.97 }} onClick={confirm}
               className="btn-primary flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-black">
               <Check size={18} strokeWidth={3} /> Log {peptides.length} together — {chosenSite?.label}

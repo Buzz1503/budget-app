@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { History, Syringe, MapPin, FileText, Filter, Pill } from 'lucide-react'
+import { History, Syringe, MapPin, FileText, Filter, Pill, SkipForward } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import useStore, { todayStr } from '../store/useStore'
 import { adherenceSummary, historyEvents, WINDOWS, windowRange } from '../lib/adherence'
@@ -8,6 +8,7 @@ import { formatDose } from '../lib/calc'
 import { openSummaryDocument } from '../lib/summaryDoc'
 import { SymptomHistory } from './SymptomsTab'
 import { supplementAdherence } from '../lib/supplements'
+import { skipsInRange, skipCounts, splitAdherence, REASON_LABEL } from '../lib/skips'
 
 export default function HistoryTab() {
   const peptides = useStore((s) => s.peptides)
@@ -17,6 +18,7 @@ export default function HistoryTab() {
   const gamification = useStore((s) => s.gamification)
   const supplements = useStore((s) => s.supplements)
   const supplementLogs = useStore((s) => s.supplementLogs)
+  const skips = useStore((s) => s.skips)
   const t = todayStr()
 
   const [days, setDays] = useState(30)
@@ -37,6 +39,16 @@ export default function HistoryTab() {
     () => supplementAdherence(supplements, supplementLogs, from, to),
     [supplements, supplementLogs, from, to]
   )
+  // Skips are reported as their own category. A deliberate pause is not the
+  // same failure as forgetting, and averaging them together would tell the user
+  // something untrue about a week they chose to take off.
+  const skipRows = useMemo(() => skipsInRange(skips, from, to), [skips, from, to])
+  const skippedPerPeptide = useMemo(() => skipCounts(skips, from, to), [skips, from, to])
+  const split = useMemo(() => splitAdherence({
+    scheduled: summary.overall.scheduled,
+    taken: summary.overall.taken,
+    skipped: skipRows.filter((k) => k.kind === 'peptide').length,
+  }), [summary, skipRows])
 
   const pct = summary.overall.pct
 
@@ -74,13 +86,33 @@ export default function HistoryTab() {
         <p className="text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
           {summary.overall.taken} of {summary.overall.scheduled} scheduled doses · last {days} days
         </p>
+        {split.skipped > 0 && (
+          <p className="mt-1 flex flex-wrap items-center gap-x-2 text-[11px] font-bold" data-testid="skip-summary">
+            <span className="flex items-center gap-1" style={{ color: 'var(--violet)' }}>
+              <SkipForward size={11} /> {split.skipped} skipped
+            </span>
+            <span style={{ color: 'var(--muted)' }}>·</span>
+            <span style={{ color: 'var(--muted)' }}>{split.missed} missed</span>
+            {split.ofAttempted != null && (
+              <>
+                <span style={{ color: 'var(--muted)' }}>·</span>
+                <span style={{ color: 'var(--lime)' }}>{split.ofAttempted}% of what you attempted</span>
+              </>
+            )}
+          </p>
+        )}
         {summary.rows.length > 0 ? (
           <div className="mt-3 space-y-2">
             {summary.rows.map((r) => (
               <div key={r.peptideId}>
                 <div className="flex items-center justify-between text-[11px] font-bold">
                   <span>{r.name}</span>
-                  <span className="tabular-nums" style={{ color: 'var(--muted)' }}>{r.taken}/{r.scheduled} · {r.pct}%</span>
+                  <span className="tabular-nums" style={{ color: 'var(--muted)' }}>
+                    {skippedPerPeptide[r.peptideId] > 0 && (
+                      <span style={{ color: 'var(--violet)' }}>{skippedPerPeptide[r.peptideId]} skipped · </span>
+                    )}
+                    {r.taken}/{r.scheduled} · {r.pct}%
+                  </span>
                 </div>
                 <div className="mt-0.5 h-1.5 overflow-hidden rounded-full" style={{ background: 'var(--surface2)' }}>
                   <motion.div className="h-full rounded-full" initial={{ width: 0 }} animate={{ width: `${r.pct}%` }}
@@ -95,6 +127,28 @@ export default function HistoryTab() {
           </p>
         )}
       </div>
+
+      {/* skipped — listed, not hidden: the record is the point */}
+      {skipRows.length > 0 && (
+        <div className="card p-4" data-testid="skip-list">
+          <p className="mb-2 flex items-center gap-1.5 text-sm font-bold">
+            <SkipForward size={14} style={{ color: 'var(--violet)' }} /> Skipped · {skipRows.length}
+          </p>
+          <div className="space-y-1.5">
+            {skipRows.slice(0, 12).map((k) => (
+              <div key={k.id} className="flex items-center justify-between gap-2 text-[11px] font-bold">
+                <span className="min-w-0 flex-1 truncate">{k.name || k.peptideId || k.supplementId}</span>
+                <span className="shrink-0 font-semibold" style={{ color: 'var(--muted)' }}>
+                  {k.reason ? `${REASON_LABEL[k.reason] || k.reason} · ` : ''}{format(parseISO(k.date), 'd MMM')}
+                </span>
+              </div>
+            ))}
+          </div>
+          <p className="mt-2 text-[10px] font-medium" style={{ color: 'var(--muted)' }}>
+            Recorded as a decision, not a lapse — and nothing came out of stock for these.
+          </p>
+        </div>
+      )}
 
       {/* supplements — counted separately from injections, on purpose */}
       {supps.rows.length > 0 && (
