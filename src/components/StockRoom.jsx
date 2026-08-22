@@ -1,15 +1,16 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Package, Plus, Minus, ChevronRight, FileText, Trash2, X, Search,
-  Paperclip, AlertTriangle, Boxes, CheckCircle2, Droplet,
+  Package, Plus, Minus, ChevronRight, FileText, Trash2, Search,
+  Paperclip, AlertTriangle, Boxes, CheckCircle2, Clock,
 } from 'lucide-react'
 import useStore, { todayStr } from '../store/useStore'
-import {
-  groupStock, blankBatch, replacementsFor, activeVialStatus, coverageFor, coverageWords,
-} from '../lib/stock'
+import { groupStock, blankBatch, runwayFor, durationWords } from '../lib/stock'
+import { prettyDate } from '../lib/schedule'
 import { putBlob, getBlob, deleteBlob } from '../lib/blobStore'
 import { isNasal } from '../lib/calc'
+import { loadMatrix } from '../lib/mixMatrix'
+import { wizardSuggestion, toPeptide } from '../lib/wizardDefaults'
 import Modal from './ui/Modal'
 import NumberField from './ui/NumberField'
 
@@ -60,9 +61,12 @@ export default function StockRoom() {
         </div>
       )}
 
-      <div className="space-y-2" data-testid="stock-groups">
+      <div className="space-y-2.5" data-testid="stock-groups">
         {groups.map((g) => {
           const peptide = peptides.find((p) => p.id === g.peptideId)
+          const runway = peptide
+            ? runwayFor(peptide, titration[peptide.id], openVials[peptide.id], vials, doseLogs, t, leadDays)
+            : null
           return (
             <StockGroup
               key={g.peptideId}
@@ -70,9 +74,7 @@ export default function StockRoom() {
               peptide={peptide}
               open={openId === g.peptideId}
               onToggle={() => setOpenId(openId === g.peptideId ? null : g.peptideId)}
-              active={peptide ? activeVialStatus(peptide, titration[peptide.id], openVials[peptide.id], doseLogs) : null}
-              coverage={peptide ? coverageFor(peptide, titration[peptide.id], vials, t) : null}
-              leadDays={leadDays}
+              runway={runway}
             />
           )
         })}
@@ -89,42 +91,60 @@ export default function StockRoom() {
   )
 }
 
-function StockGroup({ group: g, peptide, open, onToggle, active, coverage, leadDays }) {
+/** The one-line, once-per-peptide answer to "when do I run out" — open vial and shelf combined. */
+function RunwayLine({ runway }) {
+  if (!runway) return null
+  if (runway.out) {
+    return (
+      <p className="mt-1 flex items-center gap-1 text-[11px] font-bold" style={{ color: 'var(--coral)' }}>
+        <AlertTriangle size={11} /> Nothing left — reorder
+      </p>
+    )
+  }
+  if (!isFinite(runway.days)) return null
+  return (
+    <p className="mt-1 flex items-center gap-1 text-[11px] font-medium"
+      style={{ color: runway.low ? 'var(--amber)' : 'var(--muted)' }}>
+      <Clock size={11} className="shrink-0" />
+      <span>
+        {durationWords(runway.days)} left
+        {runway.restockByDate ? ` · restock by ${prettyDate(runway.restockByDate)}` : ''}
+      </span>
+    </p>
+  )
+}
+
+function StockGroup({ group: g, peptide, open, onToggle, runway }) {
   const adjustVialQty = useStore((s) => s.adjustVialQty)
   const removeVial = useStore((s) => s.removeVial)
   const activateBatch = useStore((s) => s.activateBatch)
-  const low = coverage && isFinite(coverage.days) && coverage.days <= leadDays
+  const low = !!(runway && (runway.out || runway.low))
 
   return (
     <motion.div layout className="card overflow-hidden" data-testid="stock-group">
-      <button onClick={onToggle} className="flex w-full items-center gap-3 p-3.5 text-left">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+      <button onClick={onToggle} className="flex w-full items-start gap-3 p-4 text-left">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
           style={g.vialCount === 0
             ? { background: 'color-mix(in srgb, var(--coral) 16%, transparent)', color: 'var(--coral)' }
             : { background: 'color-mix(in srgb, var(--lime) 16%, transparent)', color: 'var(--lime)' }}>
-          <span className="text-sm font-black tabular-nums">{g.vialCount}</span>
+          <span className="text-[13px] font-black tabular-nums">{g.vialCount}</span>
         </div>
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 pt-0.5">
           <p className="truncate text-sm font-bold">
             {g.name}
             {!g.inStack && (
               <span className="ml-1.5 text-[10px] font-semibold" style={{ color: 'var(--muted)' }}>· not in your stack</span>
             )}
           </p>
-          <p className="truncate text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
+          <p className="mt-0.5 truncate text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
             {g.vialCount === 0
               ? 'none in stock'
-              : `${g.vialCount} vial${g.vialCount === 1 ? '' : 's'}: ${g.breakdown}`}
+              : `${g.batchCount} batch${g.batchCount === 1 ? '' : 'es'} · ${g.vialCount} sealed vial${g.vialCount === 1 ? '' : 's'}`}
           </p>
-          {active?.dosesLeft != null && (
-            <p className="mt-0.5 truncate text-[11px] font-bold" style={{ color: active.empty ? 'var(--coral)' : 'var(--indigo)' }}>
-              <Droplet size={10} className="mr-0.5 inline" />
-              ~{active.dosesLeft} dose{active.dosesLeft === 1 ? '' : 's'} left in the open vial
-            </p>
-          )}
+          <RunwayLine runway={runway} />
         </div>
-        {low && <AlertTriangle size={14} className="shrink-0" style={{ color: 'var(--amber)' }} />}
-        <ChevronRight size={16} className="shrink-0 transition-transform"
+        {low && <AlertTriangle size={14} className="mt-1 shrink-0" style={{ color: 'var(--amber)' }} />}
+        <ChevronRight size={16} className="mt-1 shrink-0 transition-transform"
           style={{ color: 'var(--muted)', transform: open ? 'rotate(90deg)' : 'none' }} />
       </button>
 
@@ -132,13 +152,7 @@ function StockGroup({ group: g, peptide, open, onToggle, active, coverage, leadD
         {open && (
           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-            <div className="space-y-2 px-3.5 pb-3.5">
-              {coverage && isFinite(coverage.days) && (
-                <p className="text-[11px] font-semibold" style={{ color: low ? 'var(--amber)' : 'var(--muted)' }}>
-                  {coverageWords(coverage.weeks)} of sealed stock at your current dose and frequency
-                  {low ? ' — inside your reorder lead time' : ''}
-                </p>
-              )}
+            <div className="space-y-2 px-4 pb-4">
               {g.batches.length === 0 && (
                 <p className="text-[11px] font-medium" style={{ color: 'var(--muted)' }}>
                   No batches recorded for this one.
@@ -158,44 +172,53 @@ function StockGroup({ group: g, peptide, open, onToggle, active, coverage, leadD
   )
 }
 
+/** One batch, one row: size, quantity, vendor — never merged with a sibling batch. */
 function BatchRow({ batch: b, peptide, onAdjust, onRemove, onActivate }) {
   const openVial = useStore((s) => s.openVials?.[b.peptideId])
   const isActive = openVial?.batchId === b.id
   const canActivate = peptide && !isNasal(peptide) && (b.qtyOnHand || 0) > 0
 
   return (
-    <div className="rounded-xl p-2.5" style={{ background: 'var(--surface2)' }} data-testid="batch-row">
-      <div className="flex items-center gap-2">
+    <div className="rounded-xl p-3" style={{ background: 'var(--surface2)' }} data-testid="batch-row">
+      <div className="flex items-start gap-3">
+        <span className="mt-0.5 flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full px-1.5 text-[11px] font-black tabular-nums"
+          style={{ background: 'var(--surface-solid)', color: 'var(--text)' }}>
+          {b.qtyOnHand || 0}
+        </span>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[12px] font-black">
-            {b.vialMg} mg{b.vendor ? ` · ${b.vendor}` : ''}
+          <p className="truncate text-[13px] font-black">
+            {b.vialMg} mg
             {isActive && (
               <span className="ml-1.5 text-[10px] font-bold" style={{ color: 'var(--lime)' }}>· in use</span>
             )}
           </p>
           <p className="truncate text-[10px] font-semibold" style={{ color: 'var(--muted)' }}>
+            {b.vendor || 'No vendor recorded'}
+          </p>
+          <p className="mt-0.5 truncate text-[10px] font-medium" style={{ color: 'var(--muted)' }}>
             {money(b.costAud)} each
             {b.lot ? ` · lot ${b.lot}` : ''}
             {b.sealedExpiry ? ` · exp ${b.sealedExpiry}` : ''}
           </p>
         </div>
-        <CoaButton batch={b} />
-        <div className="flex shrink-0 items-center gap-1">
-          <button onClick={() => onAdjust(-1)} aria-label={`One fewer ${b.vialMg} mg`}
-            className="flex h-7 w-7 items-center justify-center rounded-lg"
-            style={{ background: 'var(--surface-solid)', color: 'var(--muted)' }}>
-            <Minus size={13} />
-          </button>
-          <span className="w-6 text-center text-[13px] font-black tabular-nums">{b.qtyOnHand || 0}</span>
-          <button onClick={() => onAdjust(1)} aria-label={`One more ${b.vialMg} mg`}
-            className="flex h-7 w-7 items-center justify-center rounded-lg"
-            style={{ background: 'var(--surface-solid)', color: 'var(--lime)' }}>
-            <Plus size={13} />
-          </button>
+        <div className="flex shrink-0 flex-col items-end gap-1.5">
+          <CoaButton batch={b} />
+          <div className="flex items-center gap-1">
+            <button onClick={() => onAdjust(-1)} aria-label={`One fewer ${b.vialMg} mg`}
+              className="flex h-6 w-6 items-center justify-center rounded-lg"
+              style={{ background: 'var(--surface-solid)', color: 'var(--muted)' }}>
+              <Minus size={12} />
+            </button>
+            <button onClick={() => onAdjust(1)} aria-label={`One more ${b.vialMg} mg`}
+              className="flex h-6 w-6 items-center justify-center rounded-lg"
+              style={{ background: 'var(--surface-solid)', color: 'var(--lime)' }}>
+              <Plus size={12} />
+            </button>
+          </div>
         </div>
       </div>
 
-      <div className="mt-2 flex gap-1.5">
+      <div className="mt-2.5 flex gap-1.5">
         {canActivate && !isActive && (
           <button onClick={onActivate} data-testid="activate-batch"
             className="flex-1 rounded-lg py-1.5 text-[11px] font-black"
@@ -270,26 +293,66 @@ export function CoaButton({ batch: b }) {
 function AddBatchModal({ open, onClose }) {
   const peptides = useStore((s) => s.peptides)
   const addVial = useStore((s) => s.addVial)
+  const addPeptide = useStore((s) => s.addPeptide)
   const [picked, setPicked] = useState(null)
   const [query, setQuery] = useState('')
   const [draft, setDraft] = useState(null)
   const fileRef = useRef(null)
   const [coa, setCoa] = useState(null)
+  const [matrix, setMatrix] = useState(null)
+  const [loadFailed, setLoadFailed] = useState(false)
+
+  // lazy-load the 86-compound matrix only when the picker actually opens
+  useEffect(() => {
+    if (!open || matrix) return
+    let alive = true
+    loadMatrix().then((m) => alive && setMatrix(m)).catch(() => alive && setLoadFailed(true))
+    return () => { alive = false }
+  }, [open, matrix])
+
+  const existingById = useMemo(() => new Map(peptides.map((p) => [p.id, p])), [peptides])
 
   const results = useMemo(() => {
+    if (!matrix) return []
     const q = query.trim().toLowerCase()
-    return peptides.filter((p) => !q || p.name.toLowerCase().includes(q))
-  }, [peptides, query])
+    if (!q) return matrix.compounds
+    return matrix.compounds.filter(
+      (c) => c.name.toLowerCase().includes(q) || c.class.toLowerCase().includes(q) || c.id.includes(q)
+    )
+  }, [matrix, query])
 
   const close = () => { setPicked(null); setDraft(null); setQuery(''); setCoa(null); onClose() }
 
-  const choose = (p) => {
-    setPicked(p)
-    setDraft(blankBatch(p))
+  // Any of the 86 compounds can become a batch — it doesn't need to already be
+  // in the active stack. If it's already in the library, its own vial size
+  // seeds the form; otherwise the form starts blank and the user's own numbers
+  // are what get recorded.
+  const choose = (c) => {
+    const existing = existingById.get(c.id) || null
+    setPicked({ id: c.id, name: c.name, compound: c, existing })
+    setDraft(blankBatch(existing))
   }
 
   const save = async () => {
     if (!draft || !picked) return
+
+    let peptideId = picked.existing?.id || null
+    if (!peptideId) {
+      // Not in the library yet. Carry across whatever the evidence reference
+      // actually states — the same parser the "build my schedule" wizard uses,
+      // which only ever reads an explicit stated range and never invents one.
+      // Activating this batch later is what pulls it into the running stack.
+      const suggestion = wizardSuggestion(picked.compound)
+      const entry = toPeptide(suggestion, todayStr())
+      peptideId = addPeptide({
+        ...entry,
+        compoundClass: picked.compound.class,
+        charge: picked.compound.charge,
+        flags: picked.compound.flags || [],
+      })
+      if (!peptideId) peptideId = picked.compound.id
+    }
+
     let coaKey = null
     let coaMeta = null
     if (coa) {
@@ -298,7 +361,7 @@ function AddBatchModal({ open, onClose }) {
       if (ok) coaMeta = { name: coa.name, type: coa.type, size: coa.size }
       else coaKey = null
     }
-    addVial(picked.id, {
+    addVial(peptideId, {
       name: picked.name,
       vialMg: draft.vialMg || 0,
       vendor: draft.vendor,
@@ -318,30 +381,43 @@ function AddBatchModal({ open, onClose }) {
         <div className="space-y-3" data-testid="stock-picker">
           <div className="relative">
             <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--muted)' }} />
-            <input className="input pl-9" placeholder="Search your library…" aria-label="Search the library"
-              value={query} onChange={(e) => setQuery(e.target.value)} />
+            <input className="input !pl-9" placeholder={`Search ${matrix ? matrix.compounds.length : 86} compounds…`}
+              aria-label="Search the library" value={query} onChange={(e) => setQuery(e.target.value)} />
           </div>
-          <div className="space-y-1.5">
-            {results.map((p) => (
-              <button key={p.id} onClick={() => choose(p)}
-                className="flex w-full items-center gap-2 rounded-xl p-2.5 text-left"
-                style={{ background: 'var(--surface2)' }}>
-                <Package size={14} className="shrink-0" style={{ color: 'var(--lime)' }} />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[12px] font-bold">{p.name}</p>
-                  <p className="truncate text-[10px] font-semibold" style={{ color: 'var(--muted)' }}>
-                    {p.recon?.vialMg || 0} mg per vial in your library
-                  </p>
-                </div>
-                <ChevronRight size={14} style={{ color: 'var(--muted)' }} />
-              </button>
-            ))}
-            {results.length === 0 && (
-              <p className="py-4 text-center text-xs font-semibold" style={{ color: 'var(--muted)' }}>
-                Nothing in your library matches “{query}”.
-              </p>
-            )}
-          </div>
+          {loadFailed ? (
+            <p className="py-6 text-center text-xs font-semibold" style={{ color: 'var(--amber)' }}>
+              Couldn't load the compound list — try again in a moment.
+            </p>
+          ) : !matrix ? (
+            <p className="py-6 text-center text-xs font-semibold" style={{ color: 'var(--muted)' }}>Loading compounds…</p>
+          ) : (
+            <div className="max-h-[46vh] space-y-1.5 overflow-y-auto pr-0.5">
+              {results.map((c) => {
+                const existing = existingById.get(c.id)
+                return (
+                  <button key={c.id} onClick={() => choose(c)}
+                    className="flex w-full items-center gap-2 rounded-xl p-2.5 text-left"
+                    style={{ background: 'var(--surface2)' }}>
+                    <Package size={14} className="shrink-0" style={{ color: 'var(--lime)' }} />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[12px] font-bold">{c.name}</p>
+                      <p className="truncate text-[10px] font-semibold" style={{ color: 'var(--muted)' }}>
+                        {existing
+                          ? `${existing.recon?.vialMg || 0} mg per vial in your library`
+                          : `${c.class} · not in your stack`}
+                      </p>
+                    </div>
+                    <ChevronRight size={14} style={{ color: 'var(--muted)' }} />
+                  </button>
+                )
+              })}
+              {results.length === 0 && (
+                <p className="py-4 text-center text-xs font-semibold" style={{ color: 'var(--muted)' }}>
+                  No compound matches “{query}”.
+                </p>
+              )}
+            </div>
+          )}
         </div>
       ) : (
         <div className="space-y-3" data-testid="stock-batch-form">

@@ -247,7 +247,7 @@ describe('the low-stock alert', () => {
     const [a] = lowStockAlerts(args())
     expect(a).toBeTruthy()
     expect(a.name).toBe('Retatrutide')
-    expect(a.message).toMatch(/left across your vials — reorder/)
+    expect(a.message).toMatch(/left — restock by/)
   })
 
   it('says nothing when there is plenty', () => {
@@ -262,7 +262,7 @@ describe('the low-stock alert', () => {
   it('calls an empty shelf out separately', () => {
     const [a] = lowStockAlerts(args({ vials: [batch({ qtyOnHand: 0 })] }))
     expect(a.level).toBe('out')
-    expect(a.message).toMatch(/No sealed Retatrutide left/)
+    expect(a.message).toMatch(/No Retatrutide left/)
   })
 
   it('puts the most urgent first', () => {

@@ -15,6 +15,12 @@ export function addDaysStr(dateStr, days) {
   return fmt(addDays(parseISO(dateStr), days))
 }
 
+// "12 Jan 2027" — the human-readable form of a stored yyyy-MM-dd string.
+export function prettyDate(dateStr) {
+  if (!dateStr) return ''
+  return format(parseISO(dateStr), 'd MMM yyyy')
+}
+
 // Rungs from floor to ceiling, stepping by `step`, final rung clamped to ceiling.
 export function buildRungs(ladder) {
   if (!ladder || !(ladder.floor > 0)) return [0]

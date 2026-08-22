@@ -82,14 +82,13 @@ await step('the restock list, costs and consumables are all still there', async 
   }
 })
 
-await step('stock is grouped by peptide with a total and a breakdown', async () => {
+await step('stock is grouped by peptide with a batch + vial-count summary', async () => {
   await stock()
   if (!(await page.locator('[data-testid="stock-room"]').count())) throw new Error('no stock room')
   const groups = page.locator('[data-testid="stock-group"]')
   if ((await groups.count()) === 0) throw new Error('no stock groups')
   const t = await groups.first().textContent()
-  if (!/\d+ vials?:/.test(t)) throw new Error(`no total + breakdown on the first group: ${t.replace(/\s+/g, ' ').slice(0, 90)}`)
-  if (!/\d+× \d+ mg/.test(t)) throw new Error('the breakdown does not show quantity × size')
+  if (!/\d+ batch(es)? · \d+ sealed vial/.test(t)) throw new Error(`no batch + vial-count summary on the first group: ${t.replace(/\s+/g, ' ').slice(0, 90)}`)
 })
 
 await step('a second batch of the same peptide is held apart, not merged', async () => {
@@ -118,13 +117,18 @@ await step('a second batch of the same peptide is held apart, not merged', async
   }
 })
 
-await step('the group totals across batches of different sizes', async () => {
+await step('the group totals across batches of different sizes, kept separate as their own rows', async () => {
   await stock()
-  const t = await groupFor('Retatrutide').textContent()
+  const group = groupFor('Retatrutide')
+  const summary = await group.textContent()
   // seeded 2 × 20 mg plus the 3 × 10 mg just added
-  if (!/5 vials/.test(t)) throw new Error(`the total did not add up: ${t.replace(/\s+/g, ' ').slice(0, 100)}`)
-  if (!/20 mg/.test(t) || !/10 mg/.test(t)) throw new Error('the breakdown lost one of the sizes')
-  if (!/Vendor B/.test(t)) throw new Error('the breakdown lost the vendor')
+  if (!/5 sealed vial/.test(summary)) throw new Error(`the total did not add up: ${summary.replace(/\s+/g, ' ').slice(0, 100)}`)
+  await group.locator('button').first().click()
+  await page.waitForTimeout(600)
+  const rows = await group.locator('[data-testid="batch-row"]').allTextContents()
+  if (rows.length < 2) throw new Error(`expected separate batch rows, got ${rows.length}`)
+  if (!rows.some((r) => /20 mg/.test(r))) throw new Error('the 20 mg batch is missing its own row')
+  if (!rows.some((r) => /10 mg/.test(r) && /Vendor B/.test(r))) throw new Error('the 10 mg Vendor B batch is missing its own row')
 })
 
 await step('quantity adjusts up and down', async () => {

@@ -14,7 +14,7 @@
 // both the size and the provenance.
 
 import { unitsFor, concentration, isPremixed, isNasal } from './calc'
-import { currentRung, dosesPerWeek, addDaysStr } from './schedule'
+import { currentRung, dosesPerWeek, addDaysStr, prettyDate } from './schedule'
 import { toMg } from './calc'
 
 export const VIAL_STATES = ['sealed', 'active', 'finished']
@@ -176,6 +176,17 @@ export function activeVialStatus(peptide, tState, openVial, doseLogs = []) {
   }
 }
 
+/** How much drug (mg) is left in the vial currently in use — the open half of the total. */
+export function openVialRemainingMg(peptide, openVial, doseLogs = []) {
+  if (!peptide || isNasal(peptide)) return 0
+  const capacityMl = vialVolumeMl(peptide, openVial)
+  const vialMg = openVial?.vialMg ?? 0
+  if (!(capacityMl > 0) || !(vialMg > 0)) return 0
+  const drawnMl = mlDrawnSince(doseLogs, peptide.id, openVial?.activatedAt)
+  const leftMl = Math.max(0, capacityMl - drawnMl)
+  return Math.max(0, (leftMl / capacityMl) * vialMg)
+}
+
 // ------------------------------------------------------------ low stock
 
 /**
@@ -185,10 +196,29 @@ export function activeVialStatus(peptide, tState, openVial, doseLogs = []) {
  * drained and shows its own "doses left". Mixing the two produces a number that
  * looks fine right up until the moment it isn't.
  */
+/**
+ * The fraction of time a cycled compound is actually being taken. A 2-weeks-on/
+ * 2-weeks-off peptide burns through its shelf at half the rate its per-dose
+ * weekly figure suggests — an "ongoing" compound (either cycle field unset)
+ * is on 100% of the time.
+ */
+export function cycleDutyFraction(peptide) {
+  const on = peptide?.cycleOnDays || 0
+  const off = peptide?.cycleOffDays || 0
+  if (!on || !off) return 1
+  return on / (on + off)
+}
+
+/** Real mg/week burn rate at the current rung, discounted for cycle off-time. */
+export function weeklyUsageMg(peptide, tState) {
+  const { dose } = currentRung(peptide, tState)
+  const raw = dosesPerWeek(peptide.frequency) * toMg(dose, peptide.ladder?.unit)
+  return raw * cycleDutyFraction(peptide)
+}
+
 export function coverageFor(peptide, tState, vials = [], todayStr) {
   const mgOnShelf = sealedMg(vials, peptide.id)
-  const { dose } = currentRung(peptide, tState)
-  const perWeekMg = dosesPerWeek(peptide.frequency) * toMg(dose, peptide.ladder?.unit)
+  const perWeekMg = weeklyUsageMg(peptide, tState)
   if (!(perWeekMg > 0)) return { weeks: Infinity, days: Infinity, mgOnShelf, vials: sealedCount(vials, peptide.id) }
   const weeks = mgOnShelf / perWeekMg
   const days = Math.floor(weeks * 7)
@@ -212,30 +242,90 @@ export function coverageWords(weeks) {
 }
 
 /**
+ * How long a stretch of days reads naturally — under two weeks as days, under
+ * ten weeks as weeks, under two years as months, otherwise years. A single
+ * scale (weeks only) makes "412 days" and "3 days" both say "~59 weeks" and
+ * "0 weeks", neither of which anyone actually thinks in.
+ */
+export function durationWords(days) {
+  if (days == null || !isFinite(days)) return null
+  if (days <= 0) return 'out now'
+  if (days < 14) return `${days} day${days === 1 ? '' : 's'}`
+  if (days < 70) {
+    const weeks = Math.round(days / 7)
+    return `~${weeks} week${weeks === 1 ? '' : 's'}`
+  }
+  if (days < 730) {
+    const months = Math.round(days / 30.44)
+    return `~${months} month${months === 1 ? '' : 's'}`
+  }
+  const years = Math.round((days / 365.25) * 10) / 10
+  return `~${years} year${years === 1 ? '' : 's'}`
+}
+
+/**
+ * Everything you have of one peptide — the vial already open plus every sealed
+ * batch on the shelf — set against your real burn rate, cycle off-time
+ * included. This is the number that answers "when do I actually run out",
+ * which neither the open vial's countdown nor the sealed shelf's coverage
+ * answers alone.
+ */
+export function runwayFor(peptide, tState, openVial, vials = [], doseLogs = [], todayStr, leadDays = 30) {
+  if (!peptide || isNasal(peptide)) return null
+  const perWeekMg = weeklyUsageMg(peptide, tState)
+  const openMg = openVialRemainingMg(peptide, openVial, doseLogs)
+  const shelfMg = sealedMg(vials, peptide.id)
+  const totalMg = openMg + shelfMg
+
+  if (!(perWeekMg > 0)) {
+    return {
+      totalMg, perWeekMg: 0, days: Infinity, runOutDate: null, restockByDate: null,
+      low: false, out: totalMg <= 1e-9, vials: sealedCount(vials, peptide.id),
+    }
+  }
+
+  const days = Math.floor((totalMg / perWeekMg) * 7)
+  const runOutDate = todayStr ? addDaysStr(todayStr, days) : null
+  const restockByDate = runOutDate ? addDaysStr(runOutDate, -leadDays) : null
+
+  return {
+    totalMg: Math.round(totalMg * 100) / 100,
+    perWeekMg,
+    days,
+    runOutDate,
+    restockByDate,
+    low: days <= leadDays,
+    out: totalMg <= 1e-9,
+    vials: sealedCount(vials, peptide.id),
+  }
+}
+
+/**
  * Low-stock alerts across the stack, ordered by urgency.
  *
  * Tied to the restock lead time rather than a fixed threshold: the point at
  * which to reorder is the point at which a new order would not arrive in time,
- * and that depends on how long delivery takes.
+ * and that depends on how long delivery takes. Counts the open vial as well as
+ * the sealed shelf, so a peptide with nothing sealed but a nearly-full vial in
+ * use doesn't read as urgent when it isn't.
  */
-export function lowStockAlerts({ peptides = [], titration = {}, vials = [], todayStr, leadDays = 30 }) {
+export function lowStockAlerts({ peptides = [], titration = {}, vials = [], openVials = {}, doseLogs = [], todayStr, leadDays = 30 }) {
   const out = []
   for (const p of peptides) {
     if (isNasal(p)) continue
-    const cov = coverageFor(p, titration[p.id], vials, todayStr)
-    if (!isFinite(cov.days)) continue
-    if (cov.days > leadDays) continue
+    const r = runwayFor(p, titration[p.id], openVials[p.id], vials, doseLogs, todayStr, leadDays)
+    if (!r || !isFinite(r.days) || !r.low) continue
     out.push({
       peptideId: p.id,
       name: p.name,
-      days: cov.days,
-      weeks: cov.weeks,
-      vials: cov.vials,
-      runOutDate: cov.runOutDate,
-      level: cov.vials === 0 ? 'out' : cov.days <= Math.round(leadDays / 2) ? 'urgent' : 'soon',
-      message: cov.vials === 0
-        ? `No sealed ${p.name} left — reorder`
-        : `${coverageWords(cov.weeks)} of ${p.name} left across your vials — reorder`,
+      days: r.days,
+      runOutDate: r.runOutDate,
+      restockByDate: r.restockByDate,
+      vials: r.vials,
+      level: r.out ? 'out' : r.days <= Math.round(leadDays / 2) ? 'urgent' : 'soon',
+      message: r.out
+        ? `No ${p.name} left — reorder`
+        : `${durationWords(r.days)} of ${p.name} left — restock by ${prettyDate(r.restockByDate)}`,
     })
   }
   return out.sort((a, b) => a.days - b.days)
