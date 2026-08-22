@@ -49,6 +49,12 @@ const nav = async (label) => {
     await page.click(MORE_LINK[label])
   }
   await page.waitForTimeout(380)
+  // v21 split this screen into a stock room and the restock list, opening on
+  // the stock room. These suites are about the restock plan, so switch to it.
+  if (label === 'Stock') {
+    const tab = page.locator('[data-testid="stock-view"] button[aria-label="Restock list"]')
+    if (await tab.count()) { await tab.click(); await page.waitForTimeout(450) }
+  }
   // Home defaults to the current wall-clock slot; these suites want the morning
   if (label === 'Home') { await page.click('button:has-text("AM")'); await page.waitForTimeout(400) }
 }
@@ -69,7 +75,7 @@ await step('Home: log a dose via site picker fires XP + done state', async () =>
   await waitText(/Tap any spot to pick it|INJECT HERE|Next on your path/)
   await page.click('button:has-text("Log here")')
   await page.waitForTimeout(400)
-  await page.click('button:has-text("Done")') // v9: dismiss the written confirmation
+  await page.click('button:text-is("Done")') // v9: dismiss the written confirmation
   await page.waitForTimeout(400)
   await page.waitForTimeout(1000)
   const logged = await page.locator('button[aria-label$=" logged"]').count()

@@ -48,6 +48,12 @@ const nav = async (label) => {
     await page.click(MORE_LINK[label])
   }
   await page.waitForTimeout(380)
+  // v21 split this screen into a stock room and the restock list, opening on
+  // the stock room. These suites are about the restock plan, so switch to it.
+  if (label === 'Stock') {
+    const tab = page.locator('[data-testid="stock-view"] button[aria-label="Restock list"]')
+    if (await tab.count()) { await tab.click(); await page.waitForTimeout(450) }
+  }
   // Home defaults to the current wall-clock slot; these suites want the morning
   if (label === 'Home') { await page.click('button:has-text("AM")'); await page.waitForTimeout(400) }
 }
@@ -212,12 +218,21 @@ await step('accepting a suggestion routes into log-together → one site', async
 // still a feature and still reachable — put a compound on that route the way
 // the Library would, so this keeps testing the map rather than the seed.
 await step('logging an IM compound opens the IM map, not the SubQ one', async () => {
+  // the co-draw step before this leaves its written confirmation up
+  for (const sel of ['button:text-is("Done")', 'div.fixed.inset-0.z-50 button[aria-label="Close"]']) {
+    const el = page.locator(sel).first()
+    if (await el.count()) { await el.click({ timeout: 4000 }).catch(() => {}); await page.waitForTimeout(400) }
+  }
   await page.evaluate(() => {
     const KEY = 'peptide-command-center'
     const raw = JSON.parse(localStorage.getItem(KEY))
     const te = raw.state.peptides.find((p) => p.id === 'testosterone-e')
     te.route = 'IM'
     delete te.allowedZone
+    // and due today whatever day this runs on — the step is about the map, not
+    // about whether Mon/Thu happens to be today
+    te.frequency = 'daily'
+    te.scheduleWeekdays = [0, 1, 2, 3, 4, 5, 6]
     localStorage.setItem(KEY, JSON.stringify(raw))
   })
   await page.reload({ waitUntil: 'networkidle' })
@@ -246,7 +261,7 @@ await step('logging an IM compound opens the IM map, not the SubQ one', async ()
   await page.waitForTimeout(500)
   await page.click('button:has-text("Log here")')
   await page.waitForTimeout(400)
-  await page.click('button:has-text("Done")') // v9: dismiss the written confirmation
+  await page.click('button:text-is("Done")') // v9: dismiss the written confirmation
   await page.waitForTimeout(400)
   await page.waitForTimeout(900)
   const log = await page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center'))
@@ -262,6 +277,7 @@ await step('logging an IM compound opens the IM map, not the SubQ one', async ()
     const te = raw.state.peptides.find((p) => p.id === 'testosterone-e')
     te.route = 'SubQ'
     te.allowedZone = 'thigh'
+    te.frequency = '2xweek'
     localStorage.setItem(KEY, JSON.stringify(raw))
   })
   await page.reload({ waitUntil: 'networkidle' })

@@ -11,6 +11,7 @@ import { totalSpend, vialsFor } from '../lib/inventory'
 import { loadMatrix, LIB_TO_COMPOUND } from '../lib/mixMatrix'
 import { formatDose, round } from '../lib/calc'
 import CoachTip from './ui/CoachTip'
+import StockRoom from './StockRoom'
 import NumberField from './ui/NumberField'
 
 const money = (n) => `$${(Math.round((n || 0) * 100) / 100).toFixed(2)}`
@@ -27,6 +28,11 @@ const PRIORITY = {
  * — there is no second copy of the burn-rate, run-out or cost math anywhere.
  */
 export default function SuppliesTab() {
+  // Two halves of the same question: what you hold, and what to order. The
+  // stock room is the physical shelf; the restock list is the plan. They were
+  // one screen and kept colliding — the shelf is a list of objects, the plan is
+  // a list of decisions.
+  const [view, setView] = useState('stock')
   const peptides = useStore((s) => s.peptides)
   const titration = useStore((s) => s.titration)
   const vials = useStore((s) => s.vials)
@@ -73,6 +79,22 @@ export default function SuppliesTab() {
         </span>
       </div>
 
+      <div className="flex rounded-xl p-1" data-testid="stock-view" style={{ background: 'var(--surface2)' }}>
+        {[['stock', 'Stock room'], ['restock', 'Restock list']].map(([id, label]) => (
+          <button key={id} onClick={() => setView(id)} aria-label={label}
+            className="relative flex-1 rounded-lg py-2 text-xs font-black">
+            {view === id && (
+              <motion.span layoutId="stock-view-pill" className="absolute inset-0 rounded-lg"
+                style={{ backgroundImage: 'linear-gradient(135deg, var(--lime), var(--lime-deep))' }} />
+            )}
+            <span className="relative" style={{ color: view === id ? '#0c1200' : 'var(--muted)' }}>{label}</span>
+          </button>
+        ))}
+      </div>
+
+      {view === 'stock' && <StockRoom />}
+
+      {view === 'restock' && (<>
       <CoachTip id="supplies-intro" tone="indigo">
         Counted from your actual schedule, not an average: doses in an off-cycle stretch cost nothing,
         and a co-draw needs one syringe between them. Every quantity is editable.
@@ -141,6 +163,7 @@ export default function SuppliesTab() {
         Costs come from what you've recorded paying per vial, plus editable unit prices for consumables.
         Personal tracking tool — not medical advice, and not a purchasing recommendation.
       </p>
+      </>)}
     </div>
   )
 }

@@ -41,7 +41,7 @@ const more = async (label) => {
 // swallows the next click.
 const closeSheet = async () => {
   for (let i = 0; i < 3; i++) {
-    const done = page.locator('button:has-text("Done")').first()
+    const done = page.locator('button:text-is("Done")').first()
     if (await done.count()) { await done.click({ timeout: 4000 }).catch(() => {}); await page.waitForTimeout(400); continue }
     const x = page.locator('button[aria-label="Close"]').first()
     if (await x.count()) { await x.click({ timeout: 4000 }).catch(() => {}); await page.waitForTimeout(400); continue }

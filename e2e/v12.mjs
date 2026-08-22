@@ -48,6 +48,12 @@ const nav = async (label) => {
     await page.click(MORE_LINK[label])
   }
   await page.waitForTimeout(380)
+  // v21 split this screen into a stock room and the restock list, opening on
+  // the stock room. These suites are about the restock plan, so switch to it.
+  if (label === 'Stock') {
+    const tab = page.locator('[data-testid="stock-view"] button[aria-label="Restock list"]')
+    if (await tab.count()) { await tab.click(); await page.waitForTimeout(450) }
+  }
   // Home defaults to the current wall-clock slot; these suites want the morning
   if (label === 'Home') { await page.click('button:has-text("AM")'); await page.waitForTimeout(400) }
 }
@@ -261,14 +267,16 @@ await step('an expected delivery silences the low-stock alert and reaches the ca
   await bell.waitFor({ timeout: 15000 })
   await bell.click()
   await page.waitForTimeout(500)
-  await waitText(/runs out in ~\d+d/, 15000)
+  // v21 reworded this off the sealed shelf: "~N weeks of X left across your
+  // vials — reorder", with the delivery line replacing it once one is expected.
+  await waitText(/of Tesamorelin left|delivery expected/, 15000)
   const home = await page.textContent('body')
   if (!new RegExp(`delivery expected ${soon}`).test(home)) {
     const shown = await page.evaluate(() => [...document.querySelectorAll('[data-testid="alert-panel"] button')]
       .map((b) => b.textContent.trim()).filter((x) => /runs out|expire|delivery/i.test(x)))
     throw new Error(`no delivery on the Home alert (eta ${soon}) — alerts read: ${JSON.stringify(shown)}`)
   }
-  if (/Tesamorelin runs out in ~\d+d — restock soon/.test(home)) throw new Error('the plain restock nag is still there')
+  if (/of Tesamorelin left across your vials — reorder/.test(home)) throw new Error('the plain restock nag is still there')
   await page.keyboard.press('Escape')
   await page.waitForTimeout(400)
 
@@ -385,7 +393,7 @@ await step('start date and review build the schedule without wiping anything', a
   if (!/updates existing/.test(review)) throw new Error(`review does not flag existing entries — got: ${review.slice(0, 300)}`)
   await wiz('button:has-text("Build my schedule")').click()
   await waitText(/set up/, 15000)
-  await wiz('button:has-text("Done")').click()
+  await wiz('button:text-is("Done")').click()
   await page.waitForTimeout(800)
 
   const after = await state()
@@ -464,8 +472,8 @@ await step('"start over" clears the stack but keeps the history', async () => {
   await wiz('button:has-text("Review")').click()
   await wiz('button:has-text("Build my schedule")').waitFor({ timeout: 15000 })
   await wiz('button:has-text("Build my schedule")').click()
-  await wiz('button:has-text("Done")').waitFor({ timeout: 15000 })
-  await wiz('button:has-text("Done")').click()
+  await wiz('button:text-is("Done")').waitFor({ timeout: 15000 })
+  await wiz('button:text-is("Done")').click()
   await page.waitForTimeout(900)
   const s = await state()
   if (s.peptides.length !== 1 || s.peptides[0].id !== 'kpv') {

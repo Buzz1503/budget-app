@@ -47,7 +47,7 @@ const openPicker = async () => {
   await waitText(/INJECT HERE|Next on your path/, 12000)
 }
 const closeAny = async () => {
-  for (const sel of ['[data-testid="site-detail"] button[aria-label="Close"]', 'button:has-text("Done")', 'div.fixed.inset-0.z-50 button[aria-label="Close"]']) {
+  for (const sel of ['[data-testid="site-detail"] button[aria-label="Close"]', 'button:text-is("Done")', 'div.fixed.inset-0.z-50 button[aria-label="Close"]']) {
     const b = page.locator(sel).first()
     if (await b.count()) { await b.click(); await page.waitForTimeout(400) }
   }

@@ -40,6 +40,13 @@ const nav = async (label) => {
   await waitText(TAB_MARK[label])
   await page.waitForTimeout(250)
 }
+// v21 split this screen into a stock room and the restock list, opening on the
+// stock room. These checks are about the restock plan, so switch to it first.
+const toRestockList = async () => {
+  await page.waitForTimeout(500)
+  const tab = page.locator('[data-testid="stock-view"] button[aria-label="Restock list"]')
+  if (await tab.count()) { await tab.click(); await page.waitForTimeout(450) }
+}
 const closeModal = async () => {
   const close = modal().locator('button[aria-label="Close"]')
   if (await close.count()) await close.first().click()
@@ -172,6 +179,7 @@ await step('event markers appear on the calendar', async () => {
   // reconstitute a vial so an expiry marker exists, then look for it
   await nav('More')
   await page.click('text=Vials, cost, expiry')
+  await toRestockList()
   // NB: "Stock & restock" is also the More-hub link's own label, so waiting on
   // it would match the outgoing screen. Wait for text only this screen renders.
   await waitText(/soonest to run out first|Nothing with a set protocol/)
@@ -216,6 +224,7 @@ await step('Stock and restock are one screen', async () => {
   const stockish = links.filter((l) => /stock/i.test(l))
   if (stockish.length !== 1) throw new Error(`More lists ${stockish.length} stock screens: ${stockish.join(', ')}`)
   await page.click('text=Vials, cost, expiry')
+  await toRestockList()
   // NB: "Stock & restock" is also the More-hub link's own label, so waiting on
   // it would match the outgoing screen. Wait for text only this screen renders.
   await waitText(/soonest to run out first|Nothing with a set protocol/)

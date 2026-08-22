@@ -63,7 +63,7 @@ await step('seed doses, a symptom check-in and a photo blob', async () => {
   await waitText(/Tap any spot to pick it|INJECT HERE|Next on your path/)
   await page.click('button:has-text("Log here")')
   await page.waitForTimeout(400)
-  await page.click('button:has-text("Done")') // v9: dismiss the written confirmation
+  await page.click('button:text-is("Done")') // v9: dismiss the written confirmation
   await page.waitForTimeout(400)
   await page.waitForTimeout(800)
   // a photo blob straight into IndexedDB, so backup has something binary to carry

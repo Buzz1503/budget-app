@@ -76,6 +76,9 @@ function initialState() {
     // not a dose: nothing was drawn, nothing left the vial, and adherence has
     // to be able to tell the two apart from a plain miss.
     skips: [],
+    // Vials that have been used up. Kept as a record rather than deleted: it is
+    // the only trace of how long a vial actually lasted.
+    finishedVials: [],
     coachMarks: {}, // one-time beginner tips already seen, by id
     // The week whose recap has already been read on Home, as its Monday date.
     // Stored rather than derived so dismissing it holds until the week turns.
@@ -158,7 +161,16 @@ const useStore = create(
         }))
         return id
       },
-      removePeptide(id) {
+      /**
+       * Take a compound out of the running stack.
+       *
+       * `keepStock` decides what happens to the vials you physically own. When
+       * a finished vial is not replaced the compound stops running, but the
+       * sealed boxes are still in the drawer — deleting them would be the app
+       * throwing away a record of your own property. Removing it deliberately
+       * from the Library is the other case, where clearing it out is the point.
+       */
+      removePeptide(id, { keepStock = false } = {}) {
         set((s) => {
           const titration = { ...s.titration }
           const openVials = { ...s.openVials }
@@ -166,7 +178,7 @@ const useStore = create(
           delete openVials[id]
           return {
             peptides: s.peptides.filter((p) => p.id !== id),
-            vials: s.vials.filter((v) => v.peptideId !== id),
+            vials: keepStock ? s.vials : s.vials.filter((v) => v.peptideId !== id),
             doseLogs: s.doseLogs.filter((l) => l.peptideId !== id),
             titration,
             openVials,
@@ -393,13 +405,102 @@ const useStore = create(
         return true
       },
 
-      // ---------- inventory ----------
+      // ---------- stock room ----------
+      // A batch is a group of identical sealed vials — same peptide, same size,
+      // same vendor. Several batches of one peptide are normal and stay apart:
+      // a 10 mg from one vendor and a 20 mg from another are different things
+      // to draw from, and one merged number would lose both facts.
       addVial(peptideId, data) {
         const vial = {
-          id: `vial-${Date.now()}`, peptideId, vialMg: 10, costAud: 0, vendor: '', lot: '',
+          id: `vial-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+          peptideId, vialMg: 10, costAud: 0, vendor: '', lot: '',
+          sealedExpiry: '', coaKey: null,
           qtyPurchased: 1, qtyOnHand: 1, ...data,
         }
         set((s) => ({ vials: [...s.vials, vial] }))
+        return vial.id
+      },
+      /** Bought more, was given some, binned one — a signed nudge either way. */
+      adjustVialQty(id, delta) {
+        set((s) => ({
+          vials: s.vials.map((v) => {
+            if (v.id !== id) return v
+            const qtyOnHand = Math.max(0, (v.qtyOnHand || 0) + delta)
+            // buying more raises the purchased total too, so cost-per-mg stays
+            // honest; binning one does not un-buy it
+            const qtyPurchased = delta > 0
+              ? (v.qtyPurchased ?? v.qtyOnHand ?? 0) + delta
+              : (v.qtyPurchased ?? v.qtyOnHand ?? 0)
+            return { ...v, qtyOnHand, qtyPurchased }
+          }),
+        }))
+      },
+      setBatchCoa(id, coaKey, coaMeta = null) {
+        set((s) => ({
+          vials: s.vials.map((v) => (v.id === id ? { ...v, coaKey, coaMeta } : v)),
+        }))
+      },
+
+      /**
+       * Pull one sealed vial out of a batch and make it the active vial.
+       *
+       * The library's dosing, ladder, cycle and water carry across untouched —
+       * only the vial size follows the batch, which is what makes the units
+       * recompute when a 10 mg is replaced by a 20 mg.
+       */
+      activateBatch(peptideId, batchId) {
+        const s = get()
+        const batch = s.vials.find((v) => v.id === batchId && v.peptideId === peptideId)
+        if (!batch || (batch.qtyOnHand || 0) <= 0) return false
+        const p = s.peptides.find((x) => x.id === peptideId)
+        if (!p) return false
+        const t = todayStr()
+        set({
+          vials: s.vials.map((v) => (v.id === batchId ? { ...v, qtyOnHand: v.qtyOnHand - 1 } : v)),
+          peptides: s.peptides.map((x) => (
+            x.id === peptideId ? { ...x, recon: { ...x.recon, vialMg: batch.vialMg } } : x
+          )),
+          openVials: {
+            ...s.openVials,
+            [peptideId]: {
+              remainingMg: batch.vialMg,
+              vialMg: batch.vialMg,
+              batchId,
+              vendor: batch.vendor || '',
+              lot: batch.lot || '',
+              reconstitutedAt: t,
+              // the clock the "doses left" count reads from — only doses logged
+              // after this instant came out of this vial
+              activatedAt: new Date().toISOString(),
+            },
+          },
+        })
+        return true
+      },
+
+      /**
+       * The vial in use is done. Nothing else is decremented — finishing is not
+       * consuming, and picking a replacement is what takes one off the shelf.
+       */
+      finishVial(peptideId) {
+        const s = get()
+        const open = s.openVials[peptideId]
+        set({
+          openVials: {
+            ...s.openVials,
+            [peptideId]: { remainingMg: 0, vialMg: open?.vialMg ?? null, batchId: null, reconstitutedAt: null, activatedAt: null, finished: true },
+          },
+          finishedVials: [...(s.finishedVials || []), {
+            id: `fin-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+            peptideId,
+            name: s.peptides.find((x) => x.id === peptideId)?.name || '',
+            vialMg: open?.vialMg ?? null,
+            batchId: open?.batchId || null,
+            activatedAt: open?.activatedAt || null,
+            finishedAt: new Date().toISOString(),
+            date: todayStr(),
+          }],
+        })
       },
       updateVial(id, patch) {
         set((s) => ({ vials: s.vials.map((v) => (v.id === id ? { ...v, ...patch } : v)) }))
@@ -813,7 +914,7 @@ const useStore = create(
     }),
     {
       name: 'peptide-command-center', // storage key is history — renaming it would orphan existing data
-      version: 6,
+      version: 7,
       storage: createJSONStorage(() => safeStorage),
       // Saves written before a release can't pick new library entries up from
       // the seed, so each version bump backfills them here — once. Deleting one
@@ -824,10 +925,30 @@ const useStore = create(
       //   v4: oral supplements
       //   v5: thigh-only zone on the reaction-prone compounds
       //   v6: skipped doses
+      //   v7: batch stock room + the active vial's own clock
       migrate: (persisted, from) => {
-        if (!persisted || from >= 6) return persisted
+        if (!persisted || from >= 7) return persisted
         const s = { ...persisted }
         const t = todayStr()
+        if (from < 7) {
+          s.finishedVials = s.finishedVials || []
+          // Existing rows are already one-batch-per-peptide; they just predate
+          // the extra fields. Nothing is restructured — the array always allowed
+          // several rows per peptide, there was simply no way to add them.
+          s.vials = (s.vials || []).map((v) => ({
+            sealedExpiry: '', coaKey: null, coaMeta: null, ...v,
+          }))
+          // The active vial gains the clock the "doses left" count reads from.
+          // Backdated to when it was reconstituted where that is known, so an
+          // existing part-used vial does not suddenly read as full.
+          s.openVials = Object.fromEntries(
+            Object.entries(s.openVials || {}).map(([id, o]) => [id, {
+              ...o,
+              vialMg: o?.vialMg ?? (s.peptides || []).find((p) => p.id === id)?.recon?.vialMg ?? null,
+              activatedAt: o?.activatedAt || (o?.reconstitutedAt ? `${o.reconstitutedAt}T00:00:00.000Z` : null),
+            }])
+          )
+        }
         if (from < 6) s.skips = s.skips || []
         if (from < 5) {
           // Only set a zone where the save has none — a peptide the user has
@@ -905,6 +1026,7 @@ const useStore = create(
         supplements: persisted?.supplements || current.supplements,
         supplementLogs: persisted?.supplementLogs || current.supplementLogs,
         skips: persisted?.skips || current.skips,
+        finishedVials: persisted?.finishedVials || current.finishedVials,
       }),
       onRehydrateStorage: () => (state) => {
         state?.enrichLibraryFromReference?.()

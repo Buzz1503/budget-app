@@ -126,12 +126,16 @@ export function seedVials(peptides) {
   return peptides.map((p) => ({
     id: `vial-${p.id}`,
     peptideId: p.id,
+    name: p.name,
     vialMg: p.recon.vialMg,
     costAud: SEED_COSTS[p.id] ?? 0,
     vendor: '',
     lot: '',
     qtyPurchased: 2,
     qtyOnHand: 2,
+    sealedExpiry: '',
+    coaKey: null,
+    coaMeta: null,
   }))
 }
 
@@ -144,7 +148,14 @@ export function seedTitration(peptides, todayStr) {
 // One open vial per peptide, not yet reconstituted (expiry timer starts on reconstitution).
 export function seedOpenVials(peptides) {
   const o = {}
-  for (const p of peptides) o[p.id] = { remainingMg: p.recon.vialMg, reconstitutedAt: null }
+  // `activatedAt` is null until a vial is actually put into use — the "doses
+  // left" count reads from it, and a vial nobody has opened has drawn nothing.
+  for (const p of peptides) {
+    o[p.id] = {
+      remainingMg: p.recon.vialMg, vialMg: p.recon.vialMg,
+      batchId: null, reconstitutedAt: null, activatedAt: null,
+    }
+  }
   return o
 }
 

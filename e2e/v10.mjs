@@ -54,6 +54,12 @@ const nav = async (label) => {
     await page.click(MORE_LINK[label])
   }
   await page.waitForTimeout(380)
+  // v21 split this screen into a stock room and the restock list, opening on
+  // the stock room. These suites are about the restock plan, so switch to it.
+  if (label === 'Stock') {
+    const tab = page.locator('[data-testid="stock-view"] button[aria-label="Restock list"]')
+    if (await tab.count()) { await tab.click(); await page.waitForTimeout(450) }
+  }
   // Home defaults to the current wall-clock slot; these suites want the morning
   if (label === 'Home') { await page.click('button:has-text("AM")'); await page.waitForTimeout(400) }
 }
@@ -288,7 +294,7 @@ await step('logging it skips the site picker and records sprays', async () => {
   await waitText(/Logged — /)
   const confirm = await modal().textContent()
   if (!/sprays? \(\d+ mcg\)/.test(confirm)) throw new Error('confirmation does not name the spray dose')
-  await modal().locator('button:has-text("Done")').click()
+  await modal().locator('button:text-is("Done")').click()
   await page.waitForTimeout(600)
   const log = await page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center'))
     .state.doseLogs.filter((l) => l.peptideId === 'semax').pop())

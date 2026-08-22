@@ -217,7 +217,7 @@ await step('logging confirms in words and names the next spot', async () => {
     .state.doseLogs.slice(-1)[0])
   if (logged.siteId !== 'thr-li') throw new Error(`logged to ${logged.siteId}, expected thr-li`)
   await page.screenshot({ path: `${SHOT}/v9-04-confirmation.png` })
-  await modal().locator('button:has-text("Done")').click()
+  await modal().locator('button:text-is("Done")').click()
   await page.waitForTimeout(500)
 })
 

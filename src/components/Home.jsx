@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Check, Info, Clock, AlertTriangle, Combine, Sun, Moon, ChevronRight, MapPin, Syringe, X, Circle, CheckCircle2, ShieldCheck, Layers, Wind, Bell, Zap, Pill, SkipForward, Undo2 } from 'lucide-react'
+import { Check, Info, Clock, AlertTriangle, Combine, Sun, Moon, ChevronRight, MapPin, Syringe, X, Circle, CheckCircle2, ShieldCheck, Layers, Wind, Bell, Zap, Pill, SkipForward, Undo2, PackageOpen, Droplet } from 'lucide-react'
 import useStore, { todayStr } from '../store/useStore'
 import { cycleInfo, currentRung, stepUpDue } from '../lib/schedule'
 import { isDueToday, slotOf, isDueSlot, currentSlot, slotIsFlexible, needsProtocolSetup } from '../lib/daily'
@@ -22,6 +22,8 @@ import CoDrawModal from './CoDrawModal'
 import { NextSevenDays } from './CalendarTab'
 import { dueInSlot, takenOn, FORM_LABEL } from '../lib/supplements'
 import { skippedOn, supplementsSkippedOn, skipFor, SKIP_REASONS, REASON_LABEL } from '../lib/skips'
+import { activeVialStatus, coverageFor, coverageWords } from '../lib/stock'
+import ReplaceVial from './ReplaceVial'
 import { FormIcon } from './SupplementsTab'
 import { HomeInsightCard, HomeRecapCard } from './InsightsTab'
 
@@ -73,6 +75,9 @@ export default function Home({ goTo }) {
   const skippedSupps = useMemo(() => supplementsSkippedOn(skips, t), [skips, t])
   // the sheet that asks why, shared by both kinds
   const [skipping, setSkipping] = useState(null)
+  // the peptide whose vial just ran out, and which now needs a replacement
+  const finishVial = useStore((s) => s.finishVial)
+  const [replacing, setReplacing] = useState(null)
   const slotSupps = useMemo(() => dueInSlot(supplements, slot), [supplements, slot])
   const takenIds = useMemo(() => takenOn(supplementLogs, t), [supplementLogs, t])
   const suppDone = slotSupps.filter((x) => takenIds.has(x.id)).length
@@ -195,15 +200,25 @@ export default function Home({ goTo }) {
             : `${p.name} vial expires in ${exp.daysLeft}d (fridge)`,
         })
       }
-      const ro = runOutInfo(p, titration[p.id], vials, openVials[p.id], t)
-      if (ro.daysLeft <= settings.restockLeadDays && isFinite(ro.daysLeft)) {
+      // Counted off the SEALED shelf rather than everything you own: the open
+      // vial is already draining and reports its own doses-left on the card.
+      // Adding the two together produces a number that reads fine right up
+      // until the morning there is nothing to open.
+      const cov = coverageFor(p, titration[p.id], vials, t)
+      if (isFinite(cov.days) && cov.days <= settings.restockLeadDays) {
         // an order already on the way answers this — say so instead of nagging,
         // and drop it entirely once the delivery date has passed
-        const covered = deliveryCovers(restock, p.id, ro.runOutDate, t)
+        const covered = deliveryCovers(restock, p.id, cov.runOutDate, t)
         if (covered?.arrived) continue
         out.push(covered
-          ? { id: `stock-${p.id}`, kind: 'ordered', text: `${p.name} runs out in ~${ro.daysLeft}d — delivery expected ${covered.eta}` }
-          : { id: `stock-${p.id}`, kind: 'stock', text: `${p.name} runs out in ~${ro.daysLeft}d — restock soon` })
+          ? { id: `stock-${p.id}`, kind: 'ordered', text: `${coverageWords(cov.weeks)} of ${p.name} left — delivery expected ${covered.eta}` }
+          : {
+            id: `stock-${p.id}`,
+            kind: 'stock',
+            text: cov.vials === 0
+              ? `No sealed ${p.name} left across your vials — reorder`
+              : `${coverageWords(cov.weeks)} of ${p.name} left across your vials — reorder`,
+          })
       }
     }
     return out
@@ -340,6 +355,8 @@ export default function Home({ goTo }) {
             skipReason={skipFor(skips, p.id, t)?.reason}
             onSkip={() => setSkipping({ kind: 'peptide', ids: [p.id], name: p.name })}
             onUnskip={() => unskipToday(p.id)}
+            vial={activeVialStatus(p, titration[p.id], openVials[p.id], doseLogs)}
+            onFinishVial={() => { finishVial(p.id); setReplacing(p.id) }}
             beckon={firstRun && i === slotDue.findIndex((x) => !loggedToday.has(x.id))} />
         ))}
       </div>
@@ -380,6 +397,10 @@ export default function Home({ goTo }) {
 
       {/* keeps the last card clear of the floating co-draw bar */}
       {selected.size > 0 && <div aria-hidden className="h-20" />}
+
+      <ReplaceVial
+        open={!!replacing} peptideId={replacing}
+        onClose={() => setReplacing(null)} goTo={goTo} />
 
       <SkipSheet
         target={skipping}
@@ -768,7 +789,7 @@ function ShotRow({ group, onAccept }) {
   )
 }
 
-function DueCard({ peptide: p, index, done, titration, partners, slot, onLog, goTo, today, doseLogs, beckon, selected, onToggleSelect, selectMode, skipped, skipReason, onSkip, onUnskip }) {
+function DueCard({ peptide: p, index, done, titration, partners, slot, onLog, goTo, today, doseLogs, beckon, selected, onToggleSelect, selectMode, skipped, skipReason, onSkip, onUnskip, vial, onFinishVial }) {
   const tState = titration[p.id]
   const { dose, level, maxLevel } = currentRung(p, tState)
   const nasal = isNasal(p)
@@ -842,6 +863,14 @@ function DueCard({ peptide: p, index, done, titration, partners, slot, onLog, go
                 <MapPin size={11} /> {SITE_BY_ID[lastSiteLog.siteId]?.label}
               </span>
             )}
+            {/* a heads-up, not an authority — your taps decide when a vial is
+                done, and this is only what the logs add up to */}
+            {vial?.dosesLeft != null && (
+              <span className="flex items-center gap-1" data-testid="doses-left"
+                style={{ color: vial.dosesLeft <= 2 ? 'var(--amber)' : 'var(--muted)' }}>
+                <Droplet size={11} /> ~{vial.dosesLeft} dose{vial.dosesLeft === 1 ? '' : 's'} left in this vial
+              </span>
+            )}
           </div>
         </div>
         {skipped ? (
@@ -854,15 +883,6 @@ function DueCard({ peptide: p, index, done, titration, partners, slot, onLog, go
           </motion.button>
         ) : (
           <div className="flex shrink-0 items-center gap-1.5">
-            {!done && (
-              <motion.button whileTap={{ scale: 0.9 }} onClick={onSkip} data-testid="skip-peptide"
-                className="flex h-14 w-11 shrink-0 flex-col items-center justify-center gap-0.5 rounded-2xl"
-                style={{ background: 'var(--surface2)', color: 'var(--muted)' }}
-                aria-label={`Skip ${p.name}`}>
-                <SkipForward size={16} />
-                <span className="text-[9px] font-black">Skip</span>
-              </motion.button>
-            )}
             <motion.button whileTap={{ scale: 0.9 }} disabled={done} onClick={onLog}
               className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-sm font-black ${done ? '' : 'btn-primary'}`}
               style={done ? { background: 'var(--surface2)', color: 'var(--lime)' } : undefined}
@@ -876,6 +896,28 @@ function DueCard({ peptide: p, index, done, titration, partners, slot, onLog, go
           </div>
         )}
       </div>
+
+      {/* Secondary actions sit under the row rather than beside Log: three
+          full-height buttons abreast pushed the name and the dose into
+          truncation at 390px, and the dose is the thing you came to read. */}
+      {!done && !skipped && (
+        <div className="mt-2.5 flex gap-1.5">
+          <motion.button whileTap={{ scale: 0.97 }} onClick={onSkip} data-testid="skip-peptide"
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 text-[11px] font-black"
+            style={{ background: 'var(--surface2)', color: 'var(--muted)' }}
+            aria-label={`Skip ${p.name}`}>
+            <SkipForward size={13} /> Skip
+          </motion.button>
+          {onFinishVial && !nasal && (
+            <motion.button whileTap={{ scale: 0.97 }} onClick={onFinishVial} data-testid="finish-vial"
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 text-[11px] font-black"
+              style={{ background: 'var(--surface2)', color: 'var(--amber)' }}
+              aria-label={`Finished vial: ${p.name}`}>
+              <PackageOpen size={13} /> Vial done
+            </motion.button>
+          )}
+        </div>
+      )}
 
       {skipped && (
         <p className="mt-2 flex items-center gap-1.5 text-[11px] font-bold" style={{ color: 'var(--violet)' }}>

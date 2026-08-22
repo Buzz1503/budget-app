@@ -66,7 +66,7 @@ const logFirstShot = async () => {
   await page.waitForTimeout(1000)
 }
 const closeSitePicker = async () => {
-  const done = page.locator('button:has-text("Done")').first()
+  const done = page.locator('button:text-is("Done")').first()
   if (await done.count()) await done.click()
   await page.waitForTimeout(400)
 }
