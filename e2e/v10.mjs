@@ -37,13 +37,12 @@ const PRIMARY_TABS = new Set(['Home', 'Calendar', 'Symptoms', 'Body', 'More'])
 const MORE_LINK = {
   Calculator: 'text=Reconstitution & syringe units',
   Mix: 'text=Can these two share a syringe',
-  Stock: 'text=Vials, cost, expiry',
-  Library: 'text=Your peptides, ladders',
-  'Right Now': 'text=What your stack is doing today',
+  Stock: 'text=Vials I own, run-out dates',
+  Protocol: 'text=Everything I’m on, at a glance',
+  'Right Now': 'text=What my protocol is doing for me today',
   History: 'text=Every dose, rates',
-  Settings: 'text=Theme, badges',
-  Needle: 'text=SubQ, IM and nasal',
-  Wizard: 'text=Guided setup with suggestions',
+  Settings: 'text=Theme, lead time, backup and reset',
+    Wizard: 'text=Add, remove or edit anything I take',
 }
 const nav = async (label) => {
   if (PRIMARY_TABS.has(label)) {
@@ -76,6 +75,29 @@ const planNote = async () => {
 // the due card for a peptide, identified by the Log button only it has
 const dueCard = (name) => page.locator('div.card', { hasText: name })
   .filter({ has: page.locator(`button[aria-label="Log ${name}"]`) }).first()
+
+
+// v23: route, ladder and schedule are edited in Build / rebuild — the one
+// editor — so these steps drive the wizard rather than the old Library card.
+const wizard = () => page.locator('div.fixed.inset-0.z-50 > div.card')
+const openEditor = async (name) => {
+  await nav('More')
+  await page.click('text=Build / rebuild my protocol')
+  await page.waitForTimeout(700)
+  const row = wizard().locator('[data-testid="manage-row"]').filter({ hasText: name }).first()
+  await row.locator('[data-testid="manage-edit"]').click()
+  await page.waitForTimeout(600)
+}
+const saveEditor = async () => {
+  await wizard().locator('button:has-text("Done editing")').click()
+  await page.waitForTimeout(400)
+  await wizard().locator('[data-testid="manage-save"]').click()
+  await page.waitForTimeout(400)
+  await wizard().locator('button:has-text("Save my protocol")').click()
+  await page.waitForTimeout(600)
+  await wizard().locator('button:text-is("Done")').click()
+  await page.waitForTimeout(700)
+}
 
 await page.goto(BASE, { waitUntil: 'networkidle' })
 await page.evaluate(() => localStorage.clear())
@@ -206,29 +228,24 @@ await step('a peptide with no MIX partner due says so instead', async () => {
 
 // ---------------- CHANGE 3 · intranasal ----------------
 await step('Semax and Selank offer an intranasal route; others do not', async () => {
-  await nav('More')
-  await page.click('text=Library')
-  await waitText(/Retatrutide/)
-  await page.click('button:has-text("Semax")')
+  await openEditor('Semax')
+  const semaxRoutes = await wizard().textContent()
+  if (!/Nasal spray/.test(semaxRoutes)) throw new Error('Semax has no intranasal option')
+  await wizard().locator('button[aria-label="Close"]').click()
   await page.waitForTimeout(500)
-  const opts = await page.locator('select').filter({ hasText: 'Subcutaneous' }).first().locator('option').allTextContents()
-  if (!opts.some((o) => /Intranasal \(spray\)/.test(o))) throw new Error(`Semax has no intranasal option: ${opts}`)
-  // an injectable-only peptide must not offer it
-  await page.click('button:has-text("Semax")')
-  await page.waitForTimeout(300)
-  await page.click('button:has-text("KPV")')
+
+  await openEditor('KPV')
+  const kpvRoutes = await wizard().textContent()
+  if (/Nasal spray/.test(kpvRoutes)) throw new Error('KPV should not offer an intranasal route')
+  await wizard().locator('button[aria-label="Close"]').click()
   await page.waitForTimeout(500)
-  const kpvOpts = await page.locator('select').filter({ hasText: 'Subcutaneous' }).first().locator('option').allTextContents()
-  if (kpvOpts.some((o) => /Intranasal/.test(o))) throw new Error('KPV should not offer an intranasal route')
-  await page.click('button:has-text("KPV")')
-  await page.waitForTimeout(300)
 })
 
 await step('switching Semax to nasal converts the dose to sprays', async () => {
-  await page.click('button:has-text("Semax")')
+  await openEditor('Semax')
+  await wizard().locator('button:has-text("Nasal spray")').click()
   await page.waitForTimeout(500)
-  await page.locator('select').filter({ hasText: 'Subcutaneous' }).first().selectOption('Nasal')
-  await page.waitForTimeout(600)
+  await saveEditor()
   const p = await page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center'))
     .state.peptides.find((x) => x.id === 'semax'))
   if (p.route !== 'Nasal') throw new Error(`route is ${p.route}`)
@@ -240,20 +257,22 @@ await step('switching Semax to nasal converts the dose to sprays', async () => {
 })
 
 await step('the nasal prep recipe is shown, with the exact numbers', async () => {
-  const body = await page.textContent('body')
+  // v23 removed the Needle guide; the recipe now sits beside the route switch
+  // in Build / rebuild, which is where it is actually needed.
+  await openEditor('Semax')
+  const body = await wizard().textContent()
   for (const want of [
-    /Reconstitute a 10 mg vial with 2 mL bacteriostatic water/,
-    /Transfer the entire 2 mL \(all 10 mg\) into a nasal spray bottle/,
-    /Add 3 mL sterile saline → final volume 5 mL/,
-    /10 mg ÷ 5 mL = 2 mg\/mL/,
-    /2,000 mcg\/mL/,
-    /200 mcg per spray/,
+    /10 mg vial/,
+    /2 mL BAC water/,
+    /3 mL saline/,
+    /5 mL/,
+    /200 mcg a spray/,
     /50 sprays/,
   ]) {
-    if (!want.test(body)) throw new Error(`recipe missing ${want}`)
+    if (!want.test(body)) throw new Error(`recipe missing ${want} — got: ${body.slice(0, 400)}`)
   }
-  if (!/1 spray = 200 mcg · 2 = 400 mcg · 3 = 600 mcg/.test(body)) throw new Error('spray reference table missing')
-  if (!/No needle/.test(body)) throw new Error('needle note not switched for the nasal route')
+  await wizard().locator('button[aria-label="Close"]').click()
+  await page.waitForTimeout(500)
 })
 await page.screenshot({ path: `${SHOT}/v10-04-nasal-recipe.png` })
 
@@ -307,13 +326,10 @@ await step('logging it skips the site picker and records sprays', async () => {
 await page.screenshot({ path: `${SHOT}/v10-05-nasal-log.png` })
 
 await step('switching back to SubQ restores an injectable ladder', async () => {
-  await nav('More')
-  await page.click('text=Library')
-  await waitText(/Semax/)
-  await page.click('button:has-text("Semax")')
+  await openEditor('Semax')
+  await wizard().locator('button:text-is("SubQ")').click()
   await page.waitForTimeout(500)
-  await page.locator('select').filter({ hasText: 'Subcutaneous' }).first().selectOption('SubQ')
-  await page.waitForTimeout(600)
+  await saveEditor()
   const p = await page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center'))
     .state.peptides.find((x) => x.id === 'semax'))
   if (p.route !== 'SubQ' || p.ladder.unit !== 'mcg') throw new Error(`did not switch back: ${p.route}/${p.ladder.unit}`)
@@ -336,7 +352,6 @@ await step('an existing save from before v10 gains the intranasal option', async
   await page.evaluate(() => {
     const raw = JSON.parse(localStorage.getItem('peptide-command-center'))
     raw.state.peptides = raw.state.peptides.map(({ intranasalCapable, ...p }) => p)
-    raw.state.needleNotes = raw.state.needleNotes.filter((n) => n.id !== 'nasal')
     raw.version = 1 // the shape a save written by v9 carries
     localStorage.setItem('peptide-command-center', JSON.stringify(raw))
   })
@@ -348,7 +363,6 @@ await step('an existing save from before v10 gains the intranasal option', async
     if (!s.peptides.find((p) => p.id === id)?.intranasalCapable) throw new Error(`${id} did not gain the flag`)
   }
   if (s.peptides.some((p) => p.id === 'kpv' && p.intranasalCapable)) throw new Error('flag applied too widely')
-  if (!s.needleNotes.some((n) => n.id === 'nasal')) throw new Error('nasal prep note not backfilled')
   if (!s.doseLogs?.length) throw new Error('the migration dropped existing logs')
   console.log('  migrated: Semax + Selank can now be switched to a spray')
 })

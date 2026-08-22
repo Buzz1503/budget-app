@@ -1,4 +1,5 @@
-// v18 — clean number inputs, 2 mL default, Symptoms redesign, Insights, Recap.
+// v18 — clean number inputs, 2 mL default, Symptoms redesign.
+// (Its Insights and Recap suites were removed in v23 with those features.)
 // Runs at 390×844 against a build (or the dev server) on BASE_URL.
 import { chromium } from 'playwright'
 import { mkdirSync } from 'fs'
@@ -58,10 +59,10 @@ if (await modal().count()) {
 // ================================================================ 1 · inputs
 
 await step('no numeric field anywhere renders as type=number', async () => {
-  const screens = ['calc', 'supplies', 'library', 'settings']
+  const screens = ['calc', 'supplies', 'protocol', 'settings']
   for (const s of screens) {
     await page.evaluate(() => localStorage.setItem('__probe', '1'))
-    await more({ calc: 'Calculator', supplies: 'Stock & restock', library: 'Library', settings: 'Settings' }[s])
+    await more({ calc: 'Calculator', supplies: 'Stock', protocol: 'Protocol overview', settings: 'Settings' }[s])
     const n = await page.locator('input[type="number"]').count()
     if (n > 0) throw new Error(`${s} still has ${n} type=number input(s)`)
   }
@@ -191,7 +192,7 @@ await step('an unassociated symptom logs anyway, with a soft note instead of a f
   const note = page.locator('[data-testid="unattributed-note"]')
   if (!(await note.count())) throw new Error('no soft note for an unattributed symptom')
   const t = await note.textContent()
-  if (!/not a known effect of your current stack/i.test(t)) throw new Error('the note does not say so plainly')
+  if (!/not a known effect of my current protocol/i.test(t)) throw new Error('the note does not say so plainly')
   if (!/logged anyway/i.test(t)) throw new Error('the note does not say it was logged regardless')
   await page.fill('input[placeholder*="Search" i]', '')
   await page.waitForTimeout(300)
@@ -345,158 +346,14 @@ await step('the 14-day heatmap has moved off the logging screen into History', a
 
 // ============================================================= 4 · Insights
 
-await step('Insights is reachable from More', async () => {
-  await more('Insights')
-  if (!(await page.locator('[data-testid="insights-view"]').count())) {
-    throw new Error('the Insights screen did not open')
-  }
-})
-
-await step('Insights is gated — a thin log produces no claims', async () => {
-  await more('Insights')
-  const locked = page.locator('[data-testid="insights-locked"]')
-  const cards = await page.locator('[data-testid="insight-card"]').count()
-  if (!(await locked.count()) && cards === 0) {
-    throw new Error('neither insights nor a "not enough data" explanation')
-  }
-  if (await locked.count()) {
-    const t = await locked.textContent()
-    if (!/not enough/i.test(t)) throw new Error('the empty state does not explain itself')
-  }
-})
-
-await step('the framing is on the screen, above the findings', async () => {
-  await more('Insights')
-  const caveat = page.locator('[data-testid="insights-caveat"]')
-  if (!(await caveat.count())) throw new Error('no caveat block')
-  const t = await caveat.textContent()
-  if (!/not proof of cause/i.test(t)) throw new Error('the caveat does not disclaim causation')
-  if (!/medical advice/i.test(t)) throw new Error('the caveat does not disclaim medical advice')
-})
-
-await step('no insight on screen claims a compound works', async () => {
-  await more('Insights')
-  const text = (await main()).toLowerCase()
-  for (const phrase of [' works for you', 'is working', 'proven', 'caused by', 'because of']) {
-    if (text.includes(phrase)) throw new Error(`Insights says "${phrase}"`)
-  }
-})
-
-await step('Insights fills in once there is enough logged data', async () => {
-  // seed 40 days of check-ins and two spaced measurements directly into the store
-  await page.evaluate(() => {
-    const KEY = 'peptide-command-center'
-    const raw = JSON.parse(localStorage.getItem(KEY))
-    const st = raw.state
-    const iso = (d) => d.toISOString().slice(0, 10)
-    const back = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return iso(d) }
-    const logs = []
-    for (let i = 0; i < 40; i++) {
-      const tags = i < 14
-        ? [{ id: 'nausea', label: 'Nausea', polarity: 'neg', severity: 'moderate' }]
-        : [{ id: 'energy_up', label: 'Energy', polarity: 'pos' }]
-      logs.push({ id: `seed-${i}`, date: back(i), tags, note: '', site: null, activePeptides: [] })
-    }
-    st.symptomLogs = logs
-    st.measurements = [
-      { id: 'm1', date: back(45), source: 'manual', weight: 95 },
-      { id: 'm2', date: back(2), source: 'manual', weight: 91.5 },
-    ]
-    st.doseLogs = Array.from({ length: 24 }, (_, i) => ({
-      id: `dl-${i}`, peptideId: st.peptides[0].id, date: back(i), doseValue: 1, unit: 'mg',
-    }))
-    localStorage.setItem(KEY, JSON.stringify({ ...raw, state: st }))
-  })
-  await page.reload({ waitUntil: 'networkidle' })
-  await page.waitForTimeout(700)
-  await more('Insights')
-  const cards = await page.locator('[data-testid="insight-card"]').count()
-  if (cards === 0) throw new Error('40 days of data still produced no insights')
-  await page.screenshot({ path: `${SHOT}/v18-insights.png`, fullPage: true })
-})
-
-await step('with real data, still nothing asserts causation', async () => {
-  await more('Insights')
-  const text = (await main()).toLowerCase()
-  for (const phrase of [' works', 'is working', 'proven', 'caused by', 'because of', 'you should']) {
-    if (text.includes(phrase)) throw new Error(`Insights says "${phrase}"`)
-  }
-})
-
-await step('a Home highlight card points at Insights', async () => {
-  await nav('Home')
-  await page.waitForTimeout(600)
-  const card = page.locator('[data-testid="home-insight"]')
-  if (!(await card.count())) throw new Error('no insight highlight on Home')
-  await card.click()
-  await page.waitForTimeout(700)
-  if (!(await page.locator('[data-testid="insights-view"]').count())) {
-    throw new Error('the Home card did not open Insights')
-  }
-})
-
-// ================================================================ 5 · Recap
-
-await step('the recap view opens from More and covers the week', async () => {
-  await more('Your week')
-  const view = page.locator('[data-testid="recap-view"]')
-  if (!(await view.count())) throw new Error('the recap screen did not open')
-  const t = await main()
-  if (!/Your week/i.test(t)) throw new Error('no week heading')
-})
-
-await step('the recap carries adherence, symptoms and what is coming', async () => {
-  await more('Your week')
-  const present = []
-  for (const id of ['recap-adherence', 'recap-symptoms', 'recap-coming', 'recap-body']) {
-    if (await page.locator(`[data-testid="${id}"]`).count()) present.push(id)
-  }
-  if (present.length < 2) throw new Error(`recap is nearly empty — only ${present.join(', ') || 'nothing'}`)
-  await page.screenshot({ path: `${SHOT}/v18-recap.png`, fullPage: true })
-})
-
-await step('the recap can look back at the completed week', async () => {
-  await more('Your week')
-  await page.click('button:has-text("Last week")')
-  await page.waitForTimeout(500)
-  if (!(await page.locator('[data-testid="recap-view"]').count())) throw new Error('switching period broke the view')
-})
-
-await step('the "Your week" card on Home is dismissible and stays dismissed', async () => {
-  // force the surfacing condition regardless of what day the suite runs on
-  await page.evaluate(() => {
-    const KEY = 'peptide-command-center'
-    const raw = JSON.parse(localStorage.getItem(KEY))
-    raw.state.recapSeen = null
-    // put a compound on a cycle that flipped yesterday
-    const p = raw.state.peptides[0]
-    const d = new Date(); d.setDate(d.getDate() - 11)
-    p.startDate = d.toISOString().slice(0, 10)
-    p.cycleOnDays = 10; p.cycleOffDays = 10
-    localStorage.setItem(KEY, JSON.stringify(raw))
-  })
-  await page.reload({ waitUntil: 'networkidle' })
-  await page.waitForTimeout(800)
-  await nav('Home')
-  const card = page.locator('[data-testid="home-recap"]')
-  if (!(await card.count())) throw new Error('the week card did not surface after a cycle flip')
-  await card.locator('button[aria-label="Dismiss weekly recap"]').click()
-  await page.waitForTimeout(500)
-  if (await page.locator('[data-testid="home-recap"]').count()) throw new Error('dismissing did nothing')
-  await page.reload({ waitUntil: 'networkidle' })
-  await page.waitForTimeout(800)
-  if (await page.locator('[data-testid="home-recap"]').count()) {
-    throw new Error('the dismissed card came back after a reload')
-  }
-})
-
-// ============================================================ 6 · 390px fit
+// v23 removed the Insights engine and the weekly recap. Their suites went with
+// them; everything else v18 shipped is still asserted above and below.
 
 await step('nothing overflows horizontally at 390px on any screen', async () => {
   const screens = [
     ['nav', 'Home'], ['nav', 'Calendar'], ['nav', 'Symptoms'], ['nav', 'Body'],
-    ['more', 'Insights'], ['more', 'Your week'], ['more', 'History & adherence'],
-    ['more', 'Stock & restock'], ['more', 'Calculator'],
+    ['more', 'Protocol overview'], ['more', 'History & adherence'],
+    ['more', 'Stock'], ['more', 'Calculator'],
   ]
   const bad = []
   for (const [how, label] of screens) {
@@ -509,7 +366,7 @@ await step('nothing overflows horizontally at 390px on any screen', async () => 
 })
 
 await step('the bottom nav does not cover the last card on the new screens', async () => {
-  for (const label of ['Insights', 'Your week']) {
+  for (const label of ['Protocol overview', 'History & adherence']) {
     await more(label)
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
     await page.waitForTimeout(450)
@@ -531,7 +388,7 @@ await step('the bottom nav does not cover the last card on the new screens', asy
 })
 
 await step('tap targets on the new screens are at least 40px tall', async () => {
-  await more('Your week')
+  await more('Protocol overview')
   const small = await page.evaluate(() => {
     const out = []
     for (const b of document.querySelectorAll('main button')) {

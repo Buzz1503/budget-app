@@ -14,10 +14,10 @@ export default function CalcTab() {
   // nasal peptides are dosed in sprays, not drawn — nothing to calculate here
   const peptides = useStore((s) => s.peptides).filter((p) => !isNasal(p))
   const addPeptide = useStore((s) => s.addPeptide)
-  // 'stack' pre-fills from a compound you're running; 'manual' is the same maths
+  // 'protocol' pre-fills from a compound you're running; 'manual' is the same maths
   // with nothing named and nothing saved — a vial in your hand that the app has
   // never heard of still needs working out.
-  const [source, setSource] = useState('stack')
+  const [source, setSource] = useState('protocol')
   const manual = source === 'manual'
   const [pid, setPid] = useState(peptides[0]?.id || '')
   const selected = manual ? null : peptides.find((p) => p.id === pid)
@@ -78,7 +78,7 @@ export default function CalcTab() {
 
       {/* where the numbers come from */}
       <div className="flex rounded-xl p-1" data-testid="calc-source" style={{ background: 'var(--surface2)' }}>
-        {[['stack', 'From my stack'], ['manual', 'Manual / any peptide']].map(([m, label]) => (
+        {[['protocol', 'From my protocol'], ['manual', 'Manual / any peptide']].map(([m, label]) => (
           <button key={m} onClick={() => { setSource(m); setSaved(false); setSaving(false) }}
             aria-label={label} className="relative flex-1 rounded-lg py-2 text-xs font-black">
             {source === m && (
@@ -93,10 +93,10 @@ export default function CalcTab() {
       {manual ? (
         <p className="px-1 text-[11px] font-semibold" data-testid="calc-manual-hint" style={{ color: 'var(--muted)' }}>
           No compound selected — enter whatever is on the vial in front of you. Nothing is saved
-          to your stack unless you ask.
+          to my protocol unless you ask.
         </p>
       ) : (
-        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1" data-testid="calc-stack-picker">
+        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1" data-testid="calc-protocol-picker">
           {peptides.map((p) => (
             <button key={p.id} onClick={() => pick(p.id)}
               className="shrink-0 rounded-full px-3.5 py-1.5 text-xs font-bold"
@@ -215,13 +215,13 @@ export default function CalcTab() {
         )}
       </div>
       {/* opt-in, never automatic: the point of manual mode is working out a vial
-          without it becoming part of the stack */}
+          without it becoming part of my protocol */}
       {manual && (
         <div data-testid="calc-save">
           {saved ? (
             <p className="flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-black"
               style={{ background: 'color-mix(in srgb, var(--lime) 16%, transparent)', color: 'var(--lime)' }}>
-              <Check size={14} /> Added to your stack
+              <Check size={14} /> Added to my protocol
             </p>
           ) : saving ? (
             <div className="card space-y-2 p-3">
@@ -263,7 +263,7 @@ export default function CalcTab() {
             <button onClick={() => setSaving(true)}
               className="flex w-full items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-black"
               style={{ background: 'var(--surface2)', color: 'var(--muted)' }}>
-              <Plus size={14} /> Save this to my stack
+              <Plus size={14} /> Save this to my protocol
             </button>
           )}
         </div>

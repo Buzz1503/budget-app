@@ -47,25 +47,25 @@ if (await modal().count()) { await page.click('button:has-text("Got it")'); awai
 
 // ========================================================= 1 · calculator
 
-await step('the calculator offers a stack mode and a manual mode', async () => {
+await step('the calculator offers a protocol mode and a manual mode', async () => {
   await more('Calculator')
   const toggle = page.locator('[data-testid="calc-source"]')
   if (!(await toggle.count())) throw new Error('no source toggle')
-  for (const label of ['From my stack', 'Manual / any peptide']) {
+  for (const label of ['From my protocol', 'Manual / any peptide']) {
     if (!(await toggle.locator(`button[aria-label="${label}"]`).count())) {
       throw new Error(`no "${label}" option`)
     }
   }
 })
 
-await step('stack mode still lists the stack; manual mode names nothing', async () => {
+await step('protocol mode still lists my protocol; manual mode names nothing', async () => {
   await more('Calculator')
-  if (!(await page.locator('[data-testid="calc-stack-picker"]').count())) {
-    throw new Error('stack mode is not showing the compound picker')
+  if (!(await page.locator('[data-testid="calc-protocol-picker"]').count())) {
+    throw new Error('protocol mode is not showing the compound picker')
   }
   await page.click('button[aria-label="Manual / any peptide"]')
   await page.waitForTimeout(500)
-  if (await page.locator('[data-testid="calc-stack-picker"]').count()) {
+  if (await page.locator('[data-testid="calc-protocol-picker"]').count()) {
     throw new Error('manual mode is still showing the compound picker')
   }
   if (!(await page.locator('[data-testid="calc-manual-hint"]').count())) {

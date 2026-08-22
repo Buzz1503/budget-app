@@ -27,7 +27,7 @@ const PRIORITY = {
  * runs out, and what to order. Every number on this page comes from `restockPlan`
  * — there is no second copy of the burn-rate, run-out or cost math anywhere.
  */
-export default function SuppliesTab() {
+export default function SuppliesTab({ goTo }) {
   // Two halves of the same question: what you hold, and what to order. The
   // stock room is the physical shelf; the restock list is the plan. They were
   // one screen and kept colliding — the shelf is a list of objects, the plan is
@@ -92,7 +92,7 @@ export default function SuppliesTab() {
         ))}
       </div>
 
-      {view === 'stock' && <StockRoom />}
+      {view === 'stock' && <StockRoom goTo={goTo} />}
 
       {view === 'restock' && (<>
       <CoachTip id="supplies-intro" tone="indigo">

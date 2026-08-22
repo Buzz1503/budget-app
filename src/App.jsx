@@ -7,22 +7,20 @@ import {
 import useStore, { onStorageError } from './store/useStore'
 import { haptic } from './lib/feedback'
 import Home from './components/Home'
-import Library from './components/Library'
+import ProtocolTab from './components/ProtocolTab'
 import CalendarTab from './components/CalendarTab'
 import CalcTab from './components/CalcTab'
 import MixTab from './components/MixTab'
 import SuppliesTab from './components/SuppliesTab'
-import NeedleTab from './components/NeedleTab'
 import SettingsTab from './components/SettingsTab'
 import RightNowTab from './components/RightNowTab'
 import SymptomsTab from './components/SymptomsTab'
 import BodyTab from './components/BodyTab'
 import HistoryTab from './components/HistoryTab'
-import InsightsTab, { RecapTab } from './components/InsightsTab'
 import SupplementsTab from './components/SupplementsTab'
 import ScheduleWizard from './components/ScheduleWizard'
 import MoreHub from './components/MoreHub'
-import CelebrationLayer from './components/CelebrationLayer'
+import Toast from './components/Toast'
 import UpdatePrompt from './components/UpdatePrompt'
 
 // full registry of every screen
@@ -34,14 +32,11 @@ const SCREENS = {
   symptoms: SymptomsTab,
   body: BodyTab,
   more: MoreHub,
-  library: Library,
+  protocol: ProtocolTab,
   calc: CalcTab,
   supplies: SuppliesTab,
-  needle: NeedleTab,
   settings: SettingsTab,
   history: HistoryTab,
-  insights: InsightsTab,
-  recap: RecapTab,
   supplements: SupplementsTab,
 }
 
@@ -56,15 +51,19 @@ const PRIMARY = [
 const PRIMARY_IDS = new Set(PRIMARY.map((t) => t.id))
 
 const SUB_TITLES = {
-  now: 'Right Now', library: 'Library', supplies: 'Stock & restock', calc: 'Calculator',
-  mix: 'Mix', needle: 'Needle guide', settings: 'Settings', history: 'History',
-  insights: 'Insights', recap: 'Your week', supplements: 'Supplements',
+  now: 'Right Now', protocol: 'My protocol', supplies: 'Stock', calc: 'Calculator',
+  mix: 'Mix', settings: 'Settings', history: 'History', supplements: 'Supplements',
 }
 
 // Screens that were their own destination in an earlier version. Old deep links
-// (and the step-up button on Home) still point at them, so they're mapped rather
-// than left to fall through to Home.
-const ALIASES = { schedule: 'library', inventory: 'supplies', restock: 'supplies' }
+// still point at them, so they're mapped rather than left to fall through to
+// Home. `library` is here because it was a real screen for many versions — its
+// reference content now lives in the compound sheet, and its "what am I on"
+// job is what My protocol does.
+const ALIASES = {
+  schedule: 'protocol', library: 'protocol', inventory: 'supplies', restock: 'supplies',
+  insights: 'history', recap: 'history', needle: 'settings',
+}
 
 export default function App() {
   const [tab, setTab] = useState('today')
@@ -174,7 +173,7 @@ export default function App() {
 
       <ScheduleWizard open={wizard} onClose={() => setWizard(false)} />
 
-      <CelebrationLayer />
+      <Toast />
       <UpdatePrompt />
 
       <AnimatePresence>

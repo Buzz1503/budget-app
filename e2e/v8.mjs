@@ -31,13 +31,12 @@ const PRIMARY_TABS = new Set(['Home', 'Calendar', 'Symptoms', 'Body', 'More'])
 const MORE_LINK = {
   Calculator: 'text=Reconstitution & syringe units',
   Mix: 'text=Can these two share a syringe',
-  Stock: 'text=Vials, cost, expiry',
-  Library: 'text=Your peptides, ladders',
-  'Right Now': 'text=What your stack is doing today',
+  Stock: 'text=Vials I own, run-out dates',
+  Protocol: 'text=Everything I’m on, at a glance',
+  'Right Now': 'text=What my protocol is doing for me today',
   History: 'text=Every dose, rates',
-  Settings: 'text=Theme, badges',
-  Needle: 'text=SubQ, IM and nasal',
-  Wizard: 'text=Guided setup with suggestions',
+  Settings: 'text=Theme, lead time, backup and reset',
+    Wizard: 'text=Add, remove or edit anything I take',
 }
 const nav = async (label) => {
   if (PRIMARY_TABS.has(label)) {
@@ -88,26 +87,28 @@ await step('app is named "Pepito +" in the title and the header', async () => {
 // ---------------- CHANGE 2 · Testosterone Enanthate ----------------
 // v20 moved it onto the SubQ map, into thigh fat, to keep a reaction-prone
 // compound off the belly. Everything else about it is unchanged.
-await step('Library lists it: 50 mg, 2×/week, SubQ, ongoing, fixed dose', async () => {
+await step('my protocol lists it: 50 mg, 2×/week, SubQ, ongoing', async () => {
   await nav('More')
-  await page.click('text=Library')
+  await page.click('text=Everything I’m on, at a glance')
   await waitText(new RegExp(TE))
-  const text = await libCard().textContent()
-  for (const want of [/50 mg/, /2×\/week/, /· SubQ/, /Ongoing/, /Fixed dose/]) {
-    if (!want.test(text)) throw new Error(`library card missing ${want} — got: ${text.slice(0, 220)}`)
+  const row = page.locator('[data-testid="protocol-row"]').filter({ hasText: TE }).first()
+  const text = await row.textContent()
+  for (const want of [/50 mg/, /2×\/week/, /SubQ/, /ongoing/]) {
+    if (!want.test(text)) throw new Error(`protocol row missing ${want} — got: ${text.slice(0, 220)}`)
   }
 })
 
-await step('its protocol is pre-mixed mg/mL, Mon+Thu, SubQ thigh, never co-drawn', async () => {
-  await page.click(`button:has-text("${TE}")`)
-  await waitText(/Pre-mixed solution/)
-  const body = await page.textContent('body')
-  if (!/250/.test(body)) throw new Error('concentration 250 mg/mL not shown')
-  if (!/0\.2 mL · 20 units/.test(body)) throw new Error('50 mg ÷ 250 mg/mL should read 0.2 mL · 20 units')
-  if (/BAC water \(mL\)/.test(body)) throw new Error('pre-mixed compound still offers a BAC water field')
-  // SubQ oil has its own needle line, distinct from both IM oil and aqueous SubQ
-  if (!/27–29 g/.test(body)) throw new Error('SubQ oil needle note missing')
-  if (!/Never co-drawn/.test(body)) throw new Error('co-draw exclusion not stated')
+await step('its detail sheet shows the concentration, and its flags are intact', async () => {
+  const row = page.locator('[data-testid="protocol-row"]').filter({ hasText: TE }).first()
+  await row.click()
+  await page.waitForTimeout(700)
+  await page.click('[data-testid="sheet-tab-mine"]')
+  await page.waitForTimeout(400)
+  const sheet = await page.locator('[data-testid="compound-sheet"]').textContent()
+  if (!/250/.test(sheet)) throw new Error(`concentration 250 mg/mL not shown — got: ${sheet.slice(0, 300)}`)
+  if (!/50 mg/.test(sheet)) throw new Error('the fixed 50 mg dose is not shown')
+  await page.click('button[aria-label="Close"]')
+  await page.waitForTimeout(400)
   const p = await page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center'))
     .state.peptides.find((x) => x.id === 'testosterone-e'))
   if (String(p.scheduleWeekdays) !== '1,4') throw new Error(`weekdays are ${p.scheduleWeekdays}, want Mon+Thu (1,4)`)
@@ -120,9 +121,16 @@ await step('its protocol is pre-mixed mg/mL, Mon+Thu, SubQ thigh, never co-drawn
 })
 await page.screenshot({ path: `${SHOT}/v8-01-library-test-e.png` })
 
-await step('its schedule days are editable', async () => {
+await step('its schedule days are editable — in Build / rebuild, the one editor', async () => {
   const today = await page.evaluate(() => new Date().getDay())
-  const dayBtn = (d) => libCard().locator('div.flex.gap-1 > button').nth(d)
+  await nav('More')
+  await page.click('text=Build / rebuild my protocol')
+  await page.waitForTimeout(700)
+  const wizard = page.locator('div.fixed.inset-0.z-50 > div.card')
+  const row = wizard.locator('[data-testid="manage-row"]').filter({ hasText: TE }).first()
+  await row.locator('[data-testid="manage-edit"]').click()
+  await page.waitForTimeout(600)
+  const dayBtn = (d) => wizard.locator('div.flex.gap-1 > button').nth(d)
   if (![1, 4].includes(today)) {
     // 2×/week caps the picker at two days, so free one before adding today
     await dayBtn(1).click()
@@ -130,6 +138,14 @@ await step('its schedule days are editable', async () => {
     await dayBtn(today).click()
     await page.waitForTimeout(400)
   }
+  await wizard.locator('button:has-text("Done editing")').click()
+  await page.waitForTimeout(400)
+  await wizard.locator('[data-testid="manage-save"]').click()
+  await page.waitForTimeout(400)
+  await wizard.locator('button:has-text("Save my protocol")').click()
+  await page.waitForTimeout(600)
+  await wizard.locator('button:text-is("Done")').click()
+  await page.waitForTimeout(700)
   const days = await page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center'))
     .state.peptides.find((x) => x.id === 'testosterone-e').scheduleWeekdays)
   if (!days.includes(today)) throw new Error(`editing weekdays did not stick (${days})`)
@@ -362,7 +378,6 @@ await step('an existing save from before v8 gains the new compound on load', asy
     const raw = JSON.parse(localStorage.getItem('peptide-command-center'))
     raw.state.peptides = raw.state.peptides.filter((p) => p.id !== 'testosterone-e')
     raw.state.doseLogs = raw.state.doseLogs.filter((l) => l.peptideId !== 'testosterone-e')
-    raw.state.needleNotes = raw.state.needleNotes.filter((n) => n.id !== 'oil')
     raw.version = 0 // zustand's default — the shape every pre-v8 save carries
     localStorage.setItem('peptide-command-center', JSON.stringify(raw))
   })
@@ -373,12 +388,11 @@ await step('an existing save from before v8 gains the new compound on load', asy
   const te = s.peptides.find((p) => p.id === 'testosterone-e')
   if (!te) throw new Error('migration did not add Testosterone Enanthate to an existing save')
   if (te.ladder.ceiling !== 50 || te.preparation !== 'premixed') throw new Error('migrated compound is misconfigured')
-  if (!s.needleNotes.some((n) => n.id === 'oil')) throw new Error('oil needle note not backfilled')
   if (!s.openVials['testosterone-e'] || !s.titration['testosterone-e']) throw new Error('inventory/titration not initialised')
   if (s.peptides.filter((p) => p.id === 'testosterone-e').length !== 1) throw new Error('added twice')
   // and the other peptides are untouched
   if (s.peptides.length < 12) throw new Error(`existing peptides lost (${s.peptides.length})`)
-  console.log(`  migrated: ${s.peptides.length} peptides, oil note restored`)
+  console.log(`  migrated: ${s.peptides.length} peptides`)
 })
 
 await step('the migration does not re-add it after a deliberate delete', async () => {

@@ -52,6 +52,27 @@ const closeSheet = async () => {
 }
 const THIGH_ONLY = ['ss31', 'nad', 'testosterone-e', 'tesamorelin', 'ghkcu']
 
+// v23 moved every protocol setting into Build / rebuild, so the zone is set
+// there rather than on the old Library card.
+const wizard = () => page.locator('div.fixed.inset-0.z-50 > div.card')
+const editInWizard = async (name, fn) => {
+  await nav('More')
+  await page.click('text=Build / rebuild my protocol')
+  await page.waitForTimeout(700)
+  await wizard().locator('[data-testid="manage-row"]').filter({ hasText: name }).first()
+    .locator('[data-testid="manage-edit"]').click()
+  await page.waitForTimeout(600)
+  await fn()
+  await wizard().locator('button:has-text("Done editing")').click()
+  await page.waitForTimeout(400)
+  await wizard().locator('[data-testid="manage-save"]').click()
+  await page.waitForTimeout(400)
+  await wizard().locator('button:has-text("Save my protocol")').click()
+  await page.waitForTimeout(600)
+  await wizard().locator('button:text-is("Done")').click()
+  await page.waitForTimeout(700)
+}
+
 await page.goto(BASE, { waitUntil: 'networkidle' })
 await page.evaluate(() => localStorage.clear())
 await page.reload({ waitUntil: 'networkidle' })
@@ -92,9 +113,12 @@ await step('MOTS-c and the rest stay flexible', async () => {
 const openPickerFor = async (name) => {
   await nav('Home')
   await page.waitForTimeout(500)
+  // Home opens on the current wall-clock slot, so which one that is depends on
+  // when the suite runs. Try both rather than assuming the morning.
   let btn = page.locator(`button[aria-label="Log ${name}"]`)
-  if (!(await btn.count())) {
-    await page.click('button:has-text("PM")')
+  for (const slot of ['AM', 'PM']) {
+    if (await btn.count()) break
+    await page.click(`button:has-text("${slot}")`).catch(() => {})
     await page.waitForTimeout(600)
     btn = page.locator(`button[aria-label="Log ${name}"]`)
   }
@@ -158,23 +182,27 @@ await step('a flexible compound still gets the whole map', async () => {
 // ================================================ 3 · the per-compound toggle
 
 await step('every peptide exposes an allowed-zone setting', async () => {
-  await more('Library')
-  await page.locator('h3:has-text("BPC-157")').first().click()
+  await nav('More')
+  await page.click('text=Build / rebuild my protocol')
   await page.waitForTimeout(700)
-  const sel = page.locator('select[aria-label="Allowed injection zone"]').first()
+  await wizard().locator('[data-testid="manage-row"]').filter({ hasText: 'BPC-157' }).first()
+    .locator('[data-testid="manage-edit"]').click()
+  await page.waitForTimeout(600)
+  const sel = wizard().locator('select[aria-label="Allowed injection zone"]').first()
   if (!(await sel.count())) throw new Error('no allowed-zone control')
   const opts = await sel.locator('option').allTextContents()
   for (const want of ['All SubQ sites', 'Thigh only']) {
     if (!opts.includes(want)) throw new Error(`the zone list is missing "${want}" — got [${opts.join(', ')}]`)
   }
+  await wizard().locator('button[aria-label="Close"]').click()
+  await page.waitForTimeout(500)
 })
 
 await step('setting a compound to thigh-only takes effect', async () => {
-  await more('Library')
-  await page.locator('h3:has-text("BPC-157")').first().click()
-  await page.waitForTimeout(700)
-  await page.locator('select[aria-label="Allowed injection zone"]').first().selectOption('thigh')
-  await page.waitForTimeout(600)
+  await editInWizard('BPC-157', async () => {
+    await wizard().locator('select[aria-label="Allowed injection zone"]').first().selectOption('thigh')
+    await page.waitForTimeout(300)
+  })
   const st = await state()
   if (st.peptides.find((x) => x.id === 'bpc157').allowedZone !== 'thigh') {
     throw new Error('the setting did not save')
@@ -184,16 +212,20 @@ await step('setting a compound to thigh-only takes effect', async () => {
   if (/Belly/.test(t)) throw new Error('the belly is still offered after restricting it')
   await closeSheet()
   // put it back
-  await more('Library')
-  await page.locator('h3:has-text("BPC-157")').first().click()
-  await page.waitForTimeout(700)
-  await page.locator('select[aria-label="Allowed injection zone"]').first().selectOption('all')
-  await page.waitForTimeout(500)
+  await editInWizard('BPC-157', async () => {
+    await wizard().locator('select[aria-label="Allowed injection zone"]').first().selectOption('all')
+    await page.waitForTimeout(300)
+  })
 })
 
 await step('a co-draw containing a thigh-only compound is thigh-only', async () => {
   await nav('Home')
   await page.waitForTimeout(600)
+  // both are AM compounds; Home may have opened on the evening slot
+  if (!(await page.locator('button[aria-label="Select BPC-157 to co-draw"]').count())) {
+    await page.click('button:has-text("AM")').catch(() => {})
+    await page.waitForTimeout(600)
+  }
   // select a flexible compound and a thigh-only one
   await selectForCoDraw('BPC-157')
   await selectForCoDraw('Tesamorelin')
@@ -318,7 +350,7 @@ await step('a skipped dose leaves the due list and the ring', async () => {
   await page.waitForTimeout(700)
   const hero = await page.locator('[data-testid="hero"]').textContent()
   if (!/skipped/i.test(hero)) throw new Error(`the hero does not mention the skip: ${hero.replace(/\s+/g, ' ')}`)
-  const m = hero.match(/(\d+)\/(\d+)\s*this AM/i)
+  const m = hero.match(/(\d+)\/(\d+)\s*this (?:AM|PM)/i)
   if (!m) throw new Error('no slot count in the hero')
   const t = await main()
   if (!/Skipped today/.test(t)) throw new Error('the card does not read as skipped')
@@ -402,7 +434,7 @@ await step('History shows skipped apart from missed', async () => {
 
 await step('nothing overflows horizontally at 390px', async () => {
   const bad = []
-  for (const [how, label] of [['nav', 'Home'], ['nav', 'Calendar'], ['more', 'Library'], ['more', 'History & adherence']]) {
+  for (const [how, label] of [['nav', 'Home'], ['nav', 'Calendar'], ['more', 'Protocol overview'], ['more', 'History & adherence']]) {
     if (how === 'nav') await nav(label); else await more(label)
     const over = await page.evaluate(() =>
       document.documentElement.scrollWidth > document.documentElement.clientWidth + 1)

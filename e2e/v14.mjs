@@ -29,7 +29,7 @@ const body = () => page.textContent('body')
 const state = () => page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state)
 const TAB_MARK = {
   Home: /Pepito \+/, Calendar: /This week|Adherence this month/,
-  Symptoms: /How are you feeling/, Body: /How to measure/, More: /Build \/ rebuild my schedule/,
+  Symptoms: /How are you feeling/, Body: /How to measure/, More: /Build \/ rebuild my protocol/,
 }
 const nav = async (label) => {
   await page.click(`nav button[aria-label="${label}"]`)

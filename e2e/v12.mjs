@@ -31,13 +31,12 @@ const PRIMARY_TABS = new Set(['Home', 'Calendar', 'Symptoms', 'Body', 'More'])
 const MORE_LINK = {
   Calculator: 'text=Reconstitution & syringe units',
   Mix: 'text=Can these two share a syringe',
-  Stock: 'text=Vials, cost, expiry',
-  Library: 'text=Your peptides, ladders',
-  'Right Now': 'text=What your stack is doing today',
+  Stock: 'text=Vials I own, run-out dates',
+  Protocol: 'text=Everything I’m on, at a glance',
+  'Right Now': 'text=What my protocol is doing for me today',
   History: 'text=Every dose, rates',
-  Settings: 'text=Theme, badges',
-  Needle: 'text=SubQ, IM and nasal',
-  Wizard: 'text=Guided setup with suggestions',
+  Settings: 'text=Theme, lead time, backup and reset',
+    Wizard: 'text=Add, remove or edit anything I take',
 }
 const nav = async (label) => {
   if (PRIMARY_TABS.has(label)) {
@@ -61,7 +60,19 @@ const modal = () => page.locator('div.fixed.inset-0.z-50 > div.card')
 const state = () => page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state)
 // v13 merged Stock and Restock into one screen
 const openRestock = async () => { await nav('Stock'); await waitText(/what to order for/i) }
-const openWizard = async () => { await nav('More'); await page.click('text=Build / rebuild my schedule'); await waitText(/A few minutes/) }
+const openWizard = async () => {
+  await nav('More')
+  await page.click('text=Build / rebuild my protocol')
+  await waitText(/A few minutes|one place any of it changes/)
+}
+// v23: with a protocol already built the wizard lands on the manage list, so
+// reaching the picker means asking to add rather than pressing Start.
+const toPicker = async () => {
+  const add = modal().locator('[data-testid="manage-add"]')
+  if (await add.count()) { await add.click(); await page.waitForTimeout(400); return }
+  const start = modal().locator('button:has-text("Start")')
+  if (await start.count()) { await start.click(); await page.waitForTimeout(400) }
+}
 // the card for one restock line, found by the compound it names
 const rowFor = (name) => page.locator('div.card', { hasText: name })
   .filter({ has: page.locator('button[aria-label*="as ordered"]') }).first()
@@ -82,10 +93,13 @@ const waitPicker = async () => {
 const backToPicker = async () => {
   for (let i = 0; i < 8; i++) {
     if (await atPicker()) return
-    await wiz('button:has-text("Back")').click()
-    await page.waitForTimeout(350)
+    const add = modal().locator('[data-testid="manage-add"]')
+    if (await add.count()) { await add.click(); await page.waitForTimeout(350); continue }
+    const back = wiz('button:has-text("Back")')
+    if (await back.count()) { await back.click(); await page.waitForTimeout(350); continue }
+    break
   }
-  throw new Error('could not get back to the compound picker')
+  if (!(await atPicker())) throw new Error('could not get back to the compound picker')
 }
 const pickOnly = async (query, exact) => {
   await backToPicker()
@@ -304,15 +318,16 @@ await step('the wizard opens from More and from Settings', async () => {
   await wiz('button[aria-label="Close"]').click()
   await page.waitForTimeout(400)
   await nav('Settings')
-  await page.click('button:has-text("Build / rebuild my schedule")')
-  await waitText(/A few minutes/)
-  const intro = await modal().textContent()
-  if (!/not medical advice/.test(intro)) throw new Error('the intro drops the framing')
-  if (!/evidence tier and confidence/.test(intro)) throw new Error('the intro does not mention evidence tiers')
+  await page.click('button:has-text("Build / rebuild my protocol")')
+  await waitText(/A few minutes|one place any of it changes/)
+  const opened = await modal().textContent()
+  if (!/one place any of it changes|not medical advice/.test(opened)) {
+    throw new Error('the wizard did not open')
+  }
 })
 
 await step('a seeded compound opens with the app’s own protocol', async () => {
-  await modal().locator('button:has-text("Start")').click()
+  await toPicker()
   await waitPicker()
   await modal().locator('input[placeholder*="Search"]').fill('BPC-157')
   await page.waitForTimeout(500)
@@ -379,20 +394,26 @@ await step('the route step offers intranasal only where it applies', async () =>
   if (/Nasal spray/.test(await modal().textContent())) throw new Error('KPV should not offer a nasal route')
 })
 
-await step('start date and review build the schedule without wiping anything', async () => {
+await step('review saves the changes without wiping anything else', async () => {
   const before = await state()
   const beforeIds = before.peptides.map((p) => p.id)
-  for (let i = 0; i < 10 && !/Start date/.test(await modal().locator('h2').textContent()); i++) {
-    await wiz('button:has-text("Next ·"), button:has-text("Start date")').first().click()
+  // walk to the end of the per-compound pages, then out to the manage list
+  for (let i = 0; i < 12; i++) {
+    const next = wiz('button:has-text("Next ·"), button:has-text("Done editing"), button:has-text("Start date")').first()
+    if (!(await next.count())) break
+    const label = await next.textContent()
+    await next.click()
     await page.waitForTimeout(400)
+    if (/Done editing|Start date/.test(label)) break
   }
-  await wiz('button:has-text("Review")').click()
-  await wiz('button:has-text("Build my schedule")').waitFor({ timeout: 15000 })
-  await page.waitForTimeout(400)
+  const save = wiz('[data-testid="manage-save"]')
+  if (await save.count()) { await save.click(); await page.waitForTimeout(400) }
+  else { await wiz('button:has-text("Review")').click(); await page.waitForTimeout(400) }
+  await wiz('button:has-text("Save my protocol")').waitFor({ timeout: 15000 })
   const review = await modal().textContent()
   if (!/updates existing/.test(review)) throw new Error(`review does not flag existing entries — got: ${review.slice(0, 300)}`)
-  await wiz('button:has-text("Build my schedule")').click()
-  await waitText(/set up/, 15000)
+  await wiz('button:has-text("Save my protocol")').click()
+  await waitText(/saved|removed|Nothing changed/i, 15000)
   await wiz('button:text-is("Done")').click()
   await page.waitForTimeout(800)
 
@@ -411,12 +432,12 @@ await step('start date and review build the schedule without wiping anything', a
   console.log(`  ${after.peptides.length} peptides after the wizard (was ${beforeIds.length})`)
 })
 
-await step('the new compounds populate Home, Library and the restock list', async () => {
-  await nav('Library')
+await step('the new compounds populate Home, my protocol and the restock list', async () => {
+  await nav('Protocol')
   await waitText(/Ipamorelin/)
   const lib = await page.textContent('body')
-  if (!/ACE-031/.test(lib)) throw new Error('the TX compound is not in the Library')
-  if (!/Set your protocol/.test(lib)) throw new Error('the blank-dose compound is not flagged for setup')
+  if (!/ACE-031/.test(lib)) throw new Error('the TX compound is not in my protocol')
+  if (!/no dose set/i.test(lib)) throw new Error('the blank-dose compound is not flagged for setup')
   await openRestock()
   await waitText(/Ipamorelin/, 20000)
 })
@@ -460,18 +481,18 @@ await step('"start over" clears the stack but keeps the history', async () => {
   const seeded = (await state()).peptides.length
   if (seeded < 2) throw new Error('nothing to start over from')
   await openWizard()
-  await wiz('input[type="checkbox"]').first().check()
-  await wiz('button:has-text("Start")').click()
+  await wiz('[data-testid="manage-start-over"]').check()
+  await toPicker()
   await waitPicker()
   // "KPV" also matches the KLOW blend that contains it — anchor on the name
   const row = await pickOnly('KPV', /^KPV/)
   if (!/^KPV/.test((await row.textContent()).trim())) throw new Error('picked the wrong compound')
   await openPage(/KPV/)
-  await wiz('button:has-text("Start date")').click()
-  await waitText(/sets the clock/)
-  await wiz('button:has-text("Review")').click()
-  await wiz('button:has-text("Build my schedule")').waitFor({ timeout: 15000 })
-  await wiz('button:has-text("Build my schedule")').click()
+  await wiz('button:has-text("Done editing")').click()
+  await page.waitForTimeout(400)
+  await wiz('[data-testid="manage-save"]').click()
+  await wiz('button:has-text("Save my protocol")').waitFor({ timeout: 15000 })
+  await wiz('button:has-text("Save my protocol")').click()
   await wiz('button:text-is("Done")').waitFor({ timeout: 15000 })
   await wiz('button:text-is("Done")').click()
   await page.waitForTimeout(900)

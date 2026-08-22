@@ -175,6 +175,7 @@ export function wizardSuggestion(compound) {
       scheduleWeekdays: seed.scheduleWeekdays,
       cycleOnDays: seed.cycleOnDays || 0,
       cycleOffDays: seed.cycleOffDays || 0,
+      allowedZone: seed.allowedZone || null,
       vehicle: seed.vehicle,
       preparation: seed.preparation,
       alwaysSeparate: seed.alwaysSeparate,
@@ -196,6 +197,50 @@ export function wizardSuggestion(compound) {
     slot: slotFrom(reference),
     timing: '',
     ...cycleFrom(reference),
+  }
+}
+
+/**
+ * An existing protocol item, loaded back into the wizard's editable shape.
+ *
+ * The user's own numbers win over every suggestion: this is an edit, not a
+ * re-suggestion, and quietly restoring a reference default over a dose someone
+ * deliberately set is the single most annoying thing a settings screen can do.
+ * Only the descriptive reference material is refreshed underneath.
+ */
+export function entryFromPeptide(peptide) {
+  const reference = referenceFor(peptide.id)
+  const excluded = isExcludedTier(reference?.tier)
+  return {
+    id: peptide.id,
+    name: peptide.name,
+    existing: true,
+    reference: reference ? referenceAttachment(reference) : null,
+    tier: reference?.tier || null,
+    confidence: reference?.confidence || null,
+    mechanism: reference?.mechanism || '',
+    safety: reference?.safety || [],
+    doseText: peptide.doseText || '',
+    frequencyText: peptide.frequencyText || '',
+    cycleText: peptide.cycleText || '',
+    excluded,
+    source: 'mine',
+    rangeText: null,
+    intranasalCapable: !!peptide.intranasalCapable,
+    routes: ['SubQ', 'IM', ...(peptide.intranasalCapable || INTRANASAL_IDS.has(peptide.id) ? ['Nasal'] : [])],
+    route: peptide.route || 'SubQ',
+    ladder: peptide.ladder ? { ...peptide.ladder } : null,
+    recon: { ...(peptide.recon || DEFAULT_RECON) },
+    frequency: peptide.frequency || 'daily',
+    slot: peptide.slot || 'AM',
+    timing: peptide.timing || '',
+    scheduleWeekdays: peptide.scheduleWeekdays ? [...peptide.scheduleWeekdays] : undefined,
+    cycleOnDays: peptide.cycleOnDays || 0,
+    cycleOffDays: peptide.cycleOffDays || 0,
+    allowedZone: peptide.allowedZone || null,
+    startDate: peptide.startDate,
+    stockVials: 0,
+    costAud: 0,
   }
 }
 
@@ -227,6 +272,7 @@ export function toPeptide(entry, startDate) {
     cycleText: entry.cycleText || '',
   }
   if (entry.scheduleWeekdays?.length) out.scheduleWeekdays = [...entry.scheduleWeekdays]
+  if (entry.allowedZone) out.allowedZone = entry.allowedZone
   if (entry.intranasalCapable) out.intranasalCapable = true
   if (entry.vehicle) out.vehicle = entry.vehicle
   if (entry.preparation) out.preparation = entry.preparation

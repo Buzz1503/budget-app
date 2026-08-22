@@ -33,7 +33,7 @@ const state = () => page.evaluate(() => JSON.parse(localStorage.getItem('peptide
 // screen renders before asserting anything.
 const TAB_MARK = {
   Home: /Pepito \+/, Calendar: /This week|Adherence this month/, Symptoms: /Symptom|How are you/i,
-  Body: /How to measure/, More: /Build \/ rebuild my schedule/,
+  Body: /How to measure/, More: /Build \/ rebuild my protocol/,
 }
 const nav = async (label) => {
   await page.click(`nav button[aria-label="${label}"]`)
@@ -101,13 +101,18 @@ await step('More has no entry that just re-opens a nav tab', async () => {
   }
 })
 
-await step('the separate Plan/Schedule timeline is gone; the ladder lives in Library', async () => {
+await step('the Plan/Schedule timeline is gone; the ladder lives in the compound sheet', async () => {
   await nav('More')
   if ((await body()).includes('Titration ladders & cycles')) throw new Error('the Plan screen is still linked')
-  await page.click('text=Your peptides, ladders')
-  await waitText(/Library/)
-  await page.locator('div.card button').first().click()
-  await waitText(/Where you are on the ladder/, 8000)
+  await page.click('text=Everything I’m on, at a glance')
+  await waitText(/Everything I'm currently taking|compound/i)
+  await page.locator('[data-testid="protocol-row"]').first().click()
+  await page.waitForTimeout(600)
+  await page.click('[data-testid="sheet-tab-mine"]')
+  await waitText(/Rung/, 8000)
+  // the sheet is a modal — leaving it open would swallow every later click
+  await page.click('button[aria-label="Close"]')
+  await page.waitForTimeout(500)
 })
 
 // ---------- 2. calendar ----------
@@ -178,7 +183,7 @@ await step('the adherence heatmap legend names every colour in words', async () 
 await step('event markers appear on the calendar', async () => {
   // reconstitute a vial so an expiry marker exists, then look for it
   await nav('More')
-  await page.click('text=Vials, cost, expiry')
+  await page.click('text=Vials I own, run-out dates')
   await toRestockList()
   // NB: "Stock & restock" is also the More-hub link's own label, so waiting on
   // it would match the outgoing screen. Wait for text only this screen renders.
@@ -223,7 +228,7 @@ await step('Stock and restock are one screen', async () => {
   const links = await page.locator('button.card p.text-sm').allTextContents()
   const stockish = links.filter((l) => /stock/i.test(l))
   if (stockish.length !== 1) throw new Error(`More lists ${stockish.length} stock screens: ${stockish.join(', ')}`)
-  await page.click('text=Vials, cost, expiry')
+  await page.click('text=Vials I own, run-out dates')
   await toRestockList()
   // NB: "Stock & restock" is also the More-hub link's own label, so waiting on
   // it would match the outgoing screen. Wait for text only this screen renders.

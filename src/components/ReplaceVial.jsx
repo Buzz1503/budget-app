@@ -14,7 +14,7 @@ const money = (n) => `$${Math.round((n || 0) * 100) / 100}`
  * What happens after a vial runs out.
  *
  * Two honest outcomes and no third: put another vial in, or stop running this
- * compound. Leaving it in the stack with nothing to draw from is the state that
+ * compound. Leaving it in my protocol with nothing to draw from is the state that
  * produces a due dose you cannot take, so the screen does not offer it.
  *
  * Replacing with a different size is normal and handled: the dose, ladder and
@@ -50,8 +50,8 @@ export default function ReplaceVial({ open, peptideId, onClose, goTo }) {
 
   const drop = () => {
     // The vials you own stay on the shelf — you have stopped running this, not
-    // thrown the boxes out. The stock room lists it as "not in your stack".
-    removePeptide(peptide.id, { keepStock: true })
+    // thrown the boxes out. Stock lists it as "not in my protocol".
+    removePeptide(peptide.id)
     close()
   }
 
@@ -95,12 +95,11 @@ export default function ReplaceVial({ open, peptideId, onClose, goTo }) {
         <div className="space-y-3" data-testid="confirm-remove">
           <p className="text-[12px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
             <span className="font-black" style={{ color: 'var(--text)' }}>{peptide.name}</span> comes out of
-            your active stack, so it stops appearing on Home and in the calendar. It stays in your
-            library and its stock stays on the shelf — you can put it back any time.
+            my protocol, so it stops appearing on Home and in the calendar.
           </p>
-          <p className="flex items-start gap-1.5 text-[11px] font-semibold" style={{ color: 'var(--coral)' }}>
-            <AlertTriangle size={13} className="mt-px shrink-0" />
-            <span>Its dose history goes with it.</span>
+          <p className="flex items-start gap-1.5 text-[11px] font-semibold" style={{ color: 'var(--lime)' }}>
+            <Info size={13} className="mt-px shrink-0" />
+            <span>Your vials stay in stock and your logged doses stay in history — you can put it back any time.</span>
           </p>
           <div className="flex gap-2">
             <button onClick={() => setConfirmRemove(false)}
@@ -111,7 +110,7 @@ export default function ReplaceVial({ open, peptideId, onClose, goTo }) {
             <button onClick={drop} data-testid="confirm-remove-yes"
               className="flex-1 rounded-xl py-2.5 text-xs font-black"
               style={{ background: 'color-mix(in srgb, var(--coral) 22%, transparent)', color: 'var(--coral)' }}>
-              Remove from stack
+              Remove from protocol
             </button>
           </div>
         </div>
@@ -162,7 +161,7 @@ export default function ReplaceVial({ open, peptideId, onClose, goTo }) {
               <p className="text-sm font-black">No {peptide.name} left in stock</p>
               <p className="mt-1 text-[11px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
                 There is no sealed vial to fall back on. Add stock if you have some the app doesn't
-                know about, or take it out of your stack until you reorder.
+                know about, or take it out of my protocol until you reorder.
               </p>
               <button onClick={() => { close(); goTo?.('supplies') }} data-testid="go-add-stock"
                 className="btn-primary mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-black">
@@ -176,7 +175,7 @@ export default function ReplaceVial({ open, peptideId, onClose, goTo }) {
           <button onClick={() => setConfirmRemove(true)} data-testid="dont-replace"
             className="flex w-full items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-black"
             style={{ background: 'var(--surface2)', color: 'var(--coral)' }}>
-            <Trash2 size={13} /> Don't replace — take it out of my stack
+            <Trash2 size={13} /> Don't replace — take it out of my protocol
           </button>
 
           <p className="flex items-start gap-1.5 text-[10px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>

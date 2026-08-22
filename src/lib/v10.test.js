@@ -6,7 +6,6 @@ import {
 } from './calc'
 import { buildRungs, currentRung } from './schedule'
 import { seedPeptides } from '../data/seed'
-import { SEED_NEEDLE_NOTES } from '../data/seed'
 
 // a|b MIX, a|c CAUTION, a|d DONT_MIX, a|e NEVER, b|c MIX, b|d CAUTION, c|d MIX
 const V = {
@@ -193,15 +192,5 @@ describe('intranasal-capable library entries', () => {
       expect(p.recon.vialMg).toBe(NASAL_RECIPE.vialMg)
       expect(p.recon.bacMl).toBe(NASAL_RECIPE.bacMl)
     }
-  })
-
-  it('ships the nasal prep note with the exact recipe', () => {
-    const note = SEED_NEEDLE_NOTES.find((n) => n.id === 'nasal')
-    expect(note).toBeTruthy()
-    expect(note.body).toMatch(/10 mg vial with 2 mL bacteriostatic water/)
-    expect(note.body).toMatch(/3 mL sterile saline/)
-    expect(note.body).toMatch(/final volume 5 mL/)
-    expect(note.body).toMatch(/200 mcg per spray/)
-    expect(note.body).toMatch(/50 sprays/)
   })
 })

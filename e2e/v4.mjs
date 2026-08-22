@@ -47,7 +47,7 @@ await step('Change 2: moved screens reachable under More', async () => {
   }
   // drill into one to confirm it renders + back works
   await page.click('text=Right Now')
-  await waitText(/What your stack is doing/)
+  await waitText(/What my protocol is doing/)
   await page.click('nav button:has-text("More")')
   await page.click('text=Library')
   await waitText(/Retatrutide/)

@@ -10,8 +10,8 @@ import { prettyDate } from '../lib/schedule'
 import { putBlob, getBlob, deleteBlob } from '../lib/blobStore'
 import { isNasal } from '../lib/calc'
 import { loadMatrix } from '../lib/mixMatrix'
-import { wizardSuggestion, toPeptide } from '../lib/wizardDefaults'
 import Modal from './ui/Modal'
+import CompoundSheet from './CompoundSheet'
 import NumberField from './ui/NumberField'
 
 const money = (n) => `$${Math.round((n || 0) * 100) / 100}`
@@ -24,7 +24,7 @@ const money = (n) => `$${Math.round((n || 0) * 100) / 100}`
  * yourself. The total leads; the breakdown sits under it, because a total that
  * hides two different vial sizes is worse than no total.
  */
-export default function StockRoom() {
+export default function StockRoom({ goTo }) {
   const peptides = useStore((s) => s.peptides)
   const vials = useStore((s) => s.vials)
   const openVials = useStore((s) => s.openVials)
@@ -35,6 +35,7 @@ export default function StockRoom() {
 
   const [adding, setAdding] = useState(false)
   const [openId, setOpenId] = useState(null)
+  const [sheetId, setSheetId] = useState(null)
 
   const groups = useMemo(() => groupStock(vials, peptides), [vials, peptides])
   const totalVials = groups.reduce((n, g) => n + g.vialCount, 0)
@@ -74,6 +75,7 @@ export default function StockRoom() {
               peptide={peptide}
               open={openId === g.peptideId}
               onToggle={() => setOpenId(openId === g.peptideId ? null : g.peptideId)}
+              onOpenSheet={() => setSheetId(g.peptideId)}
               runway={runway}
             />
           )
@@ -83,10 +85,12 @@ export default function StockRoom() {
       <p className="px-1 pb-1 text-[10px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
         Batches are kept apart on purpose — a 10 mg from one vendor and a 20 mg from another are
         different things to draw from. Activating one pulls a vial from that batch and carries the
-        library's dosing across.
+        protocol's dosing across.
       </p>
 
       <AddBatchModal open={adding} onClose={() => setAdding(false)} />
+      <CompoundSheet open={!!sheetId} compoundId={sheetId}
+        onClose={() => setSheetId(null)} goTo={goTo} />
     </div>
   )
 }
@@ -114,7 +118,7 @@ function RunwayLine({ runway }) {
   )
 }
 
-function StockGroup({ group: g, peptide, open, onToggle, runway }) {
+function StockGroup({ group: g, peptide, open, onToggle, onOpenSheet, runway }) {
   const adjustVialQty = useStore((s) => s.adjustVialQty)
   const removeVial = useStore((s) => s.removeVial)
   const activateBatch = useStore((s) => s.activateBatch)
@@ -130,16 +134,15 @@ function StockGroup({ group: g, peptide, open, onToggle, runway }) {
           <span className="text-[13px] font-black tabular-nums">{g.vialCount}</span>
         </div>
         <div className="min-w-0 flex-1 pt-0.5">
-          <p className="truncate text-sm font-bold">
-            {g.name}
-            {!g.inStack && (
-              <span className="ml-1.5 text-[10px] font-semibold" style={{ color: 'var(--muted)' }}>· not in your stack</span>
-            )}
-          </p>
-          <p className="mt-0.5 truncate text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
+          {/* Wraps rather than truncates: some catalogue names are genuinely
+              long, and a stock list that hides which compound a row is about
+              has lost the only thing the row is for. */}
+          <p className="text-sm font-bold leading-snug">{g.name}</p>
+          <p className="mt-0.5 text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
             {g.vialCount === 0
               ? 'none in stock'
               : `${g.batchCount} batch${g.batchCount === 1 ? '' : 'es'} · ${g.vialCount} sealed vial${g.vialCount === 1 ? '' : 's'}`}
+            {!g.inStack && ' · not in my protocol'}
           </p>
           <RunwayLine runway={runway} />
         </div>
@@ -153,6 +156,13 @@ function StockGroup({ group: g, peptide, open, onToggle, runway }) {
           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
             <div className="space-y-2 px-4 pb-4">
+              {/* Inside the expanded panel rather than on the header, so it can
+                  never fight the collapse toggle for the same tap. */}
+              <button onClick={onOpenSheet} data-testid="stock-open-sheet"
+                className="flex w-full items-center justify-center gap-1.5 rounded-lg py-2 text-[11px] font-black"
+                style={{ background: 'var(--surface2)', color: 'var(--indigo)' }}>
+                <FileText size={12} /> About {g.name}
+              </button>
               {g.batches.length === 0 && (
                 <p className="text-[11px] font-medium" style={{ color: 'var(--muted)' }}>
                   No batches recorded for this one.
@@ -177,6 +187,35 @@ function BatchRow({ batch: b, peptide, onAdjust, onRemove, onActivate }) {
   const openVial = useStore((s) => s.openVials?.[b.peptideId])
   const isActive = openVial?.batchId === b.id
   const canActivate = peptide && !isNasal(peptide) && (b.qtyOnHand || 0) > 0
+  const [confirmDelete, setConfirmDelete] = useState(false)
+
+  if (confirmDelete) {
+    return (
+      <div className="rounded-xl p-3" data-testid="confirm-delete-batch"
+        style={{ background: 'color-mix(in srgb, var(--coral) 14%, transparent)' }}>
+        <p className="flex items-start gap-1.5 text-[12px] font-black" style={{ color: 'var(--coral)' }}>
+          <AlertTriangle size={14} className="mt-px shrink-0" />
+          Delete this {b.vialMg} mg batch?
+        </p>
+        <p className="mt-1.5 text-[11px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+          {b.qtyOnHand || 0} sealed vial{(b.qtyOnHand || 0) === 1 ? '' : 's'} and any COA come off the shelf.
+          <span className="font-bold" style={{ color: 'var(--text)' }}> Your protocol and your logged doses
+          are untouched</span> — this only says you no longer have these.
+        </p>
+        <div className="mt-2.5 flex gap-2">
+          <button onClick={() => setConfirmDelete(false)} className="flex-1 rounded-lg py-2 text-[11px] font-black"
+            style={{ background: 'var(--surface2)', color: 'var(--muted)' }}>
+            Keep it
+          </button>
+          <button onClick={() => { setConfirmDelete(false); onRemove() }} data-testid="confirm-delete-batch-yes"
+            className="flex-1 rounded-lg py-2 text-[11px] font-black"
+            style={{ background: 'color-mix(in srgb, var(--coral) 25%, transparent)', color: 'var(--coral)' }}>
+            Delete
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="rounded-xl p-3" style={{ background: 'var(--surface2)' }} data-testid="batch-row">
@@ -226,7 +265,7 @@ function BatchRow({ batch: b, peptide, onAdjust, onRemove, onActivate }) {
             Activate this vial
           </button>
         )}
-        <button onClick={onRemove} aria-label={`Delete the ${b.vialMg} mg batch`}
+        <button onClick={() => setConfirmDelete(true)} aria-label={`Delete the ${b.vialMg} mg batch`}
           className="rounded-lg px-2.5 py-1.5" style={{ background: 'var(--surface-solid)', color: 'var(--coral)' }}>
           <Trash2 size={12} />
         </button>
@@ -293,7 +332,6 @@ export function CoaButton({ batch: b }) {
 function AddBatchModal({ open, onClose }) {
   const peptides = useStore((s) => s.peptides)
   const addVial = useStore((s) => s.addVial)
-  const addPeptide = useStore((s) => s.addPeptide)
   const [picked, setPicked] = useState(null)
   const [query, setQuery] = useState('')
   const [draft, setDraft] = useState(null)
@@ -324,7 +362,7 @@ function AddBatchModal({ open, onClose }) {
   const close = () => { setPicked(null); setDraft(null); setQuery(''); setCoa(null); onClose() }
 
   // Any of the 86 compounds can become a batch — it doesn't need to already be
-  // in the active stack. If it's already in the library, its own vial size
+  // in my protocol. If it already has a protocol entry, its own vial size
   // seeds the form; otherwise the form starts blank and the user's own numbers
   // are what get recorded.
   const choose = (c) => {
@@ -336,22 +374,12 @@ function AddBatchModal({ open, onClose }) {
   const save = async () => {
     if (!draft || !picked) return
 
-    let peptideId = picked.existing?.id || null
-    if (!peptideId) {
-      // Not in the library yet. Carry across whatever the evidence reference
-      // actually states — the same parser the "build my schedule" wizard uses,
-      // which only ever reads an explicit stated range and never invents one.
-      // Activating this batch later is what pulls it into the running stack.
-      const suggestion = wizardSuggestion(picked.compound)
-      const entry = toPeptide(suggestion, todayStr())
-      peptideId = addPeptide({
-        ...entry,
-        compoundClass: picked.compound.class,
-        charge: picked.compound.charge,
-        flags: picked.compound.flags || [],
-      })
-      if (!peptideId) peptideId = picked.compound.id
-    }
+    // Owning is not taking. A batch records what is physically on the shelf and
+    // nothing else — no schedule, no Home card, no adherence. The compound id
+    // is enough to tie it to the catalogue and, later, to a protocol item if
+    // one is ever built for it. Creating that protocol item here would put a
+    // dose on the calendar that the user never asked for.
+    const peptideId = picked.id
 
     let coaKey = null
     let coaMeta = null
@@ -382,7 +410,7 @@ function AddBatchModal({ open, onClose }) {
           <div className="relative">
             <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--muted)' }} />
             <input className="input !pl-9" placeholder={`Search ${matrix ? matrix.compounds.length : 86} compounds…`}
-              aria-label="Search the library" value={query} onChange={(e) => setQuery(e.target.value)} />
+              aria-label="Search compounds" value={query} onChange={(e) => setQuery(e.target.value)} />
           </div>
           {loadFailed ? (
             <p className="py-6 text-center text-xs font-semibold" style={{ color: 'var(--amber)' }}>
@@ -403,8 +431,8 @@ function AddBatchModal({ open, onClose }) {
                       <p className="truncate text-[12px] font-bold">{c.name}</p>
                       <p className="truncate text-[10px] font-semibold" style={{ color: 'var(--muted)' }}>
                         {existing
-                          ? `${existing.recon?.vialMg || 0} mg per vial in your library`
-                          : `${c.class} · not in your stack`}
+                          ? `${existing.recon?.vialMg || 0} mg per vial in my protocol`
+                          : `${c.class} · not in my protocol`}
                       </p>
                     </div>
                     <ChevronRight size={14} style={{ color: 'var(--muted)' }} />

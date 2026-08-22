@@ -52,7 +52,7 @@ export default function MixTab() {
 
   const separateIds = useMemo(() => new Set(separateCompounds.map((c) => c.id)), [separateCompounds])
 
-  // Library compounds present in the matrix → the user's "stack".
+  // Protocol compounds present in the matrix.
   const matrixStack = useMemo(() => {
     if (!matrix) return []
     return peptides
@@ -73,7 +73,7 @@ export default function MixTab() {
   const compoundById = (id) =>
     (matrix ? matrix.byId.get(id) : null) || separateCompounds.find((c) => c.id === id) || null
 
-  // Compatibility Codex: how many of the stack's pairs have been revealed.
+  // Compatibility Codex: how many of my protocol's pairs have been revealed.
   const stackPairKeys = useMemo(() => {
     const ids = [...stackIds]
     const keys = []
@@ -116,7 +116,7 @@ export default function MixTab() {
     const m = matrix
     const found = m?.lookup(idA, idB)
     if (found?.verdict === 'MIX') burstSmall(0.5, 0.45)
-    // codex discovery (only for stack pairs, to keep the count meaningful)
+    // codex discovery (only for protocol pairs, to keep the count meaningful)
     if (stackIds.has(idA) && stackIds.has(idB)) exploreMixPair(k)
   }
 
@@ -177,7 +177,7 @@ export default function MixTab() {
         <div className="relative flex-1">
           <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--muted)' }} />
           <input
-            className="input !pl-9" placeholder={browseAll ? 'Search all 86 compounds…' : 'Search your stack…'}
+            className="input !pl-9" placeholder={browseAll ? 'Search all 86 compounds…' : 'Search my protocol…'}
             value={query} onChange={(e) => setQuery(e.target.value)}
           />
         </div>
@@ -188,7 +188,7 @@ export default function MixTab() {
             ? { backgroundImage: 'linear-gradient(135deg, var(--violet), var(--indigo))', color: '#fff' }
             : { background: 'var(--surface2)', color: 'var(--text)' }}
         >
-          {browseAll ? 'All 86' : 'My stack'}
+          {browseAll ? 'All 86' : 'My protocol'}
         </button>
       </div>
 
@@ -282,7 +282,7 @@ function CompoundCard({ compound, selected, inStack, proven, onSelect }) {
           <span key={f} className="rounded-md px-1.5 py-0.5 text-[9px] font-semibold" style={{ background: 'var(--surface2)', color: 'var(--muted)' }}>{f}</span>
         ))}
       </div>
-      {inStack && <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full" style={{ background: 'var(--lime)' }} title="in your stack" />}
+      {inStack && <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full" style={{ background: 'var(--lime)' }} title="in my protocol" />}
     </motion.button>
   )
 }

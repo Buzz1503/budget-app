@@ -15,7 +15,6 @@ export default function HistoryTab() {
   const doseLogs = useStore((s) => s.doseLogs)
   const titration = useStore((s) => s.titration)
   const measurements = useStore((s) => s.measurements)
-  const gamification = useStore((s) => s.gamification)
   const supplements = useStore((s) => s.supplements)
   const supplementLogs = useStore((s) => s.supplementLogs)
   const skips = useStore((s) => s.skips)
@@ -187,7 +186,7 @@ export default function HistoryTab() {
 
       {/* shareable summary */}
       <button
-        onClick={() => openSummaryDocument({ peptides, titration, doseLogs, measurements, summary, from, to, gamification })}
+        onClick={() => openSummaryDocument({ peptides, titration, doseLogs, measurements, summary, from, to })}
         className="btn-violet flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-black">
         <FileText size={16} /> Shareable summary
       </button>

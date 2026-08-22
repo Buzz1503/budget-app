@@ -95,15 +95,10 @@ await step('the hero is just the ring and the count', async () => {
   if (/Lvl|Rookie/.test(hero)) throw new Error('the level is still in the hero')
 })
 
-await step('level and XP survive as one small quiet line', async () => {
+await step('v23 removed levels and XP from Home entirely', async () => {
   const txt = await main()
-  if (!/Lvl \d+ · .+ · \d+\/\d+ XP/.test(txt)) throw new Error('the level footnote is missing entirely')
-  const size = await page.evaluate(() => {
-    const p = [...document.querySelectorAll('main p')].find((n) => /XP/.test(n.textContent))
-    return p ? parseFloat(getComputedStyle(p).fontSize) : null
-  })
-  if (size == null) throw new Error('could not measure the level line')
-  if (size > 11) throw new Error(`the level line is ${size}px — not quiet`)
+  if (/\bXP\b/.test(txt)) throw new Error('XP is still on Home')
+  if (/Lvl \d+ · .+ · \d+\/\d+/.test(txt)) throw new Error('the level footnote is still on Home')
   // and no XP progress bar competing with the ring
   const bars = await page.evaluate(() => [...document.querySelectorAll('main div')]
     .filter((d) => /linear-gradient\(90deg/.test(d.style.backgroundImage || '')).length)

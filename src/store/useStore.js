@@ -2,32 +2,21 @@ import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import { format } from 'date-fns'
 import {
-  seedPeptides, seedVials, seedTitration, seedOpenVials, SEED_NEEDLE_NOTES,
+  seedPeptides, seedVials, seedTitration, seedOpenVials,
   testosteroneEnanthate, TEST_E_ID, DEFAULT_BAC_ML, LEGACY_BAC_ML, THIGH_ONLY_IDS,
 } from '../data/seed'
 import { SEED_KNOWN_GOOD } from '../lib/mixing'
 import { currentRung, cycleInfo, addDaysStr } from '../lib/schedule'
 import { isDueToday } from '../lib/daily'
-import { perfectRotation } from '../lib/sites'
-import { rotationHealth } from '../lib/rotation'
 import { enrichPeptide } from '../lib/reference'
 import { toPeptide } from '../lib/wizardDefaults'
 import { countEntries } from '../lib/backup'
 import { toMg, doseToUnits, concentration, isNasal, convertLadderForRoute } from '../lib/calc'
-import { XP, rankUpInfo } from '../lib/gamification'
 import { DEFAULT_BODY_REFS } from '../lib/metrics'
 import { attributeSymptom, attributionSnapshot } from '../lib/attribution'
 import { slotForCategory } from '../lib/supplements'
 
 export const todayStr = () => format(new Date(), 'yyyy-MM-dd')
-
-// ISO-ish year+week key for streak grouping (good enough for weekly cadence).
-function isoWeek(dateStr) {
-  const d = new Date(dateStr + 'T00:00:00')
-  const onejan = new Date(d.getFullYear(), 0, 1)
-  const week = Math.ceil(((d - onejan) / 86400000 + onejan.getDay() + 1) / 7)
-  return `${d.getFullYear()}-W${week}`
-}
 
 // localStorage wrapped so a genuine quota/security failure surfaces once, without crashing.
 let storageErrorHandler = null
@@ -54,11 +43,6 @@ function initialState() {
     knownGoodMixes: [...SEED_KNOWN_GOOD],
     titration: seedTitration(peptides, t),
     openVials: seedOpenVials(peptides),
-    gamification: {
-      xp: 0, currentStreak: 0, bestStreak: 0, lastFullDay: null, badges: [], totalLogs: 0,
-      checkinStreak: 0, bestCheckinStreak: 0, lastCheckin: null, clearDayStreak: 0,
-    },
-    needleNotes: SEED_NEEDLE_NOTES,
     mixExplored: [], // codex: sorted-pair keys the user has revealed
     symptomLogs: [],
     measurements: [], // body-comp entries (structured; no blobs)
@@ -80,9 +64,6 @@ function initialState() {
     // the only trace of how long a vial actually lasted.
     finishedVials: [],
     coachMarks: {}, // one-time beginner tips already seen, by id
-    // The week whose recap has already been read on Home, as its Monday date.
-    // Stored rather than derived so dismissing it holds until the week turns.
-    recapSeen: null,
     // restock list: horizon, per-line quantity overrides, what's been ordered,
     // expected delivery dates, and editable consumable unit costs
     restock: { horizon: 'cycles', qty: {}, checked: {}, delivery: {}, unitCosts: {} },
@@ -95,16 +76,32 @@ function initialState() {
   }
 }
 
-let celebrationNonce = 0
+let toastNonce = 0
 
 const useStore = create(
   persist(
     (set, get) => ({
       ...initialState(),
-      celebration: null, // transient, not persisted
+      toast: null, // transient, not persisted
 
-      fireCelebration(payload) {
-        set({ celebration: { ...payload, nonce: ++celebrationNonce } })
+      /**
+       * A brief line about what just happened, with a way back.
+       *
+       * `undo` is a plain thunk rather than a serialised description of the
+       * change, so reversing is the same code path as doing — there is no
+       * second implementation of "what the opposite of this action is" to fall
+       * out of step with the first.
+       */
+      showToast(message, undo = null) {
+        set({ toast: { message, undo, nonce: ++toastNonce } })
+      },
+      dismissToast() {
+        set({ toast: null })
+      },
+      runUndo() {
+        const t = get().toast
+        if (t?.undo) t.undo()
+        set({ toast: null })
       },
 
       // ---------- peptides ----------
@@ -162,15 +159,18 @@ const useStore = create(
         return id
       },
       /**
-       * Take a compound out of the running stack.
+       * Take a compound out of my protocol.
        *
-       * `keepStock` decides what happens to the vials you physically own. When
-       * a finished vial is not replaced the compound stops running, but the
-       * sealed boxes are still in the drawer — deleting them would be the app
-       * throwing away a record of your own property. Removing it deliberately
-       * from the Library is the other case, where clearing it out is the point.
+       * Protocol, stock and history are three independent layers, and this
+       * touches exactly one of them. The vials you own stay on the shelf —
+       * deleting them would be the app throwing away a record of your own
+       * property — and the doses you actually took stay in the log, because
+       * they happened. Stopping a compound is a statement about the future,
+       * not permission to rewrite the past.
+       *
+       * The only thing that ends is the schedule.
        */
-      removePeptide(id, { keepStock = false } = {}) {
+      removePeptide(id) {
         set((s) => {
           const titration = { ...s.titration }
           const openVials = { ...s.openVials }
@@ -178,8 +178,6 @@ const useStore = create(
           delete openVials[id]
           return {
             peptides: s.peptides.filter((p) => p.id !== id),
-            vials: keepStock ? s.vials : s.vials.filter((v) => v.peptideId !== id),
-            doseLogs: s.doseLogs.filter((l) => l.peptideId !== id),
             titration,
             openVials,
           }
@@ -197,16 +195,11 @@ const useStore = create(
         set((st) => ({
           titration: { ...st.titration, [id]: { level: newLevel, levelStartDate: todayStr() } },
         }))
-        const oldXp = get().gamification.xp
-        get().awardXp(XP.levelUp)
-        const newBadges = []
-        get().awardBadge('level-up', newBadges)
-        if (newLevel === maxLevel) get().awardBadge('ceiling', newBadges)
-        get().fireCelebration({
-          type: 'levelup', peptide: p.name, level: newLevel + 1,
-          dose: rungs[newLevel], unit: p.ladder.unit, badges: newBadges,
-          rankUp: rankUpInfo(oldXp, get().gamification.xp),
-        })
+        const prev = s.titration[id]
+        get().showToast(
+          `${p.name} stepped up to ${rungs[newLevel]} ${p.ladder.unit}`,
+          () => set((st) => ({ titration: { ...st.titration, [id]: prev } }))
+        )
       },
       holdStepUp(id) {
         // declined → keep dose, restart the interval so it re-asks next interval
@@ -226,13 +219,13 @@ const useStore = create(
       },
 
       // ---------- logging ----------
-      // Append one dose log + decrement its inventory. No gamification here so a
+      // Append one dose log + decrement its inventory. No toast here so a
       // co-draw can record several doses then award once. Returns the peptide.
-      _recordDose(peptideId, siteId, loggedAt, coDrawId) {
+      _recordDose(peptideId, siteId, loggedAt, coDrawId, dateStr) {
         const s = get()
         const p = s.peptides.find((x) => x.id === peptideId)
         if (!p) return null
-        const t = todayStr()
+        const t = dateStr || todayStr()
         const { dose } = currentRung(p, s.titration[peptideId])
         const doseMg = toMg(dose, p.ladder.unit)
         const conc = concentration(p.recon.vialMg, p.recon.bacMl)
@@ -244,21 +237,29 @@ const useStore = create(
           insulinUnits: isNasal(p) ? null : Math.round(doseToUnits(doseMg, conc) * 10) / 10,
           route: p.route || 'SubQ',
           siteId: isNasal(p) ? null : (siteId || null),
-          loggedAt: loggedAt || new Date().toISOString(),
+          loggedAt: loggedAt || new Date(`${t}T12:00:00`).toISOString(),
           coDrawId: coDrawId || null,
         }
-        // inventory: draw from the open vial; auto-open a sealed one when depleted
         const open = { ...(s.openVials[peptideId] || { remainingMg: 0, reconstitutedAt: null }) }
-        open.remainingMg = Math.round((open.remainingMg - doseMg) * 1e6) / 1e6
         let vials = s.vials
-        if (open.remainingMg <= 1e-9) {
-          const idx = vials.findIndex((v) => v.peptideId === peptideId && v.qtyOnHand > 0)
-          if (idx >= 0) {
-            vials = vials.map((v, i) => (i === idx ? { ...v, qtyOnHand: v.qtyOnHand - 1 } : v))
-            open.remainingMg = Math.round((open.remainingMg + s.vials[idx].vialMg) * 1e6) / 1e6
-            open.reconstitutedAt = t
-          } else {
-            open.remainingMg = Math.max(0, open.remainingMg)
+        // An unlinked item has no vial behind it: the dose is still recorded,
+        // because it was still taken, but there is nothing to draw it out of.
+        // Silently decrementing a vial that does not exist is how an inventory
+        // drifts away from the shelf it is supposed to describe.
+        if (!open.unlinked) {
+          open.remainingMg = Math.round((open.remainingMg - doseMg) * 1e6) / 1e6
+          if (open.remainingMg <= 1e-9) {
+            const idx = vials.findIndex((v) => v.peptideId === peptideId && v.qtyOnHand > 0)
+            if (idx >= 0) {
+              vials = vials.map((v, i) => (i === idx ? { ...v, qtyOnHand: v.qtyOnHand - 1 } : v))
+              open.remainingMg = Math.round((open.remainingMg + s.vials[idx].vialMg) * 1e6) / 1e6
+              open.batchId = s.vials[idx].id
+              open.vialMg = s.vials[idx].vialMg
+              open.reconstitutedAt = t
+              open.activatedAt = new Date().toISOString()
+            } else {
+              open.remainingMg = Math.max(0, open.remainingMg)
+            }
           }
         }
         set((st) => ({
@@ -269,66 +270,68 @@ const useStore = create(
         return p
       },
 
-      // Run gamification once for a batch of just-logged peptides.
-      _awardForLogging(loggedPeptides, opts = {}) {
-        const t = todayStr()
-        const after = get()
-        const count = loggedPeptides.length
-        let xpGain = XP.log * count
-        const newBadges = []
-        after.awardBadge('first-log', newBadges)
-        if (after.doseLogs.length >= 100) after.awardBadge('logs-100', newBadges)
+      /**
+       * A dose that was taken but never logged, added after the fact.
+       *
+       * Recorded exactly like a live one — same inventory draw, same effect on
+       * run-out dates and adherence — because it was the same event. The only
+       * difference is the date it lands on and a flag saying it was entered
+       * later, so the record does not quietly claim to be something it isn't.
+       */
+      backfillDose(peptideId, dateStr, { siteId = null } = {}) {
+        if (!peptideId || !dateStr) return null
+        const p = get()._recordDose(peptideId, siteId, new Date(`${dateStr}T12:00:00`).toISOString(), null, dateStr)
+        if (!p) return null
+        set((s) => ({
+          doseLogs: s.doseLogs.map((l, i) => (i === s.doseLogs.length - 1 ? { ...l, backfilled: true } : l)),
+        }))
+        return p
+      },
 
-        const due = after.peptides.filter((x) => isDueToday(x, t))
-        const loggedToday = new Set(after.doseLogs.filter((l) => l.date === t).map((l) => l.peptideId))
-        const fullDay = due.length > 0 && due.every((x) => loggedToday.has(x.id))
-
-        if (perfectRotation(after.doseLogs, t)) after.awardBadge('perfect-rotation', newBadges)
-        // rotating well over a whole month is a different achievement to seven
-        // clean shots in a row, and worth its own badge
-        for (const route of ['SubQ', 'IM']) {
-          const h = rotationHealth({ doseLogs: after.doseLogs, todayStr: t, route }, { minLogs: 8, window: 28 })
-          if (h.ready && h.score >= 90) { after.awardBadge('rotation-health', newBadges); break }
-        }
-
-        let g = { ...after.gamification, totalLogs: (after.gamification.totalLogs || 0) + count }
-        if (fullDay && g.lastFullDay !== t) {
-          xpGain += XP.fullDay
-          const yesterday = addDaysStr(t, -1)
-          g.currentStreak = g.lastFullDay === yesterday ? g.currentStreak + 1 : 1
-          g.bestStreak = Math.max(g.bestStreak, g.currentStreak)
-          g.lastFullDay = t
-          xpGain += XP.streakDay * Math.min(g.currentStreak, 10)
-          after.awardBadge('full-stack', newBadges)
-          if (g.currentStreak >= 7) after.awardBadge('streak-7', newBadges)
-          if (g.currentStreak >= 30) after.awardBadge('streak-30', newBadges)
-        }
-
-        // completed a full on-cycle on any logged cycled peptide?
-        for (const p of loggedPeptides) {
-          if (cycleInfo(p, t).completedCycles > 0) {
-            const already = get().gamification.badges.includes('cycle-complete')
-            after.awardBadge('cycle-complete', newBadges)
-            if (!already) { xpGain += XP.cycleComplete; break }
+      /**
+       * Correct a log that was recorded wrong.
+       *
+       * Changing the dose moves the inventory by the difference rather than
+       * re-running the whole draw, so a correction of 0.1 mg costs the vial
+       * 0.1 mg — not a second full dose on top of the first.
+       */
+      editLog(logId, patch = {}) {
+        set((s) => {
+          const log = s.doseLogs.find((l) => l.id === logId)
+          if (!log) return {}
+          const next = { ...log, ...patch, edited: true }
+          const openVials = { ...s.openVials }
+          const oldMg = toMg(log.doseValue, log.unit)
+          const newMg = toMg(next.doseValue, next.unit)
+          if (oldMg !== newMg) {
+            const open = { ...(openVials[log.peptideId] || { remainingMg: 0 }) }
+            if (!open.unlinked) {
+              open.remainingMg = Math.round((open.remainingMg + oldMg - newMg) * 1e6) / 1e6
+              openVials[log.peptideId] = open
+            }
           }
-        }
-
-        const oldXp = get().gamification.xp
-        g = { ...g, xp: oldXp + xpGain }
-        set({ gamification: { ...get().gamification, ...g, badges: get().gamification.badges } })
-
-        get().fireCelebration({
-          type: fullDay ? 'fullday' : (opts.baseType || 'log'),
-          peptide: opts.peptide, names: opts.names, count,
-          xp: xpGain, fullDay, streak: g.currentStreak, badges: newBadges,
-          rankUp: rankUpInfo(oldXp, g.xp),
+          // a date change keeps loggedAt in step, so history sorts correctly
+          if (patch.date && patch.date !== log.date) {
+            next.loggedAt = new Date(`${patch.date}T12:00:00`).toISOString()
+          }
+          return {
+            doseLogs: s.doseLogs.map((l) => (l.id === logId ? next : l)),
+            openVials,
+          }
         })
+      },
+
+      // The ids just written to the log, newest batch first — what an Undo of
+      // that action has to take back out again.
+      _lastLoggedIds(count) {
+        return get().doseLogs.slice(-count).map((l) => l.id)
       },
 
       logDose(peptideId, siteId) {
         const p = get()._recordDose(peptideId, siteId, new Date().toISOString(), null)
         if (!p) return
-        get()._awardForLogging([p], { baseType: 'log', peptide: p.name })
+        const [id] = get()._lastLoggedIds(1)
+        get().showToast(`${p.name} logged`, () => get().undoLog(id))
       },
 
       // Co-draw: several peptides drawn into one syringe → one injection event
@@ -342,10 +345,11 @@ const useStore = create(
           if (p) logged.push(p)
         }
         if (!logged.length) return
-        get()._awardForLogging(logged, {
-          baseType: logged.length > 1 ? 'codraw' : 'log',
-          peptide: logged[0].name, names: logged.map((p) => p.name),
-        })
+        const ids = get()._lastLoggedIds(logged.length)
+        get().showToast(
+          logged.length > 1 ? `${logged.length} logged in one shot` : `${logged[0].name} logged`,
+          () => { for (const id of ids) get().undoLog(id) }
+        )
       },
       // ---------- injection-site reactions ----------
       logSiteReaction(siteId, kind, note) {
@@ -380,13 +384,15 @@ const useStore = create(
         set({ rotation: { mode: mode === 'path' ? 'path' : 'suggest' } })
       },
 
+      // Deleting a log puts the drug back in the vial it came out of — the dose
+      // never happened, so the inventory must not go on believing it did.
       undoLog(logId) {
         set((s) => {
           const log = s.doseLogs.find((l) => l.id === logId)
           if (!log) return {}
           const p = s.peptides.find((x) => x.id === log.peptideId)
           const open = { ...(s.openVials[log.peptideId] || { remainingMg: 0 }) }
-          if (p) open.remainingMg += toMg(log.doseValue, log.unit)
+          if (p && !open.unlinked) open.remainingMg += toMg(log.doseValue, log.unit)
           return {
             doseLogs: s.doseLogs.filter((l) => l.id !== logId),
             openVials: { ...s.openVials, [log.peptideId]: open },
@@ -394,15 +400,11 @@ const useStore = create(
         })
       },
 
-      awardXp(amount) {
-        set((s) => ({ gamification: { ...s.gamification, xp: s.gamification.xp + amount } }))
-      },
-      awardBadge(id, collector) {
-        const s = get()
-        if (s.gamification.badges.includes(id)) return false
-        set({ gamification: { ...s.gamification, badges: [...s.gamification.badges, id] } })
-        collector?.push(id)
-        return true
+      // My own observations about a compound, kept apart from symptom check-ins:
+      // a symptom is a data point the attribution engine reads, a note is a
+      // sentence to my future self, and merging them would corrupt both.
+      setPeptideNote(id, note) {
+        set((s) => ({ peptides: s.peptides.map((p) => (p.id === id ? { ...p, note } : p)) }))
       },
 
       // ---------- stock room ----------
@@ -469,13 +471,32 @@ const useStore = create(
               vendor: batch.vendor || '',
               lot: batch.lot || '',
               reconstitutedAt: t,
-              // the clock the "doses left" count reads from — only doses logged
+              // the clock the run-out figure reads from — only doses logged
               // after this instant came out of this vial
               activatedAt: new Date().toISOString(),
+              unlinked: false,
             },
           },
         })
         return true
+      },
+
+      /**
+       * Break the link between a protocol item and any vial.
+       *
+       * "Not in stock" is a real, supportable state: the compound still
+       * schedules, still logs, still counts for adherence — it just has no vial
+       * behind it, so nothing is decremented and the screens say so out loud.
+       * The alternative (refusing to schedule what you have not bought) hides
+       * the very doses you most need reminding about.
+       */
+      unlinkVial(peptideId) {
+        set((s) => ({
+          openVials: {
+            ...s.openVials,
+            [peptideId]: { remainingMg: 0, vialMg: null, batchId: null, reconstitutedAt: null, activatedAt: null, unlinked: true },
+          },
+        }))
       },
 
       /**
@@ -534,14 +555,7 @@ const useStore = create(
         const s = get()
         if (s.mixExplored.includes(key)) return
         set({ mixExplored: [...s.mixExplored, key] })
-        const oldXp = s.gamification.xp
-        get().awardXp(XP.mixDiscovery)
-        const newBadges = []
-        if (get().mixExplored.length >= 10) get().awardBadge('chemist', newBadges)
-        get().fireCelebration({
-          type: 'discovery', xp: XP.mixDiscovery, badges: newBadges,
-          rankUp: rankUpInfo(oldXp, get().gamification.xp),
-        })
+
       },
 
       // ---------- skipping ----------
@@ -636,14 +650,7 @@ const useStore = create(
             name: supp?.name || '', slot: supp?.slot || 'AM', dose: supp?.dose || '',
           }],
         })
-        const oldXp = s.gamification.xp
-        const newBadges = []
-        get().awardBadge('first-supplement', newBadges)
-        get().awardXp(XP.supplement)
-        get().fireCelebration({
-          type: 'supplement', xp: XP.supplement, badges: newBadges,
-          rankUp: rankUpInfo(oldXp, get().gamification.xp),
-        })
+        get().showToast(`${supp?.name || 'Supplement'} taken`, () => get().toggleSupplementTaken(id))
         return true
       },
 
@@ -672,36 +679,12 @@ const useStore = create(
         const hadCheckinToday = s.symptomLogs.some((l) => l.date === t)
         set({ symptomLogs })
 
-        const oldXp = s.gamification.xp
-        let xpGain = XP.symptomCheckin
-        const newBadges = []
-        get().awardBadge('first-checkin', newBadges)
+
 
         const hasNegative = tags.some((tg) => tg.polarity === 'neg')
         const clearDay = tags.length > 0 && !hasNegative
 
-        let g = { ...get().gamification }
-        if (!hadCheckinToday) {
-          const yesterday = addDaysStr(t, -1)
-          g.checkinStreak = g.lastCheckin === yesterday ? (g.checkinStreak || 0) + 1 : 1
-          g.bestCheckinStreak = Math.max(g.bestCheckinStreak || 0, g.checkinStreak)
-          g.lastCheckin = t
-          if (clearDay) {
-            xpGain += XP.clearDay
-            g.clearDayStreak = (g.clearDayStreak || 0) + 1
-            if (g.clearDayStreak >= 7) get().awardBadge('clear-week', newBadges)
-          } else {
-            g.clearDayStreak = 0
-          }
-        }
-        g.xp = oldXp + xpGain
-        set({ gamification: { ...g, badges: get().gamification.badges } })
-
-        get().fireCelebration({
-          type: clearDay ? 'clearday' : 'checkin',
-          xp: xpGain, clearDay, streak: g.checkinStreak, badges: newBadges,
-          rankUp: rankUpInfo(oldXp, g.xp),
-        })
+        get().showToast(clearDay ? 'Clear day logged' : 'Check-in logged')
       },
       deleteSymptomLog(id) {
         set((s) => ({ symptomLogs: s.symptomLogs.filter((l) => l.id !== id) }))
@@ -720,17 +703,7 @@ const useStore = create(
           entry,
         ].sort((a, b) => a.date.localeCompare(b.date))
         set({ measurements })
-
-        const oldXp = s.gamification.xp
-        const newBadges = []
-        get().awardBadge('first-measurement', newBadges)
-        if (entry.source === 'scan') get().awardBadge('first-scan', newBadges)
-        get().checkBodyMilestones(newBadges)
-        get().awardXp(XP.measurement)
-        get().fireCelebration({
-          type: 'measurement', xp: XP.measurement, badges: newBadges,
-          rankUp: rankUpInfo(oldXp, get().gamification.xp),
-        })
+        get().showToast('Measurement saved')
       },
       deleteMeasurement(id) {
         set((s) => ({ measurements: s.measurements.filter((m) => m.id !== id) }))
@@ -742,18 +715,6 @@ const useStore = create(
         const v = Math.max(0, Math.round((+cm || 0) * 10) / 10)
         set((s) => ({ bodyRefs: { ...s.bodyRefs, [key]: v } }))
       },
-      // award body-comp milestone badges vs goals / trend
-      checkBodyMilestones(collector) {
-        const s = get()
-        const ms = s.measurements
-        if (ms.length < 2) return
-        const first = ms[0], last = ms[ms.length - 1]
-        const dropped = (k) => first[k] != null && last[k] != null && last[k] < first[k]
-        if (dropped('visceralFat') || dropped('waist') || dropped('weight')) {
-          get().awardBadge('body-milestone', collector)
-        }
-      },
-
       // ---------- progress photos (metadata; blob lives in IndexedDB) ----------
       addPhoto({ pose, blobKey, date }) {
         const s = get()
@@ -762,17 +723,9 @@ const useStore = create(
           date: date || todayStr(), pose: pose || 'front', blobKey,
         }
         set({ photos: [...s.photos, entry].sort((a, b) => a.date.localeCompare(b.date)) })
-        const oldXp = s.gamification.xp
-        const newBadges = []
-        get().awardBadge('first-photo', newBadges)
+
         // 4-week photo streak: photos on ≥4 distinct ISO weeks
-        const weeks = new Set(get().photos.map((p) => isoWeek(p.date)))
-        if (weeks.size >= 4) get().awardBadge('photo-streak', newBadges)
-        get().awardXp(XP.photo)
-        get().fireCelebration({
-          type: 'photo', xp: XP.photo, badges: newBadges,
-          rankUp: rankUpInfo(oldXp, get().gamification.xp),
-        })
+        get().showToast('Photo saved')
         return entry
       },
       removePhoto(id) {
@@ -780,9 +733,6 @@ const useStore = create(
       },
 
       // ---------- misc ----------
-      updateNeedleNote(id, patch) {
-        set((s) => ({ needleNotes: s.needleNotes.map((n) => (n.id === id ? { ...n, ...patch } : n)) }))
-      },
       updateSettings(patch) {
         set((s) => ({ settings: { ...s.settings, ...patch } }))
       },
@@ -828,24 +778,49 @@ const useStore = create(
       // place rather than duplicated, and nothing else is touched unless the
       // user explicitly asked to start over — which clears the stack and its
       // inventory, and deliberately leaves the dose history alone.
-      applyWizard(entries, { startOver = false, startDate = null } = {}) {
+      /**
+       * Apply a round of protocol edits.
+       *
+       * Only the compounds passed in are touched. Everything else in the
+       * protocol is left exactly as it was, because "I came here to change one
+       * dose" must not be a way to lose the other eleven.
+       *
+       * `removed` takes compounds out of the protocol only — their stock and
+       * their logged history both survive, the same as removePeptide.
+       */
+      applyWizard(entries, { startOver = false, startDate = null, removed = [] } = {}) {
         const t = startDate || todayStr()
         if (startOver) {
+          // The one deliberate exception, behind its own confirmed checkbox.
+          // Stock and logs still survive it — only the schedule is cleared.
           set((s) => ({
             peptides: [],
-            vials: [],
             titration: {},
             openVials: {},
             restock: { ...s.restock, qty: {}, checked: {}, delivery: {} },
           }))
         }
+        for (const id of removed) get().removePeptide(id)
+
         const applied = []
         for (const entry of entries) {
-          const data = toPeptide(entry, t)
+          const data = toPeptide(entry, entry.existing ? (entry.startDate || t) : t)
           const exists = get().peptides.some((p) => p.id === data.id)
           if (exists) {
             get().updatePeptide(data.id, data)
-            set((s) => ({ titration: { ...s.titration, [data.id]: { level: 0, levelStartDate: t } } }))
+            // An edit is not a restart. The rung the user has climbed to is
+            // kept, only clamped if the ladder they just set is shorter than
+            // where they were standing on the old one.
+            set((s) => {
+              const prev = s.titration[data.id] || { level: 0, levelStartDate: t }
+              const { maxLevel } = currentRung({ ...data }, prev)
+              return {
+                titration: {
+                  ...s.titration,
+                  [data.id]: { ...prev, level: Math.min(prev.level ?? 0, maxLevel) },
+                },
+              }
+            })
           } else {
             get().addPeptide(data)
           }
@@ -877,11 +852,6 @@ const useStore = create(
         set({ coachMarks: {} })
       },
 
-      // Recap read for this week — it comes back on its own next Monday.
-      markRecapSeen(periodId) {
-        set({ recapSeen: periodId })
-      },
-
       // ---------- backup bookkeeping ----------
       markBackedUp(when = new Date().toISOString()) {
         const s = get()
@@ -909,12 +879,12 @@ const useStore = create(
         }))
       },
       resetAll() {
-        set({ ...initialState(), celebration: null })
+        set({ ...initialState(), toast: null })
       },
     }),
     {
       name: 'peptide-command-center', // storage key is history — renaming it would orphan existing data
-      version: 7,
+      version: 8,
       storage: createJSONStorage(() => safeStorage),
       // Saves written before a release can't pick new library entries up from
       // the seed, so each version bump backfills them here — once. Deleting one
@@ -926,10 +896,20 @@ const useStore = create(
       //   v5: thigh-only zone on the reaction-prone compounds
       //   v6: skipped doses
       //   v7: batch stock room + the active vial's own clock
+      //   v8: gamification and the weekly recap removed
       migrate: (persisted, from) => {
-        if (!persisted || from >= 7) return persisted
+        if (!persisted || from >= 8) return persisted
         const s = { ...persisted }
         const t = todayStr()
+        if (from < 8) {
+          // XP, levels, badges and streaks are gone. Dropping the slice rather
+          // than leaving it inert keeps a stale streak count out of every
+          // future backup file, and there is nothing here worth restoring: it
+          // only ever described how the app was used, never what was taken.
+          delete s.gamification
+          delete s.recapSeen
+          delete s.needleNotes
+        }
         if (from < 7) {
           s.finishedVials = s.finishedVials || []
           // Existing rows are already one-batch-per-peptide; they just predate
@@ -983,11 +963,7 @@ const useStore = create(
             ['semax', 'selank'].includes(p.id) ? { ...p, intranasalCapable: true } : p
           ))
         }
-        if (from >= 1) {
-          const have1 = new Set((s.needleNotes || []).map((n) => n.id))
-          s.needleNotes = [...(s.needleNotes || []), ...SEED_NEEDLE_NOTES.filter((n) => !have1.has(n.id))]
-          return s
-        }
+        if (from >= 1) return s
         if (!s.peptides?.some((p) => p.id === TEST_E_ID)) {
           const te = testosteroneEnanthate(t)
           s.peptides = [...(s.peptides || []), te]
@@ -1001,14 +977,10 @@ const useStore = create(
             costAud: 0, vendor: '', lot: '', qtyPurchased: 1, qtyOnHand: 1,
           }]
         }
-        // pick up needle-guide sections added since this save was written,
-        // without touching any section the user has already edited
-        const have = new Set((s.needleNotes || []).map((n) => n.id))
-        s.needleNotes = [...(s.needleNotes || []), ...SEED_NEEDLE_NOTES.filter((n) => !have.has(n.id))]
         return s
       },
       partialize: (s) => {
-        const { celebration, ...rest } = s
+        const { toast, ...rest } = s
         return Object.fromEntries(Object.entries(rest).filter(([, v]) => typeof v !== 'function'))
       },
       // Older saves predate backupMeta and the reference attachment; fill both

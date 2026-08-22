@@ -7,7 +7,6 @@ import {
 import { format, parseISO } from 'date-fns'
 import useStore, { todayStr } from '../store/useStore'
 import NumberField from './ui/NumberField'
-import { BADGES, levelProgress, rankForLevel } from '../lib/gamification'
 import { formatDose } from '../lib/calc'
 import { buildBackup, restoreBackup, validateBackup, describeBackup, backupFilename } from '../lib/backup'
 import { buildIcs } from '../lib/calendar'
@@ -16,7 +15,6 @@ import { addDaysStr } from '../lib/schedule'
 
 export default function SettingsTab({ goTo }) {
   const settings = useStore((s) => s.settings)
-  const gamification = useStore((s) => s.gamification)
   const doseLogs = useStore((s) => s.doseLogs)
   const peptides = useStore((s) => s.peptides)
   const updateSettings = useStore((s) => s.updateSettings)
@@ -24,7 +22,6 @@ export default function SettingsTab({ goTo }) {
   const undoLog = useStore((s) => s.undoLog)
   const [confirmReset, setConfirmReset] = useState(false)
 
-  const lp = levelProgress(gamification.xp)
 
   const exportJson = () => {
     try {
@@ -33,7 +30,7 @@ export default function SettingsTab({ goTo }) {
         exportedAt: new Date().toISOString(),
         peptides: state.peptides, vials: state.vials, doseLogs: state.doseLogs,
         knownGoodMixes: state.knownGoodMixes, titration: state.titration,
-        openVials: state.openVials, gamification: state.gamification, settings: state.settings,
+        openVials: state.openVials, settings: state.settings,
         mixExplored: state.mixExplored, symptomLogs: state.symptomLogs,
         measurements: state.measurements, photos: state.photos, bodyGoals: state.bodyGoals,
         bodyRefs: state.bodyRefs,
@@ -55,38 +52,6 @@ export default function SettingsTab({ goTo }) {
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-extrabold">Settings</h1>
-
-      {/* badges shelf */}
-      <div className="card p-4">
-        <p className="mb-1 flex items-center gap-1.5 text-sm font-bold">
-          <Award size={15} style={{ color: 'var(--violet)' }} /> Badges
-          <span className="ml-auto text-xs font-semibold" style={{ color: 'var(--muted)' }}>
-            Lvl {lp.level} · {rankForLevel(lp.level)} · {gamification.xp} XP
-          </span>
-        </p>
-        <div className="mt-2 grid grid-cols-4 gap-2">
-          {BADGES.map((b) => {
-            const earned = gamification.badges.includes(b.id)
-            const Icon = Icons[b.icon] || Award
-            return (
-              <motion.div key={b.id} whileTap={{ scale: 0.94 }} title={`${b.name} — ${b.desc}`}
-                className="flex flex-col items-center gap-1 rounded-2xl p-2 text-center"
-                style={{ background: 'var(--surface2)', opacity: earned ? 1 : 0.35 }}>
-                <div className="flex h-9 w-9 items-center justify-center rounded-full"
-                  style={earned
-                    ? { backgroundImage: 'linear-gradient(135deg, var(--violet), var(--indigo))', color: '#fff' }
-                    : { background: 'var(--surface)', color: 'var(--muted)' }}>
-                  <Icon size={16} />
-                </div>
-                <p className="text-[8.5px] font-bold leading-tight">{b.name}</p>
-              </motion.div>
-            )
-          })}
-        </div>
-        <p className="mt-2 text-[10px] font-semibold" style={{ color: 'var(--muted)' }}>
-          Best streak: {gamification.bestStreak} days · {gamification.totalLogs || 0} doses logged
-        </p>
-      </div>
 
       {/* settings */}
       <div className="card space-y-3 p-4">
@@ -178,7 +143,7 @@ export default function SettingsTab({ goTo }) {
       </div>
       <button onClick={() => goTo?.('wizard')}
         className="btn-violet flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-black">
-        <Wand2 size={16} /> Build / rebuild my schedule
+        <Wand2 size={16} /> Build / rebuild my protocol
       </button>
 
       <p className="pb-2 text-center text-[10px] font-medium" style={{ color: 'var(--muted)' }}>

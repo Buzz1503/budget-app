@@ -19,7 +19,7 @@ function weekdayLabel(peptide) {
   return days.map((d) => WEEKDAYS[d]).join(', ')
 }
 
-export function buildSummaryHtml({ peptides, titration, doseLogs, measurements, summary, from, to, gamification }) {
+export function buildSummaryHtml({ peptides, titration, doseLogs, measurements, summary, from, to }) {
   const fmt = (d) => format(parseISO(d), 'd MMM yyyy')
   const active = peptides.filter((p) => !needsProtocolSetup(p))
 
@@ -101,7 +101,6 @@ export function buildSummaryHtml({ peptides, titration, doseLogs, measurements, 
     <div class="kpi"><div class="v">${summary.overall.pct == null ? '—' : summary.overall.pct + '%'}</div><div class="l">Adherence</div></div>
     <div class="kpi"><div class="v">${summary.overall.taken}/${summary.overall.scheduled}</div><div class="l">Doses taken</div></div>
     <div class="kpi"><div class="v">${active.length}</div><div class="l">Active peptides</div></div>
-    <div class="kpi"><div class="v">${gamification?.currentStreak ?? 0}</div><div class="l">Day streak</div></div>
     <div class="kpi"><div class="v">${recentSites}</div><div class="l">Sites rotated</div></div>
   </div>
 

@@ -7,7 +7,7 @@ import { buildRungs, currentRung, stepUpDue, frequencyHits, dosesPerWeek } from 
 import { isDueToday, scheduledWeekdaySet, weekdayPickCount, needsProtocolSetup, slotOf } from './daily'
 import { expiryInfo } from './inventory'
 import { suggestSite, sitesForRoute, SITES, IM_SITES, SITE_BY_ID } from './sites'
-import { testosteroneEnanthate, TEST_E_ID, seedPeptides, SEED_NEEDLE_NOTES } from '../data/seed'
+import { testosteroneEnanthate, TEST_E_ID, seedPeptides } from '../data/seed'
 
 const TE = testosteroneEnanthate('2026-01-01')
 
@@ -97,16 +97,6 @@ describe('Testosterone Enanthate — oil-based injectable', () => {
     expect(TE.route).toBe('SubQ')
     expect(TE.allowedZone).toBe('thigh')
     expect(TE.vehicle).toBe('oil')
-  })
-
-  it('ships an oil-specific needle note distinct from the SubQ guide', () => {
-    const oil = SEED_NEEDLE_NOTES.find((n) => n.id === 'oil')
-    expect(oil).toBeTruthy()
-    expect(oil.body).toMatch(/23–25 g/)
-    expect(oil.body).toMatch(/27–29 g/)
-    expect(oil.body).toMatch(/viscous/i)
-    const subq = SEED_NEEDLE_NOTES.find((n) => n.id === 'syringe')
-    expect(subq.body).not.toMatch(/23–25 g/)
   })
 })
 

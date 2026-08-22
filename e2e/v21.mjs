@@ -30,14 +30,23 @@ const waitText = async (re, timeout = 20000) => {
 const main = () => page.locator('main').textContent()
 const state = () => page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state)
 const modal = () => page.locator('div.fixed.inset-0.z-50 > div.card')
-const nav = async (label) => { await page.click(`nav button:has-text("${label}")`); await page.waitForTimeout(500) }
+const nav = async (label) => {
+  await page.click(`nav button:has-text("${label}")`)
+  await page.waitForTimeout(500)
+  // Home opens on the current wall-clock slot; these steps are about the
+  // morning compounds, so ask for it rather than depending on the hour.
+  if (label === 'Home') {
+    await page.click('button:has-text("AM")').catch(() => {})
+    await page.waitForTimeout(400)
+  }
+}
 const more = async (label) => {
   await nav('More')
   await page.click(`button:has-text("${label}")`)
   await page.waitForTimeout(700)
 }
 const stock = async () => {
-  await more('Stock & restock')
+  await more('Stock')
   const t = page.locator('[data-testid="stock-view"] button[aria-label="Stock room"]')
   if (await t.count()) { await t.click(); await page.waitForTimeout(500) }
 }
@@ -62,7 +71,7 @@ if (await modal().count()) { await page.click('button:has-text("Got it")'); awai
 // ========================================================= 1 · the stock room
 
 await step('Stock has a stock room beside the restock list', async () => {
-  await more('Stock & restock')
+  await more('Stock')
   const toggle = page.locator('[data-testid="stock-view"]')
   if (!(await toggle.count())) throw new Error('no stock/restock toggle')
   for (const label of ['Stock room', 'Restock list']) {
@@ -73,7 +82,7 @@ await step('Stock has a stock room beside the restock list', async () => {
 })
 
 await step('the restock list, costs and consumables are all still there', async () => {
-  await more('Stock & restock')
+  await more('Stock')
   await page.click('[data-testid="stock-view"] button[aria-label="Restock list"]')
   await page.waitForTimeout(600)
   const t = await main()
@@ -96,7 +105,7 @@ await step('a second batch of the same peptide is held apart, not merged', async
   const before = (await state()).vials.filter((v) => v.peptideId === 'retatrutide').length
   await page.click('[data-testid="add-stock"]')
   await page.waitForTimeout(600)
-  await page.fill('input[aria-label="Search the library"]', 'Retatrutide')
+  await page.fill('input[aria-label="Search compounds"]', 'Retatrutide')
   await page.waitForTimeout(400)
   await page.locator('[data-testid="stock-picker"] button').first().click()
   await page.waitForTimeout(500)
@@ -259,9 +268,6 @@ await step('changing the dose changes the count with no recalibration', async ()
     const raw = JSON.parse(localStorage.getItem('peptide-command-center'))
     return raw.state.peptides.find((p) => p.id === 'bpc157').ladder.ceiling
   })
-  await more('Library')
-  await page.locator('h3:has-text("BPC-157")').first().click()
-  await page.waitForTimeout(700)
   await nav('Home')
   await page.waitForTimeout(700)
   const card = page.locator('.card').filter({ has: page.locator('h3:text-is("BPC-157")') }).first()
@@ -441,7 +447,7 @@ await step('with nothing in stock it offers to add some, or to confirm removal',
 
 await step('nothing overflows and no card name is truncated at 390px', async () => {
   const bad = []
-  for (const [how, label] of [['nav', 'Home'], ['nav', 'Calendar'], ['more', 'Stock & restock'], ['more', 'Library']]) {
+  for (const [how, label] of [['nav', 'Home'], ['nav', 'Calendar'], ['more', 'Stock'], ['more', 'Protocol overview']]) {
     if (how === 'nav') await nav(label); else await more(label)
     const over = await page.evaluate(() =>
       document.documentElement.scrollWidth > document.documentElement.clientWidth + 1)

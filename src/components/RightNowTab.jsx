@@ -23,7 +23,7 @@ export default function RightNowTab() {
       <div>
         <h1 className="text-2xl font-black tracking-tight">Right Now</h1>
         <p className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>
-          What your stack is doing for you today · {active.length} active
+          What my protocol is doing for me today · {active.length} active
         </p>
       </div>
 
@@ -36,7 +36,7 @@ export default function RightNowTab() {
 
       {active.length === 0 && (
         <div className="card p-6 text-center text-sm font-medium" style={{ color: 'var(--muted)' }}>
-          Nothing active today — your whole stack is resting. 🌙
+          Nothing active today — my whole protocol is resting. 🌙
         </div>
       )}
 
@@ -112,7 +112,7 @@ function PhaseCard({ peptide: p, info, tState, index }) {
         <span>
           {info.ongoing ? `Day ${info.onDay} · ongoing` : `Day ${info.onDay}/${info.onDays} on-cycle`}
         </span>
-        <span style={{ color: 'var(--violet)' }}>Lvl {level + 1}/{maxLevel + 1} · {formatDose(dose, p.ladder.unit)}</span>
+        <span style={{ color: 'var(--violet)' }}>Rung {level + 1}/{maxLevel + 1} · {formatDose(dose, p.ladder.unit)}</span>
         <span className="rounded-md px-1.5 py-0.5" style={{ background: 'var(--surface2)' }}>{narr.tempo === 'per-dose' ? 'acts per dose' : 'cumulative'}</span>
       </div>
 

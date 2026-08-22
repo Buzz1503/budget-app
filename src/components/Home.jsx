@@ -7,7 +7,6 @@ import { isDueToday, slotOf, isDueSlot, currentSlot, slotIsFlexible, needsProtoc
 import { formatDose, formatUnitsLong, unitsFor, round, isNasal } from '../lib/calc'
 import { loadMatrix, LIB_TO_COMPOUND } from '../lib/mixMatrix'
 import { planShots, shotsHeadline, MAX_GROUP_ML } from '../lib/grouping'
-import { levelProgress, rankForLevel } from '../lib/gamification'
 import { expiryInfo, runOutInfo } from '../lib/inventory'
 import { daysSince, SITE_BY_ID } from '../lib/sites'
 import { backupNudge, countEntries } from '../lib/backup'
@@ -24,8 +23,8 @@ import { dueInSlot, takenOn, FORM_LABEL } from '../lib/supplements'
 import { skippedOn, supplementsSkippedOn, skipFor, SKIP_REASONS, REASON_LABEL } from '../lib/skips'
 import { activeVialStatus, coverageFor, coverageWords } from '../lib/stock'
 import ReplaceVial from './ReplaceVial'
+import CompoundSheet from './CompoundSheet'
 import { FormIcon } from './SupplementsTab'
-import { HomeInsightCard, HomeRecapCard } from './InsightsTab'
 
 const spring = { type: 'spring', stiffness: 260, damping: 22 }
 
@@ -35,7 +34,6 @@ export default function Home({ goTo }) {
   const doseLogs = useStore((s) => s.doseLogs)
   const openVials = useStore((s) => s.openVials)
   const vials = useStore((s) => s.vials)
-  const gamification = useStore((s) => s.gamification)
   const settings = useStore((s) => s.settings)
   const restock = useStore((s) => s.restock)
   const updateSettings = useStore((s) => s.updateSettings)
@@ -78,6 +76,7 @@ export default function Home({ goTo }) {
   // the peptide whose vial just ran out, and which now needs a replacement
   const finishVial = useStore((s) => s.finishVial)
   const [replacing, setReplacing] = useState(null)
+  const [sheetId, setSheetId] = useState(null)
   const slotSupps = useMemo(() => dueInSlot(supplements, slot), [supplements, slot])
   const takenIds = useMemo(() => takenOn(supplementLogs, t), [supplementLogs, t])
   const suppDone = slotSupps.filter((x) => takenIds.has(x.id)).length
@@ -109,8 +108,7 @@ export default function Home({ goTo }) {
   const slotTotal = Math.max(0, slotDue.length + slotSupps.length - slotSkipped)
   const slotDoneAll = slotDone + suppDone
   const ringPct = slotTotal ? slotDoneAll / slotTotal : (scheduledToday.length === 0 ? 0 : 1)
-  const lp = levelProgress(gamification.xp)
-  const firstRun = (gamification.totalLogs || 0) === 0
+  const firstRun = doseLogs.length === 0
 
   // "back up your data" nudge — weekly, or after a batch of new entries
   const backupMeta = useStore((s) => s.backupMeta)
@@ -272,9 +270,7 @@ export default function Home({ goTo }) {
         </div>
       </div>
 
-      {/* Hero: how much is left, and nothing else. Level and XP are a footnote
-          under the divider — they are a reward for using the app, not the
-          reason to open it. */}
+      {/* Hero: how much is left, and nothing else. */}
       <motion.div layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={spring}
         className="flex items-center gap-4" data-testid="hero">
         <Ring pct={ringPct} size={72} stroke={7}
@@ -357,6 +353,7 @@ export default function Home({ goTo }) {
             onUnskip={() => unskipToday(p.id)}
             vial={activeVialStatus(p, titration[p.id], openVials[p.id], doseLogs)}
             onFinishVial={() => { finishVial(p.id); setReplacing(p.id) }}
+            onOpenSheet={setSheetId}
             beckon={firstRun && i === slotDue.findIndex((x) => !loggedToday.has(x.id))} />
         ))}
       </div>
@@ -385,22 +382,15 @@ export default function Home({ goTo }) {
       {/* what's coming — taps through to the full calendar */}
       <NextSevenDays goTo={goTo} />
 
-      {/* Both of these render nothing most days: the recap waits for the week to
-          turn, and the highlight waits until the logs support saying something. */}
-      <HomeRecapCard goTo={goTo} />
-      <HomeInsightCard goTo={goTo} />
-
-      {/* level, as a footnote */}
-      <p className="px-1 pb-1 text-center text-[10px] font-bold" style={{ color: 'var(--muted)' }}>
-        Lvl {lp.level} · {rankForLevel(lp.level)} · {lp.current}/{lp.needed} XP
-      </p>
-
       {/* keeps the last card clear of the floating co-draw bar */}
       {selected.size > 0 && <div aria-hidden className="h-20" />}
 
       <ReplaceVial
         open={!!replacing} peptideId={replacing}
         onClose={() => setReplacing(null)} goTo={goTo} />
+
+      <CompoundSheet open={!!sheetId} compoundId={sheetId}
+        onClose={() => setSheetId(null)} goTo={goTo} />
 
       <SkipSheet
         target={skipping}
@@ -789,13 +779,16 @@ function ShotRow({ group, onAccept }) {
   )
 }
 
-function DueCard({ peptide: p, index, done, titration, partners, slot, onLog, goTo, today, doseLogs, beckon, selected, onToggleSelect, selectMode, skipped, skipReason, onSkip, onUnskip, vial, onFinishVial }) {
+function DueCard({ peptide: p, index, done, titration, partners, slot, onLog, goTo, today, doseLogs, beckon, selected, onToggleSelect, selectMode, skipped, skipReason, onSkip, onUnskip, vial, onFinishVial, onOpenSheet }) {
   const tState = titration[p.id]
   const { dose, level, maxLevel } = currentRung(p, tState)
   const nasal = isNasal(p)
   const units = nasal ? null : unitsFor(p, dose)
   const cyc = cycleInfo(p, today)
   const stepDue = stepUpDue(p, tState, today)
+  const [stepOpen, setStepOpen] = useState(false)
+  const confirmStepUp = useStore((s) => s.confirmStepUp)
+  const holdStepUp = useStore((s) => s.holdStepUp)
   const noCoDraw = nasal || !!p.alwaysSeparate
 
   // The hint is pairwise and comes from the same matrix the combine plan reads,
@@ -841,8 +834,11 @@ function DueCard({ peptide: p, index, done, titration, partners, slot, onLog, go
         ))}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <h3 className="truncate text-base font-bold">{p.name}</h3>
-            <span className="chip" style={{ color: 'var(--violet)' }}>Lvl {level + 1}{level === maxLevel ? ' · max' : ''}</span>
+            <button onClick={() => onOpenSheet?.(p.id)} data-testid="open-compound-sheet"
+              aria-label={`About ${p.name}`} className="min-w-0 truncate text-left">
+              <h3 className="truncate text-base font-bold">{p.name}</h3>
+            </button>
+            <span className="chip" style={{ color: 'var(--violet)' }}>Rung {level + 1}{level === maxLevel ? ' · top' : ''}</span>
           </div>
           <p className="mt-0.5 text-2xl font-black tracking-tight">
             {formatDose(dose, p.ladder.unit)}
@@ -925,13 +921,39 @@ function DueCard({ peptide: p, index, done, titration, partners, slot, onLog, go
           <span className="font-medium" style={{ color: 'var(--muted)' }}>· nothing taken from stock</span>
         </p>
       )}
-      {stepDue && (
-        <button onClick={() => goTo('library')}
+      {/* The step-up decision is answered where it is asked. It is a titration
+          call, not a schedule edit, and sending someone to another screen to
+          say "yes, that felt fine" is how a prompt gets ignored for weeks. */}
+      {stepDue && !stepOpen && (
+        <button onClick={() => setStepOpen(true)} data-testid="stepup-prompt"
           className="mt-3 flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2 text-xs font-bold"
           style={{ background: 'color-mix(in srgb, var(--violet) 16%, transparent)', color: 'var(--violet)' }}>
           <span className="flex items-center gap-2"><Zap size={13} /> Step-up ready — tolerating well?</span>
           <ChevronRight size={14} />
         </button>
+      )}
+      {stepDue && stepOpen && (
+        <div className="mt-3 rounded-xl p-3" data-testid="stepup-confirm"
+          style={{ background: 'color-mix(in srgb, var(--violet) 14%, transparent)' }}>
+          <p className="text-[11px] font-black" style={{ color: 'var(--violet)' }}>
+            {p.ladder.intervalWeeks} week{p.ladder.intervalWeeks === 1 ? '' : 's'} at {formatDose(dose, p.ladder.unit)} —
+            tolerating well?
+          </p>
+          <p className="mt-1 text-[10px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+            Advancing moves you to the next rung. Holding keeps this dose and asks again next interval.
+          </p>
+          <div className="mt-2.5 flex gap-2">
+            <button onClick={() => { holdStepUp(p.id); setStepOpen(false) }} data-testid="stepup-hold"
+              className="flex-1 rounded-lg py-2 text-[11px] font-black"
+              style={{ background: 'var(--surface2)', color: 'var(--muted)' }}>
+              Hold here
+            </button>
+            <button onClick={() => { confirmStepUp(p.id); setStepOpen(false) }} data-testid="stepup-advance"
+              className="btn-primary flex-1 rounded-lg py-2 text-[11px] font-black">
+              Advance
+            </button>
+          </div>
+        </div>
       )}
     </motion.div>
   )

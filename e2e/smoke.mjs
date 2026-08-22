@@ -32,13 +32,12 @@ const PRIMARY_TABS = new Set(['Home', 'Calendar', 'Symptoms', 'Body', 'More'])
 const MORE_LINK = {
   Calculator: 'text=Reconstitution & syringe units',
   Mix: 'text=Can these two share a syringe',
-  Stock: 'text=Vials, cost, expiry',
-  Library: 'text=Your peptides, ladders',
-  'Right Now': 'text=What your stack is doing today',
+  Stock: 'text=Vials I own, run-out dates',
+  Protocol: 'text=Everything I’m on, at a glance',
+  'Right Now': 'text=What my protocol is doing for me today',
   History: 'text=Every dose, rates',
-  Settings: 'text=Theme, badges',
-  Needle: 'text=SubQ, IM and nasal',
-  Wizard: 'text=Guided setup with suggestions',
+  Settings: 'text=Theme, lead time, backup and reset',
+    Wizard: 'text=Add, remove or edit anything I take',
 }
 const nav = async (label) => {
   if (PRIMARY_TABS.has(label)) {
@@ -70,7 +69,7 @@ await step('Home: disclaimer + ring + 5-tab bar', async () => {
   await page.click('text=Got it')
 })
 
-await step('Home: log a dose via site picker fires XP + done state', async () => {
+await step('Home: log a dose via site picker marks it done', async () => {
   await page.locator('button[aria-label^="Log "]').first().click()
   await waitText(/Tap any spot to pick it|INJECT HERE|Next on your path/)
   await page.click('button:has-text("Log here")')
@@ -83,13 +82,12 @@ await step('Home: log a dose via site picker fires XP + done state', async () =>
   const store = await page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state)
   if (!store.doseLogs.length) throw new Error('doseLog not persisted')
   if (!store.doseLogs[0].siteId) throw new Error('siteId not recorded')
-  if (store.gamification.xp < 10) throw new Error('no XP awarded')
 })
 await page.screenshot({ path: `${SHOT}/v2-01-today.png` })
 
 await step('Right Now: phases render for active peptides', async () => {
   await nav('More'); await page.click('text=Right Now')
-  await waitText(/What your stack is doing/)
+  await waitText(/What my protocol is doing/)
   await waitText(/(Loading|Building|Peak|Maintenance)/) // poll until phase cards render
   const txt = await page.textContent('body')
   if (!/Selank/.test(txt)) throw new Error('active peptide missing')
@@ -145,19 +143,19 @@ await step('Mix: proven-blend seal on Selank + Semax', async () => {
   await waitText(/Proven blend/)
 })
 
-await step('Mix: Codex advances with discovery XP', async () => {
+await step('Mix: Codex advances on discovery', async () => {
   const store = await page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state)
   if (!store.mixExplored.length) throw new Error('mixExplored empty — codex not tracking')
 })
 
 await step('Mix: browse all 86 compounds', async () => {
-  await page.click('button:has-text("My stack")') // toggle → browse all
+  await page.click('button:has-text("My protocol")') // toggle → browse all
   await page.fill('input[placeholder*="Search"]', 'cagri')
   await waitText(/Cagrilintide/)
   await page.click('button:has-text("All 86")') // toggle back → my stack
 })
 
-await step('Symptoms: check-in logs, streak advances, timeline', async () => {
+await step('Symptoms: check-in logs and shows on the timeline', async () => {
   await nav('Symptoms')
   // v18: search-first, and the submit counts what you picked
   await waitText(/How are you feeling/i)
@@ -173,15 +171,14 @@ await step('Symptoms: check-in logs, streak advances, timeline', async () => {
   await page.waitForTimeout(900)
   const store = await page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state)
   if (!store.symptomLogs.length) throw new Error('symptom log not saved')
-  if ((store.gamification.checkinStreak || 0) < 1) throw new Error('check-in streak not advanced')
   if (!store.symptomLogs[0].activePeptides.length) throw new Error('active peptides not captured')
 })
 await page.screenshot({ path: `${SHOT}/v2-06-symptoms.png` })
 
 await step('More hub: navigates to sub-screens', async () => {
   await nav('Stock')
-  await waitText(/runs out|on hand/)
-  await nav('Library')
+  await waitText(/runs out|on hand|sealed/)
+  await nav('Protocol')
   await waitText(/Retatrutide/)
 })
 await step('Calculator lives under More', async () => {
@@ -190,8 +187,7 @@ await step('Calculator lives under More', async () => {
 })
 await page.screenshot({ path: `${SHOT}/v2-07-more.png` })
 
-await step('the titration ladder in Library still confirms a step-up', async () => {
-  await nav('Library')
+await step('the titration step-up is confirmed inline on the Home card', async () => {
   await page.evaluate(() => {
     const raw = JSON.parse(localStorage.getItem('peptide-command-center'))
     const d = new Date(Date.now() - 8 * 86400000).toISOString().slice(0, 10)
@@ -199,10 +195,16 @@ await step('the titration ladder in Library still confirms a step-up', async () 
     localStorage.setItem('peptide-command-center', JSON.stringify(raw))
   })
   await page.reload({ waitUntil: 'networkidle' })
-  await nav('Library')
-  await page.locator('div.card', { hasText: 'Selank' }).first().locator('button').first().click()
-  await waitText(/Tolerating well/)
-  await page.click('button:has-text("Advance")')
+  await page.waitForTimeout(800)
+  await page.click('nav button:has-text("Home")')
+  await page.waitForTimeout(600)
+  // Selank is a morning compound; Home opens on the current wall-clock slot
+  await page.click('button:has-text("AM")').catch(() => {})
+  await page.waitForTimeout(500)
+  const card = page.locator('.card').filter({ has: page.locator('h3:text-is("Selank")') }).first()
+  await card.locator('[data-testid="stepup-prompt"]').click()
+  await waitText(/tolerating well/i)
+  await card.locator('[data-testid="stepup-advance"]').click()
   await page.waitForTimeout(1000)
   const store = await page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state)
   if (store.titration.selank.level !== 1) throw new Error('titration confirm did not advance')
@@ -216,7 +218,7 @@ await step('persistence: full reload keeps everything', async () => {
   if (!store.symptomLogs.length) throw new Error('symptom logs lost')
   if (!store.mixExplored.length) throw new Error('mix codex lost')
   console.log('  persisted — logs:', store.doseLogs.length, 'symptoms:', store.symptomLogs.length,
-    'explored:', store.mixExplored.length, 'xp:', store.gamification.xp)
+    'explored:', store.mixExplored.length)
 })
 
 console.log('\n--- console/page errors:', errors.length)

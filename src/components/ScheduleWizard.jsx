@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Search, Check, ChevronLeft, ChevronRight, AlertTriangle, Wand2, Wind, Syringe, Info,
+  Pencil, Trash2, Plus, Package,
 } from 'lucide-react'
 import useStore, { todayStr } from '../store/useStore'
 import Modal from './ui/Modal'
@@ -9,7 +10,7 @@ import NumberField from './ui/NumberField'
 import Term from './ui/Term'
 import ReferenceInfo, { TierBadge } from './ReferenceInfo'
 import { loadMatrix, compoundColor } from '../lib/mixMatrix'
-import { wizardSuggestion, nasalDefaults } from '../lib/wizardDefaults'
+import { wizardSuggestion, nasalDefaults, entryFromPeptide } from '../lib/wizardDefaults'
 import { testosteroneEnanthate, TEST_E_ID } from '../data/seed'
 import { WEEKDAYS, weekdayPickCount, scheduledWeekdaySet } from '../lib/daily'
 import {
@@ -32,14 +33,19 @@ const ROUTE_LABEL = { SubQ: 'SubQ', IM: 'IM', Nasal: 'Nasal spray' }
 
 export default function ScheduleWizard({ open, onClose }) {
   const peptides = useStore((s) => s.peptides)
+  const vials = useStore((s) => s.vials)
   const applyWizard = useStore((s) => s.applyWizard)
   const t = todayStr()
 
   const [matrix, setMatrix] = useState(null)
-  const [step, setStep] = useState('intro') // intro | pick | config | start | review | done
+  // manage is the home step for an existing protocol; intro only greets an
+  // empty one. Everything else is shared between adding and editing.
+  const [step, setStep] = useState('manage') // manage | intro | pick | config | start | review | done
   const [idx, setIdx] = useState(0)
   const [query, setQuery] = useState('')
-  const [entries, setEntries] = useState([])      // configured, in pick order
+  const [entries, setEntries] = useState([])      // added or edited, in pick order
+  const [removed, setRemoved] = useState([])      // ids to take out of the protocol
+  const [confirmRemove, setConfirmRemove] = useState(null)
   const [startDate, setStartDate] = useState(t)
   const [startOver, setStartOver] = useState(false)
 
@@ -52,7 +58,9 @@ export default function ScheduleWizard({ open, onClose }) {
 
   useEffect(() => {
     if (!open) return
-    setStep('intro'); setIdx(0); setQuery(''); setEntries([]); setStartDate(t); setStartOver(false)
+    setStep(peptides.length === 0 ? 'intro' : 'manage')
+    setIdx(0); setQuery(''); setEntries([]); setRemoved([]); setConfirmRemove(null)
+    setStartDate(t); setStartOver(false)
   }, [open, t])
 
   // every compound in the matrix, plus the oil injectable the app ships
@@ -63,11 +71,27 @@ export default function ScheduleWizard({ open, onClose }) {
     return [...matrix.compounds, ...extra].sort((a, b) => a.name.localeCompare(b.name))
   }, [matrix, t])
 
+  // ids I own stock of — offered first when adding, because "what have I got
+  // sitting in the fridge" is the usual reason to add something.
+  const stockIds = useMemo(
+    () => new Set(vials.filter((v) => (v.qtyOnHand || 0) > 0).map((v) => v.peptideId)),
+    [vials]
+  )
+
   const results = useMemo(() => {
     const q = query.trim().toLowerCase()
-    if (!q) return catalogue
-    return catalogue.filter((c) => c.name.toLowerCase().includes(q) || c.id.includes(q) || (c.class || '').toLowerCase().includes(q))
-  }, [catalogue, query])
+    const list = q
+      ? catalogue.filter((c) => c.name.toLowerCase().includes(q) || c.id.includes(q) || (c.class || '').toLowerCase().includes(q))
+      : catalogue
+    // What I already own floats to the top: owning something without a schedule
+    // for it is the commonest reason to be on this screen at all.
+    return [...list].sort((a, b) => {
+      const sa = stockIds.has(a.id) ? 0 : 1
+      const sb = stockIds.has(b.id) ? 0 : 1
+      if (sa !== sb) return sa - sb
+      return a.name.localeCompare(b.name)
+    })
+  }, [catalogue, query, stockIds])
 
   const picked = new Set(entries.map((e) => e.id))
   const toggle = (c) => {
@@ -81,18 +105,39 @@ export default function ScheduleWizard({ open, onClose }) {
   const current = entries[idx]
   const inStack = (id) => peptides.some((p) => p.id === id)
 
+  // Editing an existing item loads its own saved values, then drops into the
+  // same per-compound step the add flow uses — one editor, not two.
+  const editExisting = (p) => {
+    const already = entries.findIndex((e) => e.id === p.id)
+    if (already >= 0) { setIdx(already); setStep('config'); return }
+    setEntries((prev) => {
+      const next = [...prev, entryFromPeptide(p)]
+      setIdx(next.length - 1)
+      return next
+    })
+    setStep('config')
+  }
+
+  const doRemove = (id) => {
+    setRemoved((prev) => (prev.includes(id) ? prev : [...prev, id]))
+    setEntries((prev) => prev.filter((e) => e.id !== id))
+    setConfirmRemove(null)
+  }
+
+  const dirty = entries.length > 0 || removed.length > 0 || startOver
   const finish = () => {
-    applyWizard(entries, { startOver, startDate })
+    applyWizard(entries, { startOver, startDate, removed })
     setStep('done')
   }
 
   const title = {
-    intro: 'Build my schedule',
-    pick: `Pick your compounds${entries.length ? ` · ${entries.length}` : ''}`,
+    manage: 'My protocol',
+    intro: 'Build my protocol',
+    pick: `Add compounds${entries.filter((e) => !e.existing).length ? ` · ${entries.filter((e) => !e.existing).length}` : ''}`,
     config: current ? `${current.name} · ${idx + 1} of ${entries.length}` : 'Set up',
     start: 'Start date',
     review: 'Review & confirm',
-    done: 'Schedule built',
+    done: 'Protocol saved',
   }[step]
 
   return (
@@ -101,11 +146,124 @@ export default function ScheduleWizard({ open, onClose }) {
         <motion.div key={step + idx} initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -12 }}
           transition={{ duration: 0.15 }} className="space-y-3">
 
+          {step === 'manage' && (
+            <>
+              <p className="text-[11px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+                Everything I take, and the one place any of it changes. Edit a compound, take one out, or
+                add something new — the rest is left exactly as it is.
+              </p>
+
+              <div className="max-h-[42vh] space-y-1.5 overflow-y-auto pr-0.5" data-testid="manage-list">
+                {peptides.map((p) => {
+                  const edited = entries.some((e) => e.id === p.id)
+                  const gone = removed.includes(p.id)
+                  return (
+                    <div key={p.id} data-testid="manage-row"
+                      className="flex items-center gap-2 rounded-xl p-2.5"
+                      style={{
+                        background: 'var(--surface2)',
+                        opacity: gone ? 0.45 : 1,
+                        border: edited ? '1px solid color-mix(in srgb, var(--lime) 45%, transparent)' : '1px solid transparent',
+                      }}>
+                      {p.route === 'Nasal'
+                        ? <Wind size={13} className="shrink-0" style={{ color: 'var(--indigo)' }} />
+                        : <Syringe size={13} className="shrink-0" style={{ color: 'var(--lime)' }} />}
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[12px] font-black" style={{ textDecoration: gone ? 'line-through' : 'none' }}>
+                          {p.name}
+                        </p>
+                        <p className="truncate text-[10px] font-semibold" style={{ color: 'var(--muted)' }}>
+                          {gone ? 'will be removed'
+                            : edited ? 'edited — not saved yet'
+                              : `${p.ladder?.ceiling > 0 ? `${formatDose(p.ladder.floor, p.ladder.unit)} → ${formatDose(p.ladder.ceiling, p.ladder.unit)}` : 'no dose set'} · ${FREQ_LABELS[p.frequency] || p.frequency}`}
+                        </p>
+                      </div>
+                      {gone ? (
+                        <button onClick={() => setRemoved((prev) => prev.filter((x) => x !== p.id))}
+                          className="rounded-lg px-2 py-1.5 text-[10px] font-black"
+                          style={{ background: 'var(--surface-solid)', color: 'var(--lime)' }}>
+                          Undo
+                        </button>
+                      ) : (
+                        <>
+                          <button onClick={() => editExisting(p)} aria-label={`Edit ${p.name}`}
+                            data-testid="manage-edit"
+                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
+                            style={{ background: 'var(--surface-solid)', color: 'var(--violet)' }}>
+                            <Pencil size={12} />
+                          </button>
+                          <button onClick={() => setConfirmRemove(p)} aria-label={`Remove ${p.name}`}
+                            data-testid="manage-remove"
+                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
+                            style={{ background: 'var(--surface-solid)', color: 'var(--coral)' }}>
+                            <Trash2 size={12} />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )
+                })}
+                {entries.filter((e) => !e.existing).map((e, i) => (
+                  <div key={e.id} className="flex items-center gap-2 rounded-xl p-2.5"
+                    style={{ background: 'color-mix(in srgb, var(--lime) 12%, transparent)' }}>
+                    <Plus size={13} className="shrink-0" style={{ color: 'var(--lime)' }} />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[12px] font-black">{e.name}</p>
+                      <p className="truncate text-[10px] font-semibold" style={{ color: 'var(--lime)' }}>new — not saved yet</p>
+                    </div>
+                    <button onClick={() => { setIdx(entries.findIndex((x) => x.id === e.id)); setStep('config') }}
+                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
+                      style={{ background: 'var(--surface-solid)', color: 'var(--violet)' }}>
+                      <Pencil size={12} />
+                    </button>
+                    <button onClick={() => setEntries((prev) => prev.filter((x) => x.id !== e.id))}
+                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
+                      style={{ background: 'var(--surface-solid)', color: 'var(--coral)' }}>
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <button onClick={() => setStep('pick')} data-testid="manage-add"
+                className="flex w-full items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-black"
+                style={{ background: 'color-mix(in srgb, var(--violet) 18%, transparent)', color: 'var(--violet)' }}>
+                <Plus size={14} /> Add a compound
+              </button>
+
+              {/* The nuclear option, kept quiet and kept honest about its blast
+                  radius: it empties the schedule, not the drawer or the diary. */}
+              <label className="flex items-start gap-2 rounded-xl p-2.5 text-[11px] font-bold"
+                style={{ background: 'var(--surface2)', color: 'var(--coral)' }}>
+                <input type="checkbox" checked={startOver} data-testid="manage-start-over"
+                  onChange={(e) => setStartOver(e.target.checked)} className="mt-0.5" />
+                <span>
+                  Start over — clear my whole protocol first.
+                  <span className="block font-medium" style={{ color: 'var(--muted)' }}>
+                    Your stock and your logged history are both kept.
+                  </span>
+                </span>
+              </label>
+
+              <div className="flex items-center gap-2 pt-1">
+                <button onClick={onClose} className="rounded-xl px-3 py-2.5 text-xs font-bold"
+                  style={{ background: 'var(--surface2)' }}>
+                  Close
+                </button>
+                <motion.button whileTap={{ scale: 0.97 }} onClick={() => setStep('review')} disabled={!dirty}
+                  data-testid="manage-save"
+                  className="btn-primary flex flex-1 items-center justify-center gap-1 rounded-xl py-2.5 text-sm font-black disabled:opacity-40">
+                  Review changes <ChevronRight size={15} />
+                </motion.button>
+              </div>
+            </>
+          )}
+
           {step === 'intro' && (
             <>
               <div className="rounded-2xl p-4" style={{ background: 'color-mix(in srgb, var(--violet) 14%, transparent)' }}>
                 <p className="flex items-center gap-1.5 text-sm font-black" style={{ color: 'var(--violet)' }}>
-                  <Wand2 size={16} /> A few minutes, and your whole stack is set up
+                  <Wand2 size={16} /> A few minutes, and your whole protocol is set up
                 </p>
                 <p className="mt-1.5 text-xs font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
                   Every field opens with a starting point already filled in, so you're never staring at a blank box.
@@ -119,7 +277,7 @@ export default function ScheduleWizard({ open, onClose }) {
                   'Check the suggested dose, ladder and reconstitution — change anything.',
                   'Choose the route: SubQ, IM, or a nasal spray where it applies.',
                   'Set the days, the AM/PM slot and a start date.',
-                  'Confirm, and Home, Plan, Library, Mix and Stock all fill in.',
+                  'Confirm, and Home, Calendar, Mix and Stock all fill in.',
                 ].map((line, i) => (
                   <li key={i} className="flex gap-2">
                     <span className="font-black" style={{ color: 'var(--violet)' }}>{i + 1}.</span><span>{line}</span>
@@ -172,7 +330,13 @@ export default function ScheduleWizard({ open, onClose }) {
                         <span className="flex flex-wrap items-center gap-1 pt-0.5">
                           {s.tier && <TierBadge tier={s.tier} confidence={s.confidence} compact />}
                           {inStack(c.id) && (
-                            <span className="rounded px-1 py-0.5 text-[9px] font-bold" style={{ background: 'var(--surface-solid)', color: 'var(--indigo)' }}>in your stack</span>
+                            <span className="rounded px-1 py-0.5 text-[9px] font-bold" style={{ background: 'var(--surface-solid)', color: 'var(--indigo)' }}>in my protocol</span>
+                          )}
+                          {stockIds.has(c.id) && (
+                            <span className="inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[9px] font-bold"
+                              style={{ background: 'var(--surface-solid)', color: 'var(--amber)' }}>
+                              <Package size={9} /> in my stock
+                            </span>
                           )}
                           {s.source === 'none' && (
                             <span className="rounded px-1 py-0.5 text-[9px] font-bold" style={{ background: 'var(--surface-solid)', color: 'var(--muted)' }}>no suggested dose</span>
@@ -191,7 +355,7 @@ export default function ScheduleWizard({ open, onClose }) {
                 )}
               </div>
               <Nav
-                back={() => setStep('intro')}
+                back={() => setStep(peptides.length ? 'manage' : 'intro')}
                 next={() => { setIdx(0); setStep('config') }}
                 nextLabel={`Set up ${entries.length || ''}`.trim()}
                 disabled={entries.length === 0}
@@ -203,9 +367,13 @@ export default function ScheduleWizard({ open, onClose }) {
             <>
               <PeptideStep entry={current} onPatch={(p) => patch(idx, p)} />
               <Nav
-                back={() => (idx === 0 ? setStep('pick') : setIdx(idx - 1))}
-                next={() => (idx + 1 < entries.length ? setIdx(idx + 1) : setStep('start'))}
-                nextLabel={idx + 1 < entries.length ? `Next · ${entries[idx + 1].name}` : 'Start date'}
+                back={() => (idx === 0 ? setStep(peptides.length ? 'manage' : 'pick') : setIdx(idx - 1))}
+                next={() => (idx + 1 < entries.length
+                  ? setIdx(idx + 1)
+                  : setStep(peptides.length ? 'manage' : 'start'))}
+                nextLabel={idx + 1 < entries.length
+                  ? `Next · ${entries[idx + 1].name}`
+                  : (peptides.length ? 'Done editing' : 'Start date')}
               />
             </>
           )}
@@ -231,9 +399,26 @@ export default function ScheduleWizard({ open, onClose }) {
                 <p className="flex items-start gap-1.5 rounded-xl p-3 text-[11px] font-bold"
                   style={{ background: 'color-mix(in srgb, var(--coral) 14%, transparent)', color: 'var(--coral)' }}>
                   <AlertTriangle size={13} className="mt-0.5 shrink-0" />
-                  Starting over: your current {peptides.length} compounds and their stock will be cleared first. Logged history is kept.
+                  Starting over: your current {peptides.length} compounds come out of the protocol. Your stock
+                  and your logged history are both kept.
                 </p>
               )}
+
+              {removed.length > 0 && (
+                <div className="rounded-xl p-3" data-testid="review-removed"
+                  style={{ background: 'color-mix(in srgb, var(--coral) 12%, transparent)' }}>
+                  <p className="text-[10px] font-black uppercase tracking-wide" style={{ color: 'var(--coral)' }}>
+                    Coming out of my protocol
+                  </p>
+                  <p className="mt-1 text-[11px] font-bold">
+                    {removed.map((id) => peptides.find((p) => p.id === id)?.name || id).join(', ')}
+                  </p>
+                  <p className="mt-1 text-[10px] font-medium" style={{ color: 'var(--muted)' }}>
+                    The schedule stops. Your vials stay in stock and your logged doses stay in history.
+                  </p>
+                </div>
+              )}
+
               <div className="space-y-1.5">
                 {entries.map((e) => (
                   <div key={e.id} className="rounded-xl p-2.5" style={{ background: 'var(--surface2)' }}>
@@ -243,18 +428,28 @@ export default function ScheduleWizard({ open, onClose }) {
                       {inStack(e.id) && <span className="chip !py-0 text-[9px]" style={{ color: 'var(--indigo)' }}>updates existing</span>}
                     </p>
                     <p className="text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
-                      {e.ladder
+                      {e.ladder?.ceiling > 0
                         ? `${formatDose(e.ladder.floor, e.ladder.unit)} → ${formatDose(e.ladder.ceiling, e.ladder.unit)}`
-                        : 'no dose set — you’ll add it in the Library'}
+                        : 'no dose set — add it here when you know it'}
                       {' · '}{FREQ_LABELS[e.frequency] || e.frequency} · {e.slot} · {ROUTE_LABEL[e.route] || e.route}
                     </p>
                   </div>
                 ))}
               </div>
+
+              {entries.length === 0 && removed.length === 0 && (
+                <p className="py-4 text-center text-xs font-semibold" style={{ color: 'var(--muted)' }}>
+                  Nothing changed.
+                </p>
+              )}
+
               <p className="text-[10px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
-                Everything stays editable in the Library afterwards. Personal tracking tool — not medical advice.
+                Nothing outside this list is touched. Personal tracking tool — not medical advice.
               </p>
-              <Nav back={() => setStep('start')} next={finish} nextLabel={`Build my schedule · ${entries.length}`} />
+              <Nav
+                back={() => setStep(peptides.length ? 'manage' : 'start')}
+                next={finish}
+                nextLabel="Save my protocol" />
             </>
           )}
 
@@ -264,15 +459,48 @@ export default function ScheduleWizard({ open, onClose }) {
                 className="mx-auto flex h-14 w-14 items-center justify-center rounded-full" style={{ background: 'var(--lime)', color: '#0c1200' }}>
                 <Check size={30} strokeWidth={3} />
               </motion.div>
-              <p className="text-base font-black">{entries.length} compound{entries.length === 1 ? '' : 's'} set up</p>
+              <p className="text-base font-black">
+                {entries.length > 0 && `${entries.length} saved`}
+                {entries.length > 0 && removed.length > 0 && ' · '}
+                {removed.length > 0 && `${removed.length} removed`}
+                {entries.length === 0 && removed.length === 0 && 'Nothing changed'}
+              </p>
               <p className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>
-                Home, Plan, Library, Mix and Stock are populated. Change anything from the Library.
+                Home, Calendar, Mix and Stock all follow from here. Come back any time to change it.
               </p>
               <button onClick={onClose} className="btn-primary w-full rounded-xl py-3 text-sm font-black">Done</button>
             </div>
           )}
         </motion.div>
       </AnimatePresence>
+
+      {/* Removing says exactly what survives — the fear is always that it takes
+          the vials and the history with it, and it does not. */}
+      {confirmRemove && (
+        <div className="mt-3 rounded-xl p-3" data-testid="confirm-remove-compound"
+          style={{ background: 'color-mix(in srgb, var(--coral) 14%, transparent)' }}>
+          <p className="flex items-start gap-1.5 text-[12px] font-black" style={{ color: 'var(--coral)' }}>
+            <AlertTriangle size={14} className="mt-px shrink-0" />
+            Take {confirmRemove.name} out of my protocol?
+          </p>
+          <p className="mt-1.5 text-[11px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+            This stops the schedule — it comes off Home and the calendar.
+            <span className="font-bold" style={{ color: 'var(--text)' }}> Your vials stay in stock and your
+            logged doses stay in history.</span>
+          </p>
+          <div className="mt-2.5 flex gap-2">
+            <button onClick={() => setConfirmRemove(null)} className="flex-1 rounded-lg py-2 text-[11px] font-black"
+              style={{ background: 'var(--surface2)', color: 'var(--muted)' }}>
+              Keep it
+            </button>
+            <button onClick={() => doRemove(confirmRemove.id)} data-testid="confirm-remove-compound-yes"
+              className="flex-1 rounded-lg py-2 text-[11px] font-black"
+              style={{ background: 'color-mix(in srgb, var(--coral) 25%, transparent)', color: 'var(--coral)' }}>
+              Remove
+            </button>
+          </div>
+        </div>
+      )}
     </Modal>
   )
 }
@@ -422,6 +650,22 @@ function PeptideStep({ entry: e, onPatch }) {
             Nasal spray at {MCG_PER_SPRAY} mcg a spray — 10 mg vial + 2 mL BAC water, all of it into a bottle,
             + 3 mL saline = 5 mL, about 50 sprays. Dosed in whole sprays.
           </p>
+        )}
+
+        {/* Which part of the body this one is allowed on. A reaction-prone
+            compound kept off the belly stays off it, and the rotation map,
+            the suggestion and the co-draw all read this same field. */}
+        {!nasal && (
+          <div className="mt-2.5">
+            <Field label="Allowed injection zone">
+              <select className="input" aria-label="Allowed injection zone"
+                value={e.allowedZone || 'all'}
+                onChange={(ev) => onPatch({ allowedZone: ev.target.value === 'all' ? null : ev.target.value })}>
+                <option value="all">All SubQ sites</option>
+                <option value="thigh">Thigh only</option>
+              </select>
+            </Field>
+          </div>
         )}
       </div>
 

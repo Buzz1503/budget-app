@@ -24,7 +24,7 @@ const SEV_SHORT = { mild: 'Mild', moderate: 'Moderate', strong: 'Strong' }
  *
  * The old screen put ~50 emoji chips in two alphabetical columns and hid
  * severity behind a tip nobody read. This one starts from "what am I looking
- * for": search, then the handful the stack makes likely right now, then
+ * for": search, then the handful my protocol makes likely right now, then
  * categories you open only if you need them.
  */
 export default function SymptomsTab() {
@@ -130,7 +130,7 @@ export default function SymptomsTab() {
 
       {empty && (
         <p className="py-6 text-center text-xs font-semibold" style={{ color: 'var(--muted)' }}>
-          Nothing in your stack has known effects on file yet. Add a compound to see what to watch for.
+          Nothing in my protocol has known effects on file yet. Add a compound to see what to watch for.
         </p>
       )}
 
@@ -142,7 +142,7 @@ export default function SymptomsTab() {
           </p>
           {results.length === 0 ? (
             <p className="py-4 text-center text-xs font-semibold" style={{ color: 'var(--muted)' }}>
-              Nothing in your stack matches “{query}”.
+              Nothing in my protocol matches “{query}”.
             </p>
           ) : (
             <div className="flex flex-wrap gap-1.5">
@@ -370,7 +370,7 @@ export default function SymptomsTab() {
                   {unattributed.map((a) => a.label).join(' · ')}
                 </p>
                 <p className="mt-1 text-[11px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
-                  Not a known effect of your current stack — logged anyway. Plenty of things
+                  Not a known effect of my current protocol — logged anyway. Plenty of things
                   outside this app cause symptoms, and a record of it is still worth having.
                 </p>
               </div>
@@ -387,8 +387,8 @@ export default function SymptomsTab() {
       </AnimatePresence>
 
       <CoachTip id="symptom-attribution" tone="violet">
-        Log anything you notice — the Issues list is the full catalogue, not just your stack.
-        Where something in your stack is a known cause, the app names the most likely candidate,
+        Log anything you notice — the Issues list is the full catalogue, not just my protocol.
+        Where something in my protocol is a known cause, the app names the most likely candidate,
         weighted towards whatever you started or stepped up recently.
       </CoachTip>
     </div>
