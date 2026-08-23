@@ -28,7 +28,7 @@ import { FormIcon } from './SupplementsTab'
 
 const spring = { type: 'spring', stiffness: 260, damping: 22 }
 
-export default function Home({ goTo }) {
+export default function Home({ goTo, onQuickAction }) {
   const peptides = useStore((s) => s.peptides)
   const titration = useStore((s) => s.titration)
   const doseLogs = useStore((s) => s.doseLogs)
@@ -94,6 +94,12 @@ export default function Home({ goTo }) {
     [slotDue, loggedToday, skippedIds]
   )
   const unloggedCount = unlogged.length
+
+  // The shell's floating "+" calls whatever we register here — same
+  // setPicker flow as tapping Log on a card, just a second entry point.
+  useEffect(() => {
+    onQuickAction?.(() => { const next = unlogged[0]; if (next) setPicker(next) })
+  }, [onQuickAction, unlogged])
   // selection resolved against the live slot list so done/removed/skipped ids drop out
   const selectedPeptides = slotDue.filter(
     (p) => selected.has(p.id) && !loggedToday.has(p.id) && !skippedIds.has(p.id)
@@ -234,33 +240,30 @@ export default function Home({ goTo }) {
         onClose={() => { updateSettings({ disclaimerDismissed: true }); setShowAbout(false) }}
       />
 
-      {/* date + alerts + slot toggle */}
-      <div className="flex items-end justify-between gap-2">
+      {/* screen title + alerts + slot toggle */}
+      <div className="flex items-start justify-between gap-2">
         <div>
-          <p className="flex items-center gap-1 text-[11px] font-black uppercase tracking-[0.18em]">
-            <span style={{ color: 'transparent', backgroundImage: 'linear-gradient(100deg, var(--lime), var(--violet))', backgroundClip: 'text', WebkitBackgroundClip: 'text' }}>
-              Pepito +
-            </span>
-            <button onClick={() => setShowAbout(true)} aria-label="About this app"
-              className="opacity-50" style={{ color: 'var(--muted)' }}>
+          <p className="flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.18em]" style={{ color: 'var(--muted)' }}>
+            Pepito +
+            <button onClick={() => setShowAbout(true)} aria-label="About this app" style={{ color: 'var(--muted)' }}>
               <Info size={11} />
             </button>
           </p>
-          <p className="text-xl font-black leading-tight tracking-tight">
-            {now.toLocaleDateString(undefined, { weekday: 'long' })}
-            <span className="ml-1.5 text-sm font-bold" style={{ color: 'var(--muted)' }}>
-              {now.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
-            </span>
+          <h1 className="text-[21px] font-black leading-tight tracking-tight">
+            Today, {now.getDate()} {now.toLocaleDateString(undefined, { month: 'long' })}
+          </h1>
+          <p className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>
+            {now.toLocaleDateString(undefined, { weekday: 'long' })} · {slot}
           </p>
         </div>
         <div className="flex items-center gap-2">
           <AlertBell alerts={alerts} nudge={nudge} goTo={goTo} onDismissNudge={dismissBackupNudge} />
-          <div className="flex rounded-xl p-1" style={{ background: 'var(--surface2)' }}>
+          <div className="flex rounded-full p-1" style={{ background: 'var(--surface)', boxShadow: 'var(--shadow-sm)' }}>
           {['AM', 'PM'].map((s) => (
             <button key={s} onClick={() => setSlot(s)}
-              className="relative flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm font-black">
-              {slot === s && <motion.span layoutId="slot-pill" className="absolute inset-0 rounded-lg"
-                style={{ backgroundImage: s === 'AM' ? 'linear-gradient(135deg, var(--amber), #ff8a1a)' : 'linear-gradient(135deg, var(--indigo), var(--violet))' }} />}
+              className="relative flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-black">
+              {slot === s && <motion.span layoutId="slot-pill" className="absolute inset-0 rounded-full"
+                style={{ backgroundImage: 'linear-gradient(135deg, var(--violet), var(--indigo))' }} />}
               <span className="relative flex items-center gap-1" style={{ color: slot === s ? '#fff' : 'var(--muted)' }}>
                 {s === 'AM' ? <Sun size={14} /> : <Moon size={14} />}{s}
               </span>
@@ -273,11 +276,9 @@ export default function Home({ goTo }) {
       {/* Hero: how much is left, and nothing else. */}
       <motion.div layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={spring}
         className="flex items-center gap-4" data-testid="hero">
-        <Ring pct={ringPct} size={72} stroke={7}
-          from={slot === 'AM' ? 'var(--amber)' : 'var(--indigo)'}
-          to={slot === 'AM' ? '#ff8a1a' : 'var(--violet)'}>
+        <Ring pct={ringPct} size={76} stroke={7} from="var(--violet)" to="var(--indigo)">
           <div className="text-center leading-tight">
-            <p className="text-base font-black"><CountUp value={slotDoneAll} />/{slotTotal}</p>
+            <p className="num text-base font-black"><CountUp value={slotDoneAll} />/{slotTotal}</p>
             <p className="text-[9px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>this {slot}</p>
           </div>
         </Ring>
@@ -289,15 +290,12 @@ export default function Home({ goTo }) {
                   ? `${unloggedCount} to inject`
                   : `${slotSupps.filter((x) => !takenIds.has(x.id) && !skippedSupps.has(x.id)).length} to take`}
           </p>
-          <p className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>
+          <p className="num text-xs font-semibold" style={{ color: 'var(--muted)' }}>
             {dayDone + suppDayDone}/{Math.max(0, scheduledToday.length + suppDayTotal - daySkipped)} today
             {daySkipped > 0 && <> · {daySkipped} skipped</>} · {otherCount} this {otherSlot}
           </p>
         </div>
       </motion.div>
-
-      {/* a hairline between "how the day is going" and "what to inject" */}
-      <div className="h-px" style={{ background: 'var(--border)' }} />
 
       {/* combine-your-shots plan — only when there is actually something to
           combine. "Nothing is combinable" is not news worth a block of screen;
@@ -526,7 +524,7 @@ function TakeRow({ supplement: s, taken, skipped, onToggle, onSkip, onUnskip, in
       initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
       transition={{ delay: Math.min(index * 0.04, 0.25) }}
       data-testid="take-row"
-      className="card flex w-full items-center gap-3 p-3"
+      className="card flex w-full items-center gap-3 p-4"
       style={taken ? { background: 'color-mix(in srgb, var(--lime) 10%, var(--surface))' }
         : skipped ? { background: 'color-mix(in srgb, var(--violet) 8%, var(--surface))' } : undefined}
     >
@@ -810,7 +808,7 @@ function DueCard({ peptide: p, index, done, titration, partners, slot, onLog, go
   const lastSiteLog = [...doseLogs].filter((l) => l.peptideId === p.id && l.siteId).sort((a, b) => (b.loggedAt || b.date).localeCompare(a.loggedAt || a.date))[0]
 
   return (
-    <motion.div layout className={`card p-4 ${beckon ? 'beckon' : ''}`}
+    <motion.div layout className={`card p-5 ${beckon ? 'beckon' : ''}`}
       initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ ...spring, delay: index * 0.04 }}
       style={selected
         ? { borderColor: 'var(--lime)', boxShadow: '0 0 0 1.5px var(--lime), var(--shadow)' }
@@ -907,7 +905,7 @@ function DueCard({ peptide: p, index, done, titration, partners, slot, onLog, go
           {onFinishVial && !nasal && (
             <motion.button whileTap={{ scale: 0.97 }} onClick={onFinishVial} data-testid="finish-vial"
               className="flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 text-[11px] font-black"
-              style={{ background: 'var(--surface2)', color: 'var(--amber)' }}
+              style={{ background: 'var(--surface2)', color: 'var(--muted)' }}
               aria-label={`Finished vial: ${p.name}`}>
               <PackageOpen size={13} /> Vial done
             </motion.button>

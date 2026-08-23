@@ -1,7 +1,59 @@
 @import "tailwindcss";
 
+/* ---------------------------------------------------------------------------
+   "Bevel" design system — soft, plush, floating white surfaces on a warm
+   light-grey ground. Chrome (backgrounds, cards, buttons, nav) stays neutral;
+   colour is spent on data — the progress ring's gradient, status dots, and the
+   four-step safety scale (mix verdicts, low stock, site recency).
+
+   Token names are kept the same as the app has always used — --lime, --amber,
+   --coral, --rose, --violet, --indigo — so every existing component picks up
+   the new look with no markup change. --violet/--indigo now double as the
+   ring and FAB gradient stops.
+
+   Contrast: --text ≥ 15:1 on both --surface and --bg; --muted and every
+   semantic tone ≥ 4.5:1 on --surface (the ground most small text sits on).
+--------------------------------------------------------------------------- */
+
 :root {
-  /* deep blue-black base with more life in the ambient wash */
+  /* warm light-grey ground, not stark white — white cards visibly lift off it */
+  --bg: #f4f1ea;
+  --bg-grad: none;
+
+  --surface: #ffffff;
+  --surface-solid: #ffffff;
+  --surface2: #f6f3ee;
+  --border: rgba(28, 22, 15, 0.07);
+  --text: #1c1a17;
+  --muted: #6d6852;
+
+  /* the one gradient in the system: progress ring + FAB + primary actions */
+  --violet: #5b4fe0;
+  --indigo: #3862e0;
+
+  /* data semantics — a calm four-step escalation, never chrome */
+  --lime: #178449;
+  --lime-deep: #0f6b39;
+  --amber: #9c6508;
+  --coral: #c93a24;
+  --rose: #c21f3d;
+  --gold: #8a6a18;
+
+  --radius-card: 24px;
+  --radius-md: 16px;
+  --radius-pill: 999px;
+
+  /* soft and diffuse — no hard edge, no borders on cards */
+  --shadow: 0 1px 2px rgba(28, 22, 15, 0.03), 0 12px 28px -10px rgba(28, 22, 15, 0.14);
+  --shadow-sm: 0 1px 2px rgba(28, 22, 15, 0.04), 0 4px 12px -4px rgba(28, 22, 15, 0.10);
+  --shadow-nav: 0 8px 24px -4px rgba(28, 22, 15, 0.18), 0 2px 8px rgba(28, 22, 15, 0.08);
+  --shadow-fab: 0 10px 24px -4px color-mix(in srgb, var(--violet) 55%, transparent);
+}
+
+/* Dark stays available via the existing Settings toggle so it never breaks,
+   on the app's original space-vibrant palette — this round's design work is
+   the light Bevel system above, not a dark companion to it. */
+:root[data-theme="dark"] {
   --bg: #080a12;
   --bg-grad:
     radial-gradient(900px 500px at 8% -8%, rgba(139, 92, 246, 0.18), transparent 55%),
@@ -23,54 +75,9 @@
   --rose: #ff4d6d;
   --gold: #f5c451;
   --shadow: 0 10px 30px rgba(0, 0, 0, 0.42), 0 2px 8px rgba(0, 0, 0, 0.3);
-}
-
-:root[data-theme="light"] {
-  --bg: #f2f3fb;
-  --bg-grad:
-    radial-gradient(900px 500px at 8% -8%, rgba(139, 92, 246, 0.14), transparent 55%),
-    radial-gradient(900px 500px at 100% 0%, rgba(101, 163, 13, 0.10), transparent 50%),
-    #f2f3fb;
-  --surface: rgba(255, 255, 255, 0.92);
-  --surface-solid: #ffffff;
-  --surface2: rgba(15, 23, 42, 0.055);
-  --border: rgba(15, 23, 42, 0.11);
-  --text: #10131f;
-  --muted: #565d72;
-  --lime: #4d9a0a;
-  --lime-deep: #3f7c08;
-  --amber: #c2740a;
-  --violet: #7c3aed;
-  --indigo: #4f46e5;
-  --coral: #e11d48;
-  --rose: #e11d48;
-  --gold: #b7860b;
-  --shadow: 0 10px 28px rgba(15, 23, 42, 0.10), 0 2px 6px rgba(15, 23, 42, 0.07);
-}
-
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme="dark"]) {
-    --bg: #f2f3fb;
-    --bg-grad:
-      radial-gradient(900px 500px at 8% -8%, rgba(139, 92, 246, 0.14), transparent 55%),
-      radial-gradient(900px 500px at 100% 0%, rgba(101, 163, 13, 0.10), transparent 50%),
-      #f2f3fb;
-    --surface: rgba(255, 255, 255, 0.92);
-    --surface-solid: #ffffff;
-    --surface2: rgba(15, 23, 42, 0.055);
-    --border: rgba(15, 23, 42, 0.11);
-    --text: #10131f;
-    --muted: #565d72;
-    --lime: #4d9a0a;
-    --lime-deep: #3f7c08;
-    --amber: #c2740a;
-    --violet: #7c3aed;
-    --indigo: #4f46e5;
-    --coral: #e11d48;
-    --rose: #e11d48;
-    --gold: #b7860b;
-    --shadow: 0 10px 28px rgba(15, 23, 42, 0.10), 0 2px 6px rgba(15, 23, 42, 0.07);
-  }
+  --shadow-sm: 0 6px 18px rgba(0, 0, 0, 0.35);
+  --shadow-nav: 0 10px 30px rgba(0, 0, 0, 0.5);
+  --shadow-fab: 0 10px 24px -4px color-mix(in srgb, var(--violet) 55%, transparent);
 }
 
 html, body {
@@ -84,6 +91,7 @@ body {
   background-attachment: fixed;
   min-height: 100dvh;
   -webkit-font-smoothing: antialiased;
+  letter-spacing: -0.01em;
   /* installed on iOS the app runs under a translucent status bar, so the
      content needs to clear the notch itself */
   padding-top: env(safe-area-inset-top);
@@ -95,41 +103,54 @@ body {
 /* the tab bar already pads itself for the home indicator via
    pb-[max(env(safe-area-inset-bottom),6px)] — don't double it here */
 
+/* Numbers are the content. Tabular figures so a column of doses lines up and
+   a changing value never makes the row jitter. */
+.num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  letter-spacing: -0.02em;
+}
+
 .card {
   background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 20px;
+  border: none;
+  border-radius: var(--radius-card);
   box-shadow: var(--shadow);
+}
+
+:root[data-theme="dark"] .card {
+  border: 1px solid var(--border);
   backdrop-filter: blur(12px);
 }
 
 .chip {
-  @apply inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold;
+  @apply inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold;
   background: var(--surface2);
+  color: var(--muted);
 }
 
 .btn-primary {
-  background-image: linear-gradient(135deg, var(--lime), var(--lime-deep));
-  color: #0c1200;
-  box-shadow: 0 4px 16px rgba(132, 204, 22, 0.35);
+  background-image: linear-gradient(135deg, var(--violet), var(--indigo));
+  color: #fff;
+  box-shadow: var(--shadow-fab);
 }
 
 .btn-violet {
   background-image: linear-gradient(135deg, var(--violet), var(--indigo));
   color: #fff;
-  box-shadow: 0 4px 16px rgba(109, 107, 255, 0.4);
+  box-shadow: var(--shadow-fab);
 }
 
 .btn-amber {
-  background-image: linear-gradient(135deg, var(--amber), #ff7a1a);
-  color: #1a1200;
-  box-shadow: 0 4px 16px rgba(255, 176, 32, 0.35);
+  background-image: linear-gradient(135deg, var(--amber), #b9800f);
+  color: #fff;
+  box-shadow: 0 8px 20px -4px color-mix(in srgb, var(--amber) 45%, transparent);
 }
 
 /* soft beckoning pulse for zero-states and ready actions */
 @keyframes beckon {
-  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--lime) 45%, transparent); }
-  50% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--lime) 0%, transparent); }
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--violet) 35%, transparent); }
+  50% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--violet) 0%, transparent); }
 }
 .beckon { animation: beckon 2.2s ease-in-out infinite; }
 
@@ -145,13 +166,16 @@ body {
 }
 
 .input {
-  @apply w-full rounded-xl px-3 py-2 text-sm font-medium outline-none;
+  @apply w-full rounded-2xl px-4 py-2.5 text-sm font-medium outline-none;
   background: var(--surface2);
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   color: var(--text);
-  transition: border-color 0.15s;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
-.input:focus { border-color: var(--indigo); }
+.input:focus {
+  border-color: var(--indigo);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--indigo) 16%, transparent);
+}
 
 input[type="number"]::-webkit-outer-spin-button,
 input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }

@@ -1,7 +1,7 @@
-import { useState, useEffect, useLayoutEffect, useRef } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Sun, CalendarDays, HeartPulse, LayoutGrid, ChevronLeft, PersonStanding,
+  Sun, CalendarDays, HeartPulse, LayoutGrid, ChevronLeft, PersonStanding, Plus,
 } from 'lucide-react'
 
 import useStore, { onStorageError } from './store/useStore'
@@ -111,6 +111,13 @@ export default function App() {
     return () => ro.disconnect()
   }, [])
 
+  // The FAB is shared chrome, but what it *does* is screen-specific (on Home
+  // it opens the next unlogged dose). Rather than lift that logic up, Home
+  // registers a handler here and the FAB just calls whatever's registered —
+  // an extra entry point into the existing log flow, not a new one.
+  const quickActionRef = useRef(null)
+  const onQuickAction = useCallback((fn) => { quickActionRef.current = fn }, [])
+
   const Active = SCREENS[tab] || Home
   const isSub = !PRIMARY_IDS.has(tab)
 
@@ -139,37 +146,63 @@ export default function App() {
             exit={{ opacity: 0, x: -14 }}
             transition={{ duration: 0.18 }}
           >
-            <Active goTo={goTo} />
+            <Active goTo={goTo} onQuickAction={tab === 'today' ? onQuickAction : undefined} />
           </motion.div>
         </AnimatePresence>
       </main>
 
-      {/* bottom tab bar */}
-      <nav
+      {/* bottom chrome: a floating pill nav plus a separate circular "+" for
+          the primary quick action — both siblings in one fixed row so their
+          spacing is trivial and --nav-h keeps meaning "total reserved bottom
+          chrome height", unchanged from the old full-width bar. */}
+      <footer
         ref={navRef}
-        className="fixed inset-x-0 bottom-0 z-40 border-t backdrop-blur-xl"
-        style={{ background: 'color-mix(in srgb, var(--bg) 82%, transparent)', borderColor: 'var(--border)' }}
+        className="fixed inset-x-0 bottom-0 z-40 flex justify-center px-3 pt-2"
+        style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 14px)' }}
       >
-        <div className="mx-auto grid max-w-3xl grid-cols-5 px-1 pb-[max(env(safe-area-inset-bottom),6px)] pt-2">
-          {PRIMARY.map(({ id, label, icon: Icon }) => {
-            const active = tab === id || (id === 'more' && isSub)
-            return (
-              <motion.button
-                key={id}
-                whileTap={{ scale: 0.86 }}
-                onClick={() => { if (haptics) { try { haptic(6) } catch { /* optional */ } } setTab(id) }}
-                className="flex flex-col items-center gap-1 rounded-xl py-1.5"
-                style={{ color: active ? 'var(--lime)' : 'var(--muted)' }}
-                aria-label={label}
-              >
-                <Icon size={30} strokeWidth={active ? 2.5 : 2} />
-                <span className="text-[11px] font-bold leading-none">{label}</span>
-                {active && <motion.div layoutId="tab-dot" className="mt-0.5 h-1 w-1 rounded-full" style={{ background: 'var(--lime)' }} />}
-              </motion.button>
-            )
-          })}
+        <div className="mx-auto flex w-full max-w-3xl items-center justify-center gap-2">
+          <nav
+            className="flex items-center rounded-full p-1"
+            style={{ background: 'var(--surface)', boxShadow: 'var(--shadow-nav)' }}
+          >
+            {PRIMARY.map(({ id, label, icon: Icon }) => {
+              const active = tab === id || (id === 'more' && isSub)
+              return (
+                <motion.button
+                  key={id}
+                  whileTap={{ scale: 0.86 }}
+                  onClick={() => { if (haptics) { try { haptic(6) } catch { /* optional */ } } setTab(id) }}
+                  className="relative flex flex-col items-center gap-0.5 rounded-full px-1.5 py-1"
+                  aria-label={label}
+                >
+                  {active && (
+                    <motion.div layoutId="tab-pill" className="absolute inset-0 rounded-full"
+                      style={{ background: 'var(--surface2)' }} transition={{ type: 'spring', stiffness: 400, damping: 32 }} />
+                  )}
+                  <span className="relative" style={{ color: active ? 'var(--violet)' : 'var(--muted)' }}>
+                    <Icon size={28} strokeWidth={active ? 2.5 : 2} />
+                  </span>
+                  <span className="relative text-[7px] font-bold leading-none tracking-tight" style={{ color: active ? 'var(--violet)' : 'var(--muted)' }}>
+                    {label}
+                  </span>
+                </motion.button>
+              )
+            })}
+          </nav>
+
+          {tab === 'today' && (
+            <motion.button
+              whileTap={{ scale: 0.9 }}
+              onClick={() => { if (haptics) { try { haptic(8) } catch { /* optional */ } } quickActionRef.current?.() }}
+              aria-label="Quick log"
+              className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full"
+              style={{ backgroundImage: 'linear-gradient(135deg, var(--violet), var(--indigo))', boxShadow: 'var(--shadow-fab)' }}
+            >
+              <Plus size={26} color="#fff" strokeWidth={2.5} />
+            </motion.button>
+          )}
         </div>
-      </nav>
+      </footer>
 
       <ScheduleWizard open={wizard} onClose={() => setWizard(false)} />
 
