@@ -104,44 +104,44 @@ export default function CoDrawModal({ open, onClose, peptides }) {
 
   return (
     <Modal open={open} onClose={onClose} title={`Log together · ${peptides?.length || 0}`}>
-      <div className="space-y-2.5">
+      <div className="space-y-3">
         {/* combined draw summary */}
-        <div className="rounded-2xl p-3" style={{ background: 'var(--surface2)' }}>
+        <div className="rounded-[14px] p-3" style={{ background: 'var(--surface-sunk)' }}>
           {lines.map((l) => (
-            <div key={l.name} className="flex items-center justify-between py-0.5 text-sm">
+            <div key={l.name} className="flex items-center justify-between py-1 text-sm">
               <span className="font-bold">{l.name}</span>
-              <span className="font-semibold" style={{ color: 'var(--muted)' }}>
-                {formatDose(l.dose, l.unit)} · <span style={{ color: 'var(--lime)' }}>{formatUnits(l.units)}</span>
+              <span className="font-semibold" style={{ color: 'var(--text-2)' }}>
+                {formatDose(l.dose, l.unit)} · <span style={{ color: 'var(--good)' }}>{formatUnits(l.units)}</span>
               </span>
             </div>
           ))}
         </div>
 
         {phase === 'loading' && (
-          <p className="py-6 text-center text-sm font-semibold" style={{ color: 'var(--muted)' }}>Checking compatibility…</p>
+          <p className="py-6 text-center text-sm font-semibold" style={{ color: 'var(--text-2)' }}>Checking compatibility…</p>
         )}
 
         {phase === 'blocked' && review && (
-          <div className="rounded-2xl p-4" style={{ background: 'color-mix(in srgb, var(--coral) 14%, transparent)', border: '1px solid color-mix(in srgb, var(--coral) 40%, transparent)' }}>
-            <p className="flex items-center gap-1.5 text-sm font-extrabold" style={{ color: 'var(--coral)' }}>
+          <div className="rounded-[14px] p-4" style={{ background: 'color-mix(in srgb, var(--danger) 14%, transparent)', border: '1px solid color-mix(in srgb, var(--danger) 40%, transparent)' }}>
+            <p className="flex items-center gap-2 text-sm font-extrabold" style={{ color: 'var(--danger)' }}>
               <Ban size={16} /> Not one shot — inject these separately
             </p>
             <div className="mt-2 space-y-2">
               {review.problems.map((p, i) => (
                 <div key={i} className="text-xs">
                   <p className="font-bold">{p.a} + {p.b}{' '}
-                    <span style={{ color: p.verdict === 'NEVER' ? 'var(--rose)' : p.verdict === 'CAUTION' ? 'var(--amber)' : 'var(--coral)' }}>
+                    <span style={{ color: p.verdict === 'NEVER' ? 'var(--danger)' : p.verdict === 'CAUTION' ? 'var(--warn)' : 'var(--danger)' }}>
                       · {p.verdict === 'NEVER' ? 'never' : p.verdict === 'CAUTION' ? 'not confirmed' : "don't mix"}
                     </span>
                   </p>
-                  <p className="font-medium" style={{ color: 'var(--muted)' }}>{p.reason}</p>
+                  <p className="font-medium" style={{ color: 'var(--text-2)' }}>{p.reason}</p>
                 </div>
               ))}
             </div>
             <p className="mt-3 text-xs font-semibold" style={{ color: 'var(--text)' }}>
               Inject these as separate shots instead — close this and log them one at a time.
             </p>
-            <button onClick={onClose} className="btn-primary mt-3 w-full rounded-full py-2.5 text-sm font-black">
+            <button onClick={onClose} className="btn-primary mt-3 w-full rounded-full py-3 text-sm font-black">
               Got it — log separately
             </button>
           </div>
@@ -149,17 +149,17 @@ export default function CoDrawModal({ open, onClose, peptides }) {
 
         {phase === 'site' && (
           <>
-            <p className="flex items-center justify-center gap-1.5 text-xs font-bold" style={{ color: 'var(--lime)' }}>
+            <p className="flex items-center justify-center gap-2 text-xs font-bold" style={{ color: 'var(--good)' }}>
               <Check size={13} /> Every pair is a confirmed mix — one shot, one site
             </p>
             {last && (
-              <p className="flex items-center gap-1.5 rounded-2xl p-2.5 text-xs font-bold" style={{ background: 'var(--surface2)' }}>
-                <Clock size={13} className="shrink-0" style={{ color: 'var(--muted)' }} />
+              <p className="flex items-center gap-2 rounded-[14px] p-3 text-xs font-bold" style={{ background: 'var(--surface-sunk)' }}>
+                <Clock size={13} className="shrink-0" style={{ color: 'var(--text-2)' }} />
                 Last shot: {last.when} — {last.label}.
               </p>
             )}
-            <p className="flex items-center gap-1.5 text-xs font-bold">
-              <MapPin size={13} style={{ color: 'var(--lime)' }} /> One shot, so pick one spot
+            <p className="flex items-center gap-2 text-xs font-bold">
+              <MapPin size={13} style={{ color: 'var(--good)' }} /> One shot, so pick one spot
             </p>
             <SiteChooser route="SubQ" zone={zone} picked={picked} onPick={setPicked} onResolve={setResolved} />
             <motion.button whileTap={{ scale: 0.97 }} onClick={confirm}

@@ -127,7 +127,8 @@ await step('the dose list leads the screen', async () => {
     return tops.length ? Math.min(...tops) : null
   })
   if (y == null) throw new Error('no dose content found')
-  if (y > 300) throw new Error(`the dose content starts ${Math.round(y)}px down — too much above it`)
+  // v28: display title + the focal metric card sit above the list by design
+  if (y > 340) throw new Error(`the dose content starts ${Math.round(y)}px down — too much above it`)
 })
 
 await step('the mix explanation is behind an info tap', async () => {

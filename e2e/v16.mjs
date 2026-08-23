@@ -153,10 +153,13 @@ await step('the dose list dominates the screen', async () => {
   })
   if (!geo) throw new Error('no dose content found')
   const above = geo.top - geo.mainTop
-  if (above > 200) throw new Error(`${Math.round(above)}px of chrome above the dose content — too much`)
+  // v28: display title + the focal metric card legitimately sit above the list
+  if (above > 320) throw new Error(`${Math.round(above)}px of chrome above the dose content — too much`)
   console.log(`  ${Math.round(above)}px of chrome above the dose content`)
 })
 
+// v28 gives the day's progress its own card as the screen's focal point, so
+// exactly one card above the dose list is now correct rather than a smell.
 await step('fewer boxes: the header block carries no card chrome', async () => {
   const boxes = await page.evaluate(() => {
     const card = document.querySelector('main button[aria-label^="Log "]')
@@ -165,7 +168,7 @@ await step('fewer boxes: the header block carries no card chrome', async () => {
     return [...document.querySelectorAll('main .card')]
       .filter((d) => d.getBoundingClientRect().bottom <= cutoff).length
   })
-  if (boxes > 0) throw new Error(`${boxes} card(s) still boxed above the dose list`)
+  if (boxes > 1) throw new Error(`${boxes} card(s) still boxed above the dose list`)
 })
 
 // ---------- 6 · the full co-draw list ----------
@@ -222,7 +225,8 @@ await step('Testosterone E carries no red text or icon', async () => {
 })
 
 await step('and it still cannot be co-drawn', async () => {
-  const card = page.locator('main div.card', { hasText: 'Testosterone En' }).first()
+  const card = page.locator('main div.p-4', { hasText: 'Testosterone En' })
+    .filter({ has: page.locator('button[aria-label^="Log Testosterone"]') }).first()
   if (await card.locator('button[aria-label^="Select "]').count()) {
     throw new Error('Test E is offered for co-draw selection')
   }

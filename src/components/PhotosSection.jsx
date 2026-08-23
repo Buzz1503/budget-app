@@ -48,33 +48,33 @@ export default function PhotosSection() {
   }
 
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-3">
       {/* capture */}
       <div className="card p-3">
-        <div className="mb-3 flex gap-1.5">
+        <div className="mb-3 flex gap-2">
           {POSES.map((ps) => (
             <button key={ps} onClick={() => setPose(ps)}
-              className="flex-1 rounded-full py-1.5 text-xs font-black capitalize"
+              className="flex-1 rounded-full py-2 text-xs font-black capitalize"
               style={pose === ps
-                ? { backgroundImage: 'linear-gradient(135deg, var(--violet), var(--indigo))', color: '#fff' }
-                : { background: 'var(--surface2)', color: 'var(--muted)' }}>
+                ? { background: 'var(--accent)', color: 'var(--accent-fg)' }
+                : { background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
               {ps}
             </button>
           ))}
         </div>
 
         {/* framing guide with ghost overlay of previous same-pose photo */}
-        <div className="relative mx-auto overflow-hidden rounded-2xl" style={{ aspectRatio: '3/4', maxWidth: 260, background: 'var(--surface2)' }}>
+        <div className="relative mx-auto overflow-hidden rounded-[14px]" style={{ aspectRatio: '3/4', maxWidth: 260, background: 'var(--surface-sunk)' }}>
           <PoseGuide />
           {prev && <Ghost blobKey={prev.blobKey} />}
-          <div className="absolute inset-x-0 bottom-2 text-center text-[10px] font-bold" style={{ color: 'var(--muted)' }}>
+          <div className="absolute inset-x-0 bottom-2 text-center text-xs font-bold" style={{ color: 'var(--text-2)' }}>
             {prev ? 'Match the ghost pose · same distance & light' : 'Stand in frame · face forward'}
           </div>
         </div>
 
         <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={onFile} />
         <motion.button whileTap={{ scale: 0.97 }} disabled={busy} onClick={() => fileRef.current?.click()}
-          className="btn-violet mt-3 flex w-full items-center justify-center gap-2 rounded-full py-2.5 text-sm font-black disabled:opacity-50">
+          className="btn-primary mt-3 flex w-full items-center justify-center gap-2 rounded-full py-3 text-sm font-black disabled:opacity-50">
           <Camera size={17} /> {busy ? 'Saving…' : `Capture ${pose} photo`}
         </motion.button>
       </div>
@@ -83,9 +83,9 @@ export default function PhotosSection() {
       {photos.length > 0 ? (
         <div className="card p-3">
           <div className="mb-3 flex items-center justify-between">
-            <p className="flex items-center gap-1.5 text-sm font-bold"><Images size={15} style={{ color: 'var(--lime)' }} /> Timeline</p>
+            <p className="flex items-center gap-2 text-sm font-bold"><Images size={15} style={{ color: 'var(--good)' }} /> Timeline</p>
             {posePhotos.length >= 2 && (
-              <button onClick={() => setCompare(!compare)} className="chip !py-1.5 font-bold" style={{ color: 'var(--indigo)' }}>
+              <button onClick={() => setCompare(!compare)} className="chip !py-2 font-bold" style={{ color: 'var(--text-2)' }}>
                 <GitCompareArrows size={13} /> {compare ? 'Grid' : 'Compare'}
               </button>
             )}
@@ -97,12 +97,12 @@ export default function PhotosSection() {
               {posePhotos.map((p) => <Thumb key={p.id} photo={p} onDelete={() => del(p)} />)}
             </div>
           )}
-          <p className="mt-2 text-[10px] font-semibold" style={{ color: 'var(--muted)' }}>
+          <p className="mt-2 text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
             Showing {pose} photos · switch pose above. Stored privately on this device only.
           </p>
         </div>
       ) : (
-        <p className="px-1 text-center text-xs font-semibold" style={{ color: 'var(--muted)' }}>
+        <p className="px-1 text-center text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
           No photos yet — capture your first to start a visual timeline.
         </p>
       )}
@@ -134,13 +134,13 @@ function Thumb({ photo, onDelete }) {
   const [url, setUrl] = useState(null)
   useEffect(() => { let a = true; blobUrl(photo.blobKey).then((u) => a && setUrl(u)); return () => { a = false } }, [photo.blobKey])
   return (
-    <div className="relative overflow-hidden rounded-2xl" style={{ aspectRatio: '3/4', background: 'var(--surface2)' }}>
+    <div className="relative overflow-hidden rounded-[14px]" style={{ aspectRatio: '3/4', background: 'var(--surface-sunk)' }}>
       {url && <img src={url} alt={`${photo.pose} ${photo.date}`} className="h-full w-full object-cover" />}
-      <span className="absolute inset-x-0 bottom-0 bg-black/50 py-0.5 text-center text-[9px] font-bold text-white">
+      <span className="absolute inset-x-0 bottom-0 bg-black/50 py-1 text-center text-xs font-bold text-white">
         {format(parseISO(photo.date), 'd MMM')}
       </span>
       <button onClick={onDelete} className="absolute right-1 top-1 rounded-full p-1" style={{ background: 'rgba(0,0,0,0.5)' }} aria-label="Delete photo">
-        <Trash2 size={11} color="#fff" />
+        <Trash2 size={11} color="var(--accent-fg)" />
       </button>
     </div>
   )
@@ -154,19 +154,19 @@ function CompareSlider({ a, b }) {
 
   return (
     <div>
-      <div className="relative mx-auto overflow-hidden rounded-2xl" style={{ aspectRatio: '3/4', maxWidth: 260, background: 'var(--surface2)' }}>
+      <div className="relative mx-auto overflow-hidden rounded-[14px]" style={{ aspectRatio: '3/4', maxWidth: 260, background: 'var(--surface-sunk)' }}>
         {urlB && <img src={urlB} alt="after" className="absolute inset-0 h-full w-full object-cover" />}
         {urlA && (
           <div className="absolute inset-0 overflow-hidden" style={{ width: `${pos}%` }}>
             <img src={urlA} alt="before" className="h-full w-full object-cover" style={{ width: `${260 * 100 / pos}%`, maxWidth: 'none' }} />
           </div>
         )}
-        <div className="absolute inset-y-0" style={{ left: `${pos}%`, width: 2, background: 'var(--lime)', boxShadow: '0 0 8px var(--lime)' }} />
-        <span className="absolute left-1 top-1 rounded-full bg-black/50 px-2 py-0.5 text-[9px] font-bold text-white">{format(parseISO(a.date), 'd MMM')}</span>
-        <span className="absolute right-1 top-1 rounded-full bg-black/50 px-2 py-0.5 text-[9px] font-bold text-white">{format(parseISO(b.date), 'd MMM')}</span>
+        <div className="absolute inset-y-0" style={{ left: `${pos}%`, width: 2, background: 'var(--good)', boxShadow: '0 0 8px var(--good)' }} />
+        <span className="absolute left-1 top-1 rounded-full bg-black/50 px-2 py-1 text-xs font-bold text-white">{format(parseISO(a.date), 'd MMM')}</span>
+        <span className="absolute right-1 top-1 rounded-full bg-black/50 px-2 py-1 text-xs font-bold text-white">{format(parseISO(b.date), 'd MMM')}</span>
       </div>
-      <input type="range" min="0" max="100" value={pos} onChange={(e) => setPos(+e.target.value)} className="mt-3 w-full" style={{ accentColor: 'var(--lime)' }} />
-      <p className="text-center text-[10px] font-bold" style={{ color: 'var(--muted)' }}>Drag to compare before ↔ after</p>
+      <input type="range" min="0" max="100" value={pos} onChange={(e) => setPos(+e.target.value)} className="mt-3 w-full" style={{ accentColor: 'var(--good)' }} />
+      <p className="text-center text-xs font-bold" style={{ color: 'var(--text-2)' }}>Drag to compare before ↔ after</p>
     </div>
   )
 }

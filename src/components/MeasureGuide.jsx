@@ -1,9 +1,9 @@
 // Schematic "where does the tape go" illustrations. Deliberately crude line
 // figures — they exist to disambiguate the words next to them (is the tape at
 // the navel or the narrowest point?), not to look anatomical.
-const STROKE = { fill: 'none', stroke: 'var(--muted)', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }
-const TAPE = { fill: 'none', stroke: 'var(--lime)', strokeWidth: 3, strokeLinecap: 'round' }
-const MARK = { fill: 'none', stroke: 'var(--indigo)', strokeWidth: 1.6, strokeLinecap: 'round', strokeDasharray: '3 3' }
+const STROKE = { fill: 'none', stroke: 'var(--text-2)', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }
+const TAPE = { fill: 'none', stroke: 'var(--good)', strokeWidth: 3, strokeLinecap: 'round' }
+const MARK = { fill: 'none', stroke: 'var(--info)', strokeWidth: 1.6, strokeLinecap: 'round', strokeDasharray: '3 3' }
 
 // A head-to-hip torso with arms — shared by neck / chest / waist / hips.
 function Torso({ tapeY, rx, navel, feetTogether }) {
@@ -15,7 +15,7 @@ function Torso({ tapeY, rx, navel, feetTogether }) {
       <path d="M26 33 L18 56" {...STROKE} />
       <path d="M54 33 L62 56" {...STROKE} />
       {feetTogether && <><path d="M34 62 L34 76" {...STROKE} /><path d="M46 62 L46 76" {...STROKE} /></>}
-      {navel && <circle cx="40" cy="52" r="1.8" fill="var(--indigo)" />}
+      {navel && <circle cx="40" cy="52" r="1.8" fill="var(--info)" />}
       <ellipse cx="40" cy={tapeY} rx={rx} ry="3.2" {...TAPE} />
     </>
   )
@@ -26,11 +26,11 @@ function Limb({ jointY, tapeY, label }) {
   return (
     <>
       {/* upper segment */}
-      <path d="M40 6 L40 74" {...STROKE} strokeWidth="12" stroke="var(--surface2)" />
+      <path d="M40 6 L40 74" {...STROKE} strokeWidth="12" stroke="var(--surface-sunk)" />
       <path d="M40 6 L40 74" {...STROKE} />
       {/* joint landmark */}
       <path d={`M30 ${jointY} L50 ${jointY}`} {...STROKE} strokeWidth="1.6" />
-      <text x="53" y={jointY + 3} fontSize="7" fontWeight="700" fill="var(--muted)">{label}</text>
+      <text x="53" y={jointY + 3} fontSize="7" fontWeight="700" fill="var(--text-2)">{label}</text>
       {/* the saved distance */}
       <path d={`M24 ${jointY} L24 ${tapeY}`} {...MARK} />
       <path d={`M21 ${jointY} L27 ${jointY} M21 ${tapeY} L27 ${tapeY}`} {...MARK} strokeDasharray="none" />
@@ -55,23 +55,23 @@ const GUIDES = {
   arm: <Limb jointY={52} tapeY={28} label="elbow" />,
   forearm: (
     <>
-      <path d="M40 6 L40 74" {...STROKE} strokeWidth="12" stroke="var(--surface2)" />
+      <path d="M40 6 L40 74" {...STROKE} strokeWidth="12" stroke="var(--surface-sunk)" />
       <path d="M40 6 L40 74" {...STROKE} />
       <path d="M30 24 L50 24" {...STROKE} strokeWidth="1.6" />
-      <text x="53" y="27" fontSize="7" fontWeight="700" fill="var(--muted)">elbow</text>
+      <text x="53" y="27" fontSize="7" fontWeight="700" fill="var(--text-2)">elbow</text>
       <ellipse cx="40" cy="38" rx="10" ry="2.8" {...TAPE} />
-      <text x="53" y="41" fontSize="7" fontWeight="700" fill="var(--lime)">widest</text>
+      <text x="53" y="41" fontSize="7" fontWeight="700" fill="var(--good)">widest</text>
     </>
   ),
   thigh: <Limb jointY={62} tapeY={32} label="kneecap" />,
   calf: (
     <>
-      <path d="M40 6 L40 74" {...STROKE} strokeWidth="12" stroke="var(--surface2)" />
+      <path d="M40 6 L40 74" {...STROKE} strokeWidth="12" stroke="var(--surface-sunk)" />
       <path d="M40 6 L40 74" {...STROKE} />
       <path d="M30 18 L50 18" {...STROKE} strokeWidth="1.6" />
-      <text x="53" y="21" fontSize="7" fontWeight="700" fill="var(--muted)">knee</text>
+      <text x="53" y="21" fontSize="7" fontWeight="700" fill="var(--text-2)">knee</text>
       <ellipse cx="40" cy="36" rx="10" ry="2.8" {...TAPE} />
-      <text x="53" y="39" fontSize="7" fontWeight="700" fill="var(--lime)">widest</text>
+      <text x="53" y="39" fontSize="7" fontWeight="700" fill="var(--good)">widest</text>
     </>
   ),
 }

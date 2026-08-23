@@ -11,7 +11,7 @@ import {
 import { burstSmall } from '../lib/celebrate'
 import ReactionChamber from './ReactionChamber'
 
-const TONE_VAR = { lime: 'var(--lime)', amber: 'var(--amber)', coral: 'var(--coral)', rose: 'var(--rose)' }
+const TONE_VAR = { lime: 'var(--good)', amber: 'var(--warn)', coral: 'var(--danger)', rose: 'var(--danger)' }
 const VERDICT_ICON = { Check, ShieldAlert, X, Ban }
 
 export default function MixTab() {
@@ -122,9 +122,9 @@ export default function MixTab() {
 
   if (loadError) {
     return (
-      <div className="space-y-2.5">
+      <div className="space-y-3">
         <h1 className="text-2xl font-black tracking-tight">Mix Lab</h1>
-        <div className="card p-5 text-center text-sm font-medium" style={{ color: 'var(--muted)' }}>
+        <div className="card p-5 text-center text-sm font-medium" style={{ color: 'var(--text-2)' }}>
           Couldn't load the chemistry database. Reopen the tab to retry.
         </div>
       </div>
@@ -132,42 +132,42 @@ export default function MixTab() {
   }
 
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-3">
       <div>
         <h1 className="text-2xl font-black tracking-tight">Mix Lab</h1>
-        <p className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>
+        <p className="text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
           Reaction chamber · {matrix ? matrix.compounds.length : 86} compounds · single-syringe chemistry only
         </p>
       </div>
 
       {/* standing honesty reminder */}
-      <div className="card flex items-start gap-2 p-3" style={{ background: 'color-mix(in srgb, var(--indigo) 12%, var(--surface))' }}>
-        <Pin size={14} className="mt-0.5 shrink-0" style={{ color: 'var(--indigo)' }} />
-        <p className="text-[11px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
-          A <span className="font-bold" style={{ color: 'var(--lime)' }}>“safe to mix”</span> result means no chemical conflict was found — <span className="font-bold" style={{ color: 'var(--text)' }}>not proof of compatibility</span>. Always inspect the drawn solution before injecting.
+      <div className="card flex items-start gap-2 p-3" style={{ background: 'color-mix(in srgb, var(--info) 12%, var(--surface))' }}>
+        <Pin size={14} className="mt-1 shrink-0" style={{ color: 'var(--text-2)' }} />
+        <p className="text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
+          A <span className="font-bold" style={{ color: 'var(--text)' }}>“safe to mix”</span> result means no chemical conflict was found — <span className="font-bold" style={{ color: 'var(--text)' }}>not proof of compatibility</span>. Always inspect the drawn solution before injecting.
         </p>
       </div>
 
       {/* Codex progress */}
       <div className="card p-3">
         <div className="mb-2 flex items-center justify-between">
-          <p className="flex items-center gap-1.5 text-sm font-bold">
-            <Beaker size={15} style={{ color: 'var(--violet)' }} /> Compatibility Codex
+          <p className="flex items-center gap-2 text-sm font-bold">
+            <Beaker size={15} style={{ color: 'var(--text)' }} /> Compatibility Codex
           </p>
-          <span className="text-xs font-bold tabular-nums" style={{ color: 'var(--muted)' }}>
+          <span className="text-xs font-bold tabular-nums" style={{ color: 'var(--text-2)' }}>
             {mappedCount}/{stackPairKeys.length} pairs
           </span>
         </div>
-        <div className="h-2.5 overflow-hidden rounded-full" style={{ background: 'var(--surface2)' }}>
+        <div className="h-2.5 overflow-hidden rounded-full" style={{ background: 'var(--surface-sunk)' }}>
           <motion.div
             className="h-full rounded-full"
-            style={{ backgroundImage: 'linear-gradient(90deg, var(--violet), var(--indigo))' }}
+            style={{ background: 'var(--accent)' }}
             initial={false}
             animate={{ width: `${stackPairKeys.length ? (mappedCount / stackPairKeys.length) * 100 : 0}%` }}
             transition={{ type: 'spring', stiffness: 60, damping: 15 }}
           />
         </div>
-        <p className="mt-1.5 text-[10px] font-semibold" style={{ color: 'var(--muted)' }}>
+        <p className="mt-2 text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
           Tap two compounds to run a reaction and map their pair. +8 XP per new discovery.
         </p>
       </div>
@@ -175,9 +175,9 @@ export default function MixTab() {
       {/* picker header */}
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
-          <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--muted)' }} />
+          <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-2)' }} />
           <input
-            className="input !pl-9" placeholder={browseAll ? 'Search all 86 compounds…' : 'Search my protocol…'}
+            className="input !pl-10" placeholder={browseAll ? 'Search all 86 compounds…' : 'Search my protocol…'}
             value={query} onChange={(e) => setQuery(e.target.value)}
           />
         </div>
@@ -185,8 +185,8 @@ export default function MixTab() {
           onClick={() => { setBrowseAll(!browseAll); setQuery('') }}
           className="shrink-0 rounded-full px-3 py-2 text-xs font-bold"
           style={browseAll
-            ? { backgroundImage: 'linear-gradient(135deg, var(--violet), var(--indigo))', color: '#fff' }
-            : { background: 'var(--surface2)', color: 'var(--text)' }}
+            ? { background: 'var(--accent)', color: 'var(--accent-fg)' }
+            : { background: 'var(--surface-sunk)', color: 'var(--text)' }}
         >
           {browseAll ? 'All 86' : 'My protocol'}
         </button>
@@ -217,7 +217,7 @@ export default function MixTab() {
             />
           ))}
           {list.length === 0 && (
-            <p className="col-span-2 py-6 text-center text-sm font-medium" style={{ color: 'var(--muted)' }}>No compounds match “{query}”.</p>
+            <p className="col-span-2 py-6 text-center text-sm font-medium" style={{ color: 'var(--text-2)' }}>No compounds match “{query}”.</p>
           )}
         </div>
       )}
@@ -247,14 +247,14 @@ function Slot({ compound, label, onClear }) {
     >
       {compound ? (
         <>
-          <span className="h-6 w-6 shrink-0 rounded-full" style={{ background: compoundColor(compound), boxShadow: `0 0 12px ${compoundColor(compound)}` }} />
+          <span className="h-6 w-6 shrink-0 rounded-full" style={{ background: 'var(--surface-sunk)' }} />
           <span className="min-w-0 flex-1">
             <span className="block truncate text-sm font-bold leading-tight">{compound.name}</span>
-            <span className="block text-[10px] font-semibold uppercase" style={{ color: 'var(--muted)' }}>{compound.class} · tap to clear</span>
+            <span className="block text-xs font-semibold uppercase" style={{ color: 'var(--text-2)' }}>{compound.class} · tap to clear</span>
           </span>
         </>
       ) : (
-        <span className="text-xs font-bold" style={{ color: 'var(--muted)' }}>{label}</span>
+        <span className="text-xs font-bold" style={{ color: 'var(--text-2)' }}>{label}</span>
       )}
     </button>
   )
@@ -267,30 +267,30 @@ function CompoundCard({ compound, selected, inStack, proven, onSelect }) {
       onClick={onSelect}
       className="card relative overflow-hidden p-3 text-left"
       style={selected
-        ? { borderColor: compoundColor(compound), boxShadow: `0 0 0 1.5px ${compoundColor(compound)}, var(--shadow)` }
+        ? { background: 'var(--surface-sunk)' }
         : undefined}
     >
       <div className="flex items-center gap-2">
-        <span className="h-5 w-5 shrink-0 rounded-full" style={{ background: compoundColor(compound) }} />
+        <span className="h-5 w-5 shrink-0 rounded-full" style={{ background: 'var(--surface-sunk)' }} />
         <span className="min-w-0 flex-1 truncate text-sm font-bold leading-tight">{compound.name}</span>
-        {proven && <Award size={13} className="shrink-0" style={{ color: 'var(--gold)' }} />}
+        {proven && <Award size={13} className="shrink-0" style={{ color: 'var(--warn)' }} />}
       </div>
-      <div className="mt-1.5 flex flex-wrap gap-1">
-        <span className="rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase" style={{ background: 'var(--surface2)', color: 'var(--muted)' }}>{compound.class}</span>
-        <span className="rounded-md px-1.5 py-0.5 text-[9px] font-bold" style={{ background: 'var(--surface2)', color: chargeColor(compound.charge) }}>{compound.charge}</span>
+      <div className="mt-2 flex flex-wrap gap-1">
+        <span className="rounded-[10px] px-2 py-1 text-xs font-bold uppercase" style={{ background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>{compound.class}</span>
+        <span className="rounded-[10px] px-2 py-1 text-xs font-bold" style={{ background: 'var(--surface-sunk)', color: chargeColor(compound.charge) }}>{compound.charge}</span>
         {(compound.flags || []).slice(0, 1).map((f) => (
-          <span key={f} className="rounded-md px-1.5 py-0.5 text-[9px] font-semibold" style={{ background: 'var(--surface2)', color: 'var(--muted)' }}>{f}</span>
+          <span key={f} className="rounded-[10px] px-2 py-1 text-xs font-semibold" style={{ background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>{f}</span>
         ))}
       </div>
-      {inStack && <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full" style={{ background: 'var(--lime)' }} title="in my protocol" />}
+      {inStack && <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full" style={{ background: 'var(--good)' }} title="in my protocol" />}
     </motion.button>
   )
 }
 
 function chargeColor(charge) {
-  if (charge === 'cationic') return 'var(--amber)'
-  if (charge === 'anionic') return 'var(--indigo)'
-  return 'var(--muted)'
+  if (charge === 'cationic') return 'var(--text-2)'
+  if (charge === 'anionic') return 'var(--text-2)'
+  return 'var(--text-2)'
 }
 
 function VerdictPanel({ ca, cb, pair, playKey, reasonCodes, classes, forcedSeparate, inspected, setInspected }) {
@@ -303,23 +303,23 @@ function VerdictPanel({ ca, cb, pair, playKey, reasonCodes, classes, forcedSepar
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, scale: 0.97 }}
         transition={{ type: 'spring', stiffness: 280, damping: 24 }}
-        className="card overflow-hidden p-3.5"
-        style={{ background: 'color-mix(in srgb, var(--rose) 10%, var(--surface))' }}
+        className="card overflow-hidden p-4"
+        style={{ background: 'color-mix(in srgb, var(--danger) 10%, var(--surface))' }}
       >
         <div className="text-center">
-          <p className="text-sm font-bold" style={{ color: 'var(--muted)' }}>{ca.name} + {cb.name}</p>
+          <p className="text-sm font-bold" style={{ color: 'var(--text-2)' }}>{ca.name} + {cb.name}</p>
           <div className="mt-1 flex items-center justify-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-full" style={{ background: 'var(--rose)', color: '#fff' }}>
+            <span className="flex h-8 w-8 items-center justify-center rounded-full" style={{ background: 'var(--accent)', color: 'var(--accent-fg)' }}>
               <Ban size={18} strokeWidth={3} />
             </span>
-            <span className="text-xl font-black" style={{ color: 'var(--rose)' }}>Inject separately</span>
+            <span className="text-lg font-black" style={{ color: 'var(--danger)' }}>Inject separately</span>
           </div>
-          <span className="chip mt-2 !py-1 font-bold" style={{ color: 'var(--rose)' }}>Always separate</span>
+          <span className="chip mt-2 !py-1 font-bold" style={{ color: 'var(--danger)' }}>Always separate</span>
         </div>
-        <p className="mx-auto mt-3 max-w-sm text-center text-xs font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+        <p className="mx-auto mt-3 max-w-sm text-center text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
           {forcedSeparate.separateReason}
         </p>
-        <p className="mx-auto mt-2 max-w-sm text-center text-[11px] font-bold" style={{ color: 'var(--text)' }}>
+        <p className="mx-auto mt-2 max-w-sm text-center text-xs font-bold" style={{ color: 'var(--text)' }}>
           Two shots, two syringes — never draw it into the same barrel as a peptide.
         </p>
       </motion.div>
@@ -328,9 +328,9 @@ function VerdictPanel({ ca, cb, pair, playKey, reasonCodes, classes, forcedSepar
 
   if (!pair) {
     return (
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="card p-3.5 text-center">
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="card p-4 text-center">
         <p className="text-sm font-bold">No data for this pair</p>
-        <p className="mt-1 text-xs font-medium" style={{ color: 'var(--muted)' }}>{ca.name} + {cb.name} isn't in the matrix.</p>
+        <p className="mt-1 text-xs font-medium" style={{ color: 'var(--text-2)' }}>{ca.name} + {cb.name} isn't in the matrix.</p>
       </motion.div>
     )
   }
@@ -347,7 +347,7 @@ function VerdictPanel({ ca, cb, pair, playKey, reasonCodes, classes, forcedSepar
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, scale: 0.97 }}
       transition={{ type: 'spring', stiffness: 280, damping: 24 }}
-      className="card overflow-hidden p-3.5"
+      className="card overflow-hidden p-4"
       style={{ background: `color-mix(in srgb, ${tone} 10%, var(--surface))` }}
     >
       <ReactionChamber
@@ -356,22 +356,22 @@ function VerdictPanel({ ca, cb, pair, playKey, reasonCodes, classes, forcedSepar
       />
 
       <div className="mt-3 text-center">
-        <p className="text-sm font-bold" style={{ color: 'var(--muted)' }}>{ca.name} + {cb.name}</p>
+        <p className="text-sm font-bold" style={{ color: 'var(--text-2)' }}>{ca.name} + {cb.name}</p>
         <div className="mt-1 flex items-center justify-center gap-2">
-          <span className="flex h-8 w-8 items-center justify-center rounded-full" style={{ background: tone, color: '#fff' }}>
+          <span className="flex h-8 w-8 items-center justify-center rounded-full" style={{ background: tone, color: 'var(--accent-fg)' }}>
             <Icon size={18} strokeWidth={3} />
           </span>
-          <span className="text-xl font-black" style={{ color: tone }}>{meta.label}</span>
+          <span className="text-lg font-black" style={{ color: tone }}>{meta.label}</span>
         </div>
 
         {/* confidence + reason code chips */}
-        <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5">
+        <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
           {conf.level === 'proven' ? (
-            <span className="chip !py-1 font-bold" style={{ background: 'color-mix(in srgb, var(--gold) 16%, transparent)', color: 'var(--gold)' }}>
+            <span className="chip !py-1 font-bold" style={{ background: 'color-mix(in srgb, var(--warn) 16%, transparent)', color: 'var(--warn)' }}>
               <Award size={12} /> Proven blend
             </span>
           ) : (
-            <span className="chip !py-1 font-bold" style={{ color: 'var(--muted)' }}>
+            <span className="chip !py-1 font-bold" style={{ color: 'var(--text-2)' }}>
               <FlaskConical size={12} /> Chemistry model
             </span>
           )}
@@ -380,43 +380,43 @@ function VerdictPanel({ ca, cb, pair, playKey, reasonCodes, classes, forcedSepar
       </div>
 
       {/* plain-English note */}
-      <p className="mx-auto mt-3 max-w-sm text-center text-xs font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+      <p className="mx-auto mt-3 max-w-sm text-center text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
         {pair.note || pair.reason}
       </p>
       {fx.teach && (
-        <p className="mx-auto mt-1.5 max-w-sm text-center text-[11px] font-semibold" style={{ color: tone }}>
+        <p className="mx-auto mt-2 max-w-sm text-center text-xs font-semibold" style={{ color: tone }}>
           <Sparkles size={11} className="mr-1 inline" />{fx.teach}
         </p>
       )}
 
       {/* mandatory visual-inspection gate */}
       {gateRequired && (
-        <div className="mt-4 rounded-2xl p-3" style={{ background: 'color-mix(in srgb, var(--amber) 16%, transparent)', border: '1px solid color-mix(in srgb, var(--amber) 40%, transparent)' }}>
-          <p className="flex items-center gap-1.5 text-xs font-extrabold" style={{ color: 'var(--amber)' }}>
+        <div className="mt-4 rounded-[14px] p-3" style={{ background: 'color-mix(in srgb, var(--warn) 16%, transparent)', border: '1px solid color-mix(in srgb, var(--warn) 40%, transparent)' }}>
+          <p className="flex items-center gap-2 text-xs font-extrabold" style={{ color: 'var(--warn)' }}>
             <Eye size={14} /> Visual inspection required
           </p>
           {!inspected ? (
             <>
-              <p className="mt-1 text-[11px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+              <p className="mt-1 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
                 Inspect the drawn solution — <span className="font-bold" style={{ color: 'var(--text)' }}>hazy, stringy, discoloured or particulate means discard.</span> Only inject if it's clear.
               </p>
               <button
                 onClick={() => setInspected(true)}
                 className="mt-2 w-full rounded-full py-2 text-xs font-extrabold"
-                style={{ background: 'var(--amber)', color: '#fff' }}
+                style={{ background: 'var(--accent)', color: 'var(--accent-fg)' }}
               >
                 Confirm it's clear
               </button>
             </>
           ) : (
-            <p className="mt-1 flex items-center gap-1.5 text-xs font-bold" style={{ color: 'var(--lime)' }}>
+            <p className="mt-1 flex items-center gap-2 text-xs font-bold" style={{ color: 'var(--good)' }}>
               <Check size={14} /> Confirmed clear — safe to draw. Discard immediately if it changes.
             </p>
           )}
         </div>
       )}
 
-      <p className="mt-3 text-center text-[10px] font-medium" style={{ color: 'var(--muted)' }}>
+      <p className="mt-3 text-center text-xs font-medium" style={{ color: 'var(--text-2)' }}>
         {reasonCodes[pair.reason_code]?.slice(0, 120)}
       </p>
     </motion.div>

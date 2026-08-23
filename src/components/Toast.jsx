@@ -38,18 +38,18 @@ export default function Toast() {
           data-testid="toast"
         >
           <div className="pointer-events-auto flex w-full max-w-sm items-center gap-2 rounded-full px-4 py-3"
-            style={{ background: 'var(--surface-solid)', boxShadow: 'var(--shadow-nav)' }}>
-            <p className="min-w-0 flex-1 truncate text-[12px] font-bold leading-tight">{toast.message}</p>
+            style={{ background: 'var(--surface)', boxShadow: 'var(--shadow-nav)' }}>
+            <p className="min-w-0 flex-1 truncate text-xs font-bold leading-tight">{toast.message}</p>
             {toast.undo && (
               <button onClick={runUndo} data-testid="toast-undo"
-                className="flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 text-[11px] font-black"
-                style={{ background: 'color-mix(in srgb, var(--lime) 12%, transparent)', color: 'var(--lime)' }}>
+                className="flex shrink-0 items-center gap-1 rounded-full px-3 py-2 text-xs font-black"
+                style={{ background: 'color-mix(in srgb, var(--good) 12%, transparent)', color: 'var(--good)' }}>
                 <Undo2 size={12} /> Undo
               </button>
             )}
             <button onClick={dismissToast} aria-label="Dismiss"
               className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full"
-              style={{ color: 'var(--muted)' }}>
+              style={{ color: 'var(--text-2)' }}>
               <X size={13} />
             </button>
           </div>

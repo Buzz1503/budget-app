@@ -3,7 +3,7 @@ import { motion } from 'framer-motion'
 // Parametric silhouette: torso/limb girth scales with body-fat % (and waist as a
 // fallback). Honest scope — a metric-driven stylized model, NOT a photoreal morph.
 // bf: body-fat %, muscle: 0..1 muscle emphasis.
-export default function BodyModel({ bf = 25, muscle = 0.5, color = 'var(--violet)', size = 200 }) {
+export default function BodyModel({ bf = 25, muscle = 0.5, color = 'var(--text)', size = 200 }) {
   // Map bf (10–40%) to a girth factor. Higher bf → wider waist/limbs.
   const f = clamp((bf - 12) / 26, 0, 1) // 0 lean .. 1 heavy
   const waistW = lerp(11, 22, f)

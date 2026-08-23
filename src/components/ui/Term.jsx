@@ -31,7 +31,7 @@ export default function Term({ id, children, className = '' }) {
       <button
         type="button"
         onClick={(e) => { e.stopPropagation(); setOpen((v) => !v) }}
-        className={`inline-flex items-center gap-0.5 font-bold ${className}`}
+        className={`inline-flex items-center gap-1 font-bold ${className}`}
         style={{ textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 3 }}
         aria-label={`What does ${entry.term} mean?`}
         aria-expanded={open}
@@ -47,10 +47,10 @@ export default function Term({ id, children, className = '' }) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, scale: 0.97 }}
             onClick={(e) => { e.stopPropagation(); setOpen(false) }}
-            className="absolute left-0 top-full z-[60] mt-1.5 block w-60 rounded-2xl p-2.5 text-left text-[11px] font-medium leading-relaxed shadow-lg"
-            style={{ background: 'var(--surface-solid)', border: '1px solid var(--border)', color: 'var(--muted)' }}
+            className="absolute left-0 top-full z-[60] mt-2 block w-60 rounded-[14px] p-3 text-left text-xs font-medium leading-relaxed shadow-lg"
+            style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-2)' }}
           >
-            <span className="mb-0.5 block text-[11px] font-black" style={{ color: 'var(--text)' }}>{entry.term}</span>
+            <span className="mb-1 block text-xs font-black" style={{ color: 'var(--text)' }}>{entry.term}</span>
             {entry.plain}
           </motion.span>
         )}

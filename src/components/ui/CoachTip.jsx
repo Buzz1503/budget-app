@@ -20,15 +20,15 @@ export default function CoachTip({ id, children, tone = 'lime', when = true }) {
           exit={{ opacity: 0, height: 0 }}
           className="overflow-hidden"
         >
-          <div className="flex items-start gap-2 rounded-2xl p-2.5"
+          <div className="flex items-start gap-2 rounded-[14px] p-3"
             style={{
               background: `color-mix(in srgb, var(--${tone}) 14%, transparent)`,
               border: `1px solid color-mix(in srgb, var(--${tone}) 35%, transparent)`,
             }}>
-            <Lightbulb size={14} className="mt-0.5 shrink-0" style={{ color: `var(--${tone})` }} />
-            <p className="min-w-0 flex-1 text-[11px] font-semibold leading-relaxed">{children}</p>
+            <Lightbulb size={14} className="mt-1 shrink-0" style={{ color: `var(--${tone})` }} />
+            <p className="min-w-0 flex-1 text-xs font-semibold leading-relaxed">{children}</p>
             <button onClick={() => markCoachSeen(id)} aria-label="Dismiss tip"
-              className="shrink-0 rounded-full p-1" style={{ background: 'var(--surface2)' }}>
+              className="shrink-0 rounded-full p-1" style={{ background: 'var(--surface-sunk)' }}>
               <X size={12} />
             </button>
           </div>

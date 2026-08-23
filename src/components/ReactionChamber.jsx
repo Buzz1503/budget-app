@@ -6,10 +6,10 @@ import { reasonFx } from '../lib/mixMatrix'
 // additive; nothing here gates the verdict text, and reduced-motion falls back
 // to the settled result state.
 const TONE = {
-  MIX: 'var(--lime)',
-  CAUTION: 'var(--amber)',
-  DONT_MIX: 'var(--coral)',
-  NEVER: 'var(--rose)',
+  MIX: 'var(--good)',
+  CAUTION: 'var(--warn)',
+  DONT_MIX: 'var(--danger)',
+  NEVER: 'var(--danger)',
 }
 
 // deterministic pseudo-random so particles don't jump between renders
@@ -19,7 +19,7 @@ function rng(seed) {
 }
 
 export default function ReactionChamber({ verdict, reasonCode, colorA, colorB, playKey }) {
-  const tone = TONE[verdict] || 'var(--muted)'
+  const tone = TONE[verdict] || 'var(--text-2)'
   const { fx } = reasonFx(reasonCode)
   const merged = verdict === 'MIX'
   const shakes = verdict === 'NEVER'
@@ -168,7 +168,7 @@ export default function ReactionChamber({ verdict, reasonCode, colorA, colorB, p
           fill="none" stroke="var(--border)" strokeWidth="2.5"
         />
         {/* neck highlight */}
-        <rect x="50" y="20" width="60" height="7" rx="3" fill="var(--surface2)" stroke="var(--border)" />
+        <rect x="50" y="20" width="60" height="7" rx="3" fill="var(--surface-sunk)" stroke="var(--border)" />
 
         {/* NEVER: locking X-slash */}
         {shakes && (
@@ -176,9 +176,9 @@ export default function ReactionChamber({ verdict, reasonCode, colorA, colorB, p
             initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
             transition={{ delay: 0.5, type: 'spring', stiffness: 300, damping: 14 }}
           >
-            <circle cx="80" cy="118" r="34" fill="var(--rose)" opacity="0.16" />
-            <line x1="58" y1="96" x2="102" y2="140" stroke="var(--rose)" strokeWidth="7" strokeLinecap="round" />
-            <line x1="102" y1="96" x2="58" y2="140" stroke="var(--rose)" strokeWidth="7" strokeLinecap="round" />
+            <circle cx="80" cy="118" r="34" fill="var(--danger)" opacity="0.16" />
+            <line x1="58" y1="96" x2="102" y2="140" stroke="var(--danger)" strokeWidth="7" strokeLinecap="round" />
+            <line x1="102" y1="96" x2="58" y2="140" stroke="var(--danger)" strokeWidth="7" strokeLinecap="round" />
           </motion.g>
         )}
       </motion.svg>

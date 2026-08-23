@@ -12,7 +12,7 @@ import { addDaysStr, daysBetween } from '../lib/schedule'
 import { formatDose } from '../lib/calc'
 
 const OUTCOME_OPTIONS = [
-  { key: 'subjective', label: 'Wellbeing (symptoms)', unit: '', color: 'var(--lime)' },
+  { key: 'subjective', label: 'Wellbeing (symptoms)', unit: '', color: 'var(--good)' },
   ...METRICS.filter((m) => ['weight', 'visceralFat', 'muscleMass', 'bodyFat', 'waist'].includes(m.key)),
 ]
 
@@ -58,29 +58,29 @@ export default function OutcomeEngine() {
   if (!peptide) return null
 
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-3">
       <div className="card p-3">
-        <p className="mb-2 text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>Peptide</p>
-        <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
+        <p className="mb-2 text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-2)' }}>Peptide</p>
+        <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
           {peptides.map((p) => (
             <button key={p.id} onClick={() => setPeptideId(p.id)}
-              className="shrink-0 rounded-full px-3 py-1.5 text-xs font-bold"
+              className="shrink-0 rounded-full px-3 py-2 text-xs font-bold"
               style={peptideId === p.id
-                ? { backgroundImage: 'linear-gradient(135deg, var(--violet), var(--indigo))', color: '#fff' }
-                : { background: 'var(--surface2)', color: 'var(--muted)' }}>
+                ? { background: 'var(--accent)', color: 'var(--accent-fg)' }
+                : { background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
               {p.name}
             </button>
           ))}
         </div>
 
-        <p className="mb-2 mt-3 text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>Against</p>
-        <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
+        <p className="mb-2 mt-3 text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-2)' }}>Against</p>
+        <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
           {OUTCOME_OPTIONS.map((o) => (
             <button key={o.key} onClick={() => setMetricKey(o.key)}
-              className="shrink-0 rounded-full px-3 py-1.5 text-xs font-bold"
+              className="shrink-0 rounded-full px-3 py-2 text-xs font-bold"
               style={metricKey === o.key
-                ? { backgroundImage: 'linear-gradient(135deg, var(--lime), var(--lime-deep))', color: '#fff' }
-                : { background: 'var(--surface2)', color: 'var(--muted)' }}>
+                ? { background: 'var(--accent)', color: 'var(--accent-fg)' }
+                : { background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
               {o.label}
             </button>
           ))}
@@ -90,7 +90,7 @@ export default function OutcomeEngine() {
       <div className="card p-3">
         <p className="mb-1 text-sm font-bold">{peptide.name} × {outcome.label}</p>
         {!hasOutcome ? (
-          <p className="py-8 text-center text-xs font-semibold" style={{ color: 'var(--muted)' }}>
+          <p className="py-8 text-center text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
             {metricKey === 'subjective'
               ? 'No symptom check-ins yet — log some in Symptoms to overlay wellbeing here.'
               : `No ${outcome.label.toLowerCase()} entries yet — add measurements to overlay them.`}
@@ -101,38 +101,38 @@ export default function OutcomeEngine() {
               <ComposedChart data={data} margin={{ top: 8, right: 6, bottom: 0, left: -20 }}>
                 <defs>
                   <linearGradient id="oe-dose" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="var(--violet)" stopOpacity={0.35} />
-                    <stop offset="100%" stopColor="var(--violet)" stopOpacity={0.03} />
+                    <stop offset="0%" stopColor="var(--text)" stopOpacity={0.35} />
+                    <stop offset="100%" stopColor="var(--text)" stopOpacity={0.03} />
                   </linearGradient>
                 </defs>
-                <XAxis dataKey="label" tick={{ fontSize: 9, fill: 'var(--muted)' }} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={28} />
-                <YAxis yAxisId="out" tick={{ fontSize: 9, fill: 'var(--muted)' }} tickLine={false} axisLine={false} />
+                <XAxis dataKey="label" tick={{ fontSize: 9, fill: 'var(--text-2)' }} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={28} />
+                <YAxis yAxisId="out" tick={{ fontSize: 9, fill: 'var(--text-2)' }} tickLine={false} axisLine={false} />
                 <YAxis yAxisId="dose" orientation="right" hide domain={[0, 100]} />
                 <Tooltip
-                  contentStyle={{ background: 'var(--surface-solid)', border: '1px solid var(--border)', borderRadius: 12, fontSize: 12 }}
-                  labelStyle={{ color: 'var(--muted)' }}
+                  contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, fontSize: 12 }}
+                  labelStyle={{ color: 'var(--text-2)' }}
                   formatter={(v, name) => {
                     if (name === 'doseNorm') return [null, null]
                     return [v, outcome.label]
                   }}
                 />
-                <Area yAxisId="dose" type="stepAfter" dataKey="doseNorm" name="doseNorm" stroke="var(--violet)" strokeWidth={1.5} fill="url(#oe-dose)" isAnimationActive={false} />
+                <Area yAxisId="dose" type="stepAfter" dataKey="doseNorm" name="doseNorm" stroke="var(--text)" strokeWidth={1.5} fill="url(#oe-dose)" isAnimationActive={false} />
                 <Line yAxisId="out" type="monotone" dataKey="outcome" stroke={outcome.color} strokeWidth={2.5} dot={{ r: 2.5 }} connectNulls isAnimationActive={true} />
                 {events.map((e, i) => (
                   <ReferenceLine key={i} yAxisId="out" x={format(parseISO(e.date), 'd MMM')}
-                    stroke={e.kind === 'step-up' ? 'var(--violet)' : e.kind === 'cycle-start' ? 'var(--lime)' : 'var(--amber)'}
+                    stroke={e.kind === 'step-up' ? 'var(--text)' : e.kind === 'cycle-start' ? 'var(--good)' : 'var(--warn)'}
                     strokeDasharray="3 3"
-                    label={{ value: e.label, fontSize: 8, fill: 'var(--muted)', position: 'insideTopLeft' }} />
+                    label={{ value: e.label, fontSize: 8, fill: 'var(--text-2)', position: 'insideTopLeft' }} />
                 ))}
               </ComposedChart>
             </ResponsiveContainer>
           </div>
         )}
-        <div className="mt-2 flex flex-wrap gap-3 text-[10px] font-bold" style={{ color: 'var(--muted)' }}>
+        <div className="mt-2 flex flex-wrap gap-3 text-xs font-bold" style={{ color: 'var(--text-2)' }}>
           <span className="flex items-center gap-1"><span className="h-2 w-4 rounded" style={{ background: outcome.color }} /> {outcome.label}</span>
-          <span className="flex items-center gap-1"><span className="h-2 w-4 rounded" style={{ background: 'var(--violet)' }} /> {peptide.name} dose / cycle</span>
+          <span className="flex items-center gap-1"><span className="h-2 w-4 rounded" style={{ background: 'var(--text)' }} /> {peptide.name} dose / cycle</span>
         </div>
-        <p className="mt-2 text-[10px] font-medium" style={{ color: 'var(--muted)' }}>
+        <p className="mt-2 text-xs font-medium" style={{ color: 'var(--text-2)' }}>
           Dashed lines mark cycle on/off and titration step-ups. Overlaps are observations from your own logs, not medical conclusions.
         </p>
       </div>

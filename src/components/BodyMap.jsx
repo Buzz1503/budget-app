@@ -12,23 +12,23 @@ import { SITE_STATUS } from '../lib/rotation'
 // rest days. That's a continuous value, so the map visibly heals between opens
 // rather than snapping between three bands.
 
-const SKIN = 'var(--surface2)'
+const SKIN = 'var(--surface-sunk)'
 const LINE = 'var(--border)'
 
 // heat 1 → coral, 0.5 → amber, 0 → lime. Colour-mix keeps it theme-aware.
 export function heatColor(heat) {
-  if (heat <= 0) return 'var(--lime)'
-  if (heat >= 1) return 'var(--coral)'
+  if (heat <= 0) return 'var(--good)'
+  if (heat >= 1) return 'var(--danger)'
   if (heat > 0.5) {
     const t = Math.round((heat - 0.5) * 200)
-    return `color-mix(in srgb, var(--coral) ${t}%, var(--amber))`
+    return `color-mix(in srgb, var(--danger) ${t}%, var(--warn))`
   }
   const t = Math.round(heat * 200)
-  return `color-mix(in srgb, var(--amber) ${t}%, var(--lime))`
+  return `color-mix(in srgb, var(--warn) ${t}%, var(--good))`
 }
 
 export function statusColor(state) {
-  if (!state) return 'var(--lime)'
+  if (!state) return 'var(--good)'
   if (state.resting) return SITE_STATUS.resting.tone
   if (state.overworn) return SITE_STATUS.overworn.tone
   return heatColor(state.heat)
@@ -91,7 +91,7 @@ export default function BodyMap({
               {isSug && (
                 <motion.circle
                   cx={s.x} cy={s.y} r={r + 2.4}
-                  fill="none" stroke="var(--lime)" strokeWidth="1"
+                  fill="none" stroke="var(--good)" strokeWidth="1"
                   style={{ transformBox: 'fill-box', transformOrigin: 'center' }}
                   animate={{ scale: [0.75, 1.55, 0.75], opacity: [1, 0.15, 1] }}
                   transition={{ duration: 1.5, repeat: Infinity }}
@@ -167,8 +167,8 @@ function FrontBody({ landmarks, zoom, labelFs }) {
       {landmarks && (
         <g>
           <circle cx={NAVEL.x} cy={NAVEL.y} r={KEEP_CLEAR_R}
-            fill="color-mix(in srgb, var(--coral) 18%, transparent)"
-            stroke="var(--coral)" strokeWidth="0.55" strokeDasharray="1.6 1.4" />
+            fill="color-mix(in srgb, var(--danger) 18%, transparent)"
+            stroke="var(--danger)" strokeWidth="0.55" strokeDasharray="1.6 1.4" />
           <circle cx={NAVEL.x} cy={NAVEL.y} r="1.8" fill="var(--text)" opacity="0.8" />
           <circle cx={NAVEL.x} cy={NAVEL.y} r="0.8" fill="var(--bg)" />
           <line x1="30" y1="60.5" x2="70" y2="60.5" stroke={LINE} strokeWidth="0.4" strokeDasharray="1.2 1.2" />
@@ -178,14 +178,14 @@ function FrontBody({ landmarks, zoom, labelFs }) {
 
           {!zoom && (
             <g fontSize={labelFs} fontWeight="700" style={{ pointerEvents: 'none' }}>
-              <line x1="50" y1="63.2" x2="50" y2="70" stroke="var(--muted)" strokeWidth="0.35" />
+              <line x1="50" y1="63.2" x2="50" y2="70" stroke="var(--text-2)" strokeWidth="0.35" />
               <text x="50" y="72.5" textAnchor="middle" fill="var(--text)">belly button</text>
-              <line x1="70" y1="60.5" x2="82" y2="58.5" stroke="var(--muted)" strokeWidth="0.3" />
-              <text x="83" y="59.5" fill="var(--muted)">waist</text>
-              <line x1="68.5" y1="67.8" x2="82" y2="66" stroke="var(--muted)" strokeWidth="0.3" />
-              <text x="83" y="67" fill="var(--muted)">hip bone</text>
-              <line x1="65" y1="107" x2="75" y2="107" stroke="var(--muted)" strokeWidth="0.3" />
-              <text x="76" y="108" fill="var(--muted)">knee</text>
+              <line x1="70" y1="60.5" x2="82" y2="58.5" stroke="var(--text-2)" strokeWidth="0.3" />
+              <text x="83" y="59.5" fill="var(--text-2)">waist</text>
+              <line x1="68.5" y1="67.8" x2="82" y2="66" stroke="var(--text-2)" strokeWidth="0.3" />
+              <text x="83" y="67" fill="var(--text-2)">hip bone</text>
+              <line x1="65" y1="107" x2="75" y2="107" stroke="var(--text-2)" strokeWidth="0.3" />
+              <text x="76" y="108" fill="var(--text-2)">knee</text>
             </g>
           )}
         </g>
@@ -223,12 +223,12 @@ function BackBody({ landmarks, zoom, labelFs }) {
 
           {!zoom && (
             <g fontSize={labelFs} fontWeight="700" style={{ pointerEvents: 'none' }}>
-              <line x1="67" y1="62" x2="80" y2="60" stroke="var(--muted)" strokeWidth="0.3" />
-              <text x="81" y="61" fill="var(--muted)">hip</text>
-              <line x1="50" y1="26" x2="50" y2="22" stroke="var(--muted)" strokeWidth="0.3" />
-              <text x="50" y="21" textAnchor="middle" fill="var(--muted)">spine</text>
-              <line x1="66" y1="78" x2="79" y2="80" stroke="var(--muted)" strokeWidth="0.3" />
-              <text x="80" y="81" fill="var(--muted)">crease</text>
+              <line x1="67" y1="62" x2="80" y2="60" stroke="var(--text-2)" strokeWidth="0.3" />
+              <text x="81" y="61" fill="var(--text-2)">hip</text>
+              <line x1="50" y1="26" x2="50" y2="22" stroke="var(--text-2)" strokeWidth="0.3" />
+              <text x="50" y="21" textAnchor="middle" fill="var(--text-2)">spine</text>
+              <line x1="66" y1="78" x2="79" y2="80" stroke="var(--text-2)" strokeWidth="0.3" />
+              <text x="80" y="81" fill="var(--text-2)">crease</text>
               <text x="50" y="90" textAnchor="middle" fill="var(--text)">upper-outer quarter only</text>
             </g>
           )}
@@ -246,7 +246,7 @@ function PinDrop({ site }) {
     <g style={{ pointerEvents: 'none' }}>
       <motion.circle
         cx={site.x} cy={site.y} r={4}
-        fill="none" stroke="var(--lime)" strokeWidth="1.4"
+        fill="none" stroke="var(--good)" strokeWidth="1.4"
         style={{ transformBox: 'fill-box', transformOrigin: 'center' }}
         initial={{ scale: 0.2, opacity: 1 }}
         animate={{ scale: 4.5, opacity: 0 }}
@@ -255,7 +255,7 @@ function PinDrop({ site }) {
       />
       <motion.circle
         cx={site.x} cy={site.y} r={3}
-        fill="var(--lime)"
+        fill="var(--good)"
         style={{ transformBox: 'fill-box', transformOrigin: 'center' }}
         initial={{ scale: 2.4, opacity: 0 }}
         animate={{ scale: [2.4, 0.85, 1], opacity: [0, 1, 1] }}
@@ -280,7 +280,7 @@ function InjectHereFlag({ site, zoom }) {
       animate={{ scale: [1, 1.06, 1] }}
       transition={{ duration: 1.5, repeat: Infinity }}
     >
-      <rect x={x} y={y} width={w} height={h} rx={h / 2} fill="var(--lime)" />
+      <rect x={x} y={y} width={w} height={h} rx={h / 2} fill="var(--good)" />
       <text x={x + w / 2} y={y + h * 0.7} textAnchor="middle" fontSize={fs} fontWeight="900" fill="#fff">
         INJECT HERE
       </text>
@@ -288,7 +288,7 @@ function InjectHereFlag({ site, zoom }) {
         d={above
           ? `M${site.x} ${y + h} l-1.6 0 l1.6 2.4 l1.6 -2.4 z`
           : `M${site.x} ${y} l-1.6 0 l1.6 -2.4 l1.6 2.4 z`}
-        fill="var(--lime)"
+        fill="var(--good)"
       />
     </motion.g>
   )
@@ -298,15 +298,15 @@ function InjectHereFlag({ site, zoom }) {
 // have to decode a hue to answer "can I use this one".
 export function ColourKey({ compact }) {
   return (
-    <div className={`grid gap-1 ${compact ? 'text-[10px]' : 'text-[11px]'} font-bold`} style={{ color: 'var(--muted)' }}>
-      <Key c="var(--lime)" l="Healed — good to use" />
-      <Key c="var(--amber)" l="Still cooling down" />
-      <Key c="var(--coral)" l="Just used — let it heal" />
-      <Key c="var(--rose)" l="Reacting — resting until you clear it" />
-      <Key c="var(--violet)" l="Used more than its turn — extended rest" />
-      <span className="mt-0.5 flex items-start gap-2">
-        <span className="mt-0.5 h-3.5 w-3.5 shrink-0 rounded-full"
-          style={{ background: 'color-mix(in srgb, var(--coral) 25%, transparent)', border: '1.5px dashed var(--coral)' }} />
+    <div className={`grid gap-1 ${compact ? 'text-xs' : 'text-xs'} font-bold`} style={{ color: 'var(--text-2)' }}>
+      <Key c="var(--good)" l="Healed — good to use" />
+      <Key c="var(--warn)" l="Still cooling down" />
+      <Key c="var(--danger)" l="Just used — let it heal" />
+      <Key c="var(--danger)" l="Reacting — resting until you clear it" />
+      <Key c="var(--text)" l="Used more than its turn — extended rest" />
+      <span className="mt-1 flex items-start gap-2">
+        <span className="mt-1 h-3.5 w-3.5 shrink-0 rounded-full"
+          style={{ background: 'color-mix(in srgb, var(--danger) 25%, transparent)', border: '1.5px dashed var(--danger)' }} />
         <span>Shaded ring = keep clear. Stay at least 2 in / 5 cm from your belly button.</span>
       </span>
     </div>

@@ -65,29 +65,29 @@ export default function SitePicker({ open, onClose, peptide, dose, unit, units }
   if (done) {
     return (
       <Modal open={open} onClose={close} title="Logged">
-        <div className="space-y-2.5">
-          <div className="rounded-2xl p-4 text-center"
-            style={{ background: 'color-mix(in srgb, var(--lime) 16%, transparent)' }}>
+        <div className="space-y-3">
+          <div className="rounded-[14px] p-4 text-center"
+            style={{ background: 'color-mix(in srgb, var(--good) 16%, transparent)' }}>
             <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}
               transition={{ type: 'spring', stiffness: 400, damping: 15 }}
               className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full"
-              style={{ background: 'var(--lime)', color: '#fff' }}>
+              style={{ background: 'var(--accent)', color: 'var(--accent-fg)' }}>
               <Check size={26} strokeWidth={3} />
             </motion.div>
             <p className="text-base font-black">Logged — {done.label}</p>
-            <p className="mt-1 text-xs font-semibold" style={{ color: 'var(--muted)' }}>
+            <p className="mt-1 text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
               {done.nasal
                 ? `${peptide.name} · nasal spray`
                 : `${formatDose(dose, unit)} · ${formatUnitsLong(units)} · ${peptide.name}`}
             </p>
           </div>
           {done.nasal && (
-            <p className="px-1 text-center text-xs font-semibold" style={{ color: 'var(--muted)' }}>
+            <p className="px-1 text-center text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
               Nothing to rotate — sprays alternate nostrils, not injection sites.
             </p>
           )}
           {done.next && (
-            <p className="px-1 text-center text-xs font-semibold" style={{ color: 'var(--muted)' }}>
+            <p className="px-1 text-center text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
               Next time we'll steer you to <span className="font-black" style={{ color: 'var(--text)' }}>{done.next}</span> to keep rotating.
             </p>
           )}
@@ -105,10 +105,10 @@ export default function SitePicker({ open, onClose, peptide, dose, unit, units }
       : null
     return (
       <Modal open={open} onClose={close} title={`Take ${peptide.name}`}>
-        <div className="space-y-2.5">
-          <div className="rounded-2xl p-4 text-center" style={{ background: 'var(--surface2)' }}>
+        <div className="space-y-3">
+          <div className="rounded-[14px] p-4 text-center" style={{ background: 'var(--surface-sunk)' }}>
             <p className="text-2xl font-black tracking-tight">{formatDose(dose, unit)}</p>
-            <p className="mt-0.5 text-[11px] font-bold" style={{ color: 'var(--muted)' }}>
+            <p className="mt-1 text-xs font-bold" style={{ color: 'var(--text-2)' }}>
               Nasal spray · {strength.mcgPerSpray} mcg per spray
             </p>
           </div>
@@ -119,19 +119,19 @@ export default function SitePicker({ open, onClose, peptide, dose, unit, units }
           </CoachTip>
 
           {spraysLeft != null && (
-            <p className="flex items-center gap-1.5 rounded-2xl p-2.5 text-xs font-bold" style={{ background: 'var(--surface2)' }}>
-              <Wind size={13} className="shrink-0" style={{ color: 'var(--indigo)' }} />
+            <p className="flex items-center gap-2 rounded-[14px] p-3 text-xs font-bold" style={{ background: 'var(--surface-sunk)' }}>
+              <Wind size={13} className="shrink-0" style={{ color: 'var(--text-2)' }} />
               About {spraysLeft} spray{spraysLeft === 1 ? '' : 's'} left in the bottle.
             </p>
           )}
 
-          <div className="rounded-2xl" style={{ background: 'var(--surface2)' }}>
+          <div className="rounded-[14px]" style={{ background: 'var(--surface-sunk)' }}>
             <button onClick={() => setHowTo((v) => !v)}
               className="flex w-full items-center justify-between gap-2 p-3 text-left">
-              <span className="flex items-center gap-1.5 text-xs font-black">
-                <HelpCircle size={14} style={{ color: 'var(--indigo)' }} /> How do I prepare the spray?
+              <span className="flex items-center gap-2 text-xs font-black">
+                <HelpCircle size={14} style={{ color: 'var(--text-2)' }} /> How do I prepare the spray?
               </span>
-              <motion.span animate={{ rotate: howTo ? 180 : 0 }}><ChevronDown size={15} style={{ color: 'var(--muted)' }} /></motion.span>
+              <motion.span animate={{ rotate: howTo ? 180 : 0 }}><ChevronDown size={15} style={{ color: 'var(--text-2)' }} /></motion.span>
             </button>
             <AnimatePresence initial={false}>
               {howTo && (
@@ -144,7 +144,7 @@ export default function SitePicker({ open, onClose, peptide, dose, unit, units }
           </div>
 
           <motion.button whileTap={{ scale: 0.97 }} onClick={confirmNasal}
-            className="btn-primary flex w-full items-center justify-center gap-2 rounded-full py-3.5 text-sm font-black">
+            className="btn-primary flex w-full items-center justify-center gap-2 rounded-full py-4 text-sm font-black">
             <Wind size={18} strokeWidth={2.5} /> Log {formatDose(dose, unit)}
           </motion.button>
         </div>
@@ -154,14 +154,14 @@ export default function SitePicker({ open, onClose, peptide, dose, unit, units }
 
   return (
     <Modal open={open} onClose={close} title={`Where to inject ${peptide.name}`}>
-      <div className="space-y-2.5">
+      <div className="space-y-3">
         {/* what you're about to give */}
-        <div className="rounded-2xl p-3 text-center" style={{ background: 'var(--surface2)' }}>
+        <div className="rounded-[14px] p-3 text-center" style={{ background: 'var(--surface-sunk)' }}>
           <p className="text-2xl font-black tracking-tight">
             {formatDose(dose, unit)}
-            <span className="ml-2 text-base font-bold" style={{ color: 'var(--lime)' }}>{formatUnitsLong(units)}</span>
+            <span className="ml-2 text-base font-bold" style={{ color: 'var(--good)' }}>{formatUnitsLong(units)}</span>
           </p>
-          <p className="mt-0.5 text-[11px] font-bold" style={{ color: 'var(--muted)' }}>
+          <p className="mt-1 text-xs font-bold" style={{ color: 'var(--text-2)' }}>
             {route === 'IM'
               ? <>Into the muscle (<Term id="im">IM</Term>){isPremixed(peptide) ? ' · oil solution' : ''}</>
               : <>Into the fat under the skin (<Term id="subq">SubQ</Term>)</>}
@@ -171,11 +171,11 @@ export default function SitePicker({ open, onClose, peptide, dose, unit, units }
         {/* oil/IM is a different routine to the SubQ insulin-syringe flow, and
             the reminder belongs here, at the moment of injecting */}
         {route === 'IM' && (
-          <div className="rounded-2xl p-3" style={{ background: 'color-mix(in srgb, var(--amber) 14%, transparent)' }}>
-            <p className="text-[11px] font-black" style={{ color: 'var(--amber)' }}>
+          <div className="rounded-[14px] p-3" style={{ background: 'color-mix(in srgb, var(--warn) 14%, transparent)' }}>
+            <p className="text-xs font-black" style={{ color: 'var(--warn)' }}>
               Intramuscular{isPremixed(peptide) ? ' · oil solution' : ''} — not the SubQ insulin-syringe routine
             </p>
-            <p className="mt-0.5 text-[11px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+            <p className="mt-1 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
               ~23–25 g, 1–1.5" into the muscle. Oil draws and pushes slowly — take your time.
             </p>
           </div>
@@ -187,8 +187,8 @@ export default function SitePicker({ open, onClose, peptide, dose, unit, units }
         </CoachTip>
 
         {/* where and when, in plain words */}
-        <div className="flex items-start gap-2 rounded-2xl p-2.5" style={{ background: 'var(--surface2)' }}>
-          <Clock size={14} className="mt-0.5 shrink-0" style={{ color: 'var(--muted)' }} />
+        <div className="flex items-start gap-2 rounded-[14px] p-3" style={{ background: 'var(--surface-sunk)' }}>
+          <Clock size={14} className="mt-1 shrink-0" style={{ color: 'var(--text-2)' }} />
           <p className="text-xs font-bold leading-relaxed">
             {last
               ? <>Last shot: <span style={{ color: 'var(--text)' }}>{last.when}</span> — {last.label}.</>
@@ -199,22 +199,22 @@ export default function SitePicker({ open, onClose, peptide, dose, unit, units }
         <SiteChooser route={route} zone={zone} picked={picked} onPick={setPicked} onResolve={setResolved} />
 
         {/* how-to, at the moment of injecting */}
-        <div className="rounded-2xl" style={{ background: 'var(--surface2)' }}>
+        <div className="rounded-[14px]" style={{ background: 'var(--surface-sunk)' }}>
           <button onClick={() => setHowTo((v) => !v)}
             className="flex w-full items-center justify-between gap-2 p-3 text-left">
-            <span className="flex items-center gap-1.5 text-xs font-black">
-              <HelpCircle size={14} style={{ color: 'var(--indigo)' }} /> How do I inject here?
+            <span className="flex items-center gap-2 text-xs font-black">
+              <HelpCircle size={14} style={{ color: 'var(--text-2)' }} /> How do I inject here?
             </span>
-            <motion.span animate={{ rotate: howTo ? 180 : 0 }}><ChevronDown size={15} style={{ color: 'var(--muted)' }} /></motion.span>
+            <motion.span animate={{ rotate: howTo ? 180 : 0 }}><ChevronDown size={15} style={{ color: 'var(--text-2)' }} /></motion.span>
           </button>
           <AnimatePresence initial={false}>
             {howTo && (
               <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
                 className="overflow-hidden">
-                <ol className="space-y-1.5 px-3 pb-3 text-[11px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+                <ol className="space-y-2 px-3 pb-3 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
                   {(route === 'IM' ? IM_STEPS : SUBQ_STEPS).map((s, i) => (
                     <li key={i} className="flex gap-2">
-                      <span className="font-black" style={{ color: 'var(--indigo)' }}>{i + 1}.</span>
+                      <span className="font-black" style={{ color: 'var(--text-2)' }}>{i + 1}.</span>
                       <span>{s}</span>
                     </li>
                   ))}
@@ -225,7 +225,7 @@ export default function SitePicker({ open, onClose, peptide, dose, unit, units }
         </div>
 
         <motion.button whileTap={{ scale: 0.97 }} onClick={confirm}
-          className="btn-primary flex w-full items-center justify-center gap-2 rounded-full py-3.5 text-sm font-black">
+          className="btn-primary flex w-full items-center justify-center gap-2 rounded-full py-4 text-sm font-black">
           <Syringe size={18} strokeWidth={2.5} /> Log here — {chosenSite?.short || chosenSite?.label}
         </motion.button>
       </div>
@@ -262,22 +262,22 @@ export function NasalRecipe({ recipe = NASAL_RECIPE, strength = null }) {
   ]
   return (
     <div className="px-3 pb-3">
-      <ol className="space-y-1.5 text-[11px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+      <ol className="space-y-2 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
         {steps.map((line, i) => (
           <li key={i} className="flex gap-2">
-            <span className="font-black" style={{ color: 'var(--indigo)' }}>{i + 1}.</span>
+            <span className="font-black" style={{ color: 'var(--text-2)' }}>{i + 1}.</span>
             <span>{line}</span>
           </li>
         ))}
       </ol>
-      <p className="mt-2 rounded-lg p-2 text-[11px] font-bold leading-relaxed"
-        style={{ background: 'color-mix(in srgb, var(--indigo) 14%, transparent)' }}>
+      <p className="mt-2 rounded-[10px] p-2 text-xs font-bold leading-relaxed"
+        style={{ background: 'color-mix(in srgb, var(--info) 14%, transparent)' }}>
         {recipe.vialMg} mg ÷ {s.bottleMl} mL = {round(s.mgPerMl, 3)} mg/mL ({s.mcgPerMl.toLocaleString()} mcg/mL).
         At {recipe.sprayMl} mL per spray that is{' '}
-        <span style={{ color: 'var(--lime)' }}>{s.mcgPerSpray} mcg per spray</span> — about {s.spraysPerBottle} sprays
+        <span style={{ color: 'var(--good)' }}>{s.mcgPerSpray} mcg per spray</span> — about {s.spraysPerBottle} sprays
         per bottle ({s.totalMcg.toLocaleString()} mcg total).
       </p>
-      <p className="mt-1.5 text-[10px] font-medium" style={{ color: 'var(--muted)' }}>
+      <p className="mt-2 text-xs font-medium" style={{ color: 'var(--text-2)' }}>
         1 spray = {s.mcgPerSpray} mcg · 2 = {s.mcgPerSpray * 2} mcg · 3 = {s.mcgPerSpray * 3} mcg. Editable — these are
         the defaults, not medical advice.
       </p>

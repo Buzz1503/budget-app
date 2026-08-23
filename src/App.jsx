@@ -1,7 +1,7 @@
-import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Sun, CalendarDays, HeartPulse, LayoutGrid, ChevronLeft, PersonStanding, Plus,
+  Sun, CalendarDays, HeartPulse, LayoutGrid, ChevronLeft, PersonStanding,
 } from 'lucide-react'
 
 import useStore, { onStorageError } from './store/useStore'
@@ -116,12 +116,25 @@ export default function App() {
     return () => ro.disconnect()
   }, [])
 
-  // The FAB is shared chrome, but what it *does* is screen-specific (on Home
-  // it opens the next unlogged dose). Rather than lift that logic up, Home
-  // registers a handler here and the FAB just calls whatever's registered —
-  // an extra entry point into the existing log flow, not a new one.
-  const quickActionRef = useRef(null)
-  const onQuickAction = useCallback((fn) => { quickActionRef.current = fn }, [])
+  // The dock condenses out of the way as you read down a screen and comes back
+  // the moment you scroll up or stop. Only the label row collapses — the icons
+  // and their tap targets stay put, so it never moves under your thumb.
+  const [docked, setDocked] = useState(true)
+  useEffect(() => {
+    let last = window.scrollY
+    let idle
+    const onScroll = () => {
+      const y = window.scrollY
+      if (y > last + 6 && y > 80) setDocked(false)
+      else if (y < last - 6) setDocked(true)
+      last = y
+      clearTimeout(idle)
+      idle = setTimeout(() => setDocked(true), 900)
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => { window.removeEventListener('scroll', onScroll); clearTimeout(idle) }
+  }, [])
+  useEffect(() => { setDocked(true) }, [tab])
 
   const Active = SCREENS[tab] || Home
   const isSub = !PRIMARY_IDS.has(tab)
@@ -134,15 +147,20 @@ export default function App() {
           <motion.button
             initial={{ y: -40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -40, opacity: 0 }}
             onClick={() => setTab('more')}
-            className="sticky top-0 z-30 flex items-center gap-1 px-4 py-2.5 text-sm font-bold backdrop-blur-xl"
-            style={{ background: 'color-mix(in srgb, var(--bg) 80%, transparent)', color: 'var(--muted)' }}
+            className="sticky top-0 z-30 flex items-center gap-1 px-4 py-3 text-sm font-bold backdrop-blur-xl"
+            style={{ background: 'color-mix(in srgb, var(--bg) 80%, transparent)', color: 'var(--text-2)' }}
           >
             <ChevronLeft size={18} /> {SUB_TITLES[tab] || 'Back'}
           </motion.button>
         )}
       </AnimatePresence>
 
-      <main className="flex-1 px-4 pt-5" style={{ paddingBottom: 'calc(var(--nav-h, 92px) + 28px)' }}>
+      {/* nav height + 16 + the home-indicator inset, so the last row of any
+          screen clears the dock at every scroll position */}
+      <main
+        className="flex-1 px-4 pt-5"
+        style={{ paddingBottom: 'calc(var(--nav-h, 76px) + 16px + env(safe-area-inset-bottom))' }}
+      >
         <AnimatePresence mode="wait">
           <motion.div
             key={tab}
@@ -151,65 +169,61 @@ export default function App() {
             exit={{ opacity: 0, x: -14 }}
             transition={{ duration: 0.18 }}
           >
-            <Active goTo={goTo} onQuickAction={tab === 'today' ? onQuickAction : undefined} />
+            <Active goTo={goTo} />
           </motion.div>
         </AnimatePresence>
       </main>
 
-      {/* bottom chrome: a floating pill nav plus a separate circular "+" for
-          the primary quick action — both siblings in one fixed row so their
-          spacing is trivial and --nav-h keeps meaning "total reserved bottom
-          chrome height", unchanged from the old full-width bar. */}
+      {/* The dock. Translucent material rather than an opaque card, so the
+          content scrolling beneath it stays legible as a blur. */}
       <footer
         ref={navRef}
-        className="fixed inset-x-0 bottom-0 z-40 flex justify-center px-3 pt-2"
-        style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 14px)' }}
+        className="fixed inset-x-0 bottom-0 z-40 flex justify-center px-4"
+        style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 12px)', paddingTop: '8px' }}
       >
-        <div className="mx-auto flex w-full max-w-3xl items-center justify-center gap-2">
-          <nav
-            className="flex items-center rounded-full p-1.5"
-            style={{ background: 'var(--surface)', boxShadow: 'var(--shadow-nav)' }}
-          >
-            {PRIMARY.map(({ id, label, icon: Icon }) => {
-              const active = tab === id || (id === 'more' && isSub)
-              return (
-                <motion.button
-                  key={id}
-                  whileTap={{ scale: 0.86 }}
-                  onClick={() => { if (haptics) { try { haptic(6) } catch { /* optional */ } } setTab(id) }}
-                  // min-w/min-h hold the 44pt tap target even though the icon
-                  // and label together are shorter than that
-                  className="relative flex min-h-[44px] min-w-[44px] flex-col items-center justify-center gap-0.5 rounded-full px-1.5 py-1.5"
-                  aria-label={label}
+        <nav
+          className="flex items-center gap-1 p-1 backdrop-blur-2xl"
+          style={{
+            borderRadius: 'var(--r-pill)',
+            background: 'color-mix(in srgb, var(--surface) 78%, transparent)',
+            boxShadow: 'var(--shadow-nav)',
+            border: '1px solid var(--border)',
+          }}
+        >
+          {PRIMARY.map(({ id, label, icon: Icon }) => {
+            const active = tab === id || (id === 'more' && isSub)
+            return (
+              <button
+                key={id}
+                onClick={() => { if (haptics) { try { haptic(6) } catch { /* optional */ } } setTab(id) }}
+                className="relative flex min-h-[44px] min-w-[44px] flex-col items-center justify-center px-3"
+                style={{ borderRadius: 'var(--r-pill)' }}
+                aria-label={label}
+              >
+                {active && (
+                  <motion.div
+                    layoutId="tab-pill"
+                    className="absolute inset-0"
+                    style={{ background: 'var(--surface-sunk)', borderRadius: 'var(--r-pill)' }}
+                    transition={{ type: 'spring', stiffness: 420, damping: 34 }}
+                  />
+                )}
+                <span className="relative" style={{ color: active ? 'var(--text)' : 'var(--text-3)' }}>
+                  <Icon size={28} strokeWidth={active ? 2.2 : 1.8} />
+                </span>
+                <motion.span
+                  className="relative overflow-hidden text-[11px] font-medium leading-none"
+                  style={{ color: active ? 'var(--text)' : 'var(--text-3)' }}
+                  initial={false}
+                  animate={{ height: docked ? 14 : 0, opacity: docked ? 1 : 0, marginTop: docked ? 4 : 0 }}
+                  transition={{ duration: 0.18 }}
                 >
-                  {active && (
-                    <motion.div layoutId="tab-pill" className="absolute inset-0 rounded-full"
-                      style={{ background: 'var(--surface2)' }} transition={{ type: 'spring', stiffness: 400, damping: 32 }} />
-                  )}
-                  <span className="relative" style={{ color: active ? 'var(--violet)' : 'var(--muted)' }}>
-                    <Icon size={34} strokeWidth={active ? 2.4 : 1.9} />
-                  </span>
-                  <span className="relative text-[9px] font-bold leading-none tracking-tight" style={{ color: active ? 'var(--violet)' : 'var(--muted)' }}>
-                    {label}
-                  </span>
-                </motion.button>
-              )
-            })}
-          </nav>
-
-          {tab === 'today' && (
-            <motion.button
-              whileTap={{ scale: 0.9 }}
-              onClick={() => { if (haptics) { try { haptic(8) } catch { /* optional */ } } quickActionRef.current?.() }}
-              aria-label="Quick log"
-              // sized off the taller capsule so the two read as one bar
-              className="flex h-[66px] w-[66px] shrink-0 items-center justify-center rounded-full"
-              style={{ backgroundImage: 'linear-gradient(135deg, var(--violet), var(--indigo))', boxShadow: 'var(--shadow-fab)' }}
-            >
-              <Plus size={30} color="#fff" strokeWidth={2.5} />
-            </motion.button>
-          )}
-        </div>
+                  {label}
+                </motion.span>
+              </button>
+            )
+          })}
+        </nav>
       </footer>
 
       <ScheduleWizard open={wizard} onClose={() => setWizard(false)} />
@@ -221,8 +235,8 @@ export default function App() {
         {storageError && (
           <motion.div
             initial={{ y: -60 }} animate={{ y: 0 }} exit={{ y: -60 }}
-            className="fixed inset-x-4 top-3 z-[90] rounded-2xl p-3 text-sm font-semibold"
-            style={{ background: 'var(--coral)', color: '#fff' }}
+            className="fixed inset-x-4 top-3 z-[90] rounded-[14px] p-3 text-sm font-semibold"
+            style={{ background: 'var(--danger)', color: 'var(--accent-fg)' }}
           >
             Storage is unavailable — changes may not persist on this device.
             <button className="ml-2 underline" onClick={() => setStorageError(false)}>Dismiss</button>

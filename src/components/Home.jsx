@@ -28,7 +28,7 @@ import { FormIcon } from './SupplementsTab'
 
 const spring = { type: 'spring', stiffness: 260, damping: 22 }
 
-export default function Home({ goTo, onQuickAction }) {
+export default function Home({ goTo }) {
   const peptides = useStore((s) => s.peptides)
   const titration = useStore((s) => s.titration)
   const doseLogs = useStore((s) => s.doseLogs)
@@ -94,12 +94,6 @@ export default function Home({ goTo, onQuickAction }) {
     [slotDue, loggedToday, skippedIds]
   )
   const unloggedCount = unlogged.length
-
-  // The shell's floating "+" calls whatever we register here — same
-  // setPicker flow as tapping Log on a card, just a second entry point.
-  useEffect(() => {
-    onQuickAction?.(() => { const next = unlogged[0]; if (next) setPicker(next) })
-  }, [onQuickAction, unlogged])
   // selection resolved against the live slot list so done/removed/skipped ids drop out
   const selectedPeptides = slotDue.filter(
     (p) => selected.has(p.id) && !loggedToday.has(p.id) && !skippedIds.has(p.id)
@@ -231,7 +225,7 @@ export default function Home({ goTo, onQuickAction }) {
   const now = new Date()
 
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-3">
       {/* Shown once, on first launch, and never again — it is not a standing
           row in the column. Afterwards it lives behind the ⓘ in the header. */}
       <Disclaimer
@@ -241,60 +235,59 @@ export default function Home({ goTo, onQuickAction }) {
       />
 
       {/* screen title + alerts + slot toggle */}
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <p className="flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.18em]" style={{ color: 'var(--muted)' }}>
-            Pepito +
-            <button onClick={() => setShowAbout(true)} aria-label="About this app" style={{ color: 'var(--muted)' }}>
-              <Info size={11} />
+      <div>
+        <p className="t-caption" style={{ color: 'var(--text-3)' }}>Pepito +</p>
+        <h1 className="t-display mt-1">
+          Today, {now.getDate()} {now.toLocaleDateString(undefined, { month: 'long' })}
+        </h1>
+        <div className="mt-3 flex items-center justify-between gap-4">
+          <p className="t-caption flex items-center gap-2" style={{ color: 'var(--text-3)' }}>
+            {now.toLocaleDateString(undefined, { weekday: 'long' })}
+            <button onClick={() => setShowAbout(true)} aria-label="About this app" style={{ color: 'var(--text-3)' }}>
+              <Info size={12} />
             </button>
           </p>
-          <h1 className="text-[21px] font-black leading-tight tracking-tight">
-            Today, {now.getDate()} {now.toLocaleDateString(undefined, { month: 'long' })}
-          </h1>
-          <p className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>
-            {now.toLocaleDateString(undefined, { weekday: 'long' })} · {slot}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
           <AlertBell alerts={alerts} nudge={nudge} goTo={goTo} onDismissNudge={dismissBackupNudge} />
-          <div className="flex rounded-full p-1" style={{ background: 'var(--surface)', boxShadow: 'var(--shadow-sm)' }}>
-          {['AM', 'PM'].map((s) => (
-            <button key={s} onClick={() => setSlot(s)}
-              className="relative flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-black">
-              {slot === s && <motion.span layoutId="slot-pill" className="absolute inset-0 rounded-full"
-                style={{ backgroundImage: 'linear-gradient(135deg, var(--violet), var(--indigo))' }} />}
-              <span className="relative flex items-center gap-1" style={{ color: slot === s ? '#fff' : 'var(--muted)' }}>
-                {s === 'AM' ? <Sun size={14} /> : <Moon size={14} />}{s}
-              </span>
-            </button>
-          ))}
+          <div className="sunk flex p-1" style={{ borderRadius: 'var(--r-pill)' }}>
+            {['AM', 'PM'].map((s) => (
+              <button key={s} onClick={() => setSlot(s)} aria-label={s}
+                className="relative flex min-h-[36px] items-center gap-1 px-3 text-sm font-medium"
+                style={{ borderRadius: 'var(--r-pill)' }}>
+                {slot === s && <motion.span layoutId="slot-pill" className="absolute inset-0"
+                  style={{ background: 'var(--accent)', borderRadius: 'var(--r-pill)' }} />}
+                <span className="relative flex items-center gap-1"
+                  style={{ color: slot === s ? 'var(--accent-fg)' : 'var(--text-2)' }}>
+                  {s === 'AM' ? <Sun size={14} /> : <Moon size={14} />}{s}
+                </span>
+              </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Hero: how much is left, and nothing else. */}
+      {/* The focal point: how much of this slot is left, as one number. */}
       <motion.div layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={spring}
-        className="flex items-center gap-4" data-testid="hero">
-        <Ring pct={ringPct} size={76} stroke={7} from="var(--violet)" to="var(--indigo)">
-          <div className="text-center leading-tight">
-            <p className="num text-base font-black"><CountUp value={slotDoneAll} />/{slotTotal}</p>
-            <p className="text-[9px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>this {slot}</p>
-          </div>
-        </Ring>
+        className="card flex items-center gap-5 p-5" data-testid="hero">
         <div className="min-w-0 flex-1">
-          <p className="text-xl font-black leading-tight tracking-tight">
+          <p className="t-metric">
+            <CountUp value={slotDoneAll} /><span style={{ color: 'var(--text-3)' }}>/{slotTotal}</span>
+          </p>
+          <p className="t-caption mt-1" style={{ color: 'var(--text-3)' }}>this {slot}</p>
+          <p className="t-label mt-2" style={{ color: 'var(--text-2)' }}>
             {slotTotal === 0 ? (slot === 'AM' ? 'Clear morning' : 'Clear evening')
               : ringPct === 1 ? `${slot} done`
                 : unloggedCount > 0
                   ? `${unloggedCount} to inject`
                   : `${slotSupps.filter((x) => !takenIds.has(x.id) && !skippedSupps.has(x.id)).length} to take`}
           </p>
-          <p className="num text-xs font-semibold" style={{ color: 'var(--muted)' }}>
+          <p className="t-caption num mt-2 normal-case tracking-normal" style={{ color: 'var(--text-3)' }}>
             {dayDone + suppDayDone}/{Math.max(0, scheduledToday.length + suppDayTotal - daySkipped)} today
             {daySkipped > 0 && <> · {daySkipped} skipped</>} · {otherCount} this {otherSlot}
           </p>
         </div>
+        <Ring pct={ringPct} size={72} stroke={6} />
       </motion.div>
 
       {/* combine-your-shots plan — only when there is actually something to
@@ -312,21 +305,22 @@ export default function Home({ goTo, onQuickAction }) {
 
       {/* co-draw hint */}
       {unloggedInjectable.length >= 2 && selected.size === 0 && !plan && (
-        <p className="px-1 text-center text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
-          Injecting more than one? Tap the circles to <span className="font-bold" style={{ color: 'var(--lime)' }}>log them together</span> as one <Term id="codraw" />.
+        <p className="px-1 text-center text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
+          Injecting more than one? Tap the circles to <span className="font-bold" style={{ color: 'var(--good)' }}>log them together</span> as one <Term id="codraw" />.
         </p>
       )}
 
-      {/* due list for slot */}
-      <div className="space-y-2.5">
+      {/* The day's doses as rows in one card, divided by hairlines. A stack of
+          separate floating cards was most of this screen's visual noise. */}
+      <div className="card rows overflow-hidden">
         {slotTotal === 0 && (
-          <div className="py-8 text-center" style={{ color: 'var(--muted)' }}>
-            <p className="text-sm font-bold">
-              {slot === 'AM' ? "Nothing this morning — you're clear ☀️" : "Nothing tonight — you're clear 🌙"}
+          <div className="p-8 text-center">
+            <p className="t-label" style={{ color: 'var(--text-2)' }}>
+              {slot === 'AM' ? "Nothing this morning — you're clear" : "Nothing tonight — you're clear"}
             </p>
             {otherCount > 0 && (
-              <button onClick={() => setSlot(otherSlot)} className="mt-2 inline-flex items-center gap-1 text-xs font-bold" style={{ color: 'var(--indigo)' }}>
-                {otherCount} due this {otherSlot} <ChevronRight size={13} />
+              <button onClick={() => setSlot(otherSlot)} className="t-label mt-2 inline-flex items-center gap-1" style={{ color: 'var(--text)' }}>
+                {otherCount} due this {otherSlot} <ChevronRight size={14} />
               </button>
             )}
           </div>
@@ -334,8 +328,8 @@ export default function Home({ goTo, onQuickAction }) {
         {/* The heading only earns its space once both kinds are on screen —
             with injections alone the old unlabelled list is cleaner. */}
         {slotDue.length > 0 && slotSupps.length > 0 && (
-          <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide"
-            style={{ color: 'var(--lime)' }} data-testid="inject-heading">
+          <p className="t-caption flex items-center gap-2 px-4 pt-4"
+            style={{ color: 'var(--text-3)' }} data-testid="inject-heading">
             <Syringe size={12} /> Inject · {slotDue.length}
           </p>
         )}
@@ -360,8 +354,8 @@ export default function Home({ goTo, onQuickAction }) {
           units: tapping it is the whole interaction. */}
       {slotSupps.length > 0 && (
         <div className="space-y-2" data-testid="take-group">
-          <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide"
-            style={{ color: 'var(--amber)' }}>
+          <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide"
+            style={{ color: 'var(--warn)' }}>
             <Pill size={12} /> Take · {suppDone}/{slotSupps.length}
           </p>
           {slotSupps.map((sup, i) => (
@@ -413,12 +407,12 @@ export default function Home({ goTo, onQuickAction }) {
             style={{ bottom: 'calc(var(--nav-h, 92px) + 10px)' }}
             data-testid="codraw-bar"
           >
-            <div className="mx-auto flex max-w-3xl items-center gap-2 rounded-2xl p-2.5 shadow-lg"
-              style={{ background: 'var(--surface-solid)', border: '1px solid var(--border)', boxShadow: '0 8px 30px rgba(0,0,0,0.45)' }}>
-              <button onClick={() => setSelected(new Set())} className="shrink-0 rounded-full p-2" style={{ background: 'var(--surface2)' }} aria-label="Clear selection">
+            <div className="mx-auto flex max-w-3xl items-center gap-2 rounded-[14px] p-3 shadow-lg"
+              style={{ background: 'var(--surface)', border: '1px solid var(--border)', boxShadow: '0 8px 30px rgba(0,0,0,0.45)' }}>
+              <button onClick={() => setSelected(new Set())} className="shrink-0 rounded-full p-2" style={{ background: 'var(--surface-sunk)' }} aria-label="Clear selection">
                 <X size={16} />
               </button>
-              <div className="min-w-0 flex-1 text-[11px] font-bold leading-tight">
+              <div className="min-w-0 flex-1 text-xs font-bold leading-tight">
                 {selected.size} selected{selected.size < 2 ? ' · pick 1 more' : ' · one shot, one site'}
               </div>
               <motion.button whileTap={{ scale: 0.95 }} data-testid="skip-selected"
@@ -427,14 +421,14 @@ export default function Home({ goTo, onQuickAction }) {
                   ids: selectedPeptides.map((x) => x.id),
                   name: selectedPeptides.map((x) => x.name).join(', '),
                 })}
-                className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-3 py-2.5 text-xs font-black"
-                style={{ background: 'var(--surface2)', color: 'var(--muted)' }}
+                className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-3 py-3 text-xs font-black"
+                style={{ background: 'var(--surface-sunk)', color: 'var(--text-2)' }}
                 aria-label="Skip the selected doses">
                 <SkipForward size={14} /> Skip
               </motion.button>
               <motion.button whileTap={{ scale: 0.95 }} disabled={selected.size < 2}
                 onClick={() => setCoDraw(true)}
-                className="btn-primary flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2.5 text-sm font-black disabled:opacity-40">
+                className="btn-primary flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-4 py-3 text-sm font-black disabled:opacity-40">
                 <Syringe size={16} /> Log together
               </motion.button>
             </div>
@@ -478,31 +472,31 @@ function SkipSheet({ target, onClose, onConfirm }) {
 
   return (
     <Modal open onClose={onClose} title={many ? `Skip ${target.ids.length} doses?` : `Skip ${target.name}?`}>
-      <div className="space-y-2.5" data-testid="skip-sheet">
-        <p className="text-[12px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+      <div className="space-y-3" data-testid="skip-sheet">
+        <p className="text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
           Recorded as skipped, not missed. Nothing comes out of your stock, and it
           won't count against you.
         </p>
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap gap-2">
           {SKIP_REASONS.map((r) => (
             <button key={r.id} onClick={() => setReason(reason === r.id ? '' : r.id)}
-              className="rounded-full px-3 py-1.5 text-[11px] font-bold"
+              className="rounded-full px-3 py-2 text-xs font-bold"
               style={reason === r.id
-                ? { backgroundImage: 'linear-gradient(135deg, var(--violet), var(--indigo))', color: '#fff' }
-                : { background: 'var(--surface2)', color: 'var(--muted)' }}>
+                ? { background: 'var(--accent)', color: 'var(--accent-fg)' }
+                : { background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
               {r.label}
             </button>
           ))}
         </div>
-        <p className="text-[10px] font-medium" style={{ color: 'var(--muted)' }}>Optional — tap Skip without one.</p>
+        <p className="text-xs font-medium" style={{ color: 'var(--text-2)' }}>Optional — tap Skip without one.</p>
         <div className="flex gap-2">
-          <button onClick={onClose} className="flex-1 rounded-full py-2.5 text-xs font-black"
-            style={{ background: 'var(--surface2)', color: 'var(--muted)' }}>
+          <button onClick={onClose} className="flex-1 rounded-full py-3 text-xs font-black"
+            style={{ background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
             Cancel
           </button>
           <button onClick={() => onConfirm(reason)} data-testid="skip-confirm"
-            className="flex-1 rounded-full py-2.5 text-xs font-black"
-            style={{ backgroundImage: 'linear-gradient(135deg, var(--violet), var(--indigo))', color: '#fff' }}>
+            className="flex-1 rounded-full py-3 text-xs font-black"
+            style={{ background: 'var(--accent)', color: 'var(--accent-fg)' }}>
             Skip {many ? `all ${target.ids.length}` : ''}
           </button>
         </div>
@@ -525,15 +519,15 @@ function TakeRow({ supplement: s, taken, skipped, onToggle, onSkip, onUnskip, in
       transition={{ delay: Math.min(index * 0.04, 0.25) }}
       data-testid="take-row"
       className="card flex w-full items-center gap-3 p-3"
-      style={taken ? { background: 'color-mix(in srgb, var(--lime) 10%, var(--surface))' }
-        : skipped ? { background: 'color-mix(in srgb, var(--violet) 8%, var(--surface))' } : undefined}
+      style={taken ? { background: 'color-mix(in srgb, var(--good) 10%, var(--surface))' }
+        : skipped ? { background: 'color-mix(in srgb, var(--text) 8%, var(--surface))' } : undefined}
     >
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl"
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[14px]"
         style={taken
-          ? { background: 'color-mix(in srgb, var(--lime) 20%, transparent)', color: 'var(--lime)' }
+          ? { background: 'color-mix(in srgb, var(--good) 20%, transparent)', color: 'var(--good)' }
           : skipped
-            ? { background: 'color-mix(in srgb, var(--violet) 18%, transparent)', color: 'var(--violet)' }
-            : { background: 'color-mix(in srgb, var(--amber) 16%, transparent)', color: 'var(--amber)' }}>
+            ? { background: 'var(--surface-sunk)', color: 'var(--text)' }
+            : { background: 'color-mix(in srgb, var(--warn) 16%, transparent)', color: 'var(--warn)' }}>
         {skipped ? <SkipForward size={16} /> : <FormIcon form={s.form} size={16} />}
       </div>
       <div className="min-w-0 flex-1">
@@ -541,8 +535,8 @@ function TakeRow({ supplement: s, taken, skipped, onToggle, onSkip, onUnskip, in
           style={settled ? { textDecoration: 'line-through', opacity: 0.7 } : undefined}>
           {s.name}
         </p>
-        <p className="truncate text-[11px] font-semibold leading-tight"
-          style={{ color: skipped ? 'var(--violet)' : 'var(--muted)' }}>
+        <p className="truncate text-xs font-semibold leading-tight"
+          style={{ color: skipped ? 'var(--text)' : 'var(--text-2)' }}>
           {skipped ? 'Skipped today' : (s.dose || FORM_LABEL[s.form] || s.form)}
         </p>
       </div>
@@ -550,8 +544,8 @@ function TakeRow({ supplement: s, taken, skipped, onToggle, onSkip, onUnskip, in
       {skipped ? (
         <motion.button whileTap={{ scale: 0.94 }} onClick={onUnskip}
           aria-label={`Undo skip: ${s.name}`}
-          className="flex h-8 shrink-0 items-center gap-1 rounded-full px-3 text-[11px] font-black"
-          style={{ background: 'var(--surface2)', color: 'var(--violet)' }}>
+          className="flex h-8 shrink-0 items-center gap-1 rounded-full px-3 text-xs font-black"
+          style={{ background: 'var(--surface-sunk)', color: 'var(--text)' }}>
           <Undo2 size={12} /> Undo
         </motion.button>
       ) : (
@@ -559,17 +553,17 @@ function TakeRow({ supplement: s, taken, skipped, onToggle, onSkip, onUnskip, in
           {!taken && (
             <motion.button whileTap={{ scale: 0.94 }} onClick={onSkip}
               aria-label={`Skip ${s.name}`} data-testid="skip-supplement"
-              className="flex h-8 shrink-0 items-center justify-center rounded-full px-2.5"
-              style={{ background: 'var(--surface2)', color: 'var(--muted)' }}>
+              className="flex h-8 shrink-0 items-center justify-center rounded-full px-3"
+              style={{ background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
               <SkipForward size={13} />
             </motion.button>
           )}
           <motion.button whileTap={{ scale: 0.94 }} onClick={onToggle}
             aria-label={`${taken ? 'Undo' : 'Taken'}: ${s.name}`} aria-pressed={taken}
-            className="flex h-8 shrink-0 items-center gap-1 rounded-full px-3 text-[11px] font-black"
+            className="flex h-8 shrink-0 items-center gap-1 rounded-full px-3 text-xs font-black"
             style={taken
-              ? { background: 'color-mix(in srgb, var(--lime) 20%, transparent)', color: 'var(--lime)' }
-              : { backgroundImage: 'linear-gradient(135deg, var(--lime), var(--lime-deep))', color: '#fff' }}>
+              ? { background: 'color-mix(in srgb, var(--good) 20%, transparent)', color: 'var(--good)' }
+              : { background: 'var(--accent)', color: 'var(--accent-fg)' }}>
             {taken ? <><Check size={12} /> Taken</> : 'Taken'}
           </motion.button>
         </>
@@ -601,10 +595,10 @@ function AlertBell({ alerts, nudge, goTo, onDismissNudge }) {
         aria-label={`${count} thing${count === 1 ? '' : 's'} to look at`}
         data-testid="alert-bell"
         className="relative z-[47] flex h-10 w-10 items-center justify-center rounded-full"
-        style={{ background: 'var(--surface2)', color: urgent ? 'var(--amber)' : 'var(--muted)' }}>
+        style={{ background: 'var(--surface-sunk)', color: urgent ? 'var(--warn)' : 'var(--text-2)' }}>
         <Bell size={18} />
-        <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-black"
-          style={{ background: urgent ? 'var(--amber)' : 'var(--indigo)', color: '#fff' }}>
+        <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-xs font-black"
+          style={{ background: urgent ? 'var(--warn)' : 'var(--info)', color: 'var(--accent-fg)' }}>
           {count}
         </span>
       </motion.button>
@@ -621,30 +615,30 @@ function AlertBell({ alerts, nudge, goTo, onDismissNudge }) {
               // Anchored to the viewport, not the bell: the bell sits mid-header,
               // so a panel hung off its right edge ran off the left of a 390px
               // screen and cut the warning in half.
-              className="fixed inset-x-3 top-16 z-[45] rounded-2xl p-4"
-              style={{ background: 'var(--surface-solid)', boxShadow: 'var(--shadow-nav)' }}>
-              <div className="space-y-2.5">
+              className="fixed inset-x-3 top-16 z-[45] rounded-[14px] p-4"
+              style={{ background: 'var(--surface)', boxShadow: 'var(--shadow-nav)' }}>
+              <div className="space-y-3">
                 {alerts.map((a) => (
                   <button key={a.id} onClick={() => { setOpen(false); goTo('supplies') }}
-                    className="flex w-full items-start gap-2 text-left text-[11px] font-semibold">
-                    <AlertTriangle size={13} className="mt-0.5 shrink-0"
-                      style={{ color: a.kind === 'expired' ? 'var(--coral)' : a.kind === 'ordered' ? 'var(--indigo)' : 'var(--amber)' }} />
-                    <span style={{ color: a.kind === 'expired' ? 'var(--coral)' : 'var(--text)' }}>{a.text}</span>
+                    className="flex w-full items-start gap-2 text-left text-xs font-semibold">
+                    <AlertTriangle size={13} className="mt-1 shrink-0"
+                      style={{ color: a.kind === 'expired' ? 'var(--danger)' : a.kind === 'ordered' ? 'var(--info)' : 'var(--warn)' }} />
+                    <span style={{ color: a.kind === 'expired' ? 'var(--danger)' : 'var(--text)' }}>{a.text}</span>
                   </button>
                 ))}
                 {nudge && (
                   <div className="flex items-start gap-2">
-                    <ShieldCheck size={13} className="mt-0.5 shrink-0" style={{ color: 'var(--indigo)' }} />
+                    <ShieldCheck size={13} className="mt-1 shrink-0" style={{ color: 'var(--text-2)' }} />
                     <div className="min-w-0 flex-1">
-                      <p className="text-[11px] font-semibold">{nudge.text}</p>
-                      <div className="mt-1.5 flex gap-2">
+                      <p className="text-xs font-semibold">{nudge.text}</p>
+                      <div className="mt-2 flex gap-2">
                         <button onClick={() => { setOpen(false); goTo('settings') }}
-                          className="rounded-full px-2.5 py-1 text-[10px] font-black"
-                          style={{ background: 'var(--indigo)', color: '#fff' }}>
+                          className="rounded-full px-3 py-1 text-xs font-black"
+                          style={{ background: 'var(--accent)', color: 'var(--accent-fg)' }}>
                           Back up now
                         </button>
                         <button onClick={() => { onDismissNudge(); setOpen(false) }}
-                          className="rounded-full px-2.5 py-1 text-[10px] font-bold" style={{ background: 'var(--surface2)' }}>
+                          className="rounded-full px-3 py-1 text-xs font-bold" style={{ background: 'var(--surface-sunk)' }}>
                           Later
                         </button>
                       </div>
@@ -669,19 +663,19 @@ function AlertBell({ alerts, nudge, goTo, onDismissNudge }) {
 function Disclaimer({ open, firstRun, onClose }) {
   return (
     <Modal open={open} onClose={firstRun ? undefined : onClose} title="Pepito +">
-      <div className="space-y-2.5">
+      <div className="space-y-3">
         <p className="text-sm font-bold leading-relaxed">
           Personal tracking tool — not medical advice.
         </p>
-        <p className="text-xs font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+        <p className="text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
           Every dose, ladder, cycle and reconstitution in here is an editable starting point drawn from
           anecdotal reports, not a prescription. Verify everything for yourself, and talk to someone
           qualified before you change what you're doing.
         </p>
-        <p className="text-xs font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+        <p className="text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
           Your logs, photos and measurements stay on this device — they're never uploaded anywhere.
         </p>
-        <button onClick={onClose} className="btn-primary w-full rounded-full py-2.5 text-sm font-black">
+        <button onClick={onClose} className="btn-primary w-full rounded-full py-3 text-sm font-black">
           Got it
         </button>
       </div>
@@ -701,12 +695,12 @@ function ShotPlan({ plan, slot, onAccept }) {
     <motion.div layout className="space-y-2" data-testid="shot-plan"
       initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
       <div className="flex items-center gap-2">
-        <Layers size={15} className="shrink-0" style={{ color: 'var(--lime)' }} />
+        <Layers size={15} className="shrink-0" style={{ color: 'var(--good)' }} />
         <p className="flex-1 text-sm font-black leading-tight">{headline}</p>
         {/* the reasoning is real, but it isn't the point of the screen */}
         <button onClick={() => setWhy((v) => !v)} aria-label="Why these are combined"
-          className="shrink-0 rounded-full p-1.5"
-          style={{ background: 'var(--surface2)', color: why ? 'var(--lime)' : 'var(--muted)' }}>
+          className="shrink-0 rounded-full p-2"
+          style={{ background: 'var(--surface-sunk)', color: why ? 'var(--good)' : 'var(--text-2)' }}>
           <Info size={13} />
         </button>
       </div>
@@ -714,7 +708,7 @@ function ShotPlan({ plan, slot, onAccept }) {
       <AnimatePresence initial={false}>
         {why && (
           <motion.p initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden text-[10px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+            className="overflow-hidden text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
             {combinable.length > 0
               ? <>Only pairs the matrix rates <span className="font-bold">safe to mix</span> are combined, capped at {MAX_GROUP_ML} mL a syringe. That still isn't proof of compatibility — inspect every draw.</>
               : <>Nothing here shares a syringe: a pair is combined only on a confirmed “safe to mix”, so caution, don't-mix and unrated pairs all get their own shot.</>}
@@ -739,26 +733,26 @@ function ShotRow({ group, onAccept }) {
   const many = group.items.length > 1
 
   return (
-    <div className="rounded-2xl p-2.5" style={{ background: 'var(--surface2)' }}>
+    <div className="rounded-[14px] p-3" style={{ background: 'var(--surface-sunk)' }}>
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-black uppercase tracking-wide"
-            style={{ color: many ? 'var(--lime)' : 'var(--muted)' }}>
+          <p className="text-xs font-black uppercase tracking-wide"
+            style={{ color: many ? 'var(--good)' : 'var(--text-2)' }}>
             {many ? `Combine into 1 shot · ${group.items.length}` : group.separate ? 'Separate shot' : 'On its own'}
           </p>
           {/* Every compound in the draw, listed — this is the one place that
               answers "what exactly am I about to put in one syringe", so it
               wraps rather than truncating. */}
-          <ul className="mt-0.5" data-testid="codraw-names">
+          <ul className="mt-1" data-testid="codraw-names">
             {group.items.map((it) => (
               <li key={it.id} className="text-sm font-bold leading-snug">
-                {many && <span style={{ color: 'var(--lime)' }}>· </span>}{it.name}
+                {many && <span style={{ color: 'var(--good)' }}>· </span>}{it.name}
               </li>
             ))}
           </ul>
-          <p className="mt-0.5 text-[11px] font-bold" style={{ color: 'var(--lime)' }}>
+          <p className="mt-1 text-xs font-bold" style={{ color: 'var(--good)' }}>
             {formatUnitsLong(group.units)}{many ? ' total' : ''}
-            <span className="font-semibold" style={{ color: 'var(--muted)' }}> · {round(group.ml, 2)} mL</span>
+            <span className="font-semibold" style={{ color: 'var(--text-2)' }}> · {round(group.ml, 2)} mL</span>
           </p>
         </div>
         {many && (
@@ -772,7 +766,7 @@ function ShotRow({ group, onAccept }) {
       {/* Stated plainly, in the same muted voice as everything else. It is a
           fact about how this compound is given, not an alarm. */}
       {group.separate && (
-        <p className="mt-1.5 text-[10px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+        <p className="mt-2 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
           {group.separateReason || 'Always injected on its own.'}
         </p>
       )}
@@ -811,25 +805,24 @@ function DueCard({ peptide: p, index, done, titration, partners, slot, onLog, go
   const lastSiteLog = [...doseLogs].filter((l) => l.peptideId === p.id && l.siteId).sort((a, b) => (b.loggedAt || b.date).localeCompare(a.loggedAt || a.date))[0]
 
   return (
-    <motion.div layout className={`card p-3 ${beckon ? 'beckon' : ''}`}
-      initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ ...spring, delay: index * 0.04 }}
+    <motion.div layout className="p-4"
+      initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ ...spring, delay: index * 0.03 }}
       style={selected
-        ? { borderColor: 'var(--lime)', boxShadow: '0 0 0 1.5px var(--lime), var(--shadow)' }
-        : done ? { borderColor: 'color-mix(in srgb, var(--lime) 40%, transparent)' }
-          : skipped ? { borderColor: 'color-mix(in srgb, var(--violet) 40%, transparent)', opacity: 0.75 } : undefined}>
+        ? { background: 'var(--surface-sunk)' }
+        : skipped ? { opacity: 0.6 } : undefined}>
       <div className="flex items-center gap-3">
         {/* co-draw select toggle */}
         {!done && !skipped && (noCoDraw ? (
           <span className="shrink-0"
             title={nasal ? 'Sprayed, not injected — cannot be co-drawn' : 'Always injected on its own — cannot be co-drawn'}
             aria-label={`${p.name} cannot be co-drawn`}
-            style={{ color: 'var(--muted)', opacity: 0.7 }}>
+            style={{ color: 'var(--text-2)', opacity: 0.7 }}>
             {nasal ? <Wind size={24} /> : <Syringe size={24} />}
           </span>
         ) : (
           <motion.button whileTap={{ scale: 0.85 }} onClick={onToggleSelect}
             className="shrink-0" aria-label={selected ? `Deselect ${p.name}` : `Select ${p.name} to co-draw`}
-            style={{ color: selected ? 'var(--lime)' : 'var(--muted)' }}>
+            style={{ color: selected ? 'var(--good)' : 'var(--text-2)' }}>
             {selected ? <CheckCircle2 size={24} /> : <Circle size={24} />}
           </motion.button>
         ))}
@@ -837,52 +830,53 @@ function DueCard({ peptide: p, index, done, titration, partners, slot, onLog, go
           <div className="flex items-center gap-2">
             <button onClick={() => onOpenSheet?.(p.id)} data-testid="open-compound-sheet"
               aria-label={`About ${p.name}`} className="min-w-0 truncate text-left leading-tight">
-              <h3 className="truncate text-base font-bold leading-tight">{p.name}</h3>
+              <h3 className="t-label truncate font-semibold">{p.name}</h3>
             </button>
-            <span className="chip" style={{ color: 'var(--violet)' }}>Rung {level + 1}{level === maxLevel ? ' · top' : ''}</span>
+            <span className="chip" style={{ color: 'var(--text)' }}>Rung {level + 1}{level === maxLevel ? ' · top' : ''}</span>
           </div>
-          <p className="text-2xl font-black leading-tight tracking-tight">
-            {formatDose(dose, p.ladder.unit)}
-            {!nasal && (
-              <span className="ml-2 text-sm font-bold" style={{ color: 'var(--lime)' }}>{formatUnitsLong(units)}</span>
-            )}
+          {/* Dose and units are one fact in two scales, and you draw the
+              units — so they sit in the same near-black, not relegated to a
+              faded tint beside the milligrams. */}
+          <p className="mt-1 flex items-baseline gap-2">
+            <span className="t-metric-sm">{formatDose(dose, p.ladder.unit)}</span>
+            {!nasal && <span className="t-metric-sm" style={{ color: 'var(--text)' }}>{formatUnitsLong(units)}</span>}
           </p>
-          <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[11px] font-semibold leading-tight" style={{ color: 'var(--muted)' }}>
-            <span className="flex items-center gap-1"><Clock size={11} /> {p.timing}</span>
+          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-medium leading-tight" style={{ color: 'var(--text-3)' }}>
+            <span className="flex items-center gap-1"><Clock size={12} /> {p.timing}</span>
             <span>{cyc.ongoing ? `day ${cyc.cycleDay} · ongoing` : `day ${cyc.cycleDay}/${cyc.onDays + cyc.offDays}`}</span>
             {hint && (
-              <button className="flex items-center gap-1" style={{ color: hint.ok ? 'var(--lime)' : 'var(--muted)' }} onClick={() => goTo('mix')}>
-                {nasal ? <Wind size={11} /> : <Combine size={11} />} {hint.text}
+              <button className="flex items-center gap-1" style={{ color: hint.ok ? 'var(--good)' : 'var(--text-3)' }} onClick={() => goTo('mix')}>
+                {nasal ? <Wind size={12} /> : <Combine size={12} />} {hint.text}
               </button>
             )}
             {done && lastSiteLog && (
-              <span className="flex items-center gap-1" style={{ color: 'var(--lime)' }}>
-                <MapPin size={11} /> {SITE_BY_ID[lastSiteLog.siteId]?.label}
+              <span className="flex items-center gap-1" style={{ color: 'var(--good)' }}>
+                <MapPin size={12} /> {SITE_BY_ID[lastSiteLog.siteId]?.label}
               </span>
             )}
             {/* a heads-up, not an authority — your taps decide when a vial is
                 done, and this is only what the logs add up to */}
             {vial?.dosesLeft != null && (
               <span className="flex items-center gap-1" data-testid="doses-left"
-                style={{ color: vial.dosesLeft <= 2 ? 'var(--amber)' : 'var(--muted)' }}>
-                <Droplet size={11} /> ~{vial.dosesLeft} dose{vial.dosesLeft === 1 ? '' : 's'} left in this vial
+                style={{ color: vial.dosesLeft <= 2 ? 'var(--warn)' : 'var(--text-3)' }}>
+                <Droplet size={12} /> ~{vial.dosesLeft} dose{vial.dosesLeft === 1 ? '' : 's'} left in this vial
               </span>
             )}
           </div>
         </div>
         {skipped ? (
           <motion.button whileTap={{ scale: 0.92 }} onClick={onUnskip}
-            className="flex h-12 shrink-0 flex-col items-center justify-center gap-0.5 rounded-2xl px-3"
-            style={{ background: 'var(--surface2)', color: 'var(--violet)' }}
+            className="flex h-12 shrink-0 flex-col items-center justify-center gap-1 rounded-[14px] px-3"
+            style={{ background: 'var(--surface-sunk)', color: 'var(--text)' }}
             aria-label={`Undo skip: ${p.name}`}>
             <Undo2 size={18} />
-            <span className="text-[9px] font-black">Undo</span>
+            <span className="text-xs font-black">Undo</span>
           </motion.button>
         ) : (
-          <div className="flex shrink-0 items-center gap-1.5">
+          <div className="flex shrink-0 items-center gap-2">
             <motion.button whileTap={{ scale: 0.9 }} disabled={done} onClick={onLog}
-              className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-sm font-black ${done ? '' : 'btn-primary'}`}
-              style={done ? { background: 'var(--surface2)', color: 'var(--lime)' } : undefined}
+              className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-[14px] text-sm font-black ${done ? '' : 'btn-primary'}`}
+              style={done ? { background: 'var(--surface-sunk)', color: 'var(--good)' } : undefined}
               aria-label={done ? `${p.name} logged` : `Log ${p.name}`}>
               {done ? (
                 <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 400, damping: 15 }}>
@@ -898,17 +892,17 @@ function DueCard({ peptide: p, index, done, titration, partners, slot, onLog, go
           full-height buttons abreast pushed the name and the dose into
           truncation at 390px, and the dose is the thing you came to read. */}
       {!done && !skipped && (
-        <div className="mt-2 flex gap-1.5">
+        <div className="mt-2 flex gap-2">
           <motion.button whileTap={{ scale: 0.97 }} onClick={onSkip} data-testid="skip-peptide"
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-full py-1.5 text-[11px] font-black"
-            style={{ background: 'var(--surface2)', color: 'var(--muted)' }}
+            className="flex flex-1 items-center justify-center gap-2 rounded-full py-2 text-xs font-black"
+            style={{ background: 'var(--surface-sunk)', color: 'var(--text-2)' }}
             aria-label={`Skip ${p.name}`}>
             <SkipForward size={13} /> Skip
           </motion.button>
           {onFinishVial && !nasal && (
             <motion.button whileTap={{ scale: 0.97 }} onClick={onFinishVial} data-testid="finish-vial"
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-full py-1.5 text-[11px] font-black"
-              style={{ background: 'var(--surface2)', color: 'var(--muted)' }}
+              className="flex flex-1 items-center justify-center gap-2 rounded-full py-2 text-xs font-black"
+              style={{ background: 'var(--surface-sunk)', color: 'var(--text-2)' }}
               aria-label={`Finished vial: ${p.name}`}>
               <PackageOpen size={13} /> Vial done
             </motion.button>
@@ -917,9 +911,9 @@ function DueCard({ peptide: p, index, done, titration, partners, slot, onLog, go
       )}
 
       {skipped && (
-        <p className="mt-2 flex items-center gap-1.5 text-[11px] font-bold" style={{ color: 'var(--violet)' }}>
+        <p className="mt-2 flex items-center gap-2 text-xs font-bold" style={{ color: 'var(--text)' }}>
           <SkipForward size={12} /> Skipped today{skipReason ? ` · ${REASON_LABEL[skipReason] || skipReason}` : ''}
-          <span className="font-medium" style={{ color: 'var(--muted)' }}>· nothing taken from stock</span>
+          <span className="font-medium" style={{ color: 'var(--text-2)' }}>· nothing taken from stock</span>
         </p>
       )}
       {/* The step-up decision is answered where it is asked. It is a titration
@@ -928,29 +922,29 @@ function DueCard({ peptide: p, index, done, titration, partners, slot, onLog, go
       {stepDue && !stepOpen && (
         <button onClick={() => setStepOpen(true)} data-testid="stepup-prompt"
           className="mt-3 flex w-full items-center justify-between gap-2 rounded-full px-3 py-2 text-xs font-bold"
-          style={{ background: 'color-mix(in srgb, var(--violet) 16%, transparent)', color: 'var(--violet)' }}>
+          style={{ background: 'var(--surface-sunk)', color: 'var(--text)' }}>
           <span className="flex items-center gap-2"><Zap size={13} /> Step-up ready — tolerating well?</span>
           <ChevronRight size={14} />
         </button>
       )}
       {stepDue && stepOpen && (
-        <div className="mt-3 rounded-2xl p-3" data-testid="stepup-confirm"
-          style={{ background: 'color-mix(in srgb, var(--violet) 14%, transparent)' }}>
-          <p className="text-[11px] font-black" style={{ color: 'var(--violet)' }}>
+        <div className="mt-3 rounded-[14px] p-3" data-testid="stepup-confirm"
+          style={{ background: 'var(--surface-sunk)' }}>
+          <p className="text-xs font-black" style={{ color: 'var(--text)' }}>
             {p.ladder.intervalWeeks} week{p.ladder.intervalWeeks === 1 ? '' : 's'} at {formatDose(dose, p.ladder.unit)} —
             tolerating well?
           </p>
-          <p className="mt-1 text-[10px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+          <p className="mt-1 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
             Advancing moves you to the next rung. Holding keeps this dose and asks again next interval.
           </p>
-          <div className="mt-2.5 flex gap-2">
+          <div className="mt-3 flex gap-2">
             <button onClick={() => { holdStepUp(p.id); setStepOpen(false) }} data-testid="stepup-hold"
-              className="flex-1 rounded-full py-2 text-[11px] font-black"
-              style={{ background: 'var(--surface2)', color: 'var(--muted)' }}>
+              className="flex-1 rounded-full py-2 text-xs font-black"
+              style={{ background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
               Hold here
             </button>
             <button onClick={() => { confirmStepUp(p.id); setStepOpen(false) }} data-testid="stepup-advance"
-              className="btn-primary flex-1 rounded-full py-2 text-[11px] font-black">
+              className="btn-primary flex-1 rounded-full py-2 text-xs font-black">
               Advance
             </button>
           </div>

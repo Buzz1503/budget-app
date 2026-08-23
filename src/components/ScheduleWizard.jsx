@@ -144,35 +144,35 @@ export default function ScheduleWizard({ open, onClose }) {
     <Modal open={open} onClose={onClose} title={title} wide>
       <AnimatePresence mode="wait">
         <motion.div key={step + idx} initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -12 }}
-          transition={{ duration: 0.15 }} className="space-y-2.5">
+          transition={{ duration: 0.15 }} className="space-y-3">
 
           {step === 'manage' && (
             <>
-              <p className="text-[11px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+              <p className="text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
                 Everything I take, and the one place any of it changes. Edit a compound, take one out, or
                 add something new — the rest is left exactly as it is.
               </p>
 
-              <div className="max-h-[42vh] space-y-1.5 overflow-y-auto pr-0.5" data-testid="manage-list">
+              <div className="max-h-[42vh] space-y-2 overflow-y-auto pr-1" data-testid="manage-list">
                 {peptides.map((p) => {
                   const edited = entries.some((e) => e.id === p.id)
                   const gone = removed.includes(p.id)
                   return (
                     <div key={p.id} data-testid="manage-row"
-                      className="flex items-center gap-2 rounded-2xl p-2.5"
+                      className="flex items-center gap-2 rounded-[14px] p-3"
                       style={{
-                        background: 'var(--surface2)',
+                        background: 'var(--surface-sunk)',
                         opacity: gone ? 0.45 : 1,
-                        border: edited ? '1px solid color-mix(in srgb, var(--lime) 45%, transparent)' : '1px solid transparent',
+                        border: edited ? '1px solid color-mix(in srgb, var(--good) 45%, transparent)' : '1px solid transparent',
                       }}>
                       {p.route === 'Nasal'
-                        ? <Wind size={13} className="shrink-0" style={{ color: 'var(--indigo)' }} />
-                        : <Syringe size={13} className="shrink-0" style={{ color: 'var(--lime)' }} />}
+                        ? <Wind size={13} className="shrink-0" style={{ color: 'var(--text-2)' }} />
+                        : <Syringe size={13} className="shrink-0" style={{ color: 'var(--good)' }} />}
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-[12px] font-black leading-tight" style={{ textDecoration: gone ? 'line-through' : 'none' }}>
+                        <p className="truncate text-xs font-black leading-tight" style={{ textDecoration: gone ? 'line-through' : 'none' }}>
                           {p.name}
                         </p>
-                        <p className="truncate text-[10px] font-semibold leading-tight" style={{ color: 'var(--muted)' }}>
+                        <p className="truncate text-xs font-semibold leading-tight" style={{ color: 'var(--text-2)' }}>
                           {gone ? 'will be removed'
                             : edited ? 'edited — not saved yet'
                               : `${p.ladder?.ceiling > 0 ? `${formatDose(p.ladder.floor, p.ladder.unit)} → ${formatDose(p.ladder.ceiling, p.ladder.unit)}` : 'no dose set'} · ${FREQ_LABELS[p.frequency] || p.frequency}`}
@@ -180,8 +180,8 @@ export default function ScheduleWizard({ open, onClose }) {
                       </div>
                       {gone ? (
                         <button onClick={() => setRemoved((prev) => prev.filter((x) => x !== p.id))}
-                          className="rounded-full px-2 py-1.5 text-[10px] font-black"
-                          style={{ background: 'var(--surface-solid)', color: 'var(--lime)' }}>
+                          className="rounded-full px-2 py-2 text-xs font-black"
+                          style={{ background: 'var(--surface)', color: 'var(--good)' }}>
                           Undo
                         </button>
                       ) : (
@@ -189,13 +189,13 @@ export default function ScheduleWizard({ open, onClose }) {
                           <button onClick={() => editExisting(p)} aria-label={`Edit ${p.name}`}
                             data-testid="manage-edit"
                             className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full"
-                            style={{ background: 'var(--surface-solid)', color: 'var(--violet)' }}>
+                            style={{ background: 'var(--surface)', color: 'var(--text)' }}>
                             <Pencil size={12} />
                           </button>
                           <button onClick={() => setConfirmRemove(p)} aria-label={`Remove ${p.name}`}
                             data-testid="manage-remove"
                             className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full"
-                            style={{ background: 'var(--surface-solid)', color: 'var(--coral)' }}>
+                            style={{ background: 'var(--surface)', color: 'var(--danger)' }}>
                             <Trash2 size={12} />
                           </button>
                         </>
@@ -204,21 +204,21 @@ export default function ScheduleWizard({ open, onClose }) {
                   )
                 })}
                 {entries.filter((e) => !e.existing).map((e, i) => (
-                  <div key={e.id} className="flex items-center gap-2 rounded-2xl p-2.5"
-                    style={{ background: 'color-mix(in srgb, var(--lime) 12%, transparent)' }}>
-                    <Plus size={13} className="shrink-0" style={{ color: 'var(--lime)' }} />
+                  <div key={e.id} className="flex items-center gap-2 rounded-[14px] p-3"
+                    style={{ background: 'color-mix(in srgb, var(--good) 12%, transparent)' }}>
+                    <Plus size={13} className="shrink-0" style={{ color: 'var(--good)' }} />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-[12px] font-black leading-tight">{e.name}</p>
-                      <p className="truncate text-[10px] font-semibold leading-tight" style={{ color: 'var(--lime)' }}>new — not saved yet</p>
+                      <p className="truncate text-xs font-black leading-tight">{e.name}</p>
+                      <p className="truncate text-xs font-semibold leading-tight" style={{ color: 'var(--good)' }}>new — not saved yet</p>
                     </div>
                     <button onClick={() => { setIdx(entries.findIndex((x) => x.id === e.id)); setStep('config') }}
                       className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full"
-                      style={{ background: 'var(--surface-solid)', color: 'var(--violet)' }}>
+                      style={{ background: 'var(--surface)', color: 'var(--text)' }}>
                       <Pencil size={12} />
                     </button>
                     <button onClick={() => setEntries((prev) => prev.filter((x) => x.id !== e.id))}
                       className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full"
-                      style={{ background: 'var(--surface-solid)', color: 'var(--coral)' }}>
+                      style={{ background: 'var(--surface)', color: 'var(--danger)' }}>
                       <Trash2 size={12} />
                     </button>
                   </div>
@@ -226,33 +226,33 @@ export default function ScheduleWizard({ open, onClose }) {
               </div>
 
               <button onClick={() => setStep('pick')} data-testid="manage-add"
-                className="flex w-full items-center justify-center gap-1.5 rounded-full py-2.5 text-xs font-black"
-                style={{ background: 'color-mix(in srgb, var(--violet) 18%, transparent)', color: 'var(--violet)' }}>
+                className="flex w-full items-center justify-center gap-2 rounded-full py-3 text-xs font-black"
+                style={{ background: 'var(--surface-sunk)', color: 'var(--text)' }}>
                 <Plus size={14} /> Add a compound
               </button>
 
               {/* The nuclear option, kept quiet and kept honest about its blast
                   radius: it empties the schedule, not the drawer or the diary. */}
-              <label className="flex items-start gap-2 rounded-2xl p-2.5 text-[11px] font-bold"
-                style={{ background: 'var(--surface2)', color: 'var(--coral)' }}>
+              <label className="flex items-start gap-2 rounded-[14px] p-3 text-xs font-bold"
+                style={{ background: 'var(--surface-sunk)', color: 'var(--danger)' }}>
                 <input type="checkbox" checked={startOver} data-testid="manage-start-over"
-                  onChange={(e) => setStartOver(e.target.checked)} className="mt-0.5" />
+                  onChange={(e) => setStartOver(e.target.checked)} className="mt-1" />
                 <span>
                   Start over — clear my whole protocol first.
-                  <span className="block font-medium" style={{ color: 'var(--muted)' }}>
+                  <span className="block font-medium" style={{ color: 'var(--text-2)' }}>
                     Your stock and your logged history are both kept.
                   </span>
                 </span>
               </label>
 
               <div className="flex items-center gap-2 pt-1">
-                <button onClick={onClose} className="rounded-full px-3 py-2.5 text-xs font-bold"
-                  style={{ background: 'var(--surface2)' }}>
+                <button onClick={onClose} className="rounded-full px-3 py-3 text-xs font-bold"
+                  style={{ background: 'var(--surface-sunk)' }}>
                   Close
                 </button>
                 <motion.button whileTap={{ scale: 0.97 }} onClick={() => setStep('review')} disabled={!dirty}
                   data-testid="manage-save"
-                  className="btn-primary flex flex-1 items-center justify-center gap-1 rounded-full py-2.5 text-sm font-black disabled:opacity-40">
+                  className="btn-primary flex flex-1 items-center justify-center gap-1 rounded-full py-3 text-sm font-black disabled:opacity-40">
                   Review changes <ChevronRight size={15} />
                 </motion.button>
               </div>
@@ -261,17 +261,17 @@ export default function ScheduleWizard({ open, onClose }) {
 
           {step === 'intro' && (
             <>
-              <div className="rounded-2xl p-4" style={{ background: 'color-mix(in srgb, var(--violet) 14%, transparent)' }}>
-                <p className="flex items-center gap-1.5 text-sm font-black" style={{ color: 'var(--violet)' }}>
+              <div className="rounded-[14px] p-4" style={{ background: 'var(--surface-sunk)' }}>
+                <p className="flex items-center gap-2 text-sm font-black" style={{ color: 'var(--text)' }}>
                   <Wand2 size={16} /> A few minutes, and your whole protocol is set up
                 </p>
-                <p className="mt-1.5 text-xs font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+                <p className="mt-2 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
                   Every field opens with a starting point already filled in, so you're never staring at a blank box.
                   Those are <span className="font-bold" style={{ color: 'var(--text)' }}>editable anecdotal starting points, not medical advice</span> —
                   you'll see the evidence tier and confidence next to each one, and where a number came from.
                 </p>
               </div>
-              <ul className="space-y-1.5 text-[11px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+              <ul className="space-y-2 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
                 {[
                   'Pick your compounds from the full list.',
                   'Check the suggested dose, ladder and reconstitution — change anything.',
@@ -280,21 +280,21 @@ export default function ScheduleWizard({ open, onClose }) {
                   'Confirm, and Home, Calendar, Mix and Stock all fill in.',
                 ].map((line, i) => (
                   <li key={i} className="flex gap-2">
-                    <span className="font-black" style={{ color: 'var(--violet)' }}>{i + 1}.</span><span>{line}</span>
+                    <span className="font-black" style={{ color: 'var(--text)' }}>{i + 1}.</span><span>{line}</span>
                   </li>
                 ))}
               </ul>
               {peptides.length > 0 && (
-                <div className="rounded-2xl p-3" style={{ background: 'var(--surface2)' }}>
-                  <p className="text-[11px] font-bold">You already have {peptides.length} compounds set up.</p>
-                  <p className="mt-0.5 text-[11px] font-medium" style={{ color: 'var(--muted)' }}>
+                <div className="rounded-[14px] p-3" style={{ background: 'var(--surface-sunk)' }}>
+                  <p className="text-xs font-bold">You already have {peptides.length} compounds set up.</p>
+                  <p className="mt-1 text-xs font-medium" style={{ color: 'var(--text-2)' }}>
                     Anything you add here is added alongside them; picking one you already have updates it.
                   </p>
-                  <label className="mt-2 flex items-start gap-2 text-[11px] font-bold" style={{ color: 'var(--coral)' }}>
-                    <input type="checkbox" checked={startOver} onChange={(e) => setStartOver(e.target.checked)} className="mt-0.5" />
+                  <label className="mt-2 flex items-start gap-2 text-xs font-bold" style={{ color: 'var(--danger)' }}>
+                    <input type="checkbox" checked={startOver} onChange={(e) => setStartOver(e.target.checked)} className="mt-1" />
                     <span>
                       Start over — clear my current compounds and their stock first.
-                      <span className="block font-medium" style={{ color: 'var(--muted)' }}>
+                      <span className="block font-medium" style={{ color: 'var(--text-2)' }}>
                         Your logged history, measurements and photos are kept.
                       </span>
                     </span>
@@ -310,48 +310,48 @@ export default function ScheduleWizard({ open, onClose }) {
           {step === 'pick' && (
             <>
               <div className="relative">
-                <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--muted)' }} />
-                <input className="input !pl-9" autoFocus placeholder={`Search ${catalogue.length} compounds…`}
+                <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-2)' }} />
+                <input className="input !pl-10" autoFocus placeholder={`Search ${catalogue.length} compounds…`}
                   value={query} onChange={(e) => setQuery(e.target.value)} />
               </div>
-              <div className="max-h-[44vh] space-y-1.5 overflow-y-auto pr-0.5" data-testid="wizard-list">
+              <div className="max-h-[44vh] space-y-2 overflow-y-auto pr-1" data-testid="wizard-list">
                 {results.map((c) => {
                   const on = picked.has(c.id)
                   const s = wizardSuggestion(c)
                   return (
                     <button key={c.id} onClick={() => toggle(c)}
-                      className="flex w-full items-center gap-2 rounded-full p-2.5 text-left"
+                      className="flex w-full items-center gap-2 rounded-full p-3 text-left"
                       style={on
-                        ? { background: 'color-mix(in srgb, var(--lime) 16%, transparent)', border: '1px solid color-mix(in srgb, var(--lime) 45%, transparent)' }
-                        : { background: 'var(--surface2)', border: '1px solid transparent' }}>
+                        ? { background: 'color-mix(in srgb, var(--good) 16%, transparent)', border: '1px solid color-mix(in srgb, var(--good) 45%, transparent)' }
+                        : { background: 'var(--surface-sunk)', border: '1px solid transparent' }}>
                       <span className="h-6 w-6 shrink-0 rounded-full" style={{ background: compoundColor(c) }} />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-bold leading-tight">{c.name}</span>
-                        <span className="flex flex-wrap items-center gap-1 pt-0.5">
+                        <span className="flex flex-wrap items-center gap-1 pt-1">
                           {s.tier && <TierBadge tier={s.tier} confidence={s.confidence} compact />}
                           {inStack(c.id) && (
-                            <span className="rounded px-1 py-0.5 text-[9px] font-bold" style={{ background: 'var(--surface-solid)', color: 'var(--indigo)' }}>in my protocol</span>
+                            <span className="rounded px-1 py-1 text-xs font-bold" style={{ background: 'var(--surface)', color: 'var(--info)' }}>in my protocol</span>
                           )}
                           {stockIds.has(c.id) && (
-                            <span className="inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[9px] font-bold"
-                              style={{ background: 'var(--surface-solid)', color: 'var(--amber)' }}>
+                            <span className="inline-flex items-center gap-1 rounded px-1 py-1 text-xs font-bold"
+                              style={{ background: 'var(--surface)', color: 'var(--warn)' }}>
                               <Package size={9} /> in my stock
                             </span>
                           )}
                           {s.source === 'none' && (
-                            <span className="rounded px-1 py-0.5 text-[9px] font-bold" style={{ background: 'var(--surface-solid)', color: 'var(--muted)' }}>no suggested dose</span>
+                            <span className="rounded px-1 py-1 text-xs font-bold" style={{ background: 'var(--surface)', color: 'var(--text-2)' }}>no suggested dose</span>
                           )}
                           {s.excluded && (
-                            <span className="rounded px-1 py-0.5 text-[9px] font-bold" style={{ background: 'var(--surface-solid)', color: 'var(--rose)' }}>dosing withheld</span>
+                            <span className="rounded px-1 py-1 text-xs font-bold" style={{ background: 'var(--surface)', color: 'var(--danger)' }}>dosing withheld</span>
                           )}
                         </span>
                       </span>
-                      {on ? <Check size={16} className="shrink-0" style={{ color: 'var(--lime)' }} /> : null}
+                      {on ? <Check size={16} className="shrink-0" style={{ color: 'var(--good)' }} /> : null}
                     </button>
                   )
                 })}
                 {results.length === 0 && (
-                  <p className="py-6 text-center text-xs font-semibold" style={{ color: 'var(--muted)' }}>Nothing matches “{query}”.</p>
+                  <p className="py-6 text-center text-xs font-semibold" style={{ color: 'var(--text-2)' }}>Nothing matches “{query}”.</p>
                 )}
               </div>
               <Nav
@@ -380,12 +380,12 @@ export default function ScheduleWizard({ open, onClose }) {
 
           {step === 'start' && (
             <>
-              <p className="text-xs font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+              <p className="text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
                 This sets the clock for every <Term id="titration" /> ladder and <Term id="cycle" /> you just configured.
                 Today is usually right; pick the day you actually started if you're catching up.
               </p>
               <label className="block">
-                <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>Start date</span>
+                <span className="mb-1 block text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-2)' }}>Start date</span>
                 <input type="date" className="input" value={startDate}
                   onChange={(e) => e.target.value && setStartDate(e.target.value)} />
               </label>
@@ -396,38 +396,38 @@ export default function ScheduleWizard({ open, onClose }) {
           {step === 'review' && (
             <>
               {startOver && (
-                <p className="flex items-start gap-1.5 rounded-2xl p-3 text-[11px] font-bold"
-                  style={{ background: 'color-mix(in srgb, var(--coral) 14%, transparent)', color: 'var(--coral)' }}>
-                  <AlertTriangle size={13} className="mt-0.5 shrink-0" />
+                <p className="flex items-start gap-2 rounded-[14px] p-3 text-xs font-bold"
+                  style={{ background: 'color-mix(in srgb, var(--danger) 14%, transparent)', color: 'var(--danger)' }}>
+                  <AlertTriangle size={13} className="mt-1 shrink-0" />
                   Starting over: your current {peptides.length} compounds come out of the protocol. Your stock
                   and your logged history are both kept.
                 </p>
               )}
 
               {removed.length > 0 && (
-                <div className="rounded-2xl p-3" data-testid="review-removed"
-                  style={{ background: 'color-mix(in srgb, var(--coral) 12%, transparent)' }}>
-                  <p className="text-[10px] font-black uppercase tracking-wide" style={{ color: 'var(--coral)' }}>
+                <div className="rounded-[14px] p-3" data-testid="review-removed"
+                  style={{ background: 'color-mix(in srgb, var(--danger) 12%, transparent)' }}>
+                  <p className="text-xs font-black uppercase tracking-wide" style={{ color: 'var(--danger)' }}>
                     Coming out of my protocol
                   </p>
-                  <p className="mt-1 text-[11px] font-bold">
+                  <p className="mt-1 text-xs font-bold">
                     {removed.map((id) => peptides.find((p) => p.id === id)?.name || id).join(', ')}
                   </p>
-                  <p className="mt-1 text-[10px] font-medium" style={{ color: 'var(--muted)' }}>
+                  <p className="mt-1 text-xs font-medium" style={{ color: 'var(--text-2)' }}>
                     The schedule stops. Your vials stay in stock and your logged doses stay in history.
                   </p>
                 </div>
               )}
 
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 {entries.map((e) => (
-                  <div key={e.id} className="rounded-2xl p-2.5" style={{ background: 'var(--surface2)' }}>
-                    <p className="flex items-center gap-1.5 text-sm font-black">
-                      {e.route === 'Nasal' ? <Wind size={12} style={{ color: 'var(--indigo)' }} /> : <Syringe size={12} style={{ color: 'var(--lime)' }} />}
+                  <div key={e.id} className="rounded-[14px] p-3" style={{ background: 'var(--surface-sunk)' }}>
+                    <p className="flex items-center gap-2 text-sm font-black">
+                      {e.route === 'Nasal' ? <Wind size={12} style={{ color: 'var(--text-2)' }} /> : <Syringe size={12} style={{ color: 'var(--good)' }} />}
                       {e.name}
-                      {inStack(e.id) && <span className="chip !py-0 text-[9px]" style={{ color: 'var(--indigo)' }}>updates existing</span>}
+                      {inStack(e.id) && <span className="chip !py-0 text-xs" style={{ color: 'var(--text-2)' }}>updates existing</span>}
                     </p>
-                    <p className="text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
+                    <p className="text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
                       {e.ladder?.ceiling > 0
                         ? `${formatDose(e.ladder.floor, e.ladder.unit)} → ${formatDose(e.ladder.ceiling, e.ladder.unit)}`
                         : 'no dose set — add it here when you know it'}
@@ -438,12 +438,12 @@ export default function ScheduleWizard({ open, onClose }) {
               </div>
 
               {entries.length === 0 && removed.length === 0 && (
-                <p className="py-4 text-center text-xs font-semibold" style={{ color: 'var(--muted)' }}>
+                <p className="py-4 text-center text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
                   Nothing changed.
                 </p>
               )}
 
-              <p className="text-[10px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+              <p className="text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
                 Nothing outside this list is touched. Personal tracking tool — not medical advice.
               </p>
               <Nav
@@ -454,9 +454,9 @@ export default function ScheduleWizard({ open, onClose }) {
           )}
 
           {step === 'done' && (
-            <div className="space-y-2.5 text-center">
+            <div className="space-y-3 text-center">
               <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 400, damping: 15 }}
-                className="mx-auto flex h-14 w-14 items-center justify-center rounded-full" style={{ background: 'var(--lime)', color: '#fff' }}>
+                className="mx-auto flex h-14 w-14 items-center justify-center rounded-full" style={{ background: 'var(--accent)', color: 'var(--accent-fg)' }}>
                 <Check size={30} strokeWidth={3} />
               </motion.div>
               <p className="text-base font-black">
@@ -465,7 +465,7 @@ export default function ScheduleWizard({ open, onClose }) {
                 {removed.length > 0 && `${removed.length} removed`}
                 {entries.length === 0 && removed.length === 0 && 'Nothing changed'}
               </p>
-              <p className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>
+              <p className="text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
                 Home, Calendar, Mix and Stock all follow from here. Come back any time to change it.
               </p>
               <button onClick={onClose} className="btn-primary w-full rounded-full py-3 text-sm font-black">Done</button>
@@ -477,25 +477,25 @@ export default function ScheduleWizard({ open, onClose }) {
       {/* Removing says exactly what survives — the fear is always that it takes
           the vials and the history with it, and it does not. */}
       {confirmRemove && (
-        <div className="mt-3 rounded-2xl p-3" data-testid="confirm-remove-compound"
-          style={{ background: 'color-mix(in srgb, var(--coral) 14%, transparent)' }}>
-          <p className="flex items-start gap-1.5 text-[12px] font-black" style={{ color: 'var(--coral)' }}>
+        <div className="mt-3 rounded-[14px] p-3" data-testid="confirm-remove-compound"
+          style={{ background: 'color-mix(in srgb, var(--danger) 14%, transparent)' }}>
+          <p className="flex items-start gap-2 text-xs font-black" style={{ color: 'var(--danger)' }}>
             <AlertTriangle size={14} className="mt-px shrink-0" />
             Take {confirmRemove.name} out of my protocol?
           </p>
-          <p className="mt-1.5 text-[11px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+          <p className="mt-2 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
             This stops the schedule — it comes off Home and the calendar.
             <span className="font-bold" style={{ color: 'var(--text)' }}> Your vials stay in stock and your
             logged doses stay in history.</span>
           </p>
-          <div className="mt-2.5 flex gap-2">
-            <button onClick={() => setConfirmRemove(null)} className="flex-1 rounded-full py-2 text-[11px] font-black"
-              style={{ background: 'var(--surface2)', color: 'var(--muted)' }}>
+          <div className="mt-3 flex gap-2">
+            <button onClick={() => setConfirmRemove(null)} className="flex-1 rounded-full py-2 text-xs font-black"
+              style={{ background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
               Keep it
             </button>
             <button onClick={() => doRemove(confirmRemove.id)} data-testid="confirm-remove-compound-yes"
-              className="flex-1 rounded-full py-2 text-[11px] font-black"
-              style={{ background: 'color-mix(in srgb, var(--coral) 25%, transparent)', color: 'var(--coral)' }}>
+              className="flex-1 rounded-full py-2 text-xs font-black"
+              style={{ background: 'color-mix(in srgb, var(--danger) 25%, transparent)', color: 'var(--danger)' }}>
               Remove
             </button>
           </div>
@@ -508,12 +508,12 @@ export default function ScheduleWizard({ open, onClose }) {
 function Nav({ back, next, nextLabel = 'Next', disabled }) {
   return (
     <div className="flex items-center gap-2 pt-1">
-      <button onClick={back} className="flex items-center gap-1 rounded-full px-3 py-2.5 text-xs font-bold"
-        style={{ background: 'var(--surface2)' }}>
+      <button onClick={back} className="flex items-center gap-1 rounded-full px-3 py-3 text-xs font-bold"
+        style={{ background: 'var(--surface-sunk)' }}>
         <ChevronLeft size={14} /> Back
       </button>
       <motion.button whileTap={{ scale: 0.97 }} onClick={next} disabled={disabled}
-        className="btn-primary flex flex-1 items-center justify-center gap-1 rounded-full py-2.5 text-sm font-black disabled:opacity-40">
+        className="btn-primary flex flex-1 items-center justify-center gap-1 rounded-full py-3 text-sm font-black disabled:opacity-40">
         {nextLabel} <ChevronRight size={15} />
       </motion.button>
     </div>
@@ -523,7 +523,7 @@ function Nav({ back, next, nextLabel = 'Next', disabled }) {
 function Field({ label, children }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>{label}</span>
+      <span className="mb-1 block text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-2)' }}>{label}</span>
       {children}
     </label>
   )
@@ -568,39 +568,39 @@ function PeptideStep({ entry: e, onPatch }) {
   }
 
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-3">
       {/* what the evidence says */}
-      <div className="rounded-2xl p-3" style={{ background: 'var(--surface2)' }}>
-        <div className="flex flex-wrap items-center gap-1.5">
+      <div className="rounded-[14px] p-3" style={{ background: 'var(--surface-sunk)' }}>
+        <div className="flex flex-wrap items-center gap-2">
           {e.tier && <TierBadge tier={e.tier} confidence={e.confidence} />}
-          <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>
+          <span className="text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-2)' }}>
             {e.source === 'seed' ? 'app protocol' : e.source === 'reference' ? 'from the reference range' : e.source === 'excluded' ? 'dosing withheld' : 'no suggested dose'}
           </span>
         </div>
         {e.mechanism && (
-          <p className="mt-1.5 text-[11px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+          <p className="mt-2 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
             <span className="font-black" style={{ color: 'var(--text)' }}>How it works. </span>{e.mechanism}
           </p>
         )}
-        <p className="mt-1.5 flex items-start gap-1.5 text-[11px] font-semibold leading-relaxed"
-          style={{ color: e.source === 'excluded' ? 'var(--rose)' : 'var(--muted)' }}>
-          <Info size={12} className="mt-0.5 shrink-0" />{SOURCE_NOTE[e.source]}
+        <p className="mt-2 flex items-start gap-2 text-xs font-semibold leading-relaxed"
+          style={{ color: e.source === 'excluded' ? 'var(--danger)' : 'var(--text-2)' }}>
+          <Info size={12} className="mt-1 shrink-0" />{SOURCE_NOTE[e.source]}
         </p>
         {e.rangeText && (
-          <p className="mt-1 text-[11px] font-bold" style={{ color: 'var(--lime)' }}>Reference range: {e.rangeText}</p>
+          <p className="mt-1 text-xs font-bold" style={{ color: 'var(--good)' }}>Reference range: {e.rangeText}</p>
         )}
       </div>
 
       {/* TX safety instead of a dose */}
       {e.excluded && e.safety?.length > 0 && (
-        <div className="rounded-2xl p-3" style={{ background: 'color-mix(in srgb, var(--rose) 14%, transparent)', border: '1px solid color-mix(in srgb, var(--rose) 45%, transparent)' }}>
-          <p className="flex items-center gap-1.5 text-xs font-black" style={{ color: 'var(--rose)' }}>
+        <div className="rounded-[14px] p-3" style={{ background: 'color-mix(in srgb, var(--danger) 14%, transparent)', border: '1px solid color-mix(in srgb, var(--danger) 45%, transparent)' }}>
+          <p className="flex items-center gap-2 text-xs font-black" style={{ color: 'var(--danger)' }}>
             <AlertTriangle size={13} /> Why no dose is given
           </p>
-          <ul className="mt-1.5 space-y-1">
+          <ul className="mt-2 space-y-1">
             {e.safety.map((s, i) => (
-              <li key={i} className="flex gap-1.5 text-[11px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
-                <span style={{ color: 'var(--rose)' }}>•</span><span>{s}</span>
+              <li key={i} className="flex gap-2 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
+                <span style={{ color: 'var(--danger)' }}>•</span><span>{s}</span>
               </li>
             ))}
           </ul>
@@ -609,11 +609,11 @@ function PeptideStep({ entry: e, onPatch }) {
 
       {/* the reference's own words */}
       {(e.doseText || e.frequencyText || e.cycleText) && (
-        <details className="rounded-2xl p-3" style={{ background: 'var(--surface2)' }}>
-          <summary className="cursor-pointer text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--indigo)' }}>
+        <details className="rounded-[14px] p-3" style={{ background: 'var(--surface-sunk)' }}>
+          <summary className="cursor-pointer text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-2)' }}>
             What the reference says
           </summary>
-          <div className="mt-2 space-y-1.5 text-[11px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+          <div className="mt-2 space-y-2 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
             {e.doseText && <p><span className="font-black" style={{ color: 'var(--text)' }}>Dose. </span>{e.doseText}</p>}
             {e.frequencyText && <p><span className="font-black" style={{ color: 'var(--text)' }}>Frequency. </span>{e.frequencyText}</p>}
             {e.cycleText && <p><span className="font-black" style={{ color: 'var(--text)' }}>Cycle. </span>{e.cycleText}</p>}
@@ -623,8 +623,8 @@ function PeptideStep({ entry: e, onPatch }) {
 
       {/* established vs reported, never merged */}
       {e.reference && (
-        <details className="rounded-2xl p-3" style={{ background: 'var(--surface2)' }}>
-          <summary className="cursor-pointer text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--violet)' }}>
+        <details className="rounded-[14px] p-3" style={{ background: 'var(--surface-sunk)' }}>
+          <summary className="cursor-pointer text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text)' }}>
             Evidence · established vs reported
           </summary>
           <div className="mt-3"><ReferenceInfo reference={e.reference} /></div>
@@ -633,20 +633,20 @@ function PeptideStep({ entry: e, onPatch }) {
 
       {/* route */}
       <div>
-        <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--coral)' }}>Route</p>
-        <div className="flex gap-1.5">
+        <p className="mb-2 text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--danger)' }}>Route</p>
+        <div className="flex gap-2">
           {e.routes.map((r) => (
             <button key={r} onClick={() => setRoute(r)}
-              className="flex-1 rounded-full py-2 text-[11px] font-black"
+              className="flex-1 rounded-full py-2 text-xs font-black"
               style={e.route === r
-                ? { backgroundImage: 'linear-gradient(135deg, var(--violet), var(--indigo))', color: '#fff' }
-                : { background: 'var(--surface2)', color: 'var(--muted)' }}>
+                ? { background: 'var(--accent)', color: 'var(--accent-fg)' }
+                : { background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
               {ROUTE_LABEL[r]}
             </button>
           ))}
         </div>
         {nasal && (
-          <p className="mt-1.5 text-[11px] font-semibold" style={{ color: 'var(--indigo)' }}>
+          <p className="mt-2 text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
             Nasal spray at {MCG_PER_SPRAY} mcg a spray — 10 mg vial + 2 mL BAC water, all of it into a bottle,
             + 3 mL saline = 5 mL, about 50 sprays. Dosed in whole sprays.
           </p>
@@ -656,7 +656,7 @@ function PeptideStep({ entry: e, onPatch }) {
             compound kept off the belly stays off it, and the rotation map,
             the suggestion and the co-draw all read this same field. */}
         {!nasal && (
-          <div className="mt-2.5">
+          <div className="mt-3">
             <Field label="Allowed injection zone">
               <select className="input" aria-label="Allowed injection zone"
                 value={e.allowedZone || 'all'}
@@ -671,15 +671,15 @@ function PeptideStep({ entry: e, onPatch }) {
 
       {/* ladder */}
       <div>
-        <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--violet)' }}>
+        <p className="mb-2 text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text)' }}>
           Dose ladder {nasal ? '(sprays)' : ''}
         </p>
         {!ladder && (
-          <p className="mb-2 text-[11px] font-bold" style={{ color: 'var(--amber)' }}>
+          <p className="mb-2 text-xs font-bold" style={{ color: 'var(--warn)' }}>
             No dose pre-filled. Enter your own, or leave it blank and set it later.
           </p>
         )}
-        <div className="grid grid-cols-2 gap-2.5">
+        <div className="grid grid-cols-2 gap-3">
           <Field label={`Start at (${nasal ? 'sprays' : ladder?.unit || 'mcg'})`}>
             <Num value={ladder?.floor ?? 0} onChange={(v) => setLadder({ floor: v })} />
           </Field>
@@ -705,13 +705,13 @@ function PeptideStep({ entry: e, onPatch }) {
       {/* reconstitution */}
       {!nasal && (
         <div>
-          <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--lime)' }}>Reconstitution</p>
-          <div className="grid grid-cols-2 gap-2.5">
+          <p className="mb-2 text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--good)' }}>Reconstitution</p>
+          <div className="grid grid-cols-2 gap-3">
             <Field label="Vial (mg)"><Num value={e.recon?.vialMg ?? 0} onChange={(v) => onPatch({ recon: { ...e.recon, vialMg: v } })} /></Field>
             <Field label="BAC water (mL)"><Num value={e.recon?.bacMl ?? 0} onChange={(v) => onPatch({ recon: { ...e.recon, bacMl: v } })} /></Field>
           </div>
-          <p className="mt-1 text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
-            {conc > 0 ? <>{round(conc, 3)} mg/mL{units != null && isFinite(units) ? <> · first dose is <span style={{ color: 'var(--lime)' }}>{round(units, 1)} units</span></> : null}</> : 'Set the vial and water to see the units to draw.'}
+          <p className="mt-1 text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
+            {conc > 0 ? <>{round(conc, 3)} mg/mL{units != null && isFinite(units) ? <> · first dose is <span style={{ color: 'var(--good)' }}>{round(units, 1)} units</span></> : null}</> : 'Set the vial and water to see the units to draw.'}
             {e.source !== 'seed' && ' · typical default — check your actual vial.'}
           </p>
         </div>
@@ -719,8 +719,8 @@ function PeptideStep({ entry: e, onPatch }) {
 
       {/* schedule */}
       <div>
-        <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--amber)' }}>Schedule</p>
-        <div className="grid grid-cols-2 gap-2.5">
+        <p className="mb-2 text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--warn)' }}>Schedule</p>
+        <div className="grid grid-cols-2 gap-3">
           <Field label="Frequency">
             <select className="input" value={e.frequency} onChange={(ev) => onPatch({ frequency: ev.target.value })}>
               {Object.entries(FREQ_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
@@ -734,22 +734,22 @@ function PeptideStep({ entry: e, onPatch }) {
         </div>
         {pickCount > 0 && (
           <>
-            <p className="mb-1 mt-2 text-[10px] font-semibold" style={{ color: 'var(--muted)' }}>
+            <p className="mb-1 mt-2 text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
               {pickCount === 1 ? 'Which day each week?' : `Pick ${pickCount} days`}
             </p>
             <div className="flex gap-1">
               {WEEKDAYS.map((label, d) => (
-                <button key={d} onClick={() => toggleDay(d)} className="flex-1 rounded-full py-1.5 text-[10px] font-black"
+                <button key={d} onClick={() => toggleDay(d)} className="flex-1 rounded-full py-2 text-xs font-black"
                   style={days.has(d)
-                    ? { backgroundImage: 'linear-gradient(135deg, var(--lime), var(--lime-deep))', color: '#fff' }
-                    : { background: 'var(--surface2)', color: 'var(--muted)' }}>
+                    ? { background: 'var(--accent)', color: 'var(--accent-fg)' }
+                    : { background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
                   {label[0]}
                 </button>
               ))}
             </div>
           </>
         )}
-        <div className="mt-2 grid grid-cols-2 gap-2.5">
+        <div className="mt-2 grid grid-cols-2 gap-3">
           <Field label="Cycle on (days, 0 = ongoing)">
             <Num value={e.cycleOnDays} step="1" onChange={(v) => onPatch({ cycleOnDays: Math.round(v) })} />
           </Field>
@@ -760,15 +760,15 @@ function PeptideStep({ entry: e, onPatch }) {
       </div>
 
       {/* optional stock */}
-      <details className="rounded-2xl p-3" style={{ background: 'var(--surface2)' }}>
-        <summary className="cursor-pointer text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--indigo)' }}>
+      <details className="rounded-[14px] p-3" style={{ background: 'var(--surface-sunk)' }}>
+        <summary className="cursor-pointer text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-2)' }}>
           Optional · cost and what you already have
         </summary>
-        <div className="mt-2 grid grid-cols-2 gap-2.5">
+        <div className="mt-2 grid grid-cols-2 gap-3">
           <Field label="Cost per vial (AUD)"><Num value={e.costAud || 0} onChange={(v) => onPatch({ costAud: v })} /></Field>
           <Field label="Vials on hand"><Num value={e.stockVials || 0} step="1" onChange={(v) => onPatch({ stockVials: Math.max(0, Math.round(v)) })} /></Field>
         </div>
-        <p className="mt-1.5 text-[10px] font-medium" style={{ color: 'var(--muted)' }}>
+        <p className="mt-2 text-xs font-medium" style={{ color: 'var(--text-2)' }}>
           Feeds Stock and the restock list — run-out dates and order quantities come from these.
         </p>
       </details>

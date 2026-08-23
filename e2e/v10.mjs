@@ -73,7 +73,8 @@ const planNote = async () => {
   return txt
 }
 // the due card for a peptide, identified by the Log button only it has
-const dueCard = (name) => page.locator('div.card', { hasText: name })
+const dueCard = (name) => page.locator('main div.p-4', { hasText: name })
+  .filter({ has: page.locator(`button[aria-label="Log ${name}"], [aria-label="${name} cannot be co-drawn"]`) })
   .filter({ has: page.locator(`button[aria-label="Log ${name}"]`) }).first()
 
 

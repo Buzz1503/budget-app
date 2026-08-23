@@ -244,7 +244,7 @@ await step('the count comes off logged doses, so it drops when one is logged', a
   await nav('Home')
   await page.waitForTimeout(600)
   const read = async (name) => {
-    const card = page.locator('.card').filter({ has: page.locator(`h3:text-is("${name}")`) }).first()
+    const card = page.locator('main div.p-4').filter({ has: page.locator(`h3:text-is("${name}")`) }).first()
     const t = await card.locator('[data-testid="doses-left"]').textContent()
     return parseInt(t.match(/~(\d+)/)[1], 10)
   }
@@ -270,7 +270,7 @@ await step('changing the dose changes the count with no recalibration', async ()
   })
   await nav('Home')
   await page.waitForTimeout(700)
-  const card = page.locator('.card').filter({ has: page.locator('h3:text-is("BPC-157")') }).first()
+  const card = page.locator('main div.p-4').filter({ has: page.locator('h3:text-is("BPC-157")') }).first()
   const first = parseInt((await card.locator('[data-testid="doses-left"]').textContent()).match(/~(\d+)/)[1], 10)
 
   // double the dose straight in the store — the same edit the Library makes
@@ -286,7 +286,7 @@ await step('changing the dose changes the count with no recalibration', async ()
   await page.waitForTimeout(900)
   await nav('Home')
   await page.waitForTimeout(700)
-  const card2 = page.locator('.card').filter({ has: page.locator('h3:text-is("BPC-157")') }).first()
+  const card2 = page.locator('main div.p-4').filter({ has: page.locator('h3:text-is("BPC-157")') }).first()
   const second = parseInt((await card2.locator('[data-testid="doses-left"]').textContent()).match(/~(\d+)/)[1], 10)
   if (!(second < first)) throw new Error(`doubling the dose did not reduce the count (${first} → ${second})`)
 })
@@ -397,7 +397,7 @@ await step('picking a batch activates it, decrements it and recomputes the units
 await step('the new units show on the card straight away', async () => {
   await nav('Home')
   await page.waitForTimeout(800)
-  const card = page.locator('.card').filter({ has: page.locator('h3:text-is("BPC-157")') }).first()
+  const card = page.locator('main div.p-4').filter({ has: page.locator('h3:text-is("BPC-157")') }).first()
   const t = await card.textContent()
   if (!/units/.test(t)) throw new Error('no unit figure on the card')
 })

@@ -17,9 +17,9 @@ import NumberField from './ui/NumberField'
 const money = (n) => `$${(Math.round((n || 0) * 100) / 100).toFixed(2)}`
 
 const PRIORITY = {
-  now: { label: 'Order now', tone: 'var(--coral)' },
-  soon: { label: 'Coming up', tone: 'var(--amber)' },
-  ok: { label: 'Covered', tone: 'var(--muted)' },
+  now: { label: 'Order now', tone: 'var(--danger)' },
+  soon: { label: 'Coming up', tone: 'var(--warn)' },
+  ok: { label: 'Covered', tone: 'var(--text-2)' },
 }
 
 /**
@@ -66,28 +66,28 @@ export default function SuppliesTab({ goTo }) {
   const spend = useMemo(() => totalSpend(vials), [vials])
 
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-3">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <h1 className="text-2xl font-black tracking-tight">Stock &amp; restock</h1>
-          <p className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>
+          <p className="text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
             What you hold, and what to order for {plan.label.toLowerCase()} — through {plan.until}
           </p>
         </div>
-        <span className="chip shrink-0 !py-1.5" style={{ color: 'var(--amber)' }}>
+        <span className="chip shrink-0 !py-2" style={{ color: 'var(--warn)' }}>
           <DollarSign size={13} /> {round(spend, 0)} {settings.currency} spent
         </span>
       </div>
 
-      <div className="flex rounded-full p-1" data-testid="stock-view" style={{ background: 'var(--surface2)' }}>
+      <div className="flex rounded-full p-1" data-testid="stock-view" style={{ background: 'var(--surface-sunk)' }}>
         {[['stock', 'Stock room'], ['restock', 'Restock list']].map(([id, label]) => (
           <button key={id} onClick={() => setView(id)} aria-label={label}
             className="relative flex-1 rounded-full py-2 text-xs font-black">
             {view === id && (
               <motion.span layoutId="stock-view-pill" className="absolute inset-0 rounded-full"
-                style={{ backgroundImage: 'linear-gradient(135deg, var(--violet), var(--indigo))' }} />
+                style={{ background: 'var(--accent)' }} />
             )}
-            <span className="relative" style={{ color: view === id ? '#fff' : 'var(--muted)' }}>{label}</span>
+            <span className="relative" style={{ color: view === id ? 'var(--accent-fg)' : 'var(--text-2)' }}>{label}</span>
           </button>
         ))}
       </div>
@@ -101,13 +101,13 @@ export default function SuppliesTab({ goTo }) {
       </CoachTip>
 
       {/* horizon */}
-      <div className="flex gap-1.5">
+      <div className="flex gap-2">
         {HORIZONS.map((h) => (
           <button key={h.id} onClick={() => setRestockHorizon(h.id)}
-            className="flex-1 rounded-full py-2 text-[11px] font-black"
+            className="flex-1 rounded-full py-2 text-xs font-black"
             style={plan.horizon === h.id
-              ? { backgroundImage: 'linear-gradient(135deg, var(--violet), var(--indigo))', color: '#fff' }
-              : { background: 'var(--surface2)', color: 'var(--muted)' }}>
+              ? { background: 'var(--accent)', color: 'var(--accent-fg)' }
+              : { background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
             {h.label}
           </button>
         ))}
@@ -115,19 +115,19 @@ export default function SuppliesTab({ goTo }) {
 
       {/* order total */}
       <motion.div layout className="card p-3"
-        style={{ backgroundImage: 'linear-gradient(135deg, color-mix(in srgb, var(--lime) 12%, var(--surface)), var(--surface))' }}>
+        style={{ background: 'var(--surface-sunk)' }}>
         <div className="flex items-center gap-3">
-          <ShoppingCart size={20} className="shrink-0" style={{ color: 'var(--lime)' }} />
+          <ShoppingCart size={20} className="shrink-0" style={{ color: 'var(--good)' }} />
           <div className="min-w-0 flex-1">
             <p className="text-2xl font-black tracking-tight">{money(plan.totalAud)} <span className="text-sm">AUD</span></p>
-            <p className="text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
+            <p className="text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
               {money(plan.vialCost)} compounds · {money(plan.consumableCost)} consumables
             </p>
           </div>
         </div>
         {plan.orderNow.length > 0 && (
-          <p className="mt-2 flex items-start gap-1.5 text-xs font-bold" style={{ color: 'var(--coral)' }}>
-            <AlertTriangle size={13} className="mt-0.5 shrink-0" />
+          <p className="mt-2 flex items-start gap-2 text-xs font-bold" style={{ color: 'var(--danger)' }}>
+            <AlertTriangle size={13} className="mt-1 shrink-0" />
             <span>
               {plan.orderNow.length} item{plan.orderNow.length === 1 ? '' : 's'} to order now — within your {leadDays}-day lead time.
             </span>
@@ -136,30 +136,30 @@ export default function SuppliesTab({ goTo }) {
       </motion.div>
 
       {/* compounds */}
-      <p className="px-1 pt-1 text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--violet)' }}>
+      <p className="px-1 pt-1 text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text)' }}>
         Compounds · soonest to run out first
       </p>
       {plan.rows.length === 0 && (
-        <div className="card p-3.5 text-center text-sm font-bold" style={{ color: 'var(--muted)' }}>
+        <div className="card p-4 text-center text-sm font-bold" style={{ color: 'var(--text-2)' }}>
           Nothing with a set protocol yet — build your schedule first.
         </div>
       )}
       {plan.rows.map((r) => <CompoundCard key={r.key} row={r} days={plan.days} currency={settings.currency} />)}
 
       {/* consumables */}
-      <p className="px-1 pt-2 text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--amber)' }}>
+      <p className="px-1 pt-2 text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--warn)' }}>
         Consumables · {plan.consumables.syringes} syringe{plan.consumables.syringes === 1 ? '' : 's'} for {plan.consumables.injections} dose{plan.consumables.injections === 1 ? '' : 's'}
         {plan.consumables.grouped ? ' (co-draws counted as one)' : ' (co-draws not yet counted)'}
       </p>
       {plan.consumables.rows.map((r) => <ConsumableRow key={r.key} row={r} />)}
 
       <button onClick={resetRestock}
-        className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-full py-2.5 text-xs font-bold"
-        style={{ background: 'var(--surface2)', color: 'var(--muted)' }}>
+        className="mt-2 flex w-full items-center justify-center gap-2 rounded-full py-3 text-xs font-bold"
+        style={{ background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
         <RotateCcw size={13} /> Clear ticks, quantities and delivery dates
       </button>
 
-      <p className="px-1 pb-2 text-[10px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+      <p className="px-1 pb-2 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
         Costs come from what you've recorded paying per vial, plus editable unit prices for consumables.
         Personal tracking tool — not medical advice, and not a purchasing recommendation.
       </p>
@@ -173,14 +173,14 @@ function Row({ children, checked, onToggle, checkLabel, warn }) {
     <motion.div layout className="card p-3"
       style={{
         opacity: checked ? 0.6 : 1,
-        ...(warn && !checked ? { borderColor: 'color-mix(in srgb, var(--amber) 40%, transparent)' } : null),
+        ...(warn && !checked ? { borderColor: 'color-mix(in srgb, var(--warn) 40%, transparent)' } : null),
       }}>
-      <div className="flex items-start gap-2.5">
+      <div className="flex items-start gap-3">
         <button onClick={onToggle} aria-label={checkLabel}
-          className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md"
+          className="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-[10px]"
           style={checked
-            ? { background: 'var(--lime)', color: '#fff' }
-            : { background: 'var(--surface2)', color: 'var(--muted)' }}>
+            ? { background: 'var(--accent)', color: 'var(--accent-fg)' }
+            : { background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
           {checked ? <Check size={14} strokeWidth={3} /> : null}
         </button>
         <div className="min-w-0 flex-1">{children}</div>
@@ -191,14 +191,14 @@ function Row({ children, checked, onToggle, checkLabel, warn }) {
 
 function QtyStepper({ value, onChange, onReset, suggested }) {
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex items-center gap-2">
       <button onClick={() => onChange(Math.max(0, value - 1))}
-        className="h-7 w-7 rounded-full text-sm font-black" style={{ background: 'var(--surface2)' }} aria-label="One fewer">−</button>
+        className="h-7 w-7 rounded-full text-sm font-black" style={{ background: 'var(--surface-sunk)' }} aria-label="One fewer">−</button>
       <span className="min-w-8 text-center text-sm font-black tabular-nums">{value}</span>
       <button onClick={() => onChange(value + 1)}
-        className="h-7 w-7 rounded-full text-sm font-black" style={{ background: 'var(--surface2)' }} aria-label="One more">+</button>
+        className="h-7 w-7 rounded-full text-sm font-black" style={{ background: 'var(--surface-sunk)' }} aria-label="One more">+</button>
       {value !== suggested && (
-        <button onClick={onReset} className="ml-1 text-[10px] font-bold underline" style={{ color: 'var(--muted)' }}>
+        <button onClick={onReset} className="ml-1 text-xs font-bold underline" style={{ color: 'var(--text-2)' }}>
           suggested {suggested}
         </button>
       )}
@@ -210,15 +210,15 @@ function DeliveryField({ value, onChange }) {
   const [open, setOpen] = useState(!!value)
   if (!open) {
     return (
-      <button onClick={() => setOpen(true)} className="flex items-center gap-1 text-[11px] font-bold" style={{ color: 'var(--indigo)' }}>
+      <button onClick={() => setOpen(true)} className="flex items-center gap-1 text-xs font-bold" style={{ color: 'var(--text-2)' }}>
         <Truck size={12} /> Add expected delivery
       </button>
     )
   }
   return (
-    <label className="flex items-center gap-1.5 text-[11px] font-bold" style={{ color: 'var(--indigo)' }}>
+    <label className="flex items-center gap-2 text-xs font-bold" style={{ color: 'var(--text-2)' }}>
       <Truck size={12} className="shrink-0" />
-      <input type="date" className="input !py-1 !text-[11px]" value={value || ''}
+      <input type="date" className="input !py-1 !text-xs" value={value || ''}
         aria-label="Expected delivery date"
         onChange={(e) => { onChange(e.target.value); if (!e.target.value) setOpen(false) }} />
     </label>
@@ -227,9 +227,9 @@ function DeliveryField({ value, onChange }) {
 
 function Stat({ label, value, sub, warn, title }) {
   return (
-    <div className="rounded-2xl py-2 text-center" style={{ background: 'var(--surface2)' }} title={title}>
-      <p className="text-sm font-extrabold" style={warn ? { color: 'var(--amber)' } : undefined}>{value}</p>
-      <p className="text-[9px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>{label}{sub ? ` · ${sub}` : ''}</p>
+    <div className="rounded-[14px] py-2 text-center" style={{ background: 'var(--surface-sunk)' }} title={title}>
+      <p className="text-sm font-extrabold" style={warn ? { color: 'var(--warn)' } : undefined}>{value}</p>
+      <p className="text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-2)' }}>{label}{sub ? ` · ${sub}` : ''}</p>
     </div>
   )
 }
@@ -237,7 +237,7 @@ function Stat({ label, value, sub, warn, title }) {
 function VField({ label, children }) {
   return (
     <label className="block">
-      <span className="mb-0.5 block text-[9px] font-bold uppercase" style={{ color: 'var(--muted)' }}>{label}</span>
+      <span className="mb-1 block text-xs font-bold uppercase" style={{ color: 'var(--text-2)' }}>{label}</span>
       {children}
     </label>
   )
@@ -270,15 +270,15 @@ function CompoundCard({ row, days, currency }) {
       checkLabel={`${checked ? 'Un-tick' : 'Tick'} ${row.name} as ordered`}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <p className="flex items-center gap-1.5 text-sm font-black">
-            {row.nasal && <Wind size={12} style={{ color: 'var(--indigo)' }} />}
+          <p className="flex items-center gap-2 text-sm font-black">
+            {row.nasal && <Wind size={12} style={{ color: 'var(--text-2)' }} />}
             <span className="truncate leading-tight">{row.name}</span>
           </p>
-          <p className="text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
+          <p className="text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
             {row.doses} dose{row.doses === 1 ? '' : 's'} in {days} days at {formatDose(row.dose, row.unit)}
           </p>
         </div>
-        <span className="chip shrink-0 !py-0.5 text-[10px] font-black" style={{ color: pri.tone }}>{pri.label}</span>
+        <span className="chip shrink-0 !py-1 text-xs font-black" style={{ color: pri.tone }}>{pri.label}</span>
       </div>
 
       {/* holdings — the Stock half */}
@@ -292,37 +292,37 @@ function CompoundCard({ row, days, currency }) {
       </div>
 
       {exp && (
-        <p className="mt-2 flex items-center gap-1.5 text-xs font-semibold"
-          style={{ color: exp.daysLeft < 0 ? 'var(--coral)' : exp.daysLeft <= 5 ? 'var(--amber)' : 'var(--muted)' }}>
+        <p className="mt-2 flex items-center gap-2 text-xs font-semibold"
+          style={{ color: exp.daysLeft < 0 ? 'var(--danger)' : exp.daysLeft <= 5 ? 'var(--warn)' : 'var(--text-2)' }}>
           <Droplets size={12} />
           Open vial ({round(row.openMg, 1)} mg left) — {exp.daysLeft < 0 ? `expired ${-exp.daysLeft}d ago` : `expires ${format(parseISO(exp.expiresAt), 'd MMM')} (${exp.daysLeft}d)`}
         </p>
       )}
       {!exp && row.openMg > 0 && (
-        <p className="mt-2 flex items-center gap-1.5 text-xs font-semibold" style={{ color: 'var(--muted)' }}>
+        <p className="mt-2 flex items-center gap-2 text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
           <Droplets size={12} /> Open vial: {round(row.openMg, 1)} mg — not reconstituted yet
         </p>
       )}
       {!exp && !row.premixed && (
-        <button className="mt-2 rounded-full px-3 py-1.5 text-xs font-bold"
-          style={{ background: 'var(--surface2)', color: 'var(--lime)' }}
+        <button className="mt-2 rounded-full px-3 py-2 text-xs font-bold"
+          style={{ background: 'var(--surface-sunk)', color: 'var(--good)' }}
           onClick={() => reconstituteVial(row.peptideId)}>
           Mark reconstituted today → starts {p?.recon?.expiryDays ?? 28}d fridge timer
         </button>
       )}
 
       {/* order line — the Restock half */}
-      <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t pt-2.5" style={{ borderColor: 'var(--border)' }}>
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t pt-3" style={{ borderColor: 'var(--border)' }}>
         <QtyStepper value={row.qty} suggested={row.suggestedVials}
           onChange={(n) => setRestockQty(row.key, n)} onReset={() => clearRestockQty(row.key)} />
         <span className="text-xs font-black tabular-nums">
-          {row.unitCost > 0 ? money(row.qty * row.unitCost) : <span style={{ color: 'var(--muted)' }}>no price set</span>}
+          {row.unitCost > 0 ? money(row.qty * row.unitCost) : <span style={{ color: 'var(--text-2)' }}>no price set</span>}
         </span>
       </div>
-      <div className="mt-1.5 flex items-center justify-between gap-2">
+      <div className="mt-2 flex items-center justify-between gap-2">
         <DeliveryField value={eta} onChange={(d) => setRestockDelivery(row.key, d)} />
-        <button onClick={() => setExpanded(!expanded)} className="flex items-center gap-0.5 text-[11px] font-bold"
-          style={{ color: 'var(--muted)' }}>
+        <button onClick={() => setExpanded(!expanded)} className="flex items-center gap-1 text-xs font-bold"
+          style={{ color: 'var(--text-2)' }}>
           {expanded ? 'Hide' : 'Purchases'} ({mine.length})
           <motion.span animate={{ rotate: expanded ? 180 : 0 }} style={{ display: 'inline-flex' }}><ChevronDown size={13} /></motion.span>
         </button>
@@ -333,31 +333,31 @@ function CompoundCard({ row, days, currency }) {
           {mine.map((v) => (
             <div key={v.id} className="grid grid-cols-[1fr_1fr_1fr_1fr_auto] items-end gap-2">
               <VField label="qty">
-                <NumberField className="!px-2 !py-1.5 text-center" value={v.qtyOnHand} min={0} step="1" integer
+                <NumberField className="!px-2 !py-2 text-center" value={v.qtyOnHand} min={0} step="1" integer
                   aria-label={`${row.name} vials on hand`}
                   onChange={(n) => updateVial(v.id, { qtyOnHand: n ?? 0 })} />
               </VField>
               <VField label="mg/vial">
-                <NumberField className="!px-2 !py-1.5 text-center" value={v.vialMg} min={0}
+                <NumberField className="!px-2 !py-2 text-center" value={v.vialMg} min={0}
                   aria-label={`${row.name} mg per vial`}
                   onChange={(n) => updateVial(v.id, { vialMg: n ?? 0 })} />
               </VField>
               <VField label={`cost (${currency})`}>
-                <NumberField className="!px-2 !py-1.5 text-center" value={v.costAud} min={0}
+                <NumberField className="!px-2 !py-2 text-center" value={v.costAud} min={0}
                   aria-label={`${row.name} cost per vial`}
                   onChange={(n) => updateVial(v.id, { costAud: n ?? 0 })} />
               </VField>
               <VField label="vendor">
-                <input className="input !px-2 !py-1.5" value={v.vendor} placeholder="—"
+                <input className="input !px-2 !py-2" value={v.vendor} placeholder="—"
                   onChange={(e) => updateVial(v.id, { vendor: e.target.value })} />
               </VField>
               <button className="pb-1" onClick={() => removeVial(v.id)} aria-label="Remove vial row">
-                <Trash2 size={15} style={{ color: 'var(--coral)' }} />
+                <Trash2 size={15} style={{ color: 'var(--danger)' }} />
               </button>
             </div>
           ))}
-          <button className="flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-bold"
-            style={{ background: 'var(--surface2)' }}
+          <button className="flex items-center gap-1 rounded-full px-3 py-2 text-xs font-bold"
+            style={{ background: 'var(--surface-sunk)' }}
             onClick={() => addVial(row.peptideId, { vialMg: row.vialMg })}>
             <Plus size={13} /> Add vial purchase
           </button>
@@ -383,7 +383,7 @@ function ConsumableRow({ row }) {
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-black leading-tight">{row.label}</p>
-          <p className="text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
+          <p className="text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
             suggested {row.suggestedVials} {row.unitLabel}
           </p>
         </div>
@@ -393,9 +393,9 @@ function ConsumableRow({ row }) {
         <QtyStepper value={row.qty} suggested={row.suggestedVials}
           onChange={(n) => setRestockQty(row.key, n)} onReset={() => clearRestockQty(row.key)} />
         {editing ? (
-          <label className="flex items-center gap-1 text-[11px] font-bold">
+          <label className="flex items-center gap-1 text-xs font-bold">
             $
-            <NumberField step="0.01" className="!w-20 !py-1 !text-[11px]"
+            <NumberField step="0.01" className="!w-20 !py-1 !text-xs"
               aria-label={`Unit cost for ${row.label}`}
               value={row.unitCost} min={0}
               onChange={(n) => setRestockUnitCost(row.id, n ?? 0)}
@@ -403,13 +403,13 @@ function ConsumableRow({ row }) {
             each
           </label>
         ) : (
-          <button onClick={() => setEditing(true)} className="flex items-center gap-1 text-[11px] font-bold" style={{ color: 'var(--muted)' }}>
+          <button onClick={() => setEditing(true)} className="flex items-center gap-1 text-xs font-bold" style={{ color: 'var(--text-2)' }}>
             <Pencil size={11} /> {money(row.unitCost)} each
             {row.unitCost === DEFAULT_UNIT_COSTS[row.id] ? ' (default)' : ''}
           </button>
         )}
       </div>
-      <div className="mt-1.5">
+      <div className="mt-2">
         <DeliveryField value={restock.delivery?.[row.key] || ''} onChange={(d) => setRestockDelivery(row.key, d)} />
       </div>
     </Row>

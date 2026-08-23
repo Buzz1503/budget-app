@@ -58,23 +58,23 @@ export default function ReplaceVial({ open, peptideId, onClose, goTo }) {
   return (
     <Modal open={open} onClose={close} title={done ? 'New vial in use' : `${peptide.name} — finished`}>
       {done ? (
-        <div className="space-y-2.5" data-testid="replace-done">
-          <div className="rounded-2xl p-4 text-center"
-            style={{ background: 'color-mix(in srgb, var(--lime) 14%, transparent)' }}>
-            <CheckCircle2 size={26} className="mx-auto mb-1.5" style={{ color: 'var(--lime)' }} />
+        <div className="space-y-3" data-testid="replace-done">
+          <div className="rounded-[14px] p-4 text-center"
+            style={{ background: 'color-mix(in srgb, var(--good) 14%, transparent)' }}>
+            <CheckCircle2 size={26} className="mx-auto mb-2" style={{ color: 'var(--good)' }} />
             <p className="text-sm font-black">
               {done.batch.vialMg} mg{done.batch.vendor ? ` · ${done.batch.vendor}` : ''} is now your active vial
             </p>
-            <p className="mt-1 text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
+            <p className="mt-1 text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
               One taken off that batch. Your dose, ladder and cycle are unchanged.
             </p>
           </div>
 
           {done.preview && !done.preview.sameSize && (
             <div className="card p-3" data-testid="units-changed"
-              style={{ background: 'color-mix(in srgb, var(--amber) 12%, var(--surface))' }}>
-              <p className="flex items-start gap-2 text-[11px] font-semibold leading-relaxed">
-                <AlertTriangle size={14} className="mt-px shrink-0" style={{ color: 'var(--amber)' }} />
+              style={{ background: 'color-mix(in srgb, var(--warn) 12%, var(--surface))' }}>
+              <p className="flex items-start gap-2 text-xs font-semibold leading-relaxed">
+                <AlertTriangle size={14} className="mt-px shrink-0" style={{ color: 'var(--warn)' }} />
                 <span>
                   Different vial size, so the same dose is now a different draw.{' '}
                   <span className="font-black">
@@ -92,63 +92,63 @@ export default function ReplaceVial({ open, peptideId, onClose, goTo }) {
           </button>
         </div>
       ) : confirmRemove ? (
-        <div className="space-y-2.5" data-testid="confirm-remove">
-          <p className="text-[12px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+        <div className="space-y-3" data-testid="confirm-remove">
+          <p className="text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
             <span className="font-black" style={{ color: 'var(--text)' }}>{peptide.name}</span> comes out of
             my protocol, so it stops appearing on Home and in the calendar.
           </p>
-          <p className="flex items-start gap-1.5 text-[11px] font-semibold" style={{ color: 'var(--lime)' }}>
+          <p className="flex items-start gap-2 text-xs font-semibold" style={{ color: 'var(--good)' }}>
             <Info size={13} className="mt-px shrink-0" />
             <span>Your vials stay in stock and your logged doses stay in history — you can put it back any time.</span>
           </p>
           <div className="flex gap-2">
             <button onClick={() => setConfirmRemove(false)}
-              className="flex-1 rounded-full py-2.5 text-xs font-black"
-              style={{ background: 'var(--surface2)', color: 'var(--muted)' }}>
+              className="flex-1 rounded-full py-3 text-xs font-black"
+              style={{ background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
               Cancel
             </button>
             <button onClick={drop} data-testid="confirm-remove-yes"
-              className="flex-1 rounded-full py-2.5 text-xs font-black"
-              style={{ background: 'color-mix(in srgb, var(--coral) 22%, transparent)', color: 'var(--coral)' }}>
+              className="flex-1 rounded-full py-3 text-xs font-black"
+              style={{ background: 'color-mix(in srgb, var(--danger) 22%, transparent)', color: 'var(--danger)' }}>
               Remove from protocol
             </button>
           </div>
         </div>
       ) : (
-        <div className="space-y-2.5" data-testid="replace-view">
-          <p className="text-[12px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+        <div className="space-y-3" data-testid="replace-view">
+          <p className="text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
             That vial is marked finished. Nothing else was taken off the shelf — picking a
             replacement below is what does that.
           </p>
 
           {options.length > 0 ? (
             <>
-              <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--lime)' }}>
+              <p className="text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--good)' }}>
                 In stock · {options.length} batch{options.length === 1 ? '' : 'es'}
               </p>
-              <div className="space-y-1.5" data-testid="replacement-options">
+              <div className="space-y-2" data-testid="replacement-options">
                 {options.map((b) => {
                   const preview = activationPreview(peptide, titration[peptide.id], b)
                   return (
                     <button key={b.id} onClick={() => pick(b)} data-testid="replacement-option"
-                      className="flex w-full items-center gap-2.5 rounded-full p-3 text-left"
-                      style={{ background: 'var(--surface2)' }}>
-                      <PackageOpen size={16} className="shrink-0" style={{ color: 'var(--lime)' }} />
+                      className="flex w-full items-center gap-3 rounded-full p-3 text-left"
+                      style={{ background: 'var(--surface-sunk)' }}>
+                      <PackageOpen size={16} className="shrink-0" style={{ color: 'var(--good)' }} />
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-[12px] font-black leading-tight">
+                        <p className="truncate text-xs font-black leading-tight">
                           {b.vialMg} mg{b.vendor ? ` · ${b.vendor}` : ''}
                         </p>
-                        <p className="truncate text-[10px] font-semibold leading-tight" style={{ color: 'var(--muted)' }}>
+                        <p className="truncate text-xs font-semibold leading-tight" style={{ color: 'var(--text-2)' }}>
                           {b.qtyOnHand} sealed · {money(b.costAud)} each
                           {b.lot ? ` · lot ${b.lot}` : ''}
                         </p>
                         {preview && !preview.sameSize && (
-                          <p className="truncate text-[10px] font-bold leading-tight" style={{ color: 'var(--amber)' }}>
+                          <p className="truncate text-xs font-bold leading-tight" style={{ color: 'var(--warn)' }}>
                             {preview.oldUnits} → {preview.newUnits} units per dose
                           </p>
                         )}
                       </div>
-                      <ArrowRight size={15} className="shrink-0" style={{ color: 'var(--muted)' }} />
+                      <ArrowRight size={15} className="shrink-0" style={{ color: 'var(--text-2)' }} />
                     </button>
                   )
                 })}
@@ -156,15 +156,15 @@ export default function ReplaceVial({ open, peptideId, onClose, goTo }) {
             </>
           ) : (
             <div className="card p-3 text-center" data-testid="no-stock"
-              style={{ background: 'color-mix(in srgb, var(--coral) 10%, var(--surface))' }}>
-              <AlertTriangle size={20} className="mx-auto mb-1.5" style={{ color: 'var(--coral)' }} />
+              style={{ background: 'color-mix(in srgb, var(--danger) 10%, var(--surface))' }}>
+              <AlertTriangle size={20} className="mx-auto mb-2" style={{ color: 'var(--danger)' }} />
               <p className="text-sm font-black">No {peptide.name} left in stock</p>
-              <p className="mt-1 text-[11px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+              <p className="mt-1 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
                 There is no sealed vial to fall back on. Add stock if you have some the app doesn't
                 know about, or take it out of my protocol until you reorder.
               </p>
               <button onClick={() => { close(); goTo?.('supplies') }} data-testid="go-add-stock"
-                className="btn-primary mt-3 flex w-full items-center justify-center gap-1.5 rounded-full py-2.5 text-xs font-black">
+                className="btn-primary mt-3 flex w-full items-center justify-center gap-2 rounded-full py-3 text-xs font-black">
                 <Plus size={14} /> Add stock
               </button>
             </div>
@@ -173,12 +173,12 @@ export default function ReplaceVial({ open, peptideId, onClose, goTo }) {
           <div className="h-px" style={{ background: 'var(--border)' }} />
 
           <button onClick={() => setConfirmRemove(true)} data-testid="dont-replace"
-            className="flex w-full items-center justify-center gap-1.5 rounded-full py-2.5 text-xs font-black"
-            style={{ background: 'var(--surface2)', color: 'var(--coral)' }}>
+            className="flex w-full items-center justify-center gap-2 rounded-full py-3 text-xs font-black"
+            style={{ background: 'var(--surface-sunk)', color: 'var(--danger)' }}>
             <Trash2 size={13} /> Don't replace — take it out of my protocol
           </button>
 
-          <p className="flex items-start gap-1.5 text-[10px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+          <p className="flex items-start gap-2 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
             <Info size={12} className="mt-px shrink-0" />
             <span>
               A different vial size is fine — dosing carries over and the units to draw are

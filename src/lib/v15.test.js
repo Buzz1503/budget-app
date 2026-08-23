@@ -49,11 +49,11 @@ describe('heat', () => {
     expect(daysSinceUse('abd-ul', logs, T)).toBe(1)
   })
 
-  it('maps to a colour that runs coral → amber → lime', () => {
-    expect(heatColor(0)).toBe('var(--lime)')
-    expect(heatColor(1)).toBe('var(--coral)')
-    expect(heatColor(0.8)).toMatch(/coral/)
-    expect(heatColor(0.2)).toMatch(/amber/)
+  it('maps to a colour that runs danger → warn → good', () => {
+    expect(heatColor(0)).toBe('var(--good)')
+    expect(heatColor(1)).toBe('var(--danger)')
+    expect(heatColor(0.8)).toMatch(/danger/)
+    expect(heatColor(0.2)).toMatch(/warn/)
   })
 })
 

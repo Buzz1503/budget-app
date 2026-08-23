@@ -50,19 +50,19 @@ export default function SettingsTab({ goTo }) {
   const recentLogs = [...doseLogs].reverse().slice(0, 10)
 
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-3">
       <div>
         <h1 className="text-2xl font-black tracking-tight">Settings</h1>
-        <p className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>
+        <p className="text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
           Theme, lead time, backup and reset
         </p>
       </div>
 
       {/* settings */}
-      <div className="card space-y-2.5 p-3">
+      <div className="card space-y-3 p-3">
         <Row label="Theme">
           <button onClick={() => updateSettings({ theme: settings.theme === 'dark' ? 'light' : 'dark' })}
-            className="chip !py-1.5 font-bold">
+            className="chip !py-2 font-bold">
             {settings.theme === 'dark' ? <Moon size={13} /> : <Sun size={13} />} {settings.theme}
           </button>
         </Row>
@@ -77,18 +77,18 @@ export default function SettingsTab({ goTo }) {
         </Row>
         <Row label="Haptics">
           <button onClick={() => updateSettings({ haptics: !settings.haptics })}
-            className="chip !py-1.5 font-bold" style={{ color: settings.haptics ? 'var(--lime)' : 'var(--muted)' }}>
+            className="chip !py-2 font-bold" style={{ color: settings.haptics ? 'var(--good)' : 'var(--text-2)' }}>
             {settings.haptics ? 'On' : 'Off'}
           </button>
         </Row>
         <Row label="Celebration sound">
           <button onClick={() => updateSettings({ sound: !settings.sound })}
-            className="chip !py-1.5 font-bold" style={{ color: settings.sound ? 'var(--lime)' : 'var(--muted)' }}>
+            className="chip !py-2 font-bold" style={{ color: settings.sound ? 'var(--good)' : 'var(--text-2)' }}>
             {settings.sound ? 'On' : 'Off'}
           </button>
         </Row>
         <Row label="Disclaimer">
-          <button className="chip !py-1.5 font-bold" onClick={() => updateSettings({ disclaimerDismissed: false })}>
+          <button className="chip !py-2 font-bold" onClick={() => updateSettings({ disclaimerDismissed: false })}>
             Show again
           </button>
         </Row>
@@ -96,16 +96,16 @@ export default function SettingsTab({ goTo }) {
 
       {/* recent history */}
       <div className="card p-3">
-        <p className="mb-2 flex items-center gap-1.5 text-sm font-bold"><History size={15} style={{ color: 'var(--lime)' }} /> Recent logs</p>
-        {recentLogs.length === 0 && <p className="text-xs" style={{ color: 'var(--muted)' }}>Nothing logged yet.</p>}
-        <div className="space-y-1.5">
+        <p className="mb-2 flex items-center gap-2 text-sm font-bold"><History size={15} style={{ color: 'var(--good)' }} /> Recent logs</p>
+        {recentLogs.length === 0 && <p className="text-xs" style={{ color: 'var(--text-2)' }}>Nothing logged yet.</p>}
+        <div className="space-y-2">
           {recentLogs.map((l) => {
             const p = peptides.find((x) => x.id === l.peptideId)
             return (
               <div key={l.id} className="flex items-center gap-2 text-xs font-semibold">
-                <span className="w-14 shrink-0" style={{ color: 'var(--muted)' }}>{format(parseISO(l.date), 'd MMM')}</span>
+                <span className="w-14 shrink-0" style={{ color: 'var(--text-2)' }}>{format(parseISO(l.date), 'd MMM')}</span>
                 <span className="flex-1 truncate leading-tight">{p?.name || l.peptideId} — {formatDose(l.doseValue, l.unit)}{l.insulinUnits ? ` (${l.insulinUnits} u)` : ''}</span>
-                <button className="font-bold" style={{ color: 'var(--coral)' }} onClick={() => undoLog(l.id)}>undo</button>
+                <button className="font-bold" style={{ color: 'var(--danger)' }} onClick={() => undoLog(l.id)}>undo</button>
               </div>
             )
           })}
@@ -116,23 +116,23 @@ export default function SettingsTab({ goTo }) {
       <CalendarCard />
 
       {/* data */}
-      <div className="card space-y-2.5 p-3">
-        <button onClick={exportJson} className="flex w-full items-center justify-center gap-2 rounded-full py-2.5 text-sm font-extrabold"
-          style={{ background: 'var(--surface2)' }}>
+      <div className="card space-y-3 p-3">
+        <button onClick={exportJson} className="flex w-full items-center justify-center gap-2 rounded-full py-3 text-sm font-extrabold"
+          style={{ background: 'var(--surface-sunk)' }}>
           <Download size={16} /> Export JSON (data only)
         </button>
-        <p className="-mt-1 text-[10px] font-medium" style={{ color: 'var(--muted)' }}>
+        <p className="-mt-1 text-xs font-medium" style={{ color: 'var(--text-2)' }}>
           Structured data without photos. For a complete copy use Full backup above.
         </p>
         {confirmReset ? (
           <div className="space-y-2 text-center">
-            <p className="text-xs font-bold" style={{ color: 'var(--coral)' }}>Wipe everything and restore seed data?</p>
+            <p className="text-xs font-bold" style={{ color: 'var(--danger)' }}>Wipe everything and restore seed data?</p>
             <div className="flex gap-2">
-              <button className="flex-1 rounded-full py-2 text-sm font-extrabold" style={{ background: 'var(--coral)', color: '#fff' }}
+              <button className="flex-1 rounded-full py-2 text-sm font-extrabold" style={{ background: 'var(--accent)', color: 'var(--accent-fg)' }}
                 onClick={() => { resetAll(); setConfirmReset(false) }}>
                 Yes, reset
               </button>
-              <button className="flex-1 rounded-full py-2 text-sm font-extrabold" style={{ background: 'var(--surface2)' }}
+              <button className="flex-1 rounded-full py-2 text-sm font-extrabold" style={{ background: 'var(--surface-sunk)' }}
                 onClick={() => setConfirmReset(false)}>
                 Cancel
               </button>
@@ -140,18 +140,18 @@ export default function SettingsTab({ goTo }) {
           </div>
         ) : (
           <button onClick={() => setConfirmReset(true)}
-            className="flex w-full items-center justify-center gap-2 rounded-full py-2.5 text-sm font-bold"
-            style={{ background: 'var(--surface2)', color: 'var(--coral)' }}>
+            className="flex w-full items-center justify-center gap-2 rounded-full py-3 text-sm font-bold"
+            style={{ background: 'var(--surface-sunk)', color: 'var(--danger)' }}>
             <RotateCcw size={15} /> Reset all data
           </button>
         )}
       </div>
       <button onClick={() => goTo?.('wizard')}
-        className="btn-violet flex w-full items-center justify-center gap-2 rounded-full py-3 text-sm font-black">
+        className="btn-primary flex w-full items-center justify-center gap-2 rounded-full py-3 text-sm font-black">
         <Wand2 size={16} /> Build / rebuild my protocol
       </button>
 
-      <p className="pb-2 text-center text-[10px] font-medium" style={{ color: 'var(--muted)' }}>
+      <p className="pb-2 text-center text-xs font-medium" style={{ color: 'var(--text-2)' }}>
         Pepito + · data lives in your browser only
       </p>
     </div>
@@ -230,41 +230,41 @@ function BackupCard() {
   const info = pending ? describeBackup(pending) : null
 
   return (
-    <div className="card space-y-2.5 p-3">
-      <p className="flex items-center gap-1.5 text-sm font-bold">
-        <ShieldCheck size={15} style={{ color: 'var(--lime)' }} /> Full backup
+    <div className="card space-y-3 p-3">
+      <p className="flex items-center gap-2 text-sm font-bold">
+        <ShieldCheck size={15} style={{ color: 'var(--good)' }} /> Full backup
       </p>
-      <p className="text-[11px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+      <p className="text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
         Everything lives in this browser. One file saves all your data <span className="font-bold" style={{ color: 'var(--text)' }}>including progress photos and scans</span> — keep a copy somewhere safe.
       </p>
 
       <button onClick={doBackup} disabled={!!busy}
-        className="btn-primary flex w-full items-center justify-center gap-2 rounded-full py-2.5 text-sm font-black disabled:opacity-50">
+        className="btn-primary flex w-full items-center justify-center gap-2 rounded-full py-3 text-sm font-black disabled:opacity-50">
         <Download size={16} /> {busy === 'backup' ? (progress || 'Packing…') : 'Back up everything'}
       </button>
 
       <input ref={fileRef} type="file" accept="application/json,.json" className="hidden" onChange={pickFile} />
       <button onClick={() => fileRef.current?.click()} disabled={!!busy}
-        className="flex w-full items-center justify-center gap-2 rounded-full py-2.5 text-sm font-bold disabled:opacity-50"
-        style={{ background: 'var(--surface2)' }}>
+        className="flex w-full items-center justify-center gap-2 rounded-full py-3 text-sm font-bold disabled:opacity-50"
+        style={{ background: 'var(--surface-sunk)' }}>
         <Upload size={15} /> Restore from backup
       </button>
 
-      <p className="text-[10px] font-semibold" style={{ color: 'var(--muted)' }}>
+      <p className="text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
         {backupMeta?.lastBackupAt
           ? `Last backup ${format(parseISO(backupMeta.lastBackupAt), 'd MMM yyyy, HH:mm')}`
           : 'Never backed up'}
       </p>
 
-      {done && <p className="text-[11px] font-bold" style={{ color: 'var(--lime)' }}><Check size={12} className="mr-1 inline" />{done}</p>}
-      {error && <p className="text-[11px] font-bold" style={{ color: 'var(--coral)' }}>{error}</p>}
+      {done && <p className="text-xs font-bold" style={{ color: 'var(--good)' }}><Check size={12} className="mr-1 inline" />{done}</p>}
+      {error && <p className="text-xs font-bold" style={{ color: 'var(--danger)' }}>{error}</p>}
 
       {pending && (
-        <div className="rounded-2xl p-3" style={{ background: 'color-mix(in srgb, var(--amber) 14%, transparent)', border: '1px solid color-mix(in srgb, var(--amber) 40%, transparent)' }}>
-          <p className="flex items-center gap-1.5 text-xs font-black" style={{ color: 'var(--amber)' }}>
+        <div className="rounded-[14px] p-3" style={{ background: 'color-mix(in srgb, var(--warn) 14%, transparent)', border: '1px solid color-mix(in srgb, var(--warn) 40%, transparent)' }}>
+          <p className="flex items-center gap-2 text-xs font-black" style={{ color: 'var(--warn)' }}>
             <AlertTriangle size={14} /> Replace all current data?
           </p>
-          <p className="mt-1 text-[11px] font-medium" style={{ color: 'var(--muted)' }}>
+          <p className="mt-1 text-xs font-medium" style={{ color: 'var(--text-2)' }}>
             From {info.createdAt ? format(parseISO(info.createdAt), 'd MMM yyyy, HH:mm') : 'unknown date'} —
             {' '}{info.peptides} peptides, {info.doseLogs} dose logs, {info.measurements} measurements,
             {' '}{info.symptomLogs} check-ins, {info.blobs} photo/scan files.
@@ -273,11 +273,11 @@ function BackupCard() {
           <div className="mt-2 flex gap-2">
             <button onClick={doRestore} disabled={busy === 'restore'}
               className="flex-1 rounded-full py-2 text-xs font-black disabled:opacity-50"
-              style={{ background: 'var(--amber)', color: '#fff' }}>
+              style={{ background: 'var(--accent)', color: 'var(--accent-fg)' }}>
               {busy === 'restore' ? (progress || 'Restoring…') : 'Yes, restore'}
             </button>
             <button onClick={() => setPending(null)} disabled={busy === 'restore'}
-              className="flex-1 rounded-full py-2 text-xs font-black" style={{ background: 'var(--surface2)' }}>
+              className="flex-1 rounded-full py-2 text-xs font-black" style={{ background: 'var(--surface-sunk)' }}>
               Cancel
             </button>
           </div>
@@ -321,21 +321,21 @@ function CalendarCard() {
   }
 
   return (
-    <div className="card space-y-2.5 p-3">
-      <p className="flex items-center gap-1.5 text-sm font-bold">
-        <CalendarPlus size={15} style={{ color: 'var(--indigo)' }} /> Calendar export
+    <div className="card space-y-3 p-3">
+      <p className="flex items-center gap-2 text-sm font-bold">
+        <CalendarPlus size={15} style={{ color: 'var(--text-2)' }} /> Calendar export
       </p>
-      <p className="text-[11px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+      <p className="text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
         This app can't send notifications. Export your schedule to your phone's calendar and let it remind you.
       </p>
 
-      <div className="flex gap-1.5">
+      <div className="flex gap-2">
         {[['ongoing', 'Ongoing'], ['range', 'Date range']].map(([m, label]) => (
           <button key={m} onClick={() => setMode(m)}
-            className="flex-1 rounded-full py-1.5 text-xs font-black"
+            className="flex-1 rounded-full py-2 text-xs font-black"
             style={mode === m
-              ? { backgroundImage: 'linear-gradient(135deg, var(--indigo), var(--violet))', color: '#fff' }
-              : { background: 'var(--surface2)', color: 'var(--muted)' }}>
+              ? { background: 'var(--accent)', color: 'var(--accent-fg)' }
+              : { background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
             {label}
           </button>
         ))}
@@ -346,8 +346,8 @@ function CalendarCard() {
           <div className="flex gap-1">
             {[1, 3, 6, 12].map((m) => (
               <button key={m} onClick={() => setMonths(m)}
-                className="rounded-full px-2.5 py-1 text-xs font-black"
-                style={months === m ? { background: 'var(--indigo)', color: '#fff' } : { background: 'var(--surface2)', color: 'var(--muted)' }}>
+                className="rounded-full px-3 py-1 text-xs font-black"
+                style={months === m ? { background: 'var(--accent)', color: 'var(--accent-fg)' } : { background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
                 {m}mo
               </button>
             ))}
@@ -356,20 +356,20 @@ function CalendarCard() {
       )}
 
       <Row label="Include dose in title">
-        <button onClick={() => setIncludeDose(!includeDose)} className="chip !py-1.5 font-bold"
-          style={{ color: includeDose ? 'var(--lime)' : 'var(--muted)' }}>
+        <button onClick={() => setIncludeDose(!includeDose)} className="chip !py-2 font-bold"
+          style={{ color: includeDose ? 'var(--good)' : 'var(--text-2)' }}>
           {includeDose ? 'On' : 'Off'}
         </button>
       </Row>
 
-      <button onClick={doExport} className="btn-violet flex w-full items-center justify-center gap-2 rounded-full py-2.5 text-sm font-black">
+      <button onClick={doExport} className="btn-primary flex w-full items-center justify-center gap-2 rounded-full py-3 text-sm font-black">
         <CalendarPlus size={16} /> Download .ics
       </button>
 
       {result && (
-        <p className="text-[11px] font-bold" style={{ color: result.ok ? 'var(--lime)' : 'var(--coral)' }}>{result.msg}</p>
+        <p className="text-xs font-bold" style={{ color: result.ok ? 'var(--good)' : 'var(--danger)' }}>{result.msg}</p>
       )}
-      <p className="text-[10px] font-medium" style={{ color: 'var(--muted)' }}>
+      <p className="text-xs font-medium" style={{ color: 'var(--text-2)' }}>
         This is a <span className="font-bold" style={{ color: 'var(--text)' }}>snapshot</span> — titration changes won't update
         events already in your calendar. Re-export after you change your protocol.
       </p>

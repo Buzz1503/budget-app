@@ -67,31 +67,31 @@ export default function CalcTab() {
   const revDisplay = fromMg(revMg, unit)
 
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-3">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-black tracking-tight">Calc</h1>
         <motion.button whileTap={{ scale: 0.94 }} onClick={() => setReverse(!reverse)}
-          className="chip !py-1.5 font-bold" style={{ color: 'var(--indigo)' }}>
+          className="chip !py-2 font-bold" style={{ color: 'var(--text-2)' }}>
           <ArrowLeftRight size={13} /> {reverse ? 'units → dose' : 'dose → units'}
         </motion.button>
       </div>
 
       {/* where the numbers come from */}
-      <div className="flex rounded-full p-1" data-testid="calc-source" style={{ background: 'var(--surface2)' }}>
+      <div className="flex rounded-full p-1" data-testid="calc-source" style={{ background: 'var(--surface-sunk)' }}>
         {[['protocol', 'From my protocol'], ['manual', 'Manual / any peptide']].map(([m, label]) => (
           <button key={m} onClick={() => { setSource(m); setSaved(false); setSaving(false) }}
             aria-label={label} className="relative flex-1 rounded-full py-2 text-xs font-black">
             {source === m && (
               <motion.span layoutId="calc-source-pill" className="absolute inset-0 rounded-full"
-                style={{ backgroundImage: 'linear-gradient(135deg, var(--violet), var(--indigo))' }} />
+                style={{ background: 'var(--accent)' }} />
             )}
-            <span className="relative" style={{ color: source === m ? '#fff' : 'var(--muted)' }}>{label}</span>
+            <span className="relative" style={{ color: source === m ? 'var(--accent-fg)' : 'var(--text-2)' }}>{label}</span>
           </button>
         ))}
       </div>
 
       {manual ? (
-        <p className="px-1 text-[11px] font-semibold" data-testid="calc-manual-hint" style={{ color: 'var(--muted)' }}>
+        <p className="px-1 text-xs font-semibold" data-testid="calc-manual-hint" style={{ color: 'var(--text-2)' }}>
           No compound selected — enter whatever is on the vial in front of you. Nothing is saved
           to my protocol unless you ask.
         </p>
@@ -99,25 +99,25 @@ export default function CalcTab() {
         <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1" data-testid="calc-protocol-picker">
           {peptides.map((p) => (
             <button key={p.id} onClick={() => pick(p.id)}
-              className="shrink-0 rounded-full px-3.5 py-1.5 text-xs font-bold"
+              className="shrink-0 rounded-full px-4 py-2 text-xs font-bold"
               style={pid === p.id
-                ? { backgroundImage: 'linear-gradient(135deg, var(--lime), var(--lime-deep))', color: '#fff' }
-                : { background: 'var(--surface2)', color: 'var(--muted)' }}>
+                ? { background: 'var(--accent)', color: 'var(--accent-fg)' }
+                : { background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
               {p.name}
             </button>
           ))}
         </div>
       )}
 
-      <div className="card space-y-2.5 p-3">
+      <div className="card space-y-3 p-3">
         {/* preparation mode — reconstitution vs. a vial that's already in solution */}
-        <div className="flex gap-1.5">
+        <div className="flex gap-2">
           {[['recon', 'Reconstitute'], ['premixed', 'Pre-mixed solution']].map(([m, label]) => (
             <button key={m} onClick={() => setPrep(m)}
-              className="flex-1 rounded-full py-1.5 text-xs font-black"
+              className="flex-1 rounded-full py-2 text-xs font-black"
               style={prep === m
-                ? { backgroundImage: 'linear-gradient(135deg, var(--violet), var(--indigo))', color: '#fff' }
-                : { background: 'var(--surface2)', color: 'var(--muted)' }}>
+                ? { background: 'var(--accent)', color: 'var(--accent-fg)' }
+                : { background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
               {label}
             </button>
           ))}
@@ -126,31 +126,31 @@ export default function CalcTab() {
         {premixed ? (
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
-              <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>Concentration (mg/mL)</span>
+              <span className="mb-1 block text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-2)' }}>Concentration (mg/mL)</span>
               <NumberField value={concIn} onChange={(n) => setConcIn(n ?? 0)} min={0} />
             </label>
             <label className="block">
-              <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>Vial size (mL)</span>
+              <span className="mb-1 block text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-2)' }}>Vial size (mL)</span>
               <NumberField value={vialMl} onChange={(n) => setVialMl(n ?? 0)} min={0} />
             </label>
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
-              <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>Vial (mg)</span>
+              <span className="mb-1 block text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-2)' }}>Vial (mg)</span>
               <NumberField value={vialMg} onChange={(n) => setVialMg(n ?? 0)} min={0} />
             </label>
             <label className="block">
-              <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>BAC water (mL)</span>
+              <span className="mb-1 block text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-2)' }}>BAC water (mL)</span>
               <NumberField value={bacMl} onChange={(n) => setBacMl(n ?? 0)} min={0} />
             </label>
           </div>
         )}
-        <div className="rounded-2xl p-3 text-center" style={{ background: 'var(--surface2)' }}>
-          <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>Concentration</p>
-          <p className="text-xl font-extrabold">{conc ? `${round(conc, 3)} mg/mL` : '—'}</p>
+        <div className="rounded-[14px] p-3 text-center" style={{ background: 'var(--surface-sunk)' }}>
+          <p className="text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-2)' }}>Concentration</p>
+          <p className="text-base font-semibold num">{conc ? `${round(conc, 3)} mg/mL` : '—'}</p>
           {premixed && (
-            <p className="mt-0.5 text-[10px] font-semibold" style={{ color: 'var(--muted)' }}>
+            <p className="mt-1 text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
               As supplied — no powder to dissolve{+vialMl > 0 ? ` · ${round(premixedVialMg(+concIn || 0, +vialMl || 0), 1)} mg per vial` : ''}
             </p>
           )}
@@ -160,35 +160,35 @@ export default function CalcTab() {
           <>
             <div className="grid grid-cols-2 gap-3">
               <label className="block">
-                <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>Target dose</span>
+                <span className="mb-1 block text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-2)' }}>Target dose</span>
                 <NumberField value={doseVal} onChange={(n) => setDoseVal(n ?? 0)} min={0} />
               </label>
               <label className="block">
-                <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>Unit</span>
+                <span className="mb-1 block text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-2)' }}>Unit</span>
                 <select className="input" value={unit} onChange={(e) => setUnit(e.target.value)}>
                   <option value="mcg">mcg</option><option value="mg">mg</option>
                 </select>
               </label>
             </div>
-            <motion.div layout className="rounded-2xl p-4 text-center"
-              style={{ backgroundImage: 'linear-gradient(135deg, color-mix(in srgb, var(--lime) 18%, transparent), color-mix(in srgb, var(--indigo) 14%, transparent))' }}>
-              <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>Draw</p>
-              <p className="text-4xl font-extrabold tracking-tight" style={{ color: 'var(--lime)' }}>
-                <CountUp value={isFinite(units) ? round(units, 1) : 0} decimals={1} /> <span className="text-xl">units</span>
+            <motion.div layout className="sunk p-5 text-center">
+              <p className="t-caption" style={{ color: 'var(--text-3)' }}>Draw</p>
+              <p className="t-metric" style={{ color: 'var(--text)' }}>
+                <CountUp value={isFinite(units) ? round(units, 1) : 0} decimals={1} />{' '}
+                <span className="t-metric-sm">units</span>
               </p>
-              <p className="mt-1 text-sm font-bold" style={{ color: 'var(--muted)' }}>
+              <p className="mt-2 text-xs font-medium" style={{ color: 'var(--text-2)' }}>
                 = <span style={{ color: 'var(--text)' }}>{round(ml, 3)} mL</span> {premixed ? '' : 'on a U-100 syringe'}
               </p>
               {premixed && (
-                <p className="mt-0.5 text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
+                <p className="mt-1 text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
                   {round(+doseVal || 0, 3)} {unit} ÷ {round(conc, 3)} mg/mL
                 </p>
               )}
             </motion.div>
             {premixed && (
-              <p className="flex items-start gap-1.5 rounded-2xl p-2.5 text-[11px] font-semibold"
-                style={{ background: 'color-mix(in srgb, var(--amber) 14%, transparent)', color: 'var(--amber)' }}>
-                <Droplet size={13} className="mt-0.5 shrink-0" />
+              <p className="flex items-start gap-2 rounded-[14px] p-3 text-xs font-semibold"
+                style={{ background: 'color-mix(in srgb, var(--warn) 14%, transparent)', color: 'var(--warn)' }}>
+                <Droplet size={13} className="mt-1 shrink-0" />
                 <span>
                   Oil is viscous — it draws and pushes far slower than water. Use a wider needle to draw, swap to a fresh one to inject, and go slowly.
                 </span>
@@ -199,16 +199,16 @@ export default function CalcTab() {
         ) : (
           <>
             <label className="block">
-              <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>Units drawn (U-100)</span>
+              <span className="mb-1 block text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-2)' }}>Units drawn (U-100)</span>
               <NumberField value={unitsIn} onChange={(n) => setUnitsIn(n ?? 0)} min={0} />
             </label>
-            <motion.div layout className="rounded-2xl p-4 text-center"
-              style={{ backgroundImage: 'linear-gradient(135deg, color-mix(in srgb, var(--violet) 18%, transparent), color-mix(in srgb, var(--indigo) 14%, transparent))' }}>
-              <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>Delivered dose</p>
-              <p className="text-4xl font-extrabold tracking-tight" style={{ color: 'var(--violet)' }}>
-                <CountUp value={isFinite(revDisplay) ? round(revDisplay, unit === 'mcg' ? 0 : 3) : 0} decimals={unit === 'mcg' ? 0 : 2} /> <span className="text-xl">{unit}</span>
+            <motion.div layout className="rounded-[14px] p-4 text-center"
+              style={{ background: 'var(--surface-sunk)' }}>
+              <p className="text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-2)' }}>Delivered dose</p>
+              <p className="text-2xl font-extrabold tracking-tight" style={{ color: 'var(--text)' }}>
+                <CountUp value={isFinite(revDisplay) ? round(revDisplay, unit === 'mcg' ? 0 : 3) : 0} decimals={unit === 'mcg' ? 0 : 2} /> <span className="t-metric-sm">{unit}</span>
               </p>
-              <p className="mt-1 text-sm font-bold" style={{ color: 'var(--muted)' }}>= {round(unitsToMl(+unitsIn || 0), 3)} mL</p>
+              <p className="mt-1 text-sm font-bold" style={{ color: 'var(--text-2)' }}>= {round(unitsToMl(+unitsIn || 0), 3)} mL</p>
             </motion.div>
             <Syringe units={+unitsIn || 0} />
           </>
@@ -219,27 +219,27 @@ export default function CalcTab() {
       {manual && (
         <div data-testid="calc-save">
           {saved ? (
-            <p className="flex items-center justify-center gap-1.5 rounded-2xl py-2.5 text-xs font-black"
-              style={{ background: 'color-mix(in srgb, var(--lime) 16%, transparent)', color: 'var(--lime)' }}>
+            <p className="flex items-center justify-center gap-2 rounded-[14px] py-3 text-xs font-black"
+              style={{ background: 'color-mix(in srgb, var(--good) 16%, transparent)', color: 'var(--good)' }}>
               <Check size={14} /> Added to my protocol
             </p>
           ) : saving ? (
             <div className="card space-y-2 p-3">
               <label className="block">
-                <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>
+                <span className="mb-1 block text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-2)' }}>
                   Name it
                 </span>
                 <input className="input" autoFocus value={saveName} aria-label="New compound name"
                   placeholder="e.g. Ipamorelin" onChange={(e) => setSaveName(e.target.value)} />
               </label>
-              <p className="text-[10px] font-medium" style={{ color: 'var(--muted)' }}>
+              <p className="text-xs font-medium" style={{ color: 'var(--text-2)' }}>
                 Saves the vial and water you entered. Dose, schedule and cycle are yours to set in
                 the Library — nothing is guessed.
               </p>
               <div className="flex gap-2">
                 <button onClick={() => { setSaving(false); setSaveName('') }}
                   className="flex-1 rounded-full py-2 text-xs font-black"
-                  style={{ background: 'var(--surface2)', color: 'var(--muted)' }}>
+                  style={{ background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
                   Cancel
                 </button>
                 <button
@@ -261,15 +261,15 @@ export default function CalcTab() {
             </div>
           ) : (
             <button onClick={() => setSaving(true)}
-              className="flex w-full items-center justify-center gap-1.5 rounded-full py-2.5 text-xs font-black"
-              style={{ background: 'var(--surface2)', color: 'var(--muted)' }}>
+              className="flex w-full items-center justify-center gap-2 rounded-full py-3 text-xs font-black"
+              style={{ background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
               <Plus size={14} /> Save this to my protocol
             </button>
           )}
         </div>
       )}
 
-      <p className="px-1 text-[10px] font-medium" style={{ color: 'var(--muted)' }}>
+      <p className="px-1 text-xs font-medium" style={{ color: 'var(--text-2)' }}>
         U-100 insulin syringe: 1 unit = 0.01 mL. {manual
           ? 'Manual mode works from the numbers you type — no compound, no library entry, nothing stored.'
           : 'Selecting a compound pre-fills its own defaults and switches to the right mode — pre-mixed vials are divided by their label concentration, with no reconstitution step.'}

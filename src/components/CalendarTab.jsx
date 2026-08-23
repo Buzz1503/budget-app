@@ -76,16 +76,16 @@ export default function CalendarTab({ goTo }) {
     : format(parseISO(monthStart(anchor)), 'MMMM yyyy')
 
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
         <h1 className="text-2xl font-black tracking-tight">Calendar</h1>
-        <div className="flex rounded-full p-1" style={{ background: 'var(--surface2)' }}>
+        <div className="flex rounded-full p-1" style={{ background: 'var(--surface-sunk)' }}>
           {[['week', 'Week', CalendarDays], ['month', 'Month', CalendarRange]].map(([id, label, Icon]) => (
             <button key={id} onClick={() => setView(id)}
-              className="relative flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-black">
+              className="relative flex items-center gap-1 rounded-full px-3 py-2 text-xs font-black">
               {view === id && <motion.span layoutId="cal-view-pill" className="absolute inset-0 rounded-full"
-                style={{ backgroundImage: 'linear-gradient(135deg, var(--violet), var(--indigo))' }} />}
-              <span className="relative flex items-center gap-1" style={{ color: view === id ? '#fff' : 'var(--muted)' }}>
+                style={{ background: 'var(--accent)' }} />}
+              <span className="relative flex items-center gap-1" style={{ color: view === id ? 'var(--accent-fg)' : 'var(--text-2)' }}>
                 <Icon size={13} /> {label}
               </span>
             </button>
@@ -101,17 +101,17 @@ export default function CalendarTab({ goTo }) {
       {/* period nav */}
       <div className="flex items-center gap-2">
         <button onClick={() => step(-1)} aria-label="Previous period"
-          className="rounded-full p-2" style={{ background: 'var(--surface2)' }}>
+          className="rounded-full p-2" style={{ background: 'var(--surface-sunk)' }}>
           <ChevronLeft size={18} />
         </button>
         <p className="flex-1 text-center text-sm font-black">{title}</p>
         <button onClick={() => step(1)} aria-label="Next period"
-          className="rounded-full p-2" style={{ background: 'var(--surface2)' }}>
+          className="rounded-full p-2" style={{ background: 'var(--surface-sunk)' }}>
           <ChevronRight size={18} />
         </button>
         {!atToday && (
-          <button onClick={() => setAnchor(t)} className="rounded-full px-2.5 py-2 text-xs font-black"
-            style={{ background: 'var(--lime)', color: '#fff' }}>
+          <button onClick={() => setAnchor(t)} className="rounded-full px-3 py-2 text-xs font-black"
+            style={{ background: 'var(--accent)', color: 'var(--accent-fg)' }}>
             Today
           </button>
         )}
@@ -126,7 +126,7 @@ export default function CalendarTab({ goTo }) {
       <DayDetail date={detail} day={detail ? cal.byDate[detail] : null} grouped={cal.grouped}
         onClose={() => setDetail(null)} goTo={goTo} />
 
-      <p className="px-1 pb-2 text-[10px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+      <p className="px-1 pb-2 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
         Personal tracking tool — not medical advice. Projected doses assume you confirm each step-up;
         nothing advances on its own.
       </p>
@@ -139,20 +139,20 @@ function WeekView({ cal, onOpenDay }) {
   const sum = useMemo(() => weekSummary(cal.days), [cal.days])
 
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-3">
       <motion.div layout className="card p-3"
-        style={{ backgroundImage: 'linear-gradient(135deg, color-mix(in srgb, var(--indigo) 12%, var(--surface)), var(--surface))' }}>
-        <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--indigo)' }}>This week</p>
+        style={{ background: 'var(--surface-sunk)' }}>
+        <p className="mb-2 text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-2)' }}>This week</p>
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs font-bold">
-          <span className="flex items-center gap-1"><SyringeIcon size={12} style={{ color: 'var(--lime)' }} />
+          <span className="flex items-center gap-1"><SyringeIcon size={12} style={{ color: 'var(--good)' }} />
             {sum.shots} shot{sum.shots === 1 ? '' : 's'} · {sum.doses} dose{sum.doses === 1 ? '' : 's'}</span>
-          {sum.stepUps > 0 && <span className="flex items-center gap-1" style={{ color: 'var(--violet)' }}><Zap size={12} /> {sum.stepUps} step-up{sum.stepUps === 1 ? '' : 's'}</span>}
-          {sum.expiring > 0 && <span style={{ color: 'var(--coral)' }}>🧪 {sum.expiring} vial expiring</span>}
-          {sum.restocks > 0 && <span style={{ color: 'var(--coral)' }}>📦 {sum.restocks} restock due</span>}
-          {sum.deliveries > 0 && <span style={{ color: 'var(--indigo)' }}>🚚 {sum.deliveries} delivery</span>}
+          {sum.stepUps > 0 && <span className="flex items-center gap-1" style={{ color: 'var(--text)' }}><Zap size={12} /> {sum.stepUps} step-up{sum.stepUps === 1 ? '' : 's'}</span>}
+          {sum.expiring > 0 && <span style={{ color: 'var(--danger)' }}>🧪 {sum.expiring} vial expiring</span>}
+          {sum.restocks > 0 && <span style={{ color: 'var(--danger)' }}>📦 {sum.restocks} restock due</span>}
+          {sum.deliveries > 0 && <span style={{ color: 'var(--text-2)' }}>🚚 {sum.deliveries} delivery</span>}
         </div>
         {!cal.grouped && sum.doses > 0 && (
-          <p className="mt-1 text-[10px] font-semibold" style={{ color: 'var(--muted)' }}>
+          <p className="mt-1 text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
             Checking which shots can share a syringe…
           </p>
         )}
@@ -172,13 +172,13 @@ function DayRow({ day: d, index, onOpen }) {
       className="card w-full p-3 text-left"
       data-testid={`cal-day-${d.date}`}
       style={d.isToday
-        ? { borderColor: 'var(--lime)', boxShadow: '0 0 0 1.5px var(--lime)' }
+        ? { borderColor: 'var(--good)', boxShadow: '0 0 0 1.5px var(--good)' }
         : undefined}>
       <div className="flex items-center gap-2">
-        <span className="flex h-9 w-9 shrink-0 flex-col items-center justify-center rounded-2xl leading-none"
+        <span className="flex h-9 w-9 shrink-0 flex-col items-center justify-center rounded-[14px] leading-none"
           style={d.isToday
-            ? { backgroundImage: 'linear-gradient(135deg, var(--lime), var(--lime-deep))', color: '#fff' }
-            : { background: 'var(--surface2)', color: 'var(--muted)' }}>
+            ? { background: 'var(--accent)', color: 'var(--accent-fg)' }
+            : { background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
           <span className="text-[8px] font-black uppercase">{DOW[(d.weekday + 6) % 7]}</span>
           <span className="text-xs font-black">{format(parseISO(d.date), 'd')}</span>
         </span>
@@ -186,15 +186,15 @@ function DayRow({ day: d, index, onOpen }) {
           <span className="block text-xs font-black">
             {d.isToday ? 'Today' : format(parseISO(d.date), 'EEEE')}
             {d.scheduled > 0 && (
-              <span className="ml-1.5 font-bold" style={{ color: 'var(--muted)' }}>
+              <span className="ml-2 font-bold" style={{ color: 'var(--text-2)' }}>
                 · {d.shots} shot{d.shots === 1 ? '' : 's'}
               </span>
             )}
           </span>
-          {empty && <span className="block text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>Nothing scheduled</span>}
+          {empty && <span className="block text-xs font-semibold" style={{ color: 'var(--text-2)' }}>Nothing scheduled</span>}
         </span>
         {d.scheduled > 0 && (
-          <span className="chip shrink-0 !py-0.5 text-[10px] font-black"
+          <span className="chip shrink-0 !py-1 text-xs font-black"
             style={{ color: ADHERENCE_TONE[d.adherence] }}>
             {d.adherence === 'all' ? <Check size={11} /> : null}
             {d.isPast || d.isToday ? ADHERENCE_WORDS[d.adherence] : `${d.scheduled} due`}
@@ -204,9 +204,9 @@ function DayRow({ day: d, index, onOpen }) {
 
       {['AM', 'PM'].map((slot) => (
         d.slots[slot].length > 0 && (
-          <div key={slot} className="mt-2 rounded-2xl p-2" style={{ background: 'var(--surface2)' }}>
-            <p className="mb-1 flex items-center gap-1 text-[10px] font-black uppercase tracking-wide"
-              style={{ color: slot === 'AM' ? 'var(--amber)' : 'var(--indigo)' }}>
+          <div key={slot} className="mt-2 rounded-[14px] p-2" style={{ background: 'var(--surface-sunk)' }}>
+            <p className="mb-1 flex items-center gap-1 text-xs font-black uppercase tracking-wide"
+              style={{ color: 'var(--text-2)' }}>
               {slot === 'AM' ? <Sun size={11} /> : <Moon size={11} />} {slot}
             </p>
             <SlotLines day={d} slot={slot} />
@@ -215,9 +215,9 @@ function DayRow({ day: d, index, onOpen }) {
       ))}
 
       {d.events.length > 0 && (
-        <div className="mt-2 space-y-0.5">
+        <div className="mt-2 space-y-1">
           {groupEvents(d.events).map((e, i) => (
-            <p key={i} className="flex items-start gap-1.5 text-[11px] font-bold" style={{ color: EVENT_META[e.kind].tone }}>
+            <p key={i} className="flex items-start gap-2 text-xs font-bold" style={{ color: EVENT_META[e.kind].tone }}>
               <span className="shrink-0">{EVENT_META[e.kind].glyph}</span>
               <span className="min-w-0">{e.text}</span>
             </p>
@@ -241,33 +241,33 @@ function SlotLines({ day: d, slot }) {
         const entries = g.items.map((it) => byId[it.id]).filter(Boolean)
         const allTaken = entries.length > 0 && entries.every((e) => e.taken)
         return (
-          <p key={i} className="flex items-start gap-1.5 text-[11px] font-bold leading-snug">
+          <p key={i} className="flex items-start gap-2 text-xs font-bold leading-snug">
             {many
-              ? <Layers size={11} className="mt-0.5 shrink-0" style={{ color: 'var(--lime)' }} />
-              : <SyringeIcon size={11} className="mt-0.5 shrink-0" style={{ color: 'var(--muted)' }} />}
+              ? <Layers size={11} className="mt-1 shrink-0" style={{ color: 'var(--good)' }} />
+              : <SyringeIcon size={11} className="mt-1 shrink-0" style={{ color: 'var(--text-2)' }} />}
             <span className="min-w-0 flex-1">
               {entries.map((e, j) => (
                 <span key={e.peptideId}>
-                  {j > 0 && <span style={{ color: 'var(--lime)' }}> + </span>}
-                  <span style={allTaken ? { color: 'var(--lime)' } : undefined}>{e.name}</span>
-                  <span className="font-semibold" style={{ color: 'var(--muted)' }}> {formatDose(e.dose, e.unit)}</span>
+                  {j > 0 && <span style={{ color: 'var(--good)' }}> + </span>}
+                  <span style={allTaken ? { color: 'var(--good)' } : undefined}>{e.name}</span>
+                  <span className="font-semibold" style={{ color: 'var(--text-2)' }}> {formatDose(e.dose, e.unit)}</span>
                 </span>
               ))}
-              <span className="ml-1" style={{ color: 'var(--lime)' }}>{formatUnitsLong(g.units)}</span>
-              {many && <span className="font-semibold" style={{ color: 'var(--muted)' }}> · one syringe</span>}
+              <span className="ml-1" style={{ color: 'var(--good)' }}>{formatUnitsLong(g.units)}</span>
+              {many && <span className="font-semibold" style={{ color: 'var(--text-2)' }}> · one syringe</span>}
             </span>
-            {allTaken && <Check size={12} className="mt-0.5 shrink-0" strokeWidth={3} style={{ color: 'var(--lime)' }} />}
+            {allTaken && <Check size={12} className="mt-1 shrink-0" strokeWidth={3} style={{ color: 'var(--good)' }} />}
           </p>
         )
       })}
       {nasal.map((e) => (
-        <p key={e.peptideId} className="flex items-start gap-1.5 text-[11px] font-bold leading-snug">
-          <Wind size={11} className="mt-0.5 shrink-0" style={{ color: 'var(--indigo)' }} />
+        <p key={e.peptideId} className="flex items-start gap-2 text-xs font-bold leading-snug">
+          <Wind size={11} className="mt-1 shrink-0" style={{ color: 'var(--text-2)' }} />
           <span className="min-w-0 flex-1">
-            <span style={e.taken ? { color: 'var(--lime)' } : undefined}>{e.name}</span>
-            <span className="font-semibold" style={{ color: 'var(--muted)' }}> {formatDose(e.dose, e.unit)} · nasal</span>
+            <span style={e.taken ? { color: 'var(--good)' } : undefined}>{e.name}</span>
+            <span className="font-semibold" style={{ color: 'var(--text-2)' }}> {formatDose(e.dose, e.unit)} · nasal</span>
           </span>
-          {e.taken && <Check size={12} className="mt-0.5 shrink-0" strokeWidth={3} style={{ color: 'var(--lime)' }} />}
+          {e.taken && <Check size={12} className="mt-1 shrink-0" strokeWidth={3} style={{ color: 'var(--good)' }} />}
         </p>
       ))}
     </div>
@@ -281,11 +281,11 @@ function MonthView({ cal, anchor, onOpenDay }) {
   const tally = useMemo(() => adherenceTally(monthDays), [monthDays])
 
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-3">
       <div className="card p-2">
         <div className="grid grid-cols-7 gap-1">
           {DOW.map((w) => (
-            <p key={w} className="text-center text-[9px] font-black uppercase" style={{ color: 'var(--muted)' }}>{w[0]}</p>
+            <p key={w} className="text-center text-xs font-black uppercase" style={{ color: 'var(--text-2)' }}>{w[0]}</p>
           ))}
           {cal.days.map((d) => (
             <MonthCell key={d.date} day={d} muted={!inMonth(d.date)} onOpen={() => onOpenDay(d.date)} />
@@ -295,12 +295,12 @@ function MonthView({ cal, anchor, onOpenDay }) {
 
       {/* heatmap legend — colours are labelled, never colour alone */}
       <div className="card p-3">
-        <p className="mb-2 text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--violet)' }}>
+        <p className="mb-2 text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text)' }}>
           Adherence this month{tally.pct != null ? ` · ${tally.pct}% fully done` : ''}
         </p>
-        <div className="flex flex-wrap gap-x-3 gap-y-1.5">
+        <div className="flex flex-wrap gap-x-3 gap-y-2">
           {['all', 'partial', 'missed', 'pending', 'future'].map((k) => (
-            <span key={k} className="flex items-center gap-1.5 text-[11px] font-bold">
+            <span key={k} className="flex items-center gap-2 text-xs font-bold">
               <span className="h-3 w-3 rounded" style={{ background: ADHERENCE_TONE[k] }} />
               {ADHERENCE_WORDS[k]}{k !== 'future' && k !== 'pending' ? ` · ${tally[k]}` : ''}
             </span>
@@ -321,11 +321,11 @@ function MonthCell({ day: d, muted, onOpen }) {
       style={{
         background: d.adherence === 'none' ? 'transparent' : `color-mix(in srgb, ${tone} ${d.adherence === 'future' ? 60 : 26}%, transparent)`,
         opacity: muted ? 0.32 : 1,
-        border: d.isToday ? '1.5px solid var(--lime)' : '1px solid transparent',
+        border: d.isToday ? '1.5px solid var(--good)' : '1px solid transparent',
       }}>
-      <span className="text-[11px] font-black leading-none">{format(parseISO(d.date), 'd')}</span>
+      <span className="text-xs font-black leading-none">{format(parseISO(d.date), 'd')}</span>
       {d.scheduled > 0 && (
-        <span className="mt-0.5 text-[8px] font-black leading-none" style={{ color: tone }}>
+        <span className="mt-1 text-[8px] font-black leading-none" style={{ color: tone }}>
           {d.shots}
         </span>
       )}
@@ -342,15 +342,15 @@ function DayDetail({ date, day, grouped, onClose, goTo }) {
   if (!date) return null
   return (
     <Modal open={!!date} onClose={onClose} title={format(parseISO(date), 'EEEE d MMMM')} wide>
-      <div className="space-y-2.5">
+      <div className="space-y-3">
         {day && day.scheduled === 0 && day.events.length === 0 && (
-          <p className="py-4 text-center text-sm font-bold" style={{ color: 'var(--muted)' }}>
+          <p className="py-4 text-center text-sm font-bold" style={{ color: 'var(--text-2)' }}>
             Nothing scheduled — a clear day.
           </p>
         )}
 
         {day && day.scheduled > 0 && (
-          <p className="text-xs font-bold" style={{ color: 'var(--muted)' }}>
+          <p className="text-xs font-bold" style={{ color: 'var(--text-2)' }}>
             {day.shots} shot{day.shots === 1 ? '' : 's'} · {day.scheduled} dose{day.scheduled === 1 ? '' : 's'}
             {(day.isPast || day.isToday) && ` · ${day.done} logged`}
             {day.isFuture && ' · projected'}
@@ -359,9 +359,9 @@ function DayDetail({ date, day, grouped, onClose, goTo }) {
 
         {['AM', 'PM'].map((slot) => (
           day?.slots[slot].length > 0 && (
-            <div key={slot} className="rounded-2xl p-3" style={{ background: 'var(--surface2)' }}>
-              <p className="mb-1.5 flex items-center gap-1 text-[10px] font-black uppercase tracking-wide"
-                style={{ color: slot === 'AM' ? 'var(--amber)' : 'var(--indigo)' }}>
+            <div key={slot} className="rounded-[14px] p-3" style={{ background: 'var(--surface-sunk)' }}>
+              <p className="mb-2 flex items-center gap-1 text-xs font-black uppercase tracking-wide"
+                style={{ color: 'var(--text-2)' }}>
                 {slot === 'AM' ? <Sun size={11} /> : <Moon size={11} />} {slot}
               </p>
               <SlotLines day={day} slot={slot} />
@@ -371,9 +371,9 @@ function DayDetail({ date, day, grouped, onClose, goTo }) {
 
         {day?.events.length > 0 && (
           <div className="space-y-1">
-            <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>On this day</p>
+            <p className="text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-2)' }}>On this day</p>
             {day.events.map((e, i) => (
-              <p key={i} className="flex items-start gap-1.5 text-xs font-bold" style={{ color: EVENT_META[e.kind].tone }}>
+              <p key={i} className="flex items-start gap-2 text-xs font-bold" style={{ color: EVENT_META[e.kind].tone }}>
                 <span className="shrink-0">{EVENT_META[e.kind].glyph}</span>
                 <span>{e.text}{e.dose ? ` — ${formatDose(e.dose, e.unit)}` : ''}</span>
               </p>
@@ -383,12 +383,12 @@ function DayDetail({ date, day, grouped, onClose, goTo }) {
 
         {day?.isToday && (
           <button onClick={() => { onClose(); goTo?.('today') }}
-            className="btn-primary w-full rounded-full py-2.5 text-sm font-black">
+            className="btn-primary w-full rounded-full py-3 text-sm font-black">
             Go to today's list to log
           </button>
         )}
         {!grouped && day?.scheduled > 1 && (
-          <p className="text-[10px] font-medium" style={{ color: 'var(--muted)' }}>
+          <p className="text-xs font-medium" style={{ color: 'var(--text-2)' }}>
             Co-draw grouping is still loading, so each dose is counted as its own syringe here.
           </p>
         )}
@@ -426,13 +426,13 @@ function IcsButton() {
   }
 
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-2">
       <button onClick={doExport}
-        className="btn-violet flex w-full items-center justify-center gap-2 rounded-full py-2.5 text-sm font-black">
+        className="btn-primary flex w-full items-center justify-center gap-2 rounded-full py-3 text-sm font-black">
         <CalendarPlus size={16} /> Add to phone calendar
       </button>
-      {msg && <p className="text-[11px] font-bold" style={{ color: msg.ok ? 'var(--lime)' : 'var(--coral)' }}>{msg.text}</p>}
-      <p className="text-[10px] font-medium" style={{ color: 'var(--muted)' }}>
+      {msg && <p className="text-xs font-bold" style={{ color: msg.ok ? 'var(--good)' : 'var(--danger)' }}>{msg.text}</p>}
+      <p className="text-xs font-medium" style={{ color: 'var(--text-2)' }}>
         A snapshot — re-export after you change your protocol, because events already in your
         phone's calendar won't update themselves.
       </p>
@@ -451,24 +451,24 @@ export function NextSevenDays({ goTo }) {
       initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
       className="card w-full p-3 text-left" data-testid="next-7-days">
       <div className="mb-2 flex items-center justify-between">
-        <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--indigo)' }}>Next 7 days</p>
-        <span className="flex items-center gap-0.5 text-[10px] font-bold" style={{ color: 'var(--muted)' }}>
+        <p className="text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-2)' }}>Next 7 days</p>
+        <span className="flex items-center gap-1 text-xs font-bold" style={{ color: 'var(--text-2)' }}>
           Calendar <ChevronRight size={12} />
         </span>
       </div>
-      <div className="flex gap-1.5">
+      <div className="flex gap-2">
         {cal.days.map((d) => (
           <div key={d.date} className="flex flex-1 flex-col items-center gap-1">
-            <span className="text-[9px] font-black uppercase" style={{ color: d.isToday ? 'var(--lime)' : 'var(--muted)' }}>
+            <span className="text-xs font-black uppercase" style={{ color: d.isToday ? 'var(--good)' : 'var(--text-2)' }}>
               {DOW[(d.weekday + 6) % 7][0]}
             </span>
-            <span className="flex h-9 w-full flex-col items-center justify-center rounded-lg text-[11px] font-black"
+            <span className="flex h-9 w-full flex-col items-center justify-center rounded-[10px] text-xs font-black"
               style={{
                 background: d.scheduled === 0
-                  ? 'var(--surface2)'
+                  ? 'var(--surface-sunk)'
                   : `color-mix(in srgb, ${ADHERENCE_TONE[d.adherence]} 26%, transparent)`,
-                border: d.isToday ? '1.5px solid var(--lime)' : '1px solid transparent',
-                color: d.scheduled === 0 ? 'var(--muted)' : 'var(--text)',
+                border: d.isToday ? '1.5px solid var(--good)' : '1px solid transparent',
+                color: d.scheduled === 0 ? 'var(--text-2)' : 'var(--text)',
               }}>
               {d.scheduled === 0 ? '–' : d.shots}
               {d.events.length > 0 && (
@@ -478,7 +478,7 @@ export function NextSevenDays({ goTo }) {
           </div>
         ))}
       </div>
-      <p className="mt-1.5 text-[10px] font-semibold" style={{ color: 'var(--muted)' }}>
+      <p className="mt-2 text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
         Number of shots each day · tap for the full calendar
       </p>
     </motion.button>

@@ -30,12 +30,12 @@ export default function SupplementsTab() {
   const cautions = useMemo(() => allCautions(supplements), [supplements])
 
   return (
-    <div className="space-y-2.5" data-testid="supplements-view">
+    <div className="space-y-3" data-testid="supplements-view">
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-black tracking-tight">
-          <Pill size={22} style={{ color: 'var(--amber)' }} /> Supplements
+          <Pill size={22} style={{ color: 'var(--warn)' }} /> Supplements
         </h1>
-        <p className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>
+        <p className="text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
           What you take by mouth — {supplements.length} on the shelf
         </p>
       </div>
@@ -45,9 +45,9 @@ export default function SupplementsTab() {
         <div className="space-y-2" data-testid="supplement-cautions">
           {cautions.map((c) => (
             <div key={c.id} className="card p-3"
-              style={{ background: 'color-mix(in srgb, var(--amber) 12%, var(--surface))' }}>
-              <p className="flex items-start gap-2 text-[11px] font-semibold leading-relaxed">
-                <AlertTriangle size={14} className="mt-px shrink-0" style={{ color: 'var(--amber)' }} />
+              style={{ background: 'color-mix(in srgb, var(--warn) 12%, var(--surface))' }}>
+              <p className="flex items-start gap-2 text-xs font-semibold leading-relaxed">
+                <AlertTriangle size={14} className="mt-px shrink-0" style={{ color: 'var(--warn)' }} />
                 <span>
                   <span className="font-black">{c.name}</span> — {c.text}
                 </span>
@@ -64,9 +64,9 @@ export default function SupplementsTab() {
 
       {supplements.length === 0 && (
         <div className="card p-5 text-center">
-          <Pill size={22} className="mx-auto mb-2" style={{ color: 'var(--muted)' }} />
+          <Pill size={22} className="mx-auto mb-2" style={{ color: 'var(--text-2)' }} />
           <p className="text-sm font-black">Nothing on the shelf yet</p>
-          <p className="mt-1 text-[12px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+          <p className="mt-1 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
             Add from the library — the ones you already own are listed first — or enter your own.
           </p>
         </div>
@@ -74,8 +74,8 @@ export default function SupplementsTab() {
 
       {SLOTS.map((slot) => slots[slot].length > 0 && (
         <div key={slot} data-testid={`supplement-slot-${slot}`}>
-          <p className="mb-1.5 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide"
-            style={{ color: slot === 'AM' ? 'var(--amber)' : 'var(--indigo)' }}>
+          <p className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wide"
+            style={{ color: slot === 'AM' ? 'var(--warn)' : 'var(--info)' }}>
             {slot === 'AM' ? <Sun size={12} /> : <Moon size={12} />} {slot === 'AM' ? 'Morning' : 'Evening'} · {slots[slot].length}
           </p>
           <div className="space-y-2">
@@ -87,7 +87,7 @@ export default function SupplementsTab() {
         </div>
       ))}
 
-      <p className="px-1 pb-1 text-[10px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+      <p className="px-1 pb-1 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
         {SUPPLEMENT_NOTE}
       </p>
 
@@ -102,19 +102,18 @@ function SupplementRow({ supplement: s, onEdit, onRemove }) {
   return (
     <motion.div layout className="card overflow-hidden">
       <button onClick={() => setOpen(!open)} className="flex w-full items-center gap-3 p-3 text-left">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl"
-          style={{ background: 'color-mix(in srgb, var(--amber) 16%, transparent)', color: 'var(--amber)' }}>
+        <div className="flex shrink-0 items-center justify-center" style={{ color: 'var(--text-3)' }}>
           <FormIcon form={s.form} size={16} />
         </div>
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-bold leading-tight">{s.name}</p>
-          <p className="truncate text-[11px] font-semibold leading-tight" style={{ color: 'var(--muted)' }}>
+          <p className="truncate text-xs font-semibold leading-tight" style={{ color: 'var(--text-2)' }}>
             {s.dose || 'no dose set'}{s.brand ? ` · ${s.brand}` : ''} · {FORM_LABEL[s.form] || s.form}
           </p>
         </div>
-        {s.caution && <AlertTriangle size={14} className="shrink-0" style={{ color: 'var(--amber)' }} />}
+        {s.caution && <AlertTriangle size={14} className="shrink-0" style={{ color: 'var(--warn)' }} />}
         <ChevronRight size={16} className="shrink-0 transition-transform"
-          style={{ color: 'var(--muted)', transform: open ? 'rotate(90deg)' : 'none' }} />
+          style={{ color: 'var(--text-2)', transform: open ? 'rotate(90deg)' : 'none' }} />
       </button>
 
       <AnimatePresence initial={false}>
@@ -123,23 +122,23 @@ function SupplementRow({ supplement: s, onEdit, onRemove }) {
             exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
             <div className="space-y-2 px-3 pb-3">
               {s.doseNote && (
-                <p className="text-[11px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+                <p className="text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
                   {s.doseNote}
                 </p>
               )}
               {s.caution && (
-                <p className="flex items-start gap-1.5 rounded-lg p-2 text-[11px] font-semibold leading-relaxed"
-                  style={{ background: 'color-mix(in srgb, var(--amber) 14%, transparent)', color: 'var(--amber)' }}>
+                <p className="flex items-start gap-2 rounded-[10px] p-2 text-xs font-semibold leading-relaxed"
+                  style={{ background: 'color-mix(in srgb, var(--warn) 14%, transparent)', color: 'var(--warn)' }}>
                   <AlertTriangle size={12} className="mt-px shrink-0" /> <span>{s.caution}</span>
                 </p>
               )}
               <div className="flex gap-2">
-                <button onClick={onEdit} className="flex-1 rounded-full py-2 text-[11px] font-black"
-                  style={{ background: 'var(--surface2)' }}>
+                <button onClick={onEdit} className="flex-1 rounded-full py-2 text-xs font-black"
+                  style={{ background: 'var(--surface-sunk)' }}>
                   Edit
                 </button>
                 <button onClick={onRemove} aria-label={`Remove ${s.name}`}
-                  className="rounded-full px-3 py-2" style={{ background: 'var(--surface2)', color: 'var(--coral)' }}>
+                  className="rounded-full px-3 py-2" style={{ background: 'var(--surface-sunk)', color: 'var(--danger)' }}>
                   <Trash2 size={13} />
                 </button>
               </div>
@@ -169,24 +168,24 @@ function AddSupplement({ open, onClose }) {
 
   return (
     <Modal open={open} onClose={close} title="Add a supplement">
-      <div className="flex rounded-full p-1" style={{ background: 'var(--surface2)' }}>
+      <div className="flex rounded-full p-1" style={{ background: 'var(--surface-sunk)' }}>
         {[['library', 'From the library'], ['manual', 'Enter my own']].map(([m, label]) => (
           <button key={m} onClick={() => setMode(m)} aria-label={label}
             className="relative flex-1 rounded-full py-2 text-xs font-black">
             {mode === m && (
               <motion.span layoutId="sup-add-pill" className="absolute inset-0 rounded-full"
-                style={{ backgroundImage: 'linear-gradient(135deg, var(--violet), var(--indigo))' }} />
+                style={{ background: 'var(--accent)' }} />
             )}
-            <span className="relative" style={{ color: mode === m ? '#fff' : 'var(--muted)' }}>{label}</span>
+            <span className="relative" style={{ color: mode === m ? 'var(--accent-fg)' : 'var(--text-2)' }}>{label}</span>
           </button>
         ))}
       </div>
 
       {mode === 'library' ? (
-        <div className="mt-3 space-y-2.5" data-testid="supplement-library">
+        <div className="mt-3 space-y-3" data-testid="supplement-library">
           <div className="relative">
-            <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--muted)' }} />
-            <input className="input pl-9" placeholder="Search supplements…" aria-label="Search supplements"
+            <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-2)' }} />
+            <input className="input pl-10" placeholder="Search supplements…" aria-label="Search supplements"
               value={query} onChange={(e) => setQuery(e.target.value)} />
           </div>
 
@@ -196,13 +195,13 @@ function AddSupplement({ open, onClose }) {
             rows={rest} have={have} onPick={(r) => { addSupplement(fromLibrary(r)); close() }} />
 
           {results.length === 0 && (
-            <p className="py-4 text-center text-xs font-semibold" style={{ color: 'var(--muted)' }}>
+            <p className="py-4 text-center text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
               Nothing matches “{query}”. Enter it yourself instead.
             </p>
           )}
         </div>
       ) : (
-        <div className="mt-3 space-y-2.5" data-testid="supplement-manual">
+        <div className="mt-3 space-y-3" data-testid="supplement-manual">
           <Field label="Name">
             <input className="input" value={draft.name} aria-label="Supplement name"
               placeholder="e.g. Magnesium glycinate"
@@ -224,13 +223,13 @@ function AddSupplement({ open, onClose }) {
               onChange={(e) => setDraft({ ...draft, dose: e.target.value })} />
           </Field>
           <Field label="When">
-            <div className="flex gap-1.5">
+            <div className="flex gap-2">
               {SLOTS.map((sl) => (
                 <button key={sl} onClick={() => setDraft({ ...draft, slot: sl })}
-                  className="flex flex-1 items-center justify-center gap-1.5 rounded-full py-2 text-xs font-black"
+                  className="flex flex-1 items-center justify-center gap-2 rounded-full py-2 text-xs font-black"
                   style={draft.slot === sl
-                    ? { backgroundImage: 'linear-gradient(135deg, var(--violet), var(--indigo))', color: '#fff' }
-                    : { background: 'var(--surface2)', color: 'var(--muted)' }}>
+                    ? { background: 'var(--accent)', color: 'var(--accent-fg)' }
+                    : { background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
                   {sl === 'AM' ? <Sun size={13} /> : <Moon size={13} />} {sl === 'AM' ? 'Morning' : 'Evening'}
                 </button>
               ))}
@@ -251,28 +250,28 @@ function LibraryGroup({ title, hint, rows, have, onPick, testid }) {
   if (!rows.length) return null
   return (
     <div data-testid={testid}>
-      <p className="mb-1 text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>
+      <p className="mb-1 text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-2)' }}>
         {title} · {rows.length}
       </p>
-      <p className="mb-1.5 text-[10px] font-medium" style={{ color: 'var(--muted)' }}>{hint}</p>
-      <div className="space-y-1.5">
+      <p className="mb-2 text-xs font-medium" style={{ color: 'var(--text-2)' }}>{hint}</p>
+      <div className="space-y-2">
         {rows.map((r) => {
           const added = have.has(r.id)
           return (
             <button key={r.id} disabled={added} onClick={() => onPick(r)}
-              className="flex w-full items-center gap-2.5 rounded-full p-2.5 text-left disabled:opacity-45"
-              style={{ background: 'var(--surface2)' }}>
-              <FormIcon form={r.form} size={15} style={{ color: 'var(--amber)', flexShrink: 0 }} />
+              className="flex w-full items-center gap-3 rounded-full p-3 text-left disabled:opacity-45"
+              style={{ background: 'var(--surface-sunk)' }}>
+              <FormIcon form={r.form} size={15} style={{ color: 'var(--warn)', flexShrink: 0 }} />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-[12px] font-bold leading-tight">{r.name}</p>
-                <p className="truncate text-[10px] font-semibold leading-tight" style={{ color: 'var(--muted)' }}>
+                <p className="truncate text-xs font-bold leading-tight">{r.name}</p>
+                <p className="truncate text-xs font-semibold leading-tight" style={{ color: 'var(--text-2)' }}>
                   {r.optimal_dose} · {defaultSlotFor(r)}{r.brand && r.brand !== '(any)' ? ` · ${r.brand}` : ''}
                 </p>
               </div>
-              {r.caution && <AlertTriangle size={12} className="shrink-0" style={{ color: 'var(--amber)' }} />}
+              {r.caution && <AlertTriangle size={12} className="shrink-0" style={{ color: 'var(--warn)' }} />}
               {added
-                ? <Check size={14} className="shrink-0" style={{ color: 'var(--lime)' }} />
-                : <Plus size={14} className="shrink-0" style={{ color: 'var(--muted)' }} />}
+                ? <Check size={14} className="shrink-0" style={{ color: 'var(--good)' }} />
+                : <Plus size={14} className="shrink-0" style={{ color: 'var(--text-2)' }} />}
             </button>
           )
         })}
@@ -301,7 +300,7 @@ function EditSupplement({ supplement, onClose }) {
 
   return (
     <Modal open={!!supplement} onClose={() => { setDraft(null); onClose() }} title={supplement.name}>
-      <div className="space-y-2.5">
+      <div className="space-y-3">
         <Field label="Name">
           <input className="input" value={current.name} aria-label="Supplement name"
             onChange={(e) => set({ name: e.target.value })} />
@@ -321,21 +320,21 @@ function EditSupplement({ supplement, onClose }) {
             onChange={(e) => set({ dose: e.target.value })} />
         </Field>
         <Field label="When">
-          <div className="flex gap-1.5">
+          <div className="flex gap-2">
             {SLOTS.map((sl) => (
               <button key={sl} onClick={() => set({ slot: sl })}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-full py-2 text-xs font-black"
+                className="flex flex-1 items-center justify-center gap-2 rounded-full py-2 text-xs font-black"
                 style={current.slot === sl
-                  ? { backgroundImage: 'linear-gradient(135deg, var(--violet), var(--indigo))', color: '#fff' }
-                  : { background: 'var(--surface2)', color: 'var(--muted)' }}>
+                  ? { background: 'var(--accent)', color: 'var(--accent-fg)' }
+                  : { background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
                 {sl === 'AM' ? <Sun size={13} /> : <Moon size={13} />} {sl === 'AM' ? 'Morning' : 'Evening'}
               </button>
             ))}
           </div>
         </Field>
         {current.doseNote && (
-          <p className="flex items-start gap-1.5 text-[11px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
-            <Info size={12} className="mt-px shrink-0" style={{ color: 'var(--indigo)' }} />
+          <p className="flex items-start gap-2 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
+            <Info size={12} className="mt-px shrink-0" style={{ color: 'var(--text-2)' }} />
             <span>{current.doseNote}</span>
           </p>
         )}
@@ -350,7 +349,7 @@ function EditSupplement({ supplement, onClose }) {
 function Field({ label, children }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>
+      <span className="mb-1 block text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-2)' }}>
         {label}
       </span>
       {children}

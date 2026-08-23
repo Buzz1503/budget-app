@@ -403,7 +403,7 @@ await step('tap targets on the new screens are at least 40px tall', async () => 
 // =========================================================== 7 · regressions
 
 await step('the five-tab nav is untouched', async () => {
-  const labels = (await page.locator('nav button span.font-bold').allTextContents()).map((s) => s.trim())
+  const labels = (await page.locator('nav button span:not(:has(svg))').allTextContents()).map((s) => s.trim())
   if (labels.join('|') !== 'Home|Calendar|Symptoms|Body|More') {
     throw new Error(`nav is [${labels.join(', ')}]`)
   }

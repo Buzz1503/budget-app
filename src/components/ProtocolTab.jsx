@@ -88,36 +88,36 @@ export default function ProtocolTab({ goTo }) {
   }
 
   return (
-    <div className="space-y-2.5" data-testid="protocol-overview">
+    <div className="space-y-3" data-testid="protocol-overview">
       <div className="flex items-start justify-between gap-2">
         <div>
           <h1 className="text-2xl font-black tracking-tight">My protocol</h1>
-          <p className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>
+          <p className="text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
             Everything I'm currently taking, at a glance.
           </p>
         </div>
-        <span className="chip shrink-0 !py-1.5" style={{ color: 'var(--lime)' }}>
+        <span className="chip shrink-0 !py-2" style={{ color: 'var(--good)' }}>
           {rows.length} compound{rows.length === 1 ? '' : 's'}
         </span>
       </div>
 
       <div className="flex gap-2">
         <button onClick={() => goTo?.('wizard')} data-testid="protocol-build"
-          className="btn-primary flex flex-1 items-center justify-center gap-1.5 rounded-full py-2.5 text-xs font-black">
+          className="btn-primary flex flex-1 items-center justify-center gap-2 rounded-full py-3 text-xs font-black">
           <Wand2 size={14} /> Build / rebuild
         </button>
         <button onClick={exportIt} data-testid="protocol-export"
-          className="flex items-center justify-center gap-1.5 rounded-full px-3.5 py-2.5 text-xs font-black"
-          style={{ background: 'var(--surface2)', color: 'var(--indigo)' }}>
+          className="flex items-center justify-center gap-2 rounded-full px-4 py-3 text-xs font-black"
+          style={{ background: 'var(--surface-sunk)', color: 'var(--info)' }}>
           <Share2 size={13} /> Export
         </button>
       </div>
 
       {rows.length === 0 && (
-        <div className="card p-5 text-center" style={{ color: 'var(--muted)' }}>
+        <div className="card p-5 text-center" style={{ color: 'var(--text-2)' }}>
           <p className="text-sm font-bold">Nothing in my protocol yet.</p>
           <button onClick={() => goTo?.('wizard')}
-            className="btn-primary mt-3 flex w-full items-center justify-center gap-1.5 rounded-full py-2.5 text-xs font-black">
+            className="btn-primary mt-3 flex w-full items-center justify-center gap-2 rounded-full py-3 text-xs font-black">
             <Plus size={14} /> Build it
           </button>
         </div>
@@ -131,57 +131,55 @@ export default function ProtocolTab({ goTo }) {
             onClick={() => setSheetId(r.p.id)}
             data-testid="protocol-row"
             className="card flex w-full items-start gap-3 p-3 text-left">
-            <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
-              style={{ background: 'color-mix(in srgb, var(--lime) 16%, transparent)', color: 'var(--lime)' }}>
+            <div className="mt-1 flex shrink-0 items-center justify-center" style={{ color: 'var(--text-3)' }}>
               {isNasal(r.p) ? <Wind size={16} /> : <Syringe size={16} />}
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-bold leading-tight">{r.p.name}</p>
-              <p className="truncate text-[11px] font-semibold leading-tight" style={{ color: 'var(--muted)' }}>
+              <p className="truncate text-xs font-semibold leading-tight" style={{ color: 'var(--text-2)' }}>
                 {r.needsSetup
                   ? 'no dose set yet'
                   : `${formatDose(r.dose, r.p.ladder?.unit)} · ${FREQ_LABELS[r.p.frequency] || r.p.frequency} · ${r.p.slot || 'AM'}`}
               </p>
-              <p className="truncate text-[10px] font-medium leading-tight" style={{ color: 'var(--muted)' }}>
+              <p className="truncate text-xs font-medium leading-tight" style={{ color: 'var(--text-2)' }}>
                 {daysWords(r.p)} · {isNasal(r.p) ? 'Nasal' : (r.p.route || 'SubQ')}
                 {' · '}
                 {r.cyc.ongoing ? 'ongoing' : `cycle day ${r.cyc.cycleDay} ${r.cyc.isOn ? 'on' : 'off'}`}
               </p>
-              <p className="mt-0.5 flex items-center gap-1 truncate text-[10px] font-bold leading-tight"
-                style={{ color: r.unlinked ? 'var(--amber)' : r.runway?.low ? 'var(--amber)' : 'var(--muted)' }}>
+              <p className="mt-1 flex items-center gap-1 truncate text-xs font-bold leading-tight"
+                style={{ color: r.unlinked ? 'var(--warn)' : r.runway?.low ? 'var(--warn)' : 'var(--text-2)' }}>
                 {r.unlinked
                   ? <><AlertTriangle size={10} /> not in stock — still scheduled</>
                   : <><Package size={10} /> {r.runway && isFinite(r.runway.days) ? `${durationWords(r.runway.days)} left` : `${r.sealed} sealed`}</>}
               </p>
             </div>
-            <ChevronRight size={16} className="mt-1 shrink-0" style={{ color: 'var(--muted)' }} />
+            <ChevronRight size={16} className="mt-1 shrink-0" style={{ color: 'var(--text-2)' }} />
           </motion.button>
         ))}
       </div>
 
       {supplements.length > 0 && (
         <>
-          <p className="px-1 pt-2 text-[10px] font-black uppercase tracking-wide" style={{ color: 'var(--amber)' }}>
+          <p className="px-1 pt-2 text-xs font-black uppercase tracking-wide" style={{ color: 'var(--warn)' }}>
             Supplements
           </p>
           <button onClick={() => goTo?.('supplements')}
             className="card flex w-full items-center gap-3 p-3 text-left">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
-              style={{ background: 'color-mix(in srgb, var(--amber) 16%, transparent)', color: 'var(--amber)' }}>
+            <div className="flex shrink-0 items-center justify-center" style={{ color: 'var(--text-3)' }}>
               <Pill size={16} />
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-bold leading-tight">{supplements.length} taken by mouth</p>
-              <p className="truncate text-[11px] font-semibold leading-tight" style={{ color: 'var(--muted)' }}>
+              <p className="truncate text-xs font-semibold leading-tight" style={{ color: 'var(--text-2)' }}>
                 {supplements.slice(0, 3).map((s) => s.name).join(', ')}{supplements.length > 3 ? '…' : ''}
               </p>
             </div>
-            <ChevronRight size={16} className="shrink-0" style={{ color: 'var(--muted)' }} />
+            <ChevronRight size={16} className="shrink-0" style={{ color: 'var(--text-2)' }} />
           </button>
         </>
       )}
 
-      <p className="px-1 pb-1 text-[10px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+      <p className="px-1 pb-1 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
         This screen shows; it never edits. Tap any compound for its reference data, your own history and
         your notes — dose and schedule are changed in Build / rebuild, so there is only ever one version
         of the truth.

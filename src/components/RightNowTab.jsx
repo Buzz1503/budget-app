@@ -19,23 +19,23 @@ export default function RightNowTab() {
   const resting = rows.filter((r) => r.info.phase === 'Off')
 
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-3">
       <div>
         <h1 className="text-2xl font-black tracking-tight">Right Now</h1>
-        <p className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>
+        <p className="text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
           What my protocol is doing for me today · {active.length} active
         </p>
       </div>
 
-      <div className="card flex items-start gap-2 p-3" style={{ background: 'color-mix(in srgb, var(--lime) 8%, var(--surface))' }}>
-        <Activity size={14} className="mt-0.5 shrink-0" style={{ color: 'var(--lime)' }} />
-        <p className="text-[11px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+      <div className="card flex items-start gap-2 p-3" style={{ background: 'color-mix(in srgb, var(--good) 8%, var(--surface))' }}>
+        <Activity size={14} className="mt-1 shrink-0" style={{ color: 'var(--good)' }} />
+        <p className="text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
           A live, anecdotal read of expected effects by cycle phase — <span className="font-bold" style={{ color: 'var(--text)' }}>not a clinical promise</span>. Everyone responds differently.
         </p>
       </div>
 
       {active.length === 0 && (
-        <div className="card p-5 text-center text-sm font-medium" style={{ color: 'var(--muted)' }}>
+        <div className="card p-5 text-center text-sm font-medium" style={{ color: 'var(--text-2)' }}>
           Nothing active today — my whole protocol is resting. 🌙
         </div>
       )}
@@ -44,12 +44,12 @@ export default function RightNowTab() {
 
       {resting.length > 0 && (
         <div className="card p-3">
-          <p className="mb-2 flex items-center gap-1.5 text-sm font-bold" style={{ color: 'var(--muted)' }}>
+          <p className="mb-2 flex items-center gap-2 text-sm font-bold" style={{ color: 'var(--text-2)' }}>
             <Moon size={14} /> Resting off-cycle
           </p>
           <div className="flex flex-wrap gap-2">
             {resting.map(({ p }) => (
-              <span key={p.id} className="chip" style={{ color: 'var(--muted)' }}>{p.name}</span>
+              <span key={p.id} className="chip" style={{ color: 'var(--text-2)' }}>{p.name}</span>
             ))}
           </div>
         </div>
@@ -73,7 +73,7 @@ function PhaseCard({ peptide: p, info, tState, index }) {
       <div className="flex items-start justify-between gap-2">
         <div>
           <h3 className="text-base font-bold">{p.name}</h3>
-          <p className="text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>{narr.tagline}</p>
+          <p className="text-xs font-semibold" style={{ color: 'var(--text-2)' }}>{narr.tagline}</p>
         </div>
         <span className="chip !py-1 font-extrabold" style={{ background: `color-mix(in srgb, ${phaseMeta.color} 20%, transparent)`, color: phaseMeta.color }}>
           <Zap size={12} /> {phaseMeta.label}
@@ -87,7 +87,7 @@ function PhaseCard({ peptide: p, info, tState, index }) {
             const isCur = ph === info.phase
             const passed = PHASES[ph].order < phaseMeta.order
             return (
-              <div key={ph} className="h-2 flex-1 overflow-hidden rounded-full" style={{ background: 'var(--surface2)' }}>
+              <div key={ph} className="h-2 flex-1 overflow-hidden rounded-full" style={{ background: 'var(--surface-sunk)' }}>
                 <motion.div
                   className="h-full rounded-full"
                   initial={false}
@@ -99,7 +99,7 @@ function PhaseCard({ peptide: p, info, tState, index }) {
             )
           })}
         </div>
-        <div className="mt-1 flex justify-between text-[9px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>
+        <div className="mt-1 flex justify-between text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-2)' }}>
           {PHASE_ORDER.map((ph) => (
             <span key={ph} style={ph === info.phase ? { color: phaseMeta.color } : undefined}>{ph}</span>
           ))}
@@ -108,16 +108,16 @@ function PhaseCard({ peptide: p, info, tState, index }) {
 
       <p className="mt-3 text-sm font-medium leading-relaxed">{narr.text}</p>
 
-      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
+      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
         <span>
           {info.ongoing ? `Day ${info.onDay} · ongoing` : `Day ${info.onDay}/${info.onDays} on-cycle`}
         </span>
-        <span style={{ color: 'var(--violet)' }}>Rung {level + 1}/{maxLevel + 1} · {formatDose(dose, p.ladder.unit)}</span>
-        <span className="rounded-md px-1.5 py-0.5" style={{ background: 'var(--surface2)' }}>{narr.tempo === 'per-dose' ? 'acts per dose' : 'cumulative'}</span>
+        <span style={{ color: 'var(--text)' }}>Rung {level + 1}/{maxLevel + 1} · {formatDose(dose, p.ladder.unit)}</span>
+        <span className="rounded-[10px] px-2 py-1" style={{ background: 'var(--surface-sunk)' }}>{narr.tempo === 'per-dose' ? 'acts per dose' : 'cumulative'}</span>
       </div>
 
       {next && (
-        <p className="mt-2 text-[11px] font-bold" style={{ color: phaseMeta.color }}>{next}</p>
+        <p className="mt-2 text-xs font-bold" style={{ color: phaseMeta.color }}>{next}</p>
       )}
     </motion.div>
   )

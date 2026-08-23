@@ -67,7 +67,7 @@ if (await modal().count()) {
 
 // ---------- 1. five-tab nav ----------
 await step('bottom nav shows exactly Home · Calendar · Symptoms · Body · More', async () => {
-  const labels = await page.locator('nav button span.font-bold').allTextContents()
+  const labels = await page.locator('nav button span:not(:has(svg))').allTextContents()
   const got = labels.map((s) => s.trim())
   if (got.join('|') !== 'Home|Calendar|Symptoms|Body|More') {
     throw new Error(`nav is [${got.join(', ')}]`)
@@ -225,7 +225,7 @@ await step('Home carries a next-7-days strip that opens the Calendar', async () 
 // ---------- 3. merged stock + restock ----------
 await step('Stock and restock are one screen', async () => {
   await nav('More')
-  const links = await page.locator('button.card p.text-sm').allTextContents()
+  const links = await page.locator('button[data-testid^="more-"] span.t-label').allTextContents()
   const stockish = links.filter((l) => /stock/i.test(l))
   if (stockish.length !== 1) throw new Error(`More lists ${stockish.length} stock screens: ${stockish.join(', ')}`)
   await page.click('text=Vials I own, run-out dates')

@@ -72,31 +72,31 @@ export default function CompoundSheet({ open, compoundId, onClose, goTo }) {
 
   return (
     <Modal open={open} onClose={onClose} title={name} wide>
-      <div className="space-y-2.5" data-testid="compound-sheet">
+      <div className="space-y-3" data-testid="compound-sheet">
         {/* what this compound is, to this app */}
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-2">
           {reference?.tier && <TierBadge tier={reference.tier} confidence={reference.confidence} />}
-          <span className="rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide"
+          <span className="rounded-[10px] px-2 py-1 text-xs font-bold uppercase tracking-wide"
             style={peptide
-              ? { background: 'color-mix(in srgb, var(--lime) 18%, transparent)', color: 'var(--lime)' }
-              : { background: 'var(--surface2)', color: 'var(--muted)' }}>
+              ? { background: 'color-mix(in srgb, var(--good) 18%, transparent)', color: 'var(--good)' }
+              : { background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
             {peptide ? 'in my protocol' : 'not in my protocol'}
           </span>
           {batches.length > 0 && (
-            <span className="rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide"
-              style={{ background: 'color-mix(in srgb, var(--amber) 18%, transparent)', color: 'var(--amber)' }}>
+            <span className="rounded-[10px] px-2 py-1 text-xs font-bold uppercase tracking-wide"
+              style={{ background: 'color-mix(in srgb, var(--warn) 18%, transparent)', color: 'var(--warn)' }}>
               {sealedCount(vials, compoundId)} in stock
             </span>
           )}
         </div>
 
-        <div className="flex gap-1.5">
+        <div className="flex gap-2">
           {[['about', 'About'], ['mine', 'My settings'], ['history', 'History']].map(([id, label]) => (
             <button key={id} onClick={() => setTab(id)} data-testid={`sheet-tab-${id}`}
-              className="flex-1 rounded-full py-1.5 text-[11px] font-black"
+              className="flex-1 rounded-full py-2 text-xs font-black"
               style={tab === id
-                ? { backgroundImage: 'linear-gradient(135deg, var(--violet), var(--indigo))', color: '#fff' }
-                : { background: 'var(--surface2)', color: 'var(--muted)' }}>
+                ? { background: 'var(--accent)', color: 'var(--accent-fg)' }
+                : { background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
               {label}
             </button>
           ))}
@@ -132,33 +132,33 @@ export default function CompoundSheet({ open, compoundId, onClose, goTo }) {
 function AboutTab({ reference, name }) {
   if (!reference) {
     return (
-      <p className="py-6 text-center text-xs font-semibold" style={{ color: 'var(--muted)' }}>
+      <p className="py-6 text-center text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
         No reference entry for {name}. Everything about it is whatever you set.
       </p>
     )
   }
   const text = protocolTextFrom(reference)
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-3">
       {reference.mechanism && (
-        <p className="text-[11px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+        <p className="text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
           <span className="font-black" style={{ color: 'var(--text)' }}>How it works. </span>
           {reference.mechanism}
         </p>
       )}
       {reference.human_data && (
-        <p className="text-[11px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+        <p className="text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
           <span className="font-black" style={{ color: 'var(--text)' }}>Human data. </span>
           {reference.human_data}
         </p>
       )}
 
       {text && !text.excluded && (text.doseText || text.frequencyText || text.cycleText) && (
-        <div className="rounded-2xl p-3" style={{ background: 'var(--surface2)' }}>
-          <p className="text-[10px] font-black uppercase tracking-wide" style={{ color: 'var(--indigo)' }}>
+        <div className="rounded-[14px] p-3" style={{ background: 'var(--surface-sunk)' }}>
+          <p className="text-xs font-black uppercase tracking-wide" style={{ color: 'var(--text-2)' }}>
             Dosing reference
           </p>
-          <div className="mt-1.5 space-y-1 text-[11px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+          <div className="mt-2 space-y-1 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
             {text.doseText && <p><span className="font-black" style={{ color: 'var(--text)' }}>Dose. </span>{text.doseText}</p>}
             {text.frequencyText && <p><span className="font-black" style={{ color: 'var(--text)' }}>Frequency. </span>{text.frequencyText}</p>}
             {text.cycleText && <p><span className="font-black" style={{ color: 'var(--text)' }}>Cycle. </span>{text.cycleText}</p>}
@@ -166,8 +166,8 @@ function AboutTab({ reference, name }) {
         </div>
       )}
       {text?.excluded && (
-        <p className="flex items-start gap-1.5 rounded-2xl p-3 text-[11px] font-bold"
-          style={{ background: 'color-mix(in srgb, var(--rose) 12%, transparent)', color: 'var(--rose)' }}>
+        <p className="flex items-start gap-2 rounded-[14px] p-3 text-xs font-bold"
+          style={{ background: 'color-mix(in srgb, var(--danger) 12%, transparent)', color: 'var(--danger)' }}>
           <AlertTriangle size={13} className="mt-px shrink-0" />
           Dosing is deliberately withheld for this compound — read the safety notes below.
         </p>
@@ -187,9 +187,9 @@ function AboutTab({ reference, name }) {
 
 function Row({ label, value, tone }) {
   return (
-    <div className="flex items-baseline justify-between gap-3 py-1.5">
-      <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>{label}</span>
-      <span className="text-right text-[12px] font-black" style={{ color: tone || 'var(--text)' }}>{value}</span>
+    <div className="flex items-baseline justify-between gap-3 py-2">
+      <span className="text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-2)' }}>{label}</span>
+      <span className="text-right text-xs font-black" style={{ color: tone || 'var(--text)' }}>{value}</span>
     </div>
   )
 }
@@ -197,13 +197,13 @@ function Row({ label, value, tone }) {
 function MineTab({ peptide, rung, cyc, runway, unlinked, batches, note, onNote, onEdit }) {
   if (!peptide) {
     return (
-      <div className="space-y-2.5">
-        <p className="text-[11px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+      <div className="space-y-3">
+        <p className="text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
           This one isn't in my protocol — it's{batches.length ? ' just stock on the shelf' : ' only in the catalogue'}.
           Nothing is scheduled for it and nothing is logged against it.
         </p>
         <button onClick={onEdit} data-testid="add-to-protocol"
-          className="btn-primary flex w-full items-center justify-center gap-1.5 rounded-full py-2.5 text-xs font-black">
+          className="btn-primary flex w-full items-center justify-center gap-2 rounded-full py-3 text-xs font-black">
           <Plus size={14} /> Add it to my protocol
         </button>
       </div>
@@ -215,9 +215,9 @@ function MineTab({ peptide, rung, cyc, runway, unlinked, batches, note, onNote, 
   const conc = concentration(peptide.recon?.vialMg, peptide.recon?.bacMl)
 
   return (
-    <div className="space-y-2.5">
-      <div className="rounded-2xl px-3 py-1" style={{ background: 'var(--surface2)' }}>
-        <Row label="Dose now" value={rung ? formatDose(rung.dose, peptide.ladder?.unit) : '—'} tone="var(--lime)" />
+    <div className="space-y-3">
+      <div className="rounded-[14px] px-3 py-1" style={{ background: 'var(--surface-sunk)' }}>
+        <Row label="Dose now" value={rung ? formatDose(rung.dose, peptide.ladder?.unit) : '—'} tone="var(--good)" />
         <Row label="Ladder" value={peptide.ladder?.ceiling > 0
           ? `${formatDose(peptide.ladder.floor, peptide.ladder.unit)} → ${formatDose(peptide.ladder.ceiling, peptide.ladder.unit)}`
           : 'not set'} />
@@ -232,17 +232,17 @@ function MineTab({ peptide, rung, cyc, runway, unlinked, batches, note, onNote, 
             : 'not set'} />
         )}
         <Row label="Cycle" value={cyc?.ongoing ? 'Ongoing' : `Day ${cyc?.cycleDay} · ${cyc?.isOn ? 'on' : 'off'}`}
-          tone={cyc && !cyc.ongoing && !cyc.isOn ? 'var(--muted)' : undefined} />
+          tone={cyc && !cyc.ongoing && !cyc.isOn ? 'var(--text-2)' : undefined} />
         <Row label="Started" value={prettyDate(peptide.startDate)} />
       </div>
 
       {/* the vial behind it, or the honest absence of one */}
-      <div className="rounded-2xl p-3" style={{ background: 'var(--surface2)' }}>
-        <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wide"
-          style={{ color: unlinked ? 'var(--amber)' : 'var(--lime)' }}>
+      <div className="rounded-[14px] p-3" style={{ background: 'var(--surface-sunk)' }}>
+        <p className="flex items-center gap-2 text-xs font-black uppercase tracking-wide"
+          style={{ color: unlinked ? 'var(--warn)' : 'var(--good)' }}>
           <Package size={12} /> {unlinked ? 'Not in stock' : 'Stock'}
         </p>
-        <p className="mt-1 text-[11px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+        <p className="mt-1 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
           {unlinked
             ? 'This still schedules and still logs — there is just no vial behind it, so nothing is being drawn down.'
             : runway && isFinite(runway.days)
@@ -253,7 +253,7 @@ function MineTab({ peptide, rung, cyc, runway, unlinked, batches, note, onNote, 
 
       {/* my own words about it */}
       <div>
-        <p className="mb-1 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wide" style={{ color: 'var(--violet)' }}>
+        <p className="mb-1 flex items-center gap-2 text-xs font-black uppercase tracking-wide" style={{ color: 'var(--text)' }}>
           <StickyNote size={12} /> My notes
         </p>
         <textarea className="input min-h-[72px] resize-y" value={note} aria-label="My notes"
@@ -262,11 +262,11 @@ function MineTab({ peptide, rung, cyc, runway, unlinked, batches, note, onNote, 
       </div>
 
       <button onClick={onEdit} data-testid="edit-in-wizard"
-        className="flex w-full items-center justify-center gap-1.5 rounded-full py-2.5 text-xs font-black"
-        style={{ background: 'var(--surface2)', color: 'var(--violet)' }}>
+        className="flex w-full items-center justify-center gap-2 rounded-full py-3 text-xs font-black"
+        style={{ background: 'var(--surface-sunk)', color: 'var(--text)' }}>
         <Pencil size={13} /> Edit dose &amp; schedule in Build / rebuild
       </button>
-      <p className="text-center text-[10px] font-medium" style={{ color: 'var(--muted)' }}>
+      <p className="text-center text-xs font-medium" style={{ color: 'var(--text-2)' }}>
         Everything above is set in one place, so no two screens can disagree about it.
       </p>
     </div>
@@ -288,37 +288,37 @@ function HistoryTabPane({ logs, skips, peptide, onEdit, onAdd }) {
     <div className="space-y-2">
       {peptide && (
         <button onClick={onAdd} data-testid="backfill-open"
-          className="flex w-full items-center justify-center gap-1.5 rounded-full py-2.5 text-xs font-black"
-          style={{ background: 'color-mix(in srgb, var(--lime) 16%, transparent)', color: 'var(--lime)' }}>
+          className="flex w-full items-center justify-center gap-2 rounded-full py-3 text-xs font-black"
+          style={{ background: 'color-mix(in srgb, var(--good) 16%, transparent)', color: 'var(--good)' }}>
           <Plus size={14} /> Add a dose I forgot to log
         </button>
       )}
 
-      <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>
+      <p className="text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-2)' }}>
         {logs.length} dose{logs.length === 1 ? '' : 's'}{skips.length ? ` · ${skips.length} skipped` : ''}
       </p>
 
       {rows.length === 0 && (
-        <p className="py-6 text-center text-xs font-semibold" style={{ color: 'var(--muted)' }}>
+        <p className="py-6 text-center text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
           Nothing logged for this one yet.
         </p>
       )}
 
-      <div className="space-y-1.5" data-testid="compound-history">
+      <div className="space-y-2" data-testid="compound-history">
         {rows.map((r) => r.kind === 'dose' ? (
-          <div key={r.log.id} className="flex items-center gap-2.5 rounded-2xl p-2.5" data-testid="history-row"
-            style={{ background: 'var(--surface2)' }}>
-            <Syringe size={14} className="shrink-0" style={{ color: 'var(--lime)' }} />
+          <div key={r.log.id} className="flex items-center gap-3 rounded-[14px] p-3" data-testid="history-row"
+            style={{ background: 'var(--surface-sunk)' }}>
+            <Syringe size={14} className="shrink-0" style={{ color: 'var(--good)' }} />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[12px] font-black leading-tight">
+              <p className="truncate text-xs font-black leading-tight">
                 {formatDose(r.log.doseValue, r.log.unit)}
                 {r.log.insulinUnits != null && (
-                  <span className="ml-1.5 text-[10px] font-bold" style={{ color: 'var(--muted)' }}>
+                  <span className="ml-2 text-xs font-bold" style={{ color: 'var(--text-2)' }}>
                     {r.log.insulinUnits} units
                   </span>
                 )}
               </p>
-              <p className="truncate text-[10px] font-semibold leading-tight" style={{ color: 'var(--muted)' }}>
+              <p className="truncate text-xs font-semibold leading-tight" style={{ color: 'var(--text-2)' }}>
                 {prettyDate(r.log.date)}
                 {r.log.siteId ? ` · ${SITE_BY_ID[r.log.siteId]?.label || r.log.siteId}` : ''}
                 {r.log.backfilled ? ' · added later' : ''}
@@ -328,17 +328,17 @@ function HistoryTabPane({ logs, skips, peptide, onEdit, onAdd }) {
             <button onClick={() => onEdit(r.log)} aria-label={`Edit the dose on ${r.log.date}`}
               data-testid="history-edit"
               className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full"
-              style={{ background: 'var(--surface-solid)', color: 'var(--muted)' }}>
+              style={{ background: 'var(--surface)', color: 'var(--text-2)' }}>
               <Pencil size={12} />
             </button>
           </div>
         ) : (
-          <div key={`${r.skip.peptideId}-${r.skip.date}`} className="flex items-center gap-2.5 rounded-2xl p-2.5"
-            data-testid="history-row" style={{ background: 'var(--surface2)', opacity: 0.75 }}>
-            <SkipForward size={14} className="shrink-0" style={{ color: 'var(--amber)' }} />
+          <div key={`${r.skip.peptideId}-${r.skip.date}`} className="flex items-center gap-3 rounded-[14px] p-3"
+            data-testid="history-row" style={{ background: 'var(--surface-sunk)', opacity: 0.75 }}>
+            <SkipForward size={14} className="shrink-0" style={{ color: 'var(--warn)' }} />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[12px] font-black leading-tight" style={{ color: 'var(--amber)' }}>Skipped</p>
-              <p className="truncate text-[10px] font-semibold leading-tight" style={{ color: 'var(--muted)' }}>
+              <p className="truncate text-xs font-black leading-tight" style={{ color: 'var(--warn)' }}>Skipped</p>
+              <p className="truncate text-xs font-semibold leading-tight" style={{ color: 'var(--text-2)' }}>
                 {prettyDate(r.skip.date)}{r.skip.reason ? ` · ${r.skip.reason}` : ''}
               </p>
             </div>
@@ -371,28 +371,28 @@ function BackfillModal({ peptide, onClose }) {
 
   return (
     <Modal open onClose={onClose} title={`Add a past ${peptide.name} dose`}>
-      <div className="space-y-2.5" data-testid="backfill-form">
-        <p className="text-[11px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+      <div className="space-y-3" data-testid="backfill-form">
+        <p className="text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
           Recorded exactly like a live one, at the dose your ladder was on — so your vial, your run-out
           date and your adherence all catch up with what actually happened.
         </p>
         <label className="block">
-          <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>
+          <span className="mb-1 block text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-2)' }}>
             Which day?
           </span>
           <input type="date" className="input" value={date} max={t} aria-label="Dose date"
             onChange={(e) => e.target.value && setDate(e.target.value)} />
         </label>
         {date > t && (
-          <p className="text-[11px] font-bold" style={{ color: 'var(--coral)' }}>
+          <p className="text-xs font-bold" style={{ color: 'var(--danger)' }}>
             That's in the future — a dose you haven't taken isn't a log.
           </p>
         )}
         <div className="flex gap-2">
-          <button onClick={onClose} className="flex-1 rounded-full py-2.5 text-xs font-black"
-            style={{ background: 'var(--surface2)', color: 'var(--muted)' }}>Cancel</button>
+          <button onClick={onClose} className="flex-1 rounded-full py-3 text-xs font-black"
+            style={{ background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>Cancel</button>
           <button onClick={save} disabled={!date || date > t} data-testid="backfill-save"
-            className="btn-primary flex-1 rounded-full py-2.5 text-xs font-black disabled:opacity-40">
+            className="btn-primary flex-1 rounded-full py-3 text-xs font-black disabled:opacity-40">
             Add it
           </button>
         </div>
@@ -425,48 +425,48 @@ function EditLogModal({ log, onClose }) {
   return (
     <Modal open onClose={onClose} title={confirmDelete ? 'Delete this dose?' : 'Correct this dose'}>
       {confirmDelete ? (
-        <div className="space-y-2.5" data-testid="confirm-delete-log">
-          <p className="text-[12px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+        <div className="space-y-3" data-testid="confirm-delete-log">
+          <p className="text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
             The dose on <span className="font-black" style={{ color: 'var(--text)' }}>{prettyDate(log.date)}</span> is
             removed from your history, and what it drew comes back into the vial. Your adherence and run-out
             date both move to match.
           </p>
           <div className="flex gap-2">
-            <button onClick={() => setConfirmDelete(false)} className="flex-1 rounded-full py-2.5 text-xs font-black"
-              style={{ background: 'var(--surface2)', color: 'var(--muted)' }}>Keep it</button>
+            <button onClick={() => setConfirmDelete(false)} className="flex-1 rounded-full py-3 text-xs font-black"
+              style={{ background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>Keep it</button>
             <button onClick={del} data-testid="confirm-delete-log-yes"
-              className="flex-1 rounded-full py-2.5 text-xs font-black"
-              style={{ background: 'color-mix(in srgb, var(--coral) 22%, transparent)', color: 'var(--coral)' }}>
+              className="flex-1 rounded-full py-3 text-xs font-black"
+              style={{ background: 'color-mix(in srgb, var(--danger) 22%, transparent)', color: 'var(--danger)' }}>
               Delete
             </button>
           </div>
         </div>
       ) : (
-        <div className="space-y-2.5" data-testid="edit-log-form">
+        <div className="space-y-3" data-testid="edit-log-form">
           <label className="block">
-            <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>Date</span>
+            <span className="mb-1 block text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-2)' }}>Date</span>
             <input type="date" className="input" value={date} max={t} aria-label="Log date"
               onChange={(e) => e.target.value && setDate(e.target.value)} />
           </label>
           <label className="block">
-            <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>
+            <span className="mb-1 block text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-2)' }}>
               Dose ({log.unit})
             </span>
             <NumberField value={dose} onChange={(v) => setDose(v ?? 0)} min={0} aria-label="Dose value" />
           </label>
-          <p className="text-[10px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+          <p className="text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
             Changing the dose moves the vial by the difference, not by a whole extra dose.
           </p>
           <div className="flex gap-2">
             <button onClick={() => setConfirmDelete(true)} data-testid="delete-log"
-              className="rounded-full px-3 py-2.5 text-xs font-black"
-              style={{ background: 'var(--surface2)', color: 'var(--coral)' }}>
+              className="rounded-full px-3 py-3 text-xs font-black"
+              style={{ background: 'var(--surface-sunk)', color: 'var(--danger)' }}>
               <Trash2 size={13} />
             </button>
-            <button onClick={onClose} className="flex-1 rounded-full py-2.5 text-xs font-black"
-              style={{ background: 'var(--surface2)', color: 'var(--muted)' }}>Cancel</button>
+            <button onClick={onClose} className="flex-1 rounded-full py-3 text-xs font-black"
+              style={{ background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>Cancel</button>
             <button onClick={save} data-testid="edit-log-save"
-              className="btn-primary flex-1 rounded-full py-2.5 text-xs font-black">Save</button>
+              className="btn-primary flex-1 rounded-full py-3 text-xs font-black">Save</button>
           </div>
         </div>
       )}

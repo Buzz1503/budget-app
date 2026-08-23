@@ -52,22 +52,22 @@ export default function HistoryTab() {
   const pct = summary.overall.pct
 
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-3">
       <div>
         <h1 className="text-2xl font-black tracking-tight">History</h1>
-        <p className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>
+        <p className="text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
           Your record — every dose, site and co-draw
         </p>
       </div>
 
       {/* window picker */}
-      <div className="flex gap-1.5">
+      <div className="flex gap-2">
         {WINDOWS.map((w) => (
           <button key={w.id} onClick={() => setDays(w.id)}
-            className="flex-1 rounded-full py-1.5 text-xs font-black"
+            className="flex-1 rounded-full py-2 text-xs font-black"
             style={days === w.id
-              ? { backgroundImage: 'linear-gradient(135deg, var(--violet), var(--indigo))', color: '#fff' }
-              : { background: 'var(--surface2)', color: 'var(--muted)' }}>
+              ? { background: 'var(--accent)', color: 'var(--accent-fg)' }
+              : { background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
             {w.label}
           </button>
         ))}
@@ -78,24 +78,24 @@ export default function HistoryTab() {
         <div className="flex items-center justify-between">
           <p className="text-sm font-bold">Adherence</p>
           <span className="text-2xl font-black tabular-nums"
-            style={{ color: pct == null ? 'var(--muted)' : pct >= 80 ? 'var(--lime)' : pct >= 50 ? 'var(--amber)' : 'var(--coral)' }}>
+            style={{ color: pct == null ? 'var(--text-2)' : pct >= 80 ? 'var(--good)' : pct >= 50 ? 'var(--warn)' : 'var(--danger)' }}>
             {pct == null ? '—' : `${pct}%`}
           </span>
         </div>
-        <p className="text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
+        <p className="text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
           {summary.overall.taken} of {summary.overall.scheduled} scheduled doses · last {days} days
         </p>
         {split.skipped > 0 && (
-          <p className="mt-1 flex flex-wrap items-center gap-x-2 text-[11px] font-bold" data-testid="skip-summary">
-            <span className="flex items-center gap-1" style={{ color: 'var(--violet)' }}>
+          <p className="mt-1 flex flex-wrap items-center gap-x-2 text-xs font-bold" data-testid="skip-summary">
+            <span className="flex items-center gap-1" style={{ color: 'var(--text)' }}>
               <SkipForward size={11} /> {split.skipped} skipped
             </span>
-            <span style={{ color: 'var(--muted)' }}>·</span>
-            <span style={{ color: 'var(--muted)' }}>{split.missed} missed</span>
+            <span style={{ color: 'var(--text-2)' }}>·</span>
+            <span style={{ color: 'var(--text-2)' }}>{split.missed} missed</span>
             {split.ofAttempted != null && (
               <>
-                <span style={{ color: 'var(--muted)' }}>·</span>
-                <span style={{ color: 'var(--lime)' }}>{split.ofAttempted}% of what you attempted</span>
+                <span style={{ color: 'var(--text-2)' }}>·</span>
+                <span style={{ color: 'var(--good)' }}>{split.ofAttempted}% of what you attempted</span>
               </>
             )}
           </p>
@@ -104,24 +104,24 @@ export default function HistoryTab() {
           <div className="mt-3 space-y-2">
             {summary.rows.map((r) => (
               <div key={r.peptideId}>
-                <div className="flex items-center justify-between text-[11px] font-bold">
+                <div className="flex items-center justify-between text-xs font-bold">
                   <span>{r.name}</span>
-                  <span className="tabular-nums" style={{ color: 'var(--muted)' }}>
+                  <span className="tabular-nums" style={{ color: 'var(--text-2)' }}>
                     {skippedPerPeptide[r.peptideId] > 0 && (
-                      <span style={{ color: 'var(--violet)' }}>{skippedPerPeptide[r.peptideId]} skipped · </span>
+                      <span style={{ color: 'var(--text)' }}>{skippedPerPeptide[r.peptideId]} skipped · </span>
                     )}
                     {r.taken}/{r.scheduled} · {r.pct}%
                   </span>
                 </div>
-                <div className="mt-0.5 h-1.5 overflow-hidden rounded-full" style={{ background: 'var(--surface2)' }}>
+                <div className="mt-1 h-1.5 overflow-hidden rounded-full" style={{ background: 'var(--surface-sunk)' }}>
                   <motion.div className="h-full rounded-full" initial={{ width: 0 }} animate={{ width: `${r.pct}%` }}
-                    style={{ background: r.pct >= 80 ? 'var(--lime)' : r.pct >= 50 ? 'var(--amber)' : 'var(--coral)' }} />
+                    style={{ background: r.pct >= 80 ? 'var(--good)' : r.pct >= 50 ? 'var(--warn)' : 'var(--danger)' }} />
                 </div>
               </div>
             ))}
           </div>
         ) : (
-          <p className="mt-3 text-xs font-medium" style={{ color: 'var(--muted)' }}>
+          <p className="mt-3 text-xs font-medium" style={{ color: 'var(--text-2)' }}>
             Nothing scheduled in this window yet.
           </p>
         )}
@@ -130,20 +130,20 @@ export default function HistoryTab() {
       {/* skipped — listed, not hidden: the record is the point */}
       {skipRows.length > 0 && (
         <div className="card p-3" data-testid="skip-list">
-          <p className="mb-2 flex items-center gap-1.5 text-sm font-bold">
-            <SkipForward size={14} style={{ color: 'var(--violet)' }} /> Skipped · {skipRows.length}
+          <p className="mb-2 flex items-center gap-2 text-sm font-bold">
+            <SkipForward size={14} style={{ color: 'var(--text)' }} /> Skipped · {skipRows.length}
           </p>
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             {skipRows.slice(0, 12).map((k) => (
-              <div key={k.id} className="flex items-center justify-between gap-2 text-[11px] font-bold">
+              <div key={k.id} className="flex items-center justify-between gap-2 text-xs font-bold">
                 <span className="min-w-0 flex-1 truncate leading-tight">{k.name || k.peptideId || k.supplementId}</span>
-                <span className="shrink-0 font-semibold" style={{ color: 'var(--muted)' }}>
+                <span className="shrink-0 font-semibold" style={{ color: 'var(--text-2)' }}>
                   {k.reason ? `${REASON_LABEL[k.reason] || k.reason} · ` : ''}{format(parseISO(k.date), 'd MMM')}
                 </span>
               </div>
             ))}
           </div>
-          <p className="mt-2 text-[10px] font-medium" style={{ color: 'var(--muted)' }}>
+          <p className="mt-2 text-xs font-medium" style={{ color: 'var(--text-2)' }}>
             Recorded as a decision, not a lapse — and nothing came out of stock for these.
           </p>
         </div>
@@ -153,27 +153,27 @@ export default function HistoryTab() {
       {supps.rows.length > 0 && (
         <div className="card p-3" data-testid="supplement-adherence">
           <div className="flex items-center justify-between">
-            <p className="flex items-center gap-1.5 text-sm font-bold">
-              <Pill size={14} style={{ color: 'var(--amber)' }} /> Supplements
+            <p className="flex items-center gap-2 text-sm font-bold">
+              <Pill size={14} style={{ color: 'var(--warn)' }} /> Supplements
             </p>
             <span className="text-2xl font-black tabular-nums"
-              style={{ color: supps.overall.pct == null ? 'var(--muted)' : supps.overall.pct >= 80 ? 'var(--lime)' : supps.overall.pct >= 50 ? 'var(--amber)' : 'var(--coral)' }}>
+              style={{ color: supps.overall.pct == null ? 'var(--text-2)' : supps.overall.pct >= 80 ? 'var(--good)' : supps.overall.pct >= 50 ? 'var(--warn)' : 'var(--danger)' }}>
               {supps.overall.pct == null ? '—' : `${supps.overall.pct}%`}
             </span>
           </div>
-          <p className="text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
+          <p className="text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
             {supps.overall.taken} of {supps.overall.scheduled} daily doses · last {days} days
           </p>
           <div className="mt-3 space-y-2">
             {supps.rows.map((r) => (
               <div key={r.supplementId}>
-                <div className="flex items-center justify-between text-[11px] font-bold">
+                <div className="flex items-center justify-between text-xs font-bold">
                   <span className="min-w-0 flex-1 truncate leading-tight">{r.name}</span>
-                  <span className="shrink-0 tabular-nums" style={{ color: 'var(--muted)' }}>{r.taken}/{r.scheduled} · {r.pct}%</span>
+                  <span className="shrink-0 tabular-nums" style={{ color: 'var(--text-2)' }}>{r.taken}/{r.scheduled} · {r.pct}%</span>
                 </div>
-                <div className="mt-0.5 h-1.5 overflow-hidden rounded-full" style={{ background: 'var(--surface2)' }}>
+                <div className="mt-1 h-1.5 overflow-hidden rounded-full" style={{ background: 'var(--surface-sunk)' }}>
                   <motion.div className="h-full rounded-full" initial={{ width: 0 }} animate={{ width: `${r.pct}%` }}
-                    style={{ background: r.pct >= 80 ? 'var(--lime)' : r.pct >= 50 ? 'var(--amber)' : 'var(--coral)' }} />
+                    style={{ background: r.pct >= 80 ? 'var(--good)' : r.pct >= 50 ? 'var(--warn)' : 'var(--danger)' }} />
                 </div>
               </div>
             ))}
@@ -187,32 +187,32 @@ export default function HistoryTab() {
       {/* shareable summary */}
       <button
         onClick={() => openSummaryDocument({ peptides, titration, doseLogs, measurements, summary, from, to })}
-        className="btn-violet flex w-full items-center justify-center gap-2 rounded-full py-2.5 text-sm font-black">
+        className="btn-primary flex w-full items-center justify-center gap-2 rounded-full py-3 text-sm font-black">
         <FileText size={16} /> Shareable summary
       </button>
-      <p className="-mt-2 px-1 text-[10px] font-medium" style={{ color: 'var(--muted)' }}>
+      <p className="-mt-2 px-1 text-xs font-medium" style={{ color: 'var(--text-2)' }}>
         Opens a clean printable page — save as PDF to hand to a doctor or coach.
       </p>
 
       {/* peptide filter */}
       <div>
-        <p className="mb-1.5 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>
+        <p className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-2)' }}>
           <Filter size={11} /> Filter
         </p>
-        <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
+        <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
           <button onClick={() => setPeptideId(null)}
-            className="shrink-0 rounded-full px-3 py-1.5 text-xs font-bold"
+            className="shrink-0 rounded-full px-3 py-2 text-xs font-bold"
             style={!peptideId
-              ? { backgroundImage: 'linear-gradient(135deg, var(--lime), var(--lime-deep))', color: '#fff' }
-              : { background: 'var(--surface2)', color: 'var(--muted)' }}>
+              ? { background: 'var(--accent)', color: 'var(--accent-fg)' }
+              : { background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
             All
           </button>
           {peptides.map((p) => (
             <button key={p.id} onClick={() => setPeptideId(p.id)}
-              className="shrink-0 rounded-full px-3 py-1.5 text-xs font-bold"
+              className="shrink-0 rounded-full px-3 py-2 text-xs font-bold"
               style={peptideId === p.id
-                ? { backgroundImage: 'linear-gradient(135deg, var(--lime), var(--lime-deep))', color: '#fff' }
-                : { background: 'var(--surface2)', color: 'var(--muted)' }}>
+                ? { background: 'var(--accent)', color: 'var(--accent-fg)' }
+                : { background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
               {p.name}
             </button>
           ))}
@@ -221,11 +221,11 @@ export default function HistoryTab() {
 
       {/* log */}
       <div className="space-y-2">
-        <p className="flex items-center gap-1.5 text-sm font-bold">
-          <History size={15} style={{ color: 'var(--lime)' }} /> {events.length} injection{events.length === 1 ? '' : 's'}
+        <p className="flex items-center gap-2 text-sm font-bold">
+          <History size={15} style={{ color: 'var(--good)' }} /> {events.length} injection{events.length === 1 ? '' : 's'}
         </p>
         {events.length === 0 && (
-          <div className="card p-5 text-center text-sm font-medium" style={{ color: 'var(--muted)' }}>
+          <div className="card p-5 text-center text-sm font-medium" style={{ color: 'var(--text-2)' }}>
             No doses logged in this window.
           </div>
         )}
@@ -234,27 +234,27 @@ export default function HistoryTab() {
             initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(i * 0.02, 0.3) }}>
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-1.5">
+                <div className="flex flex-wrap items-center gap-2">
                   <span className="text-xs font-black">{format(parseISO(ev.date), 'EEE d MMM')}</span>
                   {ev.coDraw && (
-                    <span className="rounded-md px-1.5 py-0.5 text-[9px] font-black"
-                      style={{ background: 'color-mix(in srgb, var(--violet) 20%, transparent)', color: 'var(--violet)' }}>
-                      <Syringe size={9} className="mr-0.5 inline" />CO-DRAW · {ev.items.length}
+                    <span className="rounded-[10px] px-2 py-1 text-xs font-black"
+                      style={{ background: 'var(--surface-sunk)', color: 'var(--text)' }}>
+                      <Syringe size={9} className="mr-1 inline" />CO-DRAW · {ev.items.length}
                     </span>
                   )}
                 </div>
-                <div className="mt-1 space-y-0.5">
+                <div className="mt-1 space-y-1">
                   {ev.items.map((it) => (
-                    <p key={it.logId} className="text-[11px] font-semibold">
+                    <p key={it.logId} className="text-xs font-semibold">
                       {it.name}
-                      <span className="font-medium" style={{ color: 'var(--muted)' }}>
+                      <span className="font-medium" style={{ color: 'var(--text-2)' }}>
                         {' '}· {formatDose(it.doseValue, it.unit)}{it.insulinUnits ? ` · ${it.insulinUnits} u` : ''}
                       </span>
                     </p>
                   ))}
                 </div>
                 {ev.siteLabel && (
-                  <p className="mt-1 flex items-center gap-1 text-[10px] font-bold" style={{ color: 'var(--lime)' }}>
+                  <p className="mt-1 flex items-center gap-1 text-xs font-bold" style={{ color: 'var(--good)' }}>
                     <MapPin size={10} /> {ev.siteLabel}
                   </p>
                 )}
