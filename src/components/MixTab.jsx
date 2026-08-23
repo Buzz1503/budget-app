@@ -273,7 +273,7 @@ function CompoundCard({ compound, selected, inStack, proven, onSelect }) {
       <div className="flex items-center gap-2">
         <span className="h-5 w-5 shrink-0 rounded-full" style={{ background: compoundColor(compound) }} />
         <span className="min-w-0 flex-1 truncate text-sm font-bold leading-tight">{compound.name}</span>
-        {proven && <Award size={13} className="shrink-0" style={{ color: '#f5c451' }} />}
+        {proven && <Award size={13} className="shrink-0" style={{ color: 'var(--gold)' }} />}
       </div>
       <div className="mt-1.5 flex flex-wrap gap-1">
         <span className="rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase" style={{ background: 'var(--surface2)', color: 'var(--muted)' }}>{compound.class}</span>
@@ -367,7 +367,7 @@ function VerdictPanel({ ca, cb, pair, playKey, reasonCodes, classes, forcedSepar
         {/* confidence + reason code chips */}
         <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5">
           {conf.level === 'proven' ? (
-            <span className="chip !py-1 font-bold" style={{ background: 'color-mix(in srgb, #f5c451 22%, transparent)', color: '#f5c451' }}>
+            <span className="chip !py-1 font-bold" style={{ background: 'color-mix(in srgb, var(--gold) 16%, transparent)', color: 'var(--gold)' }}>
               <Award size={12} /> Proven blend
             </span>
           ) : (

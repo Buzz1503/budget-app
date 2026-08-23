@@ -618,8 +618,11 @@ function AlertBell({ alerts, nudge, goTo, onDismissNudge }) {
               exit={{ opacity: 0, y: -6, scale: 0.97 }}
               transition={{ type: 'spring', stiffness: 340, damping: 26 }}
               data-testid="alert-panel"
-              className="absolute right-0 top-12 z-[45] w-72 rounded-2xl p-3 shadow-lg"
-              style={{ background: 'var(--surface-solid)', border: '1px solid var(--border)', boxShadow: '0 10px 34px rgba(0,0,0,0.45)' }}>
+              // Anchored to the viewport, not the bell: the bell sits mid-header,
+              // so a panel hung off its right edge ran off the left of a 390px
+              // screen and cut the warning in half.
+              className="fixed inset-x-3 top-16 z-[45] rounded-2xl p-4"
+              style={{ background: 'var(--surface-solid)', boxShadow: 'var(--shadow-nav)' }}>
               <div className="space-y-2.5">
                 {alerts.map((a) => (
                   <button key={a.id} onClick={() => { setOpen(false); goTo('supplies') }}

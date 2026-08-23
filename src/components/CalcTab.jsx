@@ -69,12 +69,7 @@ export default function CalcTab() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-black tracking-tight">Calc</h1>
-          <p className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>
-            Reconstitution &amp; syringe units
-          </p>
-        </div>
+        <h1 className="text-2xl font-black tracking-tight">Calc</h1>
         <motion.button whileTap={{ scale: 0.94 }} onClick={() => setReverse(!reverse)}
           className="chip !py-1.5 font-bold" style={{ color: 'var(--indigo)' }}>
           <ArrowLeftRight size={13} /> {reverse ? 'units → dose' : 'dose → units'}
