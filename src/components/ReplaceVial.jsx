@@ -58,7 +58,7 @@ export default function ReplaceVial({ open, peptideId, onClose, goTo }) {
   return (
     <Modal open={open} onClose={close} title={done ? 'New vial in use' : `${peptide.name} — finished`}>
       {done ? (
-        <div className="space-y-3" data-testid="replace-done">
+        <div className="space-y-2.5" data-testid="replace-done">
           <div className="rounded-2xl p-4 text-center"
             style={{ background: 'color-mix(in srgb, var(--lime) 14%, transparent)' }}>
             <CheckCircle2 size={26} className="mx-auto mb-1.5" style={{ color: 'var(--lime)' }} />
@@ -92,7 +92,7 @@ export default function ReplaceVial({ open, peptideId, onClose, goTo }) {
           </button>
         </div>
       ) : confirmRemove ? (
-        <div className="space-y-3" data-testid="confirm-remove">
+        <div className="space-y-2.5" data-testid="confirm-remove">
           <p className="text-[12px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
             <span className="font-black" style={{ color: 'var(--text)' }}>{peptide.name}</span> comes out of
             my protocol, so it stops appearing on Home and in the calendar.
@@ -115,7 +115,7 @@ export default function ReplaceVial({ open, peptideId, onClose, goTo }) {
           </div>
         </div>
       ) : (
-        <div className="space-y-3" data-testid="replace-view">
+        <div className="space-y-2.5" data-testid="replace-view">
           <p className="text-[12px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
             That vial is marked finished. Nothing else was taken off the shelf — picking a
             replacement below is what does that.
@@ -135,15 +135,15 @@ export default function ReplaceVial({ open, peptideId, onClose, goTo }) {
                       style={{ background: 'var(--surface2)' }}>
                       <PackageOpen size={16} className="shrink-0" style={{ color: 'var(--lime)' }} />
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-[12px] font-black">
+                        <p className="truncate text-[12px] font-black leading-tight">
                           {b.vialMg} mg{b.vendor ? ` · ${b.vendor}` : ''}
                         </p>
-                        <p className="truncate text-[10px] font-semibold" style={{ color: 'var(--muted)' }}>
+                        <p className="truncate text-[10px] font-semibold leading-tight" style={{ color: 'var(--muted)' }}>
                           {b.qtyOnHand} sealed · {money(b.costAud)} each
                           {b.lot ? ` · lot ${b.lot}` : ''}
                         </p>
                         {preview && !preview.sameSize && (
-                          <p className="mt-0.5 truncate text-[10px] font-bold" style={{ color: 'var(--amber)' }}>
+                          <p className="truncate text-[10px] font-bold leading-tight" style={{ color: 'var(--amber)' }}>
                             {preview.oldUnits} → {preview.newUnits} units per dose
                           </p>
                         )}
@@ -155,7 +155,7 @@ export default function ReplaceVial({ open, peptideId, onClose, goTo }) {
               </div>
             </>
           ) : (
-            <div className="card p-4 text-center" data-testid="no-stock"
+            <div className="card p-3 text-center" data-testid="no-stock"
               style={{ background: 'color-mix(in srgb, var(--coral) 10%, var(--surface))' }}>
               <AlertTriangle size={20} className="mx-auto mb-1.5" style={{ color: 'var(--coral)' }} />
               <p className="text-sm font-black">No {peptide.name} left in stock</p>

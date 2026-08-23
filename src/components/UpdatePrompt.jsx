@@ -26,7 +26,7 @@ export default function UpdatePrompt() {
           initial={{ y: 70, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 70, opacity: 0 }}
           transition={{ type: 'spring', stiffness: 300, damping: 28 }}
           className="fixed inset-x-4 z-[85] flex items-center gap-3 rounded-2xl p-3 shadow-lg"
-          style={{ bottom: 'calc(var(--nav-h, 76px) + 10px)', background: 'var(--surface-solid)', border: '1px solid var(--border)' }}
+          style={{ bottom: 'calc(var(--nav-h, 92px) + 10px)', background: 'var(--surface-solid)', border: '1px solid var(--border)' }}
         >
           <RefreshCw size={17} className="shrink-0" style={{ color: 'var(--lime)' }} />
           <p className="flex-1 text-xs font-bold">New version available</p>

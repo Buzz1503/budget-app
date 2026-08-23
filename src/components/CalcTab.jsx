@@ -67,7 +67,7 @@ export default function CalcTab() {
   const revDisplay = fromMg(revMg, unit)
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2.5">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-black tracking-tight">Calc</h1>
         <motion.button whileTap={{ scale: 0.94 }} onClick={() => setReverse(!reverse)}
@@ -109,7 +109,7 @@ export default function CalcTab() {
         </div>
       )}
 
-      <div className="card space-y-3 p-4">
+      <div className="card space-y-2.5 p-3">
         {/* preparation mode — reconstitution vs. a vial that's already in solution */}
         <div className="flex gap-1.5">
           {[['recon', 'Reconstitute'], ['premixed', 'Pre-mixed solution']].map(([m, label]) => (

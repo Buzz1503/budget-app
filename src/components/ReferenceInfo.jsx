@@ -63,7 +63,7 @@ export default function ReferenceInfo({ reference, excludedNote }) {
   const isTx = r.tier === 'TX'
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-2.5">
       <div className="flex flex-wrap items-center gap-2">
         <TierBadge tier={r.tier} confidence={r.confidence} />
       </div>

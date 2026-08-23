@@ -19,7 +19,7 @@ export default function RightNowTab() {
   const resting = rows.filter((r) => r.info.phase === 'Off')
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2.5">
       <div>
         <h1 className="text-2xl font-black tracking-tight">Right Now</h1>
         <p className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>
@@ -35,7 +35,7 @@ export default function RightNowTab() {
       </div>
 
       {active.length === 0 && (
-        <div className="card p-6 text-center text-sm font-medium" style={{ color: 'var(--muted)' }}>
+        <div className="card p-5 text-center text-sm font-medium" style={{ color: 'var(--muted)' }}>
           Nothing active today — my whole protocol is resting. 🌙
         </div>
       )}
@@ -43,7 +43,7 @@ export default function RightNowTab() {
       {active.map(({ p, info }, i) => <PhaseCard key={p.id} peptide={p} info={info} tState={titration[p.id]} index={i} />)}
 
       {resting.length > 0 && (
-        <div className="card p-4">
+        <div className="card p-3">
           <p className="mb-2 flex items-center gap-1.5 text-sm font-bold" style={{ color: 'var(--muted)' }}>
             <Moon size={14} /> Resting off-cycle
           </p>
@@ -66,7 +66,7 @@ function PhaseCard({ peptide: p, info, tState, index }) {
 
   return (
     <motion.div
-      layout className="card overflow-hidden p-4"
+      layout className="card overflow-hidden p-3"
       initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }}
       transition={{ type: 'spring', stiffness: 260, damping: 24, delay: index * 0.05 }}
     >

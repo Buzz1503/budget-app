@@ -27,7 +27,7 @@ export default function Modal({ open, onClose, title, children, wide }) {
         >
           <div className="absolute inset-0 bg-black/60" onClick={onClose} />
           <motion.div
-            className={`card relative w-full ${wide ? 'sm:max-w-2xl' : 'sm:max-w-md'} max-h-[88dvh] overflow-y-auto rounded-b-none sm:rounded-b-[var(--radius-card)] p-6`}
+            className={`card relative w-full ${wide ? 'sm:max-w-2xl' : 'sm:max-w-md'} max-h-[88dvh] overflow-y-auto rounded-b-none sm:rounded-b-[var(--radius-card)] p-5`}
             style={{ background: 'var(--surface-solid)' }}
             initial={{ y: 60, opacity: 0, scale: 0.98 }}
             animate={{ y: 0, opacity: 1, scale: 1 }}

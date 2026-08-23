@@ -103,7 +103,7 @@ export default function SiteChooser({ route = 'SubQ', zone = 'all', picked, onPi
   const rest = restDaysFor(route)
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2.5">
       {/* mode: decide for me, or just tell me the next one */}
       <div className="flex rounded-full p-1" style={{ background: 'var(--surface2)' }}>
         {[
@@ -410,7 +410,7 @@ function SiteDetail({ siteId, onClose, states, doseLogs, peptides, reactions, to
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
         <div className="absolute inset-0 bg-black/60" onClick={onClose} />
         <motion.div
-          className="card relative max-h-[80dvh] w-full overflow-y-auto rounded-b-none p-5 sm:max-w-md sm:rounded-b-[20px]"
+          className="card relative max-h-[80dvh] w-full overflow-y-auto rounded-b-none p-3.5 sm:max-w-md sm:rounded-b-[20px]"
           style={{ background: 'var(--surface-solid)' }}
           initial={{ y: 60 }} animate={{ y: 0 }} exit={{ y: 60 }}
           transition={{ type: 'spring', stiffness: 300, damping: 28 }}
@@ -502,7 +502,7 @@ function SiteDetail({ siteId, onClose, states, doseLogs, peptides, reactions, to
                     </span>
                     <span>· {format(parseISO(r.date), 'd MMM')}</span>
                     {r.cleared && <span>· cleared</span>}
-                    {r.note && <span className="truncate italic">“{r.note}”</span>}
+                    {r.note && <span className="truncate italic leading-tight">“{r.note}”</span>}
                   </p>
                 ))}
               </div>
@@ -527,7 +527,7 @@ function SiteDetail({ siteId, onClose, states, doseLogs, peptides, reactions, to
                 {history.map((h) => (
                   <p key={h.id} className="flex items-center gap-2 text-[11px] font-semibold">
                     <span className="w-14 shrink-0" style={{ color: 'var(--muted)' }}>{format(parseISO(h.date), 'd MMM')}</span>
-                    <span className="min-w-0 flex-1 truncate">{h.name}</span>
+                    <span className="min-w-0 flex-1 truncate leading-tight">{h.name}</span>
                     {h.coDrawId && <span className="shrink-0 text-[10px]" style={{ color: 'var(--lime)' }}>co-draw</span>}
                   </p>
                 ))}

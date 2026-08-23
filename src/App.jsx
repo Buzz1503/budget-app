@@ -142,7 +142,7 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      <main className="flex-1 px-4 pt-5" style={{ paddingBottom: 'calc(var(--nav-h, 76px) + 28px)' }}>
+      <main className="flex-1 px-4 pt-5" style={{ paddingBottom: 'calc(var(--nav-h, 92px) + 28px)' }}>
         <AnimatePresence mode="wait">
           <motion.div
             key={tab}
@@ -167,7 +167,7 @@ export default function App() {
       >
         <div className="mx-auto flex w-full max-w-3xl items-center justify-center gap-2">
           <nav
-            className="flex items-center rounded-full p-1"
+            className="flex items-center rounded-full p-1.5"
             style={{ background: 'var(--surface)', boxShadow: 'var(--shadow-nav)' }}
           >
             {PRIMARY.map(({ id, label, icon: Icon }) => {
@@ -177,7 +177,9 @@ export default function App() {
                   key={id}
                   whileTap={{ scale: 0.86 }}
                   onClick={() => { if (haptics) { try { haptic(6) } catch { /* optional */ } } setTab(id) }}
-                  className="relative flex flex-col items-center gap-0.5 rounded-full px-1.5 py-1"
+                  // min-w/min-h hold the 44pt tap target even though the icon
+                  // and label together are shorter than that
+                  className="relative flex min-h-[44px] min-w-[44px] flex-col items-center justify-center gap-0.5 rounded-full px-1.5 py-1.5"
                   aria-label={label}
                 >
                   {active && (
@@ -185,9 +187,9 @@ export default function App() {
                       style={{ background: 'var(--surface2)' }} transition={{ type: 'spring', stiffness: 400, damping: 32 }} />
                   )}
                   <span className="relative" style={{ color: active ? 'var(--violet)' : 'var(--muted)' }}>
-                    <Icon size={28} strokeWidth={active ? 2.5 : 2} />
+                    <Icon size={34} strokeWidth={active ? 2.4 : 1.9} />
                   </span>
-                  <span className="relative text-[7px] font-bold leading-none tracking-tight" style={{ color: active ? 'var(--violet)' : 'var(--muted)' }}>
+                  <span className="relative text-[9px] font-bold leading-none tracking-tight" style={{ color: active ? 'var(--violet)' : 'var(--muted)' }}>
                     {label}
                   </span>
                 </motion.button>
@@ -200,10 +202,11 @@ export default function App() {
               whileTap={{ scale: 0.9 }}
               onClick={() => { if (haptics) { try { haptic(8) } catch { /* optional */ } } quickActionRef.current?.() }}
               aria-label="Quick log"
-              className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full"
+              // sized off the taller capsule so the two read as one bar
+              className="flex h-[66px] w-[66px] shrink-0 items-center justify-center rounded-full"
               style={{ backgroundImage: 'linear-gradient(135deg, var(--violet), var(--indigo))', boxShadow: 'var(--shadow-fab)' }}
             >
-              <Plus size={26} color="#fff" strokeWidth={2.5} />
+              <Plus size={30} color="#fff" strokeWidth={2.5} />
             </motion.button>
           )}
         </div>

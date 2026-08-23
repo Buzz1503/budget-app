@@ -52,7 +52,7 @@ export default function HistoryTab() {
   const pct = summary.overall.pct
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2.5">
       <div>
         <h1 className="text-2xl font-black tracking-tight">History</h1>
         <p className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>
@@ -74,7 +74,7 @@ export default function HistoryTab() {
       </div>
 
       {/* adherence */}
-      <div className="card p-4">
+      <div className="card p-3">
         <div className="flex items-center justify-between">
           <p className="text-sm font-bold">Adherence</p>
           <span className="text-2xl font-black tabular-nums"
@@ -129,14 +129,14 @@ export default function HistoryTab() {
 
       {/* skipped — listed, not hidden: the record is the point */}
       {skipRows.length > 0 && (
-        <div className="card p-4" data-testid="skip-list">
+        <div className="card p-3" data-testid="skip-list">
           <p className="mb-2 flex items-center gap-1.5 text-sm font-bold">
             <SkipForward size={14} style={{ color: 'var(--violet)' }} /> Skipped · {skipRows.length}
           </p>
           <div className="space-y-1.5">
             {skipRows.slice(0, 12).map((k) => (
               <div key={k.id} className="flex items-center justify-between gap-2 text-[11px] font-bold">
-                <span className="min-w-0 flex-1 truncate">{k.name || k.peptideId || k.supplementId}</span>
+                <span className="min-w-0 flex-1 truncate leading-tight">{k.name || k.peptideId || k.supplementId}</span>
                 <span className="shrink-0 font-semibold" style={{ color: 'var(--muted)' }}>
                   {k.reason ? `${REASON_LABEL[k.reason] || k.reason} · ` : ''}{format(parseISO(k.date), 'd MMM')}
                 </span>
@@ -151,7 +151,7 @@ export default function HistoryTab() {
 
       {/* supplements — counted separately from injections, on purpose */}
       {supps.rows.length > 0 && (
-        <div className="card p-4" data-testid="supplement-adherence">
+        <div className="card p-3" data-testid="supplement-adherence">
           <div className="flex items-center justify-between">
             <p className="flex items-center gap-1.5 text-sm font-bold">
               <Pill size={14} style={{ color: 'var(--amber)' }} /> Supplements
@@ -168,7 +168,7 @@ export default function HistoryTab() {
             {supps.rows.map((r) => (
               <div key={r.supplementId}>
                 <div className="flex items-center justify-between text-[11px] font-bold">
-                  <span className="min-w-0 flex-1 truncate">{r.name}</span>
+                  <span className="min-w-0 flex-1 truncate leading-tight">{r.name}</span>
                   <span className="shrink-0 tabular-nums" style={{ color: 'var(--muted)' }}>{r.taken}/{r.scheduled} · {r.pct}%</span>
                 </div>
                 <div className="mt-0.5 h-1.5 overflow-hidden rounded-full" style={{ background: 'var(--surface2)' }}>
@@ -225,7 +225,7 @@ export default function HistoryTab() {
           <History size={15} style={{ color: 'var(--lime)' }} /> {events.length} injection{events.length === 1 ? '' : 's'}
         </p>
         {events.length === 0 && (
-          <div className="card p-6 text-center text-sm font-medium" style={{ color: 'var(--muted)' }}>
+          <div className="card p-5 text-center text-sm font-medium" style={{ color: 'var(--muted)' }}>
             No doses logged in this window.
           </div>
         )}

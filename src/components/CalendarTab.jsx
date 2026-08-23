@@ -76,7 +76,7 @@ export default function CalendarTab({ goTo }) {
     : format(parseISO(monthStart(anchor)), 'MMMM yyyy')
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2.5">
       <div className="flex items-center justify-between gap-2">
         <h1 className="text-2xl font-black tracking-tight">Calendar</h1>
         <div className="flex rounded-full p-1" style={{ background: 'var(--surface2)' }}>
@@ -342,7 +342,7 @@ function DayDetail({ date, day, grouped, onClose, goTo }) {
   if (!date) return null
   return (
     <Modal open={!!date} onClose={onClose} title={format(parseISO(date), 'EEEE d MMMM')} wide>
-      <div className="space-y-3">
+      <div className="space-y-2.5">
         {day && day.scheduled === 0 && day.events.length === 0 && (
           <p className="py-4 text-center text-sm font-bold" style={{ color: 'var(--muted)' }}>
             Nothing scheduled — a clear day.

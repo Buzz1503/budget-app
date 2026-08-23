@@ -34,12 +34,12 @@ export default function Toast() {
           exit={{ opacity: 0, y: 16 }}
           transition={{ type: 'spring', stiffness: 420, damping: 32 }}
           className="pointer-events-none fixed inset-x-0 z-40 flex justify-center px-4"
-          style={{ bottom: 'calc(var(--nav-h, 64px) + 12px)' }}
+          style={{ bottom: 'calc(var(--nav-h, 92px) + 12px)' }}
           data-testid="toast"
         >
           <div className="pointer-events-auto flex w-full max-w-sm items-center gap-2 rounded-full px-4 py-3"
             style={{ background: 'var(--surface-solid)', boxShadow: 'var(--shadow-nav)' }}>
-            <p className="min-w-0 flex-1 truncate text-[12px] font-bold">{toast.message}</p>
+            <p className="min-w-0 flex-1 truncate text-[12px] font-bold leading-tight">{toast.message}</p>
             {toast.undo && (
               <button onClick={runUndo} data-testid="toast-undo"
                 className="flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 text-[11px] font-black"

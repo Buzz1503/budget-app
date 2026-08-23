@@ -31,7 +31,7 @@ const SECTIONS = [
 export default function BodyTab() {
   const [section, setSection] = useState('stats')
   return (
-    <div className="space-y-3">
+    <div className="space-y-2.5">
       <h1 className="text-2xl font-black tracking-tight">Body & Outcomes</h1>
       <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
         {SECTIONS.map((s) => (
@@ -66,7 +66,7 @@ function StatsSection() {
   const recent = [...measurements].reverse().slice(0, 6)
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2.5">
       <div className="grid grid-cols-2 gap-2">
         {['weight', 'bodyFat', 'visceralFat', 'muscleMass'].map((k) => {
           const m = METRIC_BY_KEY[k]
@@ -95,13 +95,13 @@ function StatsSection() {
       <ReferenceDistances />
 
       {recent.length > 0 && (
-        <div className="card p-4">
+        <div className="card p-3">
           <p className="mb-2 text-sm font-bold">Recent entries</p>
           <div className="space-y-1.5">
             {recent.map((m) => (
               <div key={m.id} className="flex items-center gap-2 text-xs font-semibold">
                 <span className="w-14 shrink-0" style={{ color: 'var(--muted)' }}>{format(parseISO(m.date), 'd MMM')}</span>
-                <span className="flex-1 truncate">
+                <span className="flex-1 truncate leading-tight">
                   {m.weight != null && `${m.weight}kg `}
                   {m.bodyFat != null && `· ${m.bodyFat}% BF `}
                   {m.source === 'scan' && '· 📄 scan'}
@@ -122,7 +122,7 @@ function StatsSection() {
 // missed, instead of repeated under every field.
 function MeasuringRules() {
   return (
-    <div className="card p-4">
+    <div className="card p-3">
       <p className="mb-2 flex items-center gap-1.5 text-sm font-bold">
         <Info size={15} style={{ color: 'var(--indigo)' }} /> How to measure — every time
       </p>
@@ -277,7 +277,7 @@ function AddMeasurement({ open, onClose }) {
 
   return (
     <Modal open={open} onClose={onClose} title="Log measurement" wide>
-      <div className="space-y-3">
+      <div className="space-y-2.5">
         <label className="block">
           <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>Date</span>
           <input type="date" className="input" value={form.date} onChange={(e) => e.target.value && set('date', e.target.value)} />
@@ -349,7 +349,7 @@ function TrendsSection() {
   }, [measurements, key])
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2.5">
       <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
         {chips.map((mm) => (
           <button key={mm.key} onClick={() => setKey(mm.key)}
@@ -361,7 +361,7 @@ function TrendsSection() {
           </button>
         ))}
       </div>
-      <div className="card p-4">
+      <div className="card p-3">
         <p className="text-sm font-bold">{m.label} {m.unit && `(${m.unit})`}{key === 'weight' && <span className="ml-1 text-xs font-medium" style={{ color: 'var(--muted)' }}>· 7-day avg</span>}</p>
         {m.how && (
           <p className="mb-2 mt-0.5 text-[10px] font-medium leading-snug" style={{ color: 'var(--muted)' }}>
@@ -404,8 +404,8 @@ function ModelSection() {
   const bf = cur ? cur.value : 25
 
   return (
-    <div className="space-y-3">
-      <div className="card p-4">
+    <div className="space-y-2.5">
+      <div className="card p-3">
         <div className="flex items-center justify-center rounded-2xl py-3" style={{ background: 'radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--violet) 16%, transparent), transparent 70%)' }}>
           <BodyModel bf={bf} muscle={0.5} size={180} />
         </div>

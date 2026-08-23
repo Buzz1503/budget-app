@@ -30,7 +30,7 @@ export default function SupplementsTab() {
   const cautions = useMemo(() => allCautions(supplements), [supplements])
 
   return (
-    <div className="space-y-3" data-testid="supplements-view">
+    <div className="space-y-2.5" data-testid="supplements-view">
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-black tracking-tight">
           <Pill size={22} style={{ color: 'var(--amber)' }} /> Supplements
@@ -63,7 +63,7 @@ export default function SupplementsTab() {
       </button>
 
       {supplements.length === 0 && (
-        <div className="card p-6 text-center">
+        <div className="card p-5 text-center">
           <Pill size={22} className="mx-auto mb-2" style={{ color: 'var(--muted)' }} />
           <p className="text-sm font-black">Nothing on the shelf yet</p>
           <p className="mt-1 text-[12px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
@@ -107,8 +107,8 @@ function SupplementRow({ supplement: s, onEdit, onRemove }) {
           <FormIcon form={s.form} size={16} />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-bold">{s.name}</p>
-          <p className="truncate text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
+          <p className="truncate text-sm font-bold leading-tight">{s.name}</p>
+          <p className="truncate text-[11px] font-semibold leading-tight" style={{ color: 'var(--muted)' }}>
             {s.dose || 'no dose set'}{s.brand ? ` · ${s.brand}` : ''} · {FORM_LABEL[s.form] || s.form}
           </p>
         </div>
@@ -183,7 +183,7 @@ function AddSupplement({ open, onClose }) {
       </div>
 
       {mode === 'library' ? (
-        <div className="mt-3 space-y-3" data-testid="supplement-library">
+        <div className="mt-3 space-y-2.5" data-testid="supplement-library">
           <div className="relative">
             <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--muted)' }} />
             <input className="input pl-9" placeholder="Search supplements…" aria-label="Search supplements"
@@ -202,7 +202,7 @@ function AddSupplement({ open, onClose }) {
           )}
         </div>
       ) : (
-        <div className="mt-3 space-y-3" data-testid="supplement-manual">
+        <div className="mt-3 space-y-2.5" data-testid="supplement-manual">
           <Field label="Name">
             <input className="input" value={draft.name} aria-label="Supplement name"
               placeholder="e.g. Magnesium glycinate"
@@ -264,8 +264,8 @@ function LibraryGroup({ title, hint, rows, have, onPick, testid }) {
               style={{ background: 'var(--surface2)' }}>
               <FormIcon form={r.form} size={15} style={{ color: 'var(--amber)', flexShrink: 0 }} />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-[12px] font-bold">{r.name}</p>
-                <p className="truncate text-[10px] font-semibold" style={{ color: 'var(--muted)' }}>
+                <p className="truncate text-[12px] font-bold leading-tight">{r.name}</p>
+                <p className="truncate text-[10px] font-semibold leading-tight" style={{ color: 'var(--muted)' }}>
                   {r.optimal_dose} · {defaultSlotFor(r)}{r.brand && r.brand !== '(any)' ? ` · ${r.brand}` : ''}
                 </p>
               </div>
@@ -301,7 +301,7 @@ function EditSupplement({ supplement, onClose }) {
 
   return (
     <Modal open={!!supplement} onClose={() => { setDraft(null); onClose() }} title={supplement.name}>
-      <div className="space-y-3">
+      <div className="space-y-2.5">
         <Field label="Name">
           <input className="input" value={current.name} aria-label="Supplement name"
             onChange={(e) => set({ name: e.target.value })} />

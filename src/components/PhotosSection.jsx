@@ -48,9 +48,9 @@ export default function PhotosSection() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2.5">
       {/* capture */}
-      <div className="card p-4">
+      <div className="card p-3">
         <div className="mb-3 flex gap-1.5">
           {POSES.map((ps) => (
             <button key={ps} onClick={() => setPose(ps)}
@@ -81,7 +81,7 @@ export default function PhotosSection() {
 
       {/* timeline / compare */}
       {photos.length > 0 ? (
-        <div className="card p-4">
+        <div className="card p-3">
           <div className="mb-3 flex items-center justify-between">
             <p className="flex items-center gap-1.5 text-sm font-bold"><Images size={15} style={{ color: 'var(--lime)' }} /> Timeline</p>
             {posePhotos.length >= 2 && (

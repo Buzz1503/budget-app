@@ -104,7 +104,7 @@ export default function CoDrawModal({ open, onClose, peptides }) {
 
   return (
     <Modal open={open} onClose={onClose} title={`Log together · ${peptides?.length || 0}`}>
-      <div className="space-y-3">
+      <div className="space-y-2.5">
         {/* combined draw summary */}
         <div className="rounded-2xl p-3" style={{ background: 'var(--surface2)' }}>
           {lines.map((l) => (

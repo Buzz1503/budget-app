@@ -65,7 +65,7 @@ export default function SitePicker({ open, onClose, peptide, dose, unit, units }
   if (done) {
     return (
       <Modal open={open} onClose={close} title="Logged">
-        <div className="space-y-3">
+        <div className="space-y-2.5">
           <div className="rounded-2xl p-4 text-center"
             style={{ background: 'color-mix(in srgb, var(--lime) 16%, transparent)' }}>
             <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}
@@ -105,7 +105,7 @@ export default function SitePicker({ open, onClose, peptide, dose, unit, units }
       : null
     return (
       <Modal open={open} onClose={close} title={`Take ${peptide.name}`}>
-        <div className="space-y-3">
+        <div className="space-y-2.5">
           <div className="rounded-2xl p-4 text-center" style={{ background: 'var(--surface2)' }}>
             <p className="text-2xl font-black tracking-tight">{formatDose(dose, unit)}</p>
             <p className="mt-0.5 text-[11px] font-bold" style={{ color: 'var(--muted)' }}>
@@ -154,7 +154,7 @@ export default function SitePicker({ open, onClose, peptide, dose, unit, units }
 
   return (
     <Modal open={open} onClose={close} title={`Where to inject ${peptide.name}`}>
-      <div className="space-y-3">
+      <div className="space-y-2.5">
         {/* what you're about to give */}
         <div className="rounded-2xl p-3 text-center" style={{ background: 'var(--surface2)' }}>
           <p className="text-2xl font-black tracking-tight">

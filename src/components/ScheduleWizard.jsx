@@ -144,7 +144,7 @@ export default function ScheduleWizard({ open, onClose }) {
     <Modal open={open} onClose={onClose} title={title} wide>
       <AnimatePresence mode="wait">
         <motion.div key={step + idx} initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -12 }}
-          transition={{ duration: 0.15 }} className="space-y-3">
+          transition={{ duration: 0.15 }} className="space-y-2.5">
 
           {step === 'manage' && (
             <>
@@ -169,10 +169,10 @@ export default function ScheduleWizard({ open, onClose }) {
                         ? <Wind size={13} className="shrink-0" style={{ color: 'var(--indigo)' }} />
                         : <Syringe size={13} className="shrink-0" style={{ color: 'var(--lime)' }} />}
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-[12px] font-black" style={{ textDecoration: gone ? 'line-through' : 'none' }}>
+                        <p className="truncate text-[12px] font-black leading-tight" style={{ textDecoration: gone ? 'line-through' : 'none' }}>
                           {p.name}
                         </p>
-                        <p className="truncate text-[10px] font-semibold" style={{ color: 'var(--muted)' }}>
+                        <p className="truncate text-[10px] font-semibold leading-tight" style={{ color: 'var(--muted)' }}>
                           {gone ? 'will be removed'
                             : edited ? 'edited — not saved yet'
                               : `${p.ladder?.ceiling > 0 ? `${formatDose(p.ladder.floor, p.ladder.unit)} → ${formatDose(p.ladder.ceiling, p.ladder.unit)}` : 'no dose set'} · ${FREQ_LABELS[p.frequency] || p.frequency}`}
@@ -208,8 +208,8 @@ export default function ScheduleWizard({ open, onClose }) {
                     style={{ background: 'color-mix(in srgb, var(--lime) 12%, transparent)' }}>
                     <Plus size={13} className="shrink-0" style={{ color: 'var(--lime)' }} />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-[12px] font-black">{e.name}</p>
-                      <p className="truncate text-[10px] font-semibold" style={{ color: 'var(--lime)' }}>new — not saved yet</p>
+                      <p className="truncate text-[12px] font-black leading-tight">{e.name}</p>
+                      <p className="truncate text-[10px] font-semibold leading-tight" style={{ color: 'var(--lime)' }}>new — not saved yet</p>
                     </div>
                     <button onClick={() => { setIdx(entries.findIndex((x) => x.id === e.id)); setStep('config') }}
                       className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full"
@@ -326,7 +326,7 @@ export default function ScheduleWizard({ open, onClose }) {
                         : { background: 'var(--surface2)', border: '1px solid transparent' }}>
                       <span className="h-6 w-6 shrink-0 rounded-full" style={{ background: compoundColor(c) }} />
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-bold">{c.name}</span>
+                        <span className="block truncate text-sm font-bold leading-tight">{c.name}</span>
                         <span className="flex flex-wrap items-center gap-1 pt-0.5">
                           {s.tier && <TierBadge tier={s.tier} confidence={s.confidence} compact />}
                           {inStack(c.id) && (
@@ -454,7 +454,7 @@ export default function ScheduleWizard({ open, onClose }) {
           )}
 
           {step === 'done' && (
-            <div className="space-y-3 text-center">
+            <div className="space-y-2.5 text-center">
               <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 400, damping: 15 }}
                 className="mx-auto flex h-14 w-14 items-center justify-center rounded-full" style={{ background: 'var(--lime)', color: '#fff' }}>
                 <Check size={30} strokeWidth={3} />
@@ -568,7 +568,7 @@ function PeptideStep({ entry: e, onPatch }) {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2.5">
       {/* what the evidence says */}
       <div className="rounded-2xl p-3" style={{ background: 'var(--surface2)' }}>
         <div className="flex flex-wrap items-center gap-1.5">

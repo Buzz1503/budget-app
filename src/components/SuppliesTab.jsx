@@ -66,7 +66,7 @@ export default function SuppliesTab({ goTo }) {
   const spend = useMemo(() => totalSpend(vials), [vials])
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2.5">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <h1 className="text-2xl font-black tracking-tight">Stock &amp; restock</h1>
@@ -114,7 +114,7 @@ export default function SuppliesTab({ goTo }) {
       </div>
 
       {/* order total */}
-      <motion.div layout className="card p-4"
+      <motion.div layout className="card p-3"
         style={{ backgroundImage: 'linear-gradient(135deg, color-mix(in srgb, var(--lime) 12%, var(--surface)), var(--surface))' }}>
         <div className="flex items-center gap-3">
           <ShoppingCart size={20} className="shrink-0" style={{ color: 'var(--lime)' }} />
@@ -140,7 +140,7 @@ export default function SuppliesTab({ goTo }) {
         Compounds · soonest to run out first
       </p>
       {plan.rows.length === 0 && (
-        <div className="card p-5 text-center text-sm font-bold" style={{ color: 'var(--muted)' }}>
+        <div className="card p-3.5 text-center text-sm font-bold" style={{ color: 'var(--muted)' }}>
           Nothing with a set protocol yet — build your schedule first.
         </div>
       )}
@@ -272,7 +272,7 @@ function CompoundCard({ row, days, currency }) {
         <div className="min-w-0 flex-1">
           <p className="flex items-center gap-1.5 text-sm font-black">
             {row.nasal && <Wind size={12} style={{ color: 'var(--indigo)' }} />}
-            <span className="truncate">{row.name}</span>
+            <span className="truncate leading-tight">{row.name}</span>
           </p>
           <p className="text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
             {row.doses} dose{row.doses === 1 ? '' : 's'} in {days} days at {formatDose(row.dose, row.unit)}
@@ -382,7 +382,7 @@ function ConsumableRow({ row }) {
       checkLabel={`${checked ? 'Un-tick' : 'Tick'} ${row.label} as ordered`}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-black">{row.label}</p>
+          <p className="truncate text-sm font-black leading-tight">{row.label}</p>
           <p className="text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
             suggested {row.suggestedVials} {row.unitLabel}
           </p>

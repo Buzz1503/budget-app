@@ -41,7 +41,7 @@ export default function StockRoom({ goTo }) {
   const totalVials = groups.reduce((n, g) => n + g.vialCount, 0)
 
   return (
-    <div className="space-y-3" data-testid="stock-room">
+    <div className="space-y-2.5" data-testid="stock-room">
       <div className="flex items-start justify-between gap-2">
         <p className="text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
           Every sealed vial you hold, kept apart from what's running.
@@ -57,7 +57,7 @@ export default function StockRoom({ goTo }) {
       </button>
 
       {groups.length === 0 && (
-        <div className="card p-6 text-center text-sm font-medium" style={{ color: 'var(--muted)' }}>
+        <div className="card p-5 text-center text-sm font-medium" style={{ color: 'var(--muted)' }}>
           Nothing in the stock room yet.
         </div>
       )}
@@ -100,14 +100,14 @@ function RunwayLine({ runway }) {
   if (!runway) return null
   if (runway.out) {
     return (
-      <p className="mt-1 flex items-center gap-1 text-[11px] font-bold" style={{ color: 'var(--coral)' }}>
+      <p className="mt-0.5 flex items-center gap-1 text-[11px] font-bold leading-tight" style={{ color: 'var(--coral)' }}>
         <AlertTriangle size={11} /> Nothing left — reorder
       </p>
     )
   }
   if (!isFinite(runway.days)) return null
   return (
-    <p className="mt-1 flex items-center gap-1 text-[11px] font-medium"
+    <p className="mt-0.5 flex items-center gap-1 text-[11px] font-medium leading-tight"
       style={{ color: runway.low ? 'var(--amber)' : 'var(--muted)' }}>
       <Clock size={11} className="shrink-0" />
       <span>
@@ -126,19 +126,19 @@ function StockGroup({ group: g, peptide, open, onToggle, onOpenSheet, runway }) 
 
   return (
     <motion.div layout className="card overflow-hidden" data-testid="stock-group">
-      <button onClick={onToggle} className="flex w-full items-start gap-3 p-4 text-left">
+      <button onClick={onToggle} className="flex w-full items-start gap-3 p-3 text-left">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
           style={g.vialCount === 0
             ? { background: 'color-mix(in srgb, var(--coral) 16%, transparent)', color: 'var(--coral)' }
             : { background: 'color-mix(in srgb, var(--lime) 16%, transparent)', color: 'var(--lime)' }}>
           <span className="text-[13px] font-black tabular-nums">{g.vialCount}</span>
         </div>
-        <div className="min-w-0 flex-1 pt-0.5">
+        <div className="min-w-0 flex-1">
           {/* Wraps rather than truncates: some catalogue names are genuinely
               long, and a stock list that hides which compound a row is about
               has lost the only thing the row is for. */}
-          <p className="text-sm font-bold leading-snug">{g.name}</p>
-          <p className="mt-0.5 text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
+          <p className="text-sm font-bold leading-tight">{g.name}</p>
+          <p className="text-[11px] font-semibold leading-tight" style={{ color: 'var(--muted)' }}>
             {g.vialCount === 0
               ? 'none in stock'
               : `${g.batchCount} batch${g.batchCount === 1 ? '' : 'es'} · ${g.vialCount} sealed vial${g.vialCount === 1 ? '' : 's'}`}
@@ -155,7 +155,7 @@ function StockGroup({ group: g, peptide, open, onToggle, onOpenSheet, runway }) 
         {open && (
           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-            <div className="space-y-2 px-4 pb-4">
+            <div className="space-y-2 px-3 pb-3">
               {/* Inside the expanded panel rather than on the header, so it can
                   never fight the collapse toggle for the same tap. */}
               <button onClick={onOpenSheet} data-testid="stock-open-sheet"
@@ -225,16 +225,16 @@ function BatchRow({ batch: b, peptide, onAdjust, onRemove, onActivate }) {
           {b.qtyOnHand || 0}
         </span>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[13px] font-black">
+          <p className="truncate text-[13px] font-black leading-tight">
             {b.vialMg} mg
             {isActive && (
               <span className="ml-1.5 text-[10px] font-bold" style={{ color: 'var(--lime)' }}>· in use</span>
             )}
           </p>
-          <p className="truncate text-[10px] font-semibold" style={{ color: 'var(--muted)' }}>
+          <p className="truncate text-[10px] font-semibold leading-tight" style={{ color: 'var(--muted)' }}>
             {b.vendor || 'No vendor recorded'}
           </p>
-          <p className="mt-0.5 truncate text-[10px] font-medium" style={{ color: 'var(--muted)' }}>
+          <p className="truncate text-[10px] font-medium leading-tight" style={{ color: 'var(--muted)' }}>
             {money(b.costAud)} each
             {b.lot ? ` · lot ${b.lot}` : ''}
             {b.sealedExpiry ? ` · exp ${b.sealedExpiry}` : ''}
@@ -406,7 +406,7 @@ function AddBatchModal({ open, onClose }) {
   return (
     <Modal open={open} onClose={close} title={picked ? `Add ${picked.name}` : 'Add stock'}>
       {!picked ? (
-        <div className="space-y-3" data-testid="stock-picker">
+        <div className="space-y-2.5" data-testid="stock-picker">
           <div className="relative">
             <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--muted)' }} />
             <input className="input !pl-9" placeholder={`Search ${matrix ? matrix.compounds.length : 86} compounds…`}
@@ -428,8 +428,8 @@ function AddBatchModal({ open, onClose }) {
                     style={{ background: 'var(--surface2)' }}>
                     <Package size={14} className="shrink-0" style={{ color: 'var(--lime)' }} />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-[12px] font-bold">{c.name}</p>
-                      <p className="truncate text-[10px] font-semibold" style={{ color: 'var(--muted)' }}>
+                      <p className="truncate text-[12px] font-bold leading-tight">{c.name}</p>
+                      <p className="truncate text-[10px] font-semibold leading-tight" style={{ color: 'var(--muted)' }}>
                         {existing
                           ? `${existing.recon?.vialMg || 0} mg per vial in my protocol`
                           : `${c.class} · not in my protocol`}
@@ -448,7 +448,7 @@ function AddBatchModal({ open, onClose }) {
           )}
         </div>
       ) : (
-        <div className="space-y-3" data-testid="stock-batch-form">
+        <div className="space-y-2.5" data-testid="stock-batch-form">
           <div className="grid grid-cols-2 gap-3">
             <Field label="Vial size (mg)">
               <NumberField value={draft.vialMg} aria-label="Vial size in mg"

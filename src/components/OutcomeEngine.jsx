@@ -58,8 +58,8 @@ export default function OutcomeEngine() {
   if (!peptide) return null
 
   return (
-    <div className="space-y-4">
-      <div className="card p-4">
+    <div className="space-y-2.5">
+      <div className="card p-3">
         <p className="mb-2 text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>Peptide</p>
         <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
           {peptides.map((p) => (
@@ -87,7 +87,7 @@ export default function OutcomeEngine() {
         </div>
       </div>
 
-      <div className="card p-4">
+      <div className="card p-3">
         <p className="mb-1 text-sm font-bold">{peptide.name} × {outcome.label}</p>
         {!hasOutcome ? (
           <p className="py-8 text-center text-xs font-semibold" style={{ color: 'var(--muted)' }}>

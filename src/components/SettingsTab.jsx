@@ -50,7 +50,7 @@ export default function SettingsTab({ goTo }) {
   const recentLogs = [...doseLogs].reverse().slice(0, 10)
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2.5">
       <div>
         <h1 className="text-2xl font-black tracking-tight">Settings</h1>
         <p className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>
@@ -59,7 +59,7 @@ export default function SettingsTab({ goTo }) {
       </div>
 
       {/* settings */}
-      <div className="card space-y-3 p-4">
+      <div className="card space-y-2.5 p-3">
         <Row label="Theme">
           <button onClick={() => updateSettings({ theme: settings.theme === 'dark' ? 'light' : 'dark' })}
             className="chip !py-1.5 font-bold">
@@ -95,7 +95,7 @@ export default function SettingsTab({ goTo }) {
       </div>
 
       {/* recent history */}
-      <div className="card p-4">
+      <div className="card p-3">
         <p className="mb-2 flex items-center gap-1.5 text-sm font-bold"><History size={15} style={{ color: 'var(--lime)' }} /> Recent logs</p>
         {recentLogs.length === 0 && <p className="text-xs" style={{ color: 'var(--muted)' }}>Nothing logged yet.</p>}
         <div className="space-y-1.5">
@@ -104,7 +104,7 @@ export default function SettingsTab({ goTo }) {
             return (
               <div key={l.id} className="flex items-center gap-2 text-xs font-semibold">
                 <span className="w-14 shrink-0" style={{ color: 'var(--muted)' }}>{format(parseISO(l.date), 'd MMM')}</span>
-                <span className="flex-1 truncate">{p?.name || l.peptideId} — {formatDose(l.doseValue, l.unit)}{l.insulinUnits ? ` (${l.insulinUnits} u)` : ''}</span>
+                <span className="flex-1 truncate leading-tight">{p?.name || l.peptideId} — {formatDose(l.doseValue, l.unit)}{l.insulinUnits ? ` (${l.insulinUnits} u)` : ''}</span>
                 <button className="font-bold" style={{ color: 'var(--coral)' }} onClick={() => undoLog(l.id)}>undo</button>
               </div>
             )
@@ -116,7 +116,7 @@ export default function SettingsTab({ goTo }) {
       <CalendarCard />
 
       {/* data */}
-      <div className="card space-y-3 p-4">
+      <div className="card space-y-2.5 p-3">
         <button onClick={exportJson} className="flex w-full items-center justify-center gap-2 rounded-full py-2.5 text-sm font-extrabold"
           style={{ background: 'var(--surface2)' }}>
           <Download size={16} /> Export JSON (data only)
@@ -230,7 +230,7 @@ function BackupCard() {
   const info = pending ? describeBackup(pending) : null
 
   return (
-    <div className="card space-y-3 p-4">
+    <div className="card space-y-2.5 p-3">
       <p className="flex items-center gap-1.5 text-sm font-bold">
         <ShieldCheck size={15} style={{ color: 'var(--lime)' }} /> Full backup
       </p>
@@ -321,7 +321,7 @@ function CalendarCard() {
   }
 
   return (
-    <div className="card space-y-3 p-4">
+    <div className="card space-y-2.5 p-3">
       <p className="flex items-center gap-1.5 text-sm font-bold">
         <CalendarPlus size={15} style={{ color: 'var(--indigo)' }} /> Calendar export
       </p>

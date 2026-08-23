@@ -105,7 +105,7 @@ export default function SymptomsTab() {
   const empty = stack.positive.length === 0 && stack.negative.length === 0
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2.5">
       <div>
         <h1 className="text-2xl font-black tracking-tight">How are you feeling?</h1>
         <p className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>
@@ -285,7 +285,7 @@ export default function SymptomsTab() {
               const pos = meta.polarity === 'pos'
               return (
                 <div key={id} className="flex items-center gap-2 rounded-2xl p-2.5" style={{ background: 'var(--surface2)' }}>
-                  <span className="min-w-0 flex-1 truncate text-xs font-black"
+                  <span className="min-w-0 flex-1 truncate text-xs font-black leading-tight"
                     style={{ color: pos ? 'var(--lime)' : 'var(--text)' }}>{meta.label}</span>
                   {pos ? (
                     <span className="text-[10px] font-bold" style={{ color: 'var(--lime)' }}>noted</span>
@@ -435,7 +435,7 @@ function Attribution({ result }) {
       <div className="mt-1 flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <p className="text-[9px] font-black uppercase tracking-wide" style={{ color: 'var(--muted)' }}>Most likely</p>
-          <p className="truncate text-base font-black">{top.name}</p>
+          <p className="truncate text-base font-black leading-tight">{top.name}</p>
           <p className="text-[10px] font-semibold" style={{ color: 'var(--muted)' }}>{top.reasons.join(' · ')}</p>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1">
@@ -460,7 +460,7 @@ function Attribution({ result }) {
               {others.map((c) => (
                 <div key={c.peptideId} className="flex items-center justify-between gap-2">
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-xs font-bold">{c.name}</span>
+                    <span className="block truncate text-xs font-bold leading-tight">{c.name}</span>
                     <span className="block text-[10px] font-semibold" style={{ color: 'var(--muted)' }}>{c.reasons[0]}</span>
                   </span>
                   <span className="flex shrink-0 items-center gap-1.5">
@@ -536,8 +536,8 @@ export function SymptomHistory() {
   if (symptomLogs.length === 0) return null
 
   return (
-    <div className="space-y-3" data-testid="symptom-history">
-      <div className="card p-4">
+    <div className="space-y-2.5" data-testid="symptom-history">
+      <div className="card p-3">
         <p className="mb-2 text-sm font-bold">Symptoms · last 14 days</p>
         <div className="flex gap-1">
           {days.map((d, i) => (
@@ -596,7 +596,7 @@ export function SymptomHistory() {
       </div>
 
       {patterns.length > 0 && (
-        <div className="card p-4">
+        <div className="card p-3">
           <p className="mb-2 text-sm font-bold">Observations</p>
           <div className="space-y-1.5">
             {patterns.map((pat, i) => {

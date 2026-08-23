@@ -72,7 +72,7 @@ export default function CompoundSheet({ open, compoundId, onClose, goTo }) {
 
   return (
     <Modal open={open} onClose={onClose} title={name} wide>
-      <div className="space-y-3" data-testid="compound-sheet">
+      <div className="space-y-2.5" data-testid="compound-sheet">
         {/* what this compound is, to this app */}
         <div className="flex flex-wrap items-center gap-1.5">
           {reference?.tier && <TierBadge tier={reference.tier} confidence={reference.confidence} />}
@@ -139,7 +139,7 @@ function AboutTab({ reference, name }) {
   }
   const text = protocolTextFrom(reference)
   return (
-    <div className="space-y-3">
+    <div className="space-y-2.5">
       {reference.mechanism && (
         <p className="text-[11px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
           <span className="font-black" style={{ color: 'var(--text)' }}>How it works. </span>
@@ -197,7 +197,7 @@ function Row({ label, value, tone }) {
 function MineTab({ peptide, rung, cyc, runway, unlinked, batches, note, onNote, onEdit }) {
   if (!peptide) {
     return (
-      <div className="space-y-3">
+      <div className="space-y-2.5">
         <p className="text-[11px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
           This one isn't in my protocol — it's{batches.length ? ' just stock on the shelf' : ' only in the catalogue'}.
           Nothing is scheduled for it and nothing is logged against it.
@@ -215,7 +215,7 @@ function MineTab({ peptide, rung, cyc, runway, unlinked, batches, note, onNote, 
   const conc = concentration(peptide.recon?.vialMg, peptide.recon?.bacMl)
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2.5">
       <div className="rounded-2xl px-3 py-1" style={{ background: 'var(--surface2)' }}>
         <Row label="Dose now" value={rung ? formatDose(rung.dose, peptide.ladder?.unit) : '—'} tone="var(--lime)" />
         <Row label="Ladder" value={peptide.ladder?.ceiling > 0
@@ -310,7 +310,7 @@ function HistoryTabPane({ logs, skips, peptide, onEdit, onAdd }) {
             style={{ background: 'var(--surface2)' }}>
             <Syringe size={14} className="shrink-0" style={{ color: 'var(--lime)' }} />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[12px] font-black">
+              <p className="truncate text-[12px] font-black leading-tight">
                 {formatDose(r.log.doseValue, r.log.unit)}
                 {r.log.insulinUnits != null && (
                   <span className="ml-1.5 text-[10px] font-bold" style={{ color: 'var(--muted)' }}>
@@ -318,7 +318,7 @@ function HistoryTabPane({ logs, skips, peptide, onEdit, onAdd }) {
                   </span>
                 )}
               </p>
-              <p className="truncate text-[10px] font-semibold" style={{ color: 'var(--muted)' }}>
+              <p className="truncate text-[10px] font-semibold leading-tight" style={{ color: 'var(--muted)' }}>
                 {prettyDate(r.log.date)}
                 {r.log.siteId ? ` · ${SITE_BY_ID[r.log.siteId]?.label || r.log.siteId}` : ''}
                 {r.log.backfilled ? ' · added later' : ''}
@@ -337,8 +337,8 @@ function HistoryTabPane({ logs, skips, peptide, onEdit, onAdd }) {
             data-testid="history-row" style={{ background: 'var(--surface2)', opacity: 0.75 }}>
             <SkipForward size={14} className="shrink-0" style={{ color: 'var(--amber)' }} />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[12px] font-black" style={{ color: 'var(--amber)' }}>Skipped</p>
-              <p className="truncate text-[10px] font-semibold" style={{ color: 'var(--muted)' }}>
+              <p className="truncate text-[12px] font-black leading-tight" style={{ color: 'var(--amber)' }}>Skipped</p>
+              <p className="truncate text-[10px] font-semibold leading-tight" style={{ color: 'var(--muted)' }}>
                 {prettyDate(r.skip.date)}{r.skip.reason ? ` · ${r.skip.reason}` : ''}
               </p>
             </div>
@@ -371,7 +371,7 @@ function BackfillModal({ peptide, onClose }) {
 
   return (
     <Modal open onClose={onClose} title={`Add a past ${peptide.name} dose`}>
-      <div className="space-y-3" data-testid="backfill-form">
+      <div className="space-y-2.5" data-testid="backfill-form">
         <p className="text-[11px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
           Recorded exactly like a live one, at the dose your ladder was on — so your vial, your run-out
           date and your adherence all catch up with what actually happened.
@@ -425,7 +425,7 @@ function EditLogModal({ log, onClose }) {
   return (
     <Modal open onClose={onClose} title={confirmDelete ? 'Delete this dose?' : 'Correct this dose'}>
       {confirmDelete ? (
-        <div className="space-y-3" data-testid="confirm-delete-log">
+        <div className="space-y-2.5" data-testid="confirm-delete-log">
           <p className="text-[12px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
             The dose on <span className="font-black" style={{ color: 'var(--text)' }}>{prettyDate(log.date)}</span> is
             removed from your history, and what it drew comes back into the vial. Your adherence and run-out
@@ -442,7 +442,7 @@ function EditLogModal({ log, onClose }) {
           </div>
         </div>
       ) : (
-        <div className="space-y-3" data-testid="edit-log-form">
+        <div className="space-y-2.5" data-testid="edit-log-form">
           <label className="block">
             <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>Date</span>
             <input type="date" className="input" value={date} max={t} aria-label="Log date"

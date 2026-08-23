@@ -231,7 +231,7 @@ export default function Home({ goTo, onQuickAction }) {
   const now = new Date()
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2.5">
       {/* Shown once, on first launch, and never again — it is not a standing
           row in the column. Afterwards it lives behind the ⓘ in the header. */}
       <Disclaimer
@@ -318,7 +318,7 @@ export default function Home({ goTo, onQuickAction }) {
       )}
 
       {/* due list for slot */}
-      <div className="space-y-3">
+      <div className="space-y-2.5">
         {slotTotal === 0 && (
           <div className="py-8 text-center" style={{ color: 'var(--muted)' }}>
             <p className="text-sm font-bold">
@@ -410,7 +410,7 @@ export default function Home({ goTo, onQuickAction }) {
             // z-45 sits above the nav (z-40) but below modals (z-50); --nav-h is
             // the nav's measured height, safe-area inset included
             className="fixed inset-x-0 z-[45] px-3"
-            style={{ bottom: 'calc(var(--nav-h, 76px) + 10px)' }}
+            style={{ bottom: 'calc(var(--nav-h, 92px) + 10px)' }}
             data-testid="codraw-bar"
           >
             <div className="mx-auto flex max-w-3xl items-center gap-2 rounded-2xl p-2.5 shadow-lg"
@@ -478,7 +478,7 @@ function SkipSheet({ target, onClose, onConfirm }) {
 
   return (
     <Modal open onClose={onClose} title={many ? `Skip ${target.ids.length} doses?` : `Skip ${target.name}?`}>
-      <div className="space-y-3" data-testid="skip-sheet">
+      <div className="space-y-2.5" data-testid="skip-sheet">
         <p className="text-[12px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
           Recorded as skipped, not missed. Nothing comes out of your stock, and it
           won't count against you.
@@ -524,7 +524,7 @@ function TakeRow({ supplement: s, taken, skipped, onToggle, onSkip, onUnskip, in
       initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
       transition={{ delay: Math.min(index * 0.04, 0.25) }}
       data-testid="take-row"
-      className="card flex w-full items-center gap-3 p-4"
+      className="card flex w-full items-center gap-3 p-3"
       style={taken ? { background: 'color-mix(in srgb, var(--lime) 10%, var(--surface))' }
         : skipped ? { background: 'color-mix(in srgb, var(--violet) 8%, var(--surface))' } : undefined}
     >
@@ -537,11 +537,11 @@ function TakeRow({ supplement: s, taken, skipped, onToggle, onSkip, onUnskip, in
         {skipped ? <SkipForward size={16} /> : <FormIcon form={s.form} size={16} />}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-bold"
+        <p className="truncate text-sm font-bold leading-tight"
           style={settled ? { textDecoration: 'line-through', opacity: 0.7 } : undefined}>
           {s.name}
         </p>
-        <p className="truncate text-[11px] font-semibold"
+        <p className="truncate text-[11px] font-semibold leading-tight"
           style={{ color: skipped ? 'var(--violet)' : 'var(--muted)' }}>
           {skipped ? 'Skipped today' : (s.dose || FORM_LABEL[s.form] || s.form)}
         </p>
@@ -669,7 +669,7 @@ function AlertBell({ alerts, nudge, goTo, onDismissNudge }) {
 function Disclaimer({ open, firstRun, onClose }) {
   return (
     <Modal open={open} onClose={firstRun ? undefined : onClose} title="Pepito +">
-      <div className="space-y-3">
+      <div className="space-y-2.5">
         <p className="text-sm font-bold leading-relaxed">
           Personal tracking tool — not medical advice.
         </p>
@@ -811,7 +811,7 @@ function DueCard({ peptide: p, index, done, titration, partners, slot, onLog, go
   const lastSiteLog = [...doseLogs].filter((l) => l.peptideId === p.id && l.siteId).sort((a, b) => (b.loggedAt || b.date).localeCompare(a.loggedAt || a.date))[0]
 
   return (
-    <motion.div layout className={`card p-5 ${beckon ? 'beckon' : ''}`}
+    <motion.div layout className={`card p-3 ${beckon ? 'beckon' : ''}`}
       initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ ...spring, delay: index * 0.04 }}
       style={selected
         ? { borderColor: 'var(--lime)', boxShadow: '0 0 0 1.5px var(--lime), var(--shadow)' }
@@ -836,18 +836,18 @@ function DueCard({ peptide: p, index, done, titration, partners, slot, onLog, go
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <button onClick={() => onOpenSheet?.(p.id)} data-testid="open-compound-sheet"
-              aria-label={`About ${p.name}`} className="min-w-0 truncate text-left">
-              <h3 className="truncate text-base font-bold">{p.name}</h3>
+              aria-label={`About ${p.name}`} className="min-w-0 truncate text-left leading-tight">
+              <h3 className="truncate text-base font-bold leading-tight">{p.name}</h3>
             </button>
             <span className="chip" style={{ color: 'var(--violet)' }}>Rung {level + 1}{level === maxLevel ? ' · top' : ''}</span>
           </div>
-          <p className="mt-0.5 text-2xl font-black tracking-tight">
+          <p className="text-2xl font-black leading-tight tracking-tight">
             {formatDose(dose, p.ladder.unit)}
             {!nasal && (
               <span className="ml-2 text-sm font-bold" style={{ color: 'var(--lime)' }}>{formatUnitsLong(units)}</span>
             )}
           </p>
-          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
+          <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[11px] font-semibold leading-tight" style={{ color: 'var(--muted)' }}>
             <span className="flex items-center gap-1"><Clock size={11} /> {p.timing}</span>
             <span>{cyc.ongoing ? `day ${cyc.cycleDay} · ongoing` : `day ${cyc.cycleDay}/${cyc.onDays + cyc.offDays}`}</span>
             {hint && (
@@ -872,7 +872,7 @@ function DueCard({ peptide: p, index, done, titration, partners, slot, onLog, go
         </div>
         {skipped ? (
           <motion.button whileTap={{ scale: 0.92 }} onClick={onUnskip}
-            className="flex h-14 shrink-0 flex-col items-center justify-center gap-0.5 rounded-2xl px-3"
+            className="flex h-12 shrink-0 flex-col items-center justify-center gap-0.5 rounded-2xl px-3"
             style={{ background: 'var(--surface2)', color: 'var(--violet)' }}
             aria-label={`Undo skip: ${p.name}`}>
             <Undo2 size={18} />
@@ -881,7 +881,7 @@ function DueCard({ peptide: p, index, done, titration, partners, slot, onLog, go
         ) : (
           <div className="flex shrink-0 items-center gap-1.5">
             <motion.button whileTap={{ scale: 0.9 }} disabled={done} onClick={onLog}
-              className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-sm font-black ${done ? '' : 'btn-primary'}`}
+              className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-sm font-black ${done ? '' : 'btn-primary'}`}
               style={done ? { background: 'var(--surface2)', color: 'var(--lime)' } : undefined}
               aria-label={done ? `${p.name} logged` : `Log ${p.name}`}>
               {done ? (
@@ -898,16 +898,16 @@ function DueCard({ peptide: p, index, done, titration, partners, slot, onLog, go
           full-height buttons abreast pushed the name and the dose into
           truncation at 390px, and the dose is the thing you came to read. */}
       {!done && !skipped && (
-        <div className="mt-2.5 flex gap-1.5">
+        <div className="mt-2 flex gap-1.5">
           <motion.button whileTap={{ scale: 0.97 }} onClick={onSkip} data-testid="skip-peptide"
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-full py-2 text-[11px] font-black"
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-full py-1.5 text-[11px] font-black"
             style={{ background: 'var(--surface2)', color: 'var(--muted)' }}
             aria-label={`Skip ${p.name}`}>
             <SkipForward size={13} /> Skip
           </motion.button>
           {onFinishVial && !nasal && (
             <motion.button whileTap={{ scale: 0.97 }} onClick={onFinishVial} data-testid="finish-vial"
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-full py-2 text-[11px] font-black"
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-full py-1.5 text-[11px] font-black"
               style={{ background: 'var(--surface2)', color: 'var(--muted)' }}
               aria-label={`Finished vial: ${p.name}`}>
               <PackageOpen size={13} /> Vial done

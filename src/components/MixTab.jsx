@@ -122,9 +122,9 @@ export default function MixTab() {
 
   if (loadError) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-2.5">
         <h1 className="text-2xl font-black tracking-tight">Mix Lab</h1>
-        <div className="card p-6 text-center text-sm font-medium" style={{ color: 'var(--muted)' }}>
+        <div className="card p-5 text-center text-sm font-medium" style={{ color: 'var(--muted)' }}>
           Couldn't load the chemistry database. Reopen the tab to retry.
         </div>
       </div>
@@ -132,7 +132,7 @@ export default function MixTab() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2.5">
       <div>
         <h1 className="text-2xl font-black tracking-tight">Mix Lab</h1>
         <p className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>
@@ -149,7 +149,7 @@ export default function MixTab() {
       </div>
 
       {/* Codex progress */}
-      <div className="card p-4">
+      <div className="card p-3">
         <div className="mb-2 flex items-center justify-between">
           <p className="flex items-center gap-1.5 text-sm font-bold">
             <Beaker size={15} style={{ color: 'var(--violet)' }} /> Compatibility Codex
@@ -249,7 +249,7 @@ function Slot({ compound, label, onClear }) {
         <>
           <span className="h-6 w-6 shrink-0 rounded-full" style={{ background: compoundColor(compound), boxShadow: `0 0 12px ${compoundColor(compound)}` }} />
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-sm font-bold">{compound.name}</span>
+            <span className="block truncate text-sm font-bold leading-tight">{compound.name}</span>
             <span className="block text-[10px] font-semibold uppercase" style={{ color: 'var(--muted)' }}>{compound.class} · tap to clear</span>
           </span>
         </>
@@ -303,7 +303,7 @@ function VerdictPanel({ ca, cb, pair, playKey, reasonCodes, classes, forcedSepar
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, scale: 0.97 }}
         transition={{ type: 'spring', stiffness: 280, damping: 24 }}
-        className="card overflow-hidden p-5"
+        className="card overflow-hidden p-3.5"
         style={{ background: 'color-mix(in srgb, var(--rose) 10%, var(--surface))' }}
       >
         <div className="text-center">
@@ -328,7 +328,7 @@ function VerdictPanel({ ca, cb, pair, playKey, reasonCodes, classes, forcedSepar
 
   if (!pair) {
     return (
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="card p-5 text-center">
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="card p-3.5 text-center">
         <p className="text-sm font-bold">No data for this pair</p>
         <p className="mt-1 text-xs font-medium" style={{ color: 'var(--muted)' }}>{ca.name} + {cb.name} isn't in the matrix.</p>
       </motion.div>
@@ -347,7 +347,7 @@ function VerdictPanel({ ca, cb, pair, playKey, reasonCodes, classes, forcedSepar
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, scale: 0.97 }}
       transition={{ type: 'spring', stiffness: 280, damping: 24 }}
-      className="card overflow-hidden p-5"
+      className="card overflow-hidden p-3.5"
       style={{ background: `color-mix(in srgb, ${tone} 10%, var(--surface))` }}
     >
       <ReactionChamber

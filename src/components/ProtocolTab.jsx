@@ -88,7 +88,7 @@ export default function ProtocolTab({ goTo }) {
   }
 
   return (
-    <div className="space-y-3" data-testid="protocol-overview">
+    <div className="space-y-2.5" data-testid="protocol-overview">
       <div className="flex items-start justify-between gap-2">
         <div>
           <h1 className="text-2xl font-black tracking-tight">My protocol</h1>
@@ -114,7 +114,7 @@ export default function ProtocolTab({ goTo }) {
       </div>
 
       {rows.length === 0 && (
-        <div className="card p-6 text-center" style={{ color: 'var(--muted)' }}>
+        <div className="card p-5 text-center" style={{ color: 'var(--muted)' }}>
           <p className="text-sm font-bold">Nothing in my protocol yet.</p>
           <button onClick={() => goTo?.('wizard')}
             className="btn-primary mt-3 flex w-full items-center justify-center gap-1.5 rounded-full py-2.5 text-xs font-black">
@@ -130,24 +130,24 @@ export default function ProtocolTab({ goTo }) {
             whileTap={{ scale: 0.99 }}
             onClick={() => setSheetId(r.p.id)}
             data-testid="protocol-row"
-            className="card flex w-full items-start gap-3 p-4 text-left">
+            className="card flex w-full items-start gap-3 p-3 text-left">
             <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
               style={{ background: 'color-mix(in srgb, var(--lime) 16%, transparent)', color: 'var(--lime)' }}>
               {isNasal(r.p) ? <Wind size={16} /> : <Syringe size={16} />}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-bold">{r.p.name}</p>
-              <p className="mt-0.5 truncate text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
+              <p className="truncate text-sm font-bold leading-tight">{r.p.name}</p>
+              <p className="truncate text-[11px] font-semibold leading-tight" style={{ color: 'var(--muted)' }}>
                 {r.needsSetup
                   ? 'no dose set yet'
                   : `${formatDose(r.dose, r.p.ladder?.unit)} · ${FREQ_LABELS[r.p.frequency] || r.p.frequency} · ${r.p.slot || 'AM'}`}
               </p>
-              <p className="mt-0.5 truncate text-[10px] font-medium" style={{ color: 'var(--muted)' }}>
+              <p className="truncate text-[10px] font-medium leading-tight" style={{ color: 'var(--muted)' }}>
                 {daysWords(r.p)} · {isNasal(r.p) ? 'Nasal' : (r.p.route || 'SubQ')}
                 {' · '}
                 {r.cyc.ongoing ? 'ongoing' : `cycle day ${r.cyc.cycleDay} ${r.cyc.isOn ? 'on' : 'off'}`}
               </p>
-              <p className="mt-1 flex items-center gap-1 truncate text-[10px] font-bold"
+              <p className="mt-0.5 flex items-center gap-1 truncate text-[10px] font-bold leading-tight"
                 style={{ color: r.unlinked ? 'var(--amber)' : r.runway?.low ? 'var(--amber)' : 'var(--muted)' }}>
                 {r.unlinked
                   ? <><AlertTriangle size={10} /> not in stock — still scheduled</>
@@ -165,14 +165,14 @@ export default function ProtocolTab({ goTo }) {
             Supplements
           </p>
           <button onClick={() => goTo?.('supplements')}
-            className="card flex w-full items-center gap-3 p-4 text-left">
+            className="card flex w-full items-center gap-3 p-3 text-left">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
               style={{ background: 'color-mix(in srgb, var(--amber) 16%, transparent)', color: 'var(--amber)' }}>
               <Pill size={16} />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-bold">{supplements.length} taken by mouth</p>
-              <p className="truncate text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
+              <p className="truncate text-sm font-bold leading-tight">{supplements.length} taken by mouth</p>
+              <p className="truncate text-[11px] font-semibold leading-tight" style={{ color: 'var(--muted)' }}>
                 {supplements.slice(0, 3).map((s) => s.name).join(', ')}{supplements.length > 3 ? '…' : ''}
               </p>
             </div>
