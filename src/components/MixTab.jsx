@@ -123,7 +123,7 @@ export default function MixTab() {
   if (loadError) {
     return (
       <div className="space-y-4">
-        <h1 className="text-2xl font-black">Mix Lab</h1>
+        <h1 className="text-2xl font-black tracking-tight">Mix Lab</h1>
         <div className="card p-6 text-center text-sm font-medium" style={{ color: 'var(--muted)' }}>
           Couldn't load the chemistry database. Reopen the tab to retry.
         </div>
@@ -183,7 +183,7 @@ export default function MixTab() {
         </div>
         <button
           onClick={() => { setBrowseAll(!browseAll); setQuery('') }}
-          className="shrink-0 rounded-xl px-3 py-2 text-xs font-bold"
+          className="shrink-0 rounded-full px-3 py-2 text-xs font-bold"
           style={browseAll
             ? { backgroundImage: 'linear-gradient(135deg, var(--violet), var(--indigo))', color: '#fff' }
             : { background: 'var(--surface2)', color: 'var(--text)' }}
@@ -358,7 +358,7 @@ function VerdictPanel({ ca, cb, pair, playKey, reasonCodes, classes, forcedSepar
       <div className="mt-3 text-center">
         <p className="text-sm font-bold" style={{ color: 'var(--muted)' }}>{ca.name} + {cb.name}</p>
         <div className="mt-1 flex items-center justify-center gap-2">
-          <span className="flex h-8 w-8 items-center justify-center rounded-full" style={{ background: tone, color: '#0c1200' }}>
+          <span className="flex h-8 w-8 items-center justify-center rounded-full" style={{ background: tone, color: '#fff' }}>
             <Icon size={18} strokeWidth={3} />
           </span>
           <span className="text-xl font-black" style={{ color: tone }}>{meta.label}</span>
@@ -402,8 +402,8 @@ function VerdictPanel({ ca, cb, pair, playKey, reasonCodes, classes, forcedSepar
               </p>
               <button
                 onClick={() => setInspected(true)}
-                className="mt-2 w-full rounded-xl py-2 text-xs font-extrabold"
-                style={{ background: 'var(--amber)', color: '#1a1200' }}
+                className="mt-2 w-full rounded-full py-2 text-xs font-extrabold"
+                style={{ background: 'var(--amber)', color: '#fff' }}
               >
                 Confirm it's clear
               </button>

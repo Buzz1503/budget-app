@@ -61,7 +61,7 @@ export default function MoreHub({ goTo }) {
               data-testid={`more-${l.id}`}
               className="card flex w-full items-center gap-3 p-4 text-left"
             >
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl"
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl"
                 style={{ background: `color-mix(in srgb, ${l.color} 18%, transparent)`, color: l.color }}>
                 <l.icon size={20} />
               </div>

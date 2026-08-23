@@ -22,7 +22,9 @@
 
   --surface: #ffffff;
   --surface-solid: #ffffff;
-  --surface2: #f6f3ee;
+  /* the inset tone. Deep enough to read as a step down from a white card and
+     as a step up from the page ground — at #f6f3ee it disappeared into both. */
+  --surface2: #efeae0;
   --border: rgba(28, 22, 15, 0.07);
   --text: #1c1a17;
   --muted: #6d6852;
@@ -165,10 +167,12 @@ body {
   * { scroll-behavior: auto !important; }
 }
 
+/* A field reads as somewhere to type on the page ground and inside a white
+   card alike, so it carries its own hairline rather than relying on fill. */
 .input {
-  @apply w-full rounded-2xl px-4 py-2.5 text-sm font-medium outline-none;
+  @apply w-full rounded-full px-4 py-2.5 text-sm font-medium outline-none;
   background: var(--surface2);
-  border: 1px solid transparent;
+  border: 1px solid rgba(28, 22, 15, 0.10);
   color: var(--text);
   transition: border-color 0.15s, box-shadow 0.15s;
 }
@@ -176,6 +180,10 @@ body {
   border-color: var(--indigo);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--indigo) 16%, transparent);
 }
+/* multi-line fields keep square-ish corners — a pill textarea reads badly */
+textarea.input { @apply rounded-2xl; }
+
+:root[data-theme="dark"] .input { border-color: var(--border); }
 
 input[type="number"]::-webkit-outer-spin-button,
 input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }

@@ -156,19 +156,19 @@ export default function SymptomsTab() {
       ) : !empty && (
         <>
           {/* good / issues */}
-          <div className="flex rounded-xl p-1" style={{ background: 'var(--surface2)' }}>
+          <div className="flex rounded-full p-1" style={{ background: 'var(--surface2)' }}>
             {[['neg', 'Issues'], ['pos', 'Good effects']].map(([id, label]) => (
               <button key={id} onClick={() => setPolarity(id)} aria-label={label}
-                className="relative flex-1 rounded-lg py-2 text-xs font-black">
+                className="relative flex-1 rounded-full py-2 text-xs font-black">
                 {polarity === id && (
-                  <motion.span layoutId="sym-polarity-pill" className="absolute inset-0 rounded-lg"
+                  <motion.span layoutId="sym-polarity-pill" className="absolute inset-0 rounded-full"
                     style={{
                       backgroundImage: id === 'neg'
                         ? 'linear-gradient(135deg, var(--coral), var(--rose))'
                         : 'linear-gradient(135deg, var(--lime), var(--lime-deep))',
                     }} />
                 )}
-                <span className="relative" style={{ color: polarity === id ? (id === 'neg' ? '#fff' : '#0c1200') : 'var(--muted)' }}>
+                <span className="relative" style={{ color: polarity === id ? '#fff' : 'var(--muted)' }}>
                   {label}
                 </span>
               </button>
@@ -215,7 +215,8 @@ export default function SymptomsTab() {
               const chosen = g.symptoms.filter((s) => selected[s.id]).length
               const Icon = Icons[g.icon] || Icons.CircleDot
               return (
-                <div key={g.id} className="rounded-xl" style={{ background: 'var(--surface2)' }}>
+                <div key={g.id} className="rounded-2xl"
+                  style={{ background: 'var(--surface)', boxShadow: 'var(--shadow-sm)' }}>
                   <button
                     onClick={() => setOpenCats((s) => {
                       const next = new Set(s)
@@ -229,7 +230,7 @@ export default function SymptomsTab() {
                     <span className="flex-1 text-xs font-black">{g.label}</span>
                     {chosen > 0 && (
                       <span className="rounded-full px-1.5 py-0.5 text-[10px] font-black"
-                        style={{ background: 'var(--lime)', color: '#0c1200' }}>{chosen}</span>
+                        style={{ background: 'var(--lime)', color: '#fff' }}>{chosen}</span>
                     )}
                     <span className="text-[10px] font-bold" style={{ color: 'var(--muted)' }}>{g.symptoms.length}</span>
                     <motion.span animate={{ rotate: open ? 180 : 0 }} style={{ display: 'inline-flex' }}>
@@ -283,7 +284,7 @@ export default function SymptomsTab() {
               const meta = stackIndex[id] || TAG_BY_ID[id] || { label: symptomLabel(id), polarity: 'neg' }
               const pos = meta.polarity === 'pos'
               return (
-                <div key={id} className="flex items-center gap-2 rounded-xl p-2.5" style={{ background: 'var(--surface2)' }}>
+                <div key={id} className="flex items-center gap-2 rounded-2xl p-2.5" style={{ background: 'var(--surface2)' }}>
                   <span className="min-w-0 flex-1 truncate text-xs font-black"
                     style={{ color: pos ? 'var(--lime)' : 'var(--text)' }}>{meta.label}</span>
                   {pos ? (
@@ -295,7 +296,7 @@ export default function SymptomsTab() {
                           aria-label={`${meta.label}: ${SEV_SHORT[sv]}`}
                           className="rounded-md px-2 py-1 text-[10px] font-black"
                           style={selected[id] === sv
-                            ? { background: SEV_COLOR[sv], color: '#160b06' }
+                            ? { background: SEV_COLOR[sv], color: '#fff' }
                             : { color: 'var(--muted)' }}>
                           {SEV_SHORT[sv]}
                         </button>
@@ -317,7 +318,7 @@ export default function SymptomsTab() {
                   <div className="grid grid-cols-3 gap-1.5">
                     {INJECTION_SITES.map((s) => (
                       <button key={s.id} onClick={() => setSite(site === s.id ? null : s.id)}
-                        className="rounded-lg px-2 py-1.5 text-[11px] font-bold"
+                        className="rounded-full px-2 py-1.5 text-[11px] font-bold"
                         style={site === s.id
                           ? { backgroundImage: 'linear-gradient(135deg, var(--violet), var(--indigo))', color: '#fff' }
                           : { background: 'var(--surface2)', color: 'var(--muted)' }}>
@@ -345,7 +346,7 @@ export default function SymptomsTab() {
             )}
 
             <motion.button whileTap={{ scale: 0.97 }} onClick={submit}
-              className="btn-primary w-full rounded-xl py-3 text-sm font-black">
+              className="btn-primary w-full rounded-full py-3 text-sm font-black">
               {todayLog ? 'Update check-in' : `Log ${selectedIds.length}`}
             </motion.button>
           </motion.div>
@@ -427,7 +428,7 @@ function Attribution({ result }) {
   const [open, setOpen] = useState(false)
   const { top, others } = result
   return (
-    <div className="rounded-xl p-3" style={{ background: 'var(--surface2)' }}>
+    <div className="rounded-2xl p-3" style={{ background: 'var(--surface2)' }}>
       <p className="text-[11px] font-bold" style={{ color: result.polarity === 'pos' ? 'var(--lime)' : 'var(--coral)' }}>
         {result.label}
       </p>
@@ -488,7 +489,7 @@ function TierChip({ tier }) {
       </button>
       {open && (
         <span role="tooltip" onClick={() => setOpen(false)}
-          className="absolute right-0 top-full z-[60] mt-1 block w-44 rounded-xl p-2 text-right text-[10px] font-semibold leading-relaxed shadow-lg"
+          className="absolute right-0 top-full z-[60] mt-1 block w-44 rounded-2xl p-2 text-right text-[10px] font-semibold leading-relaxed shadow-lg"
           style={{ background: 'var(--surface-solid)', border: '1px solid var(--border)', color: 'var(--muted)' }}>
           <span className="block font-black" style={{ color: 'var(--text)' }}>{tier} · {TIER_WORDS[tier]}</span>
           How solid the link between this compound and this effect is — T1 is well established,
@@ -564,7 +565,7 @@ export function SymptomHistory() {
           {openLog?.log && (
             <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
               className="overflow-hidden">
-              <div className="mt-3 rounded-xl p-3" style={{ background: 'var(--surface2)' }}>
+              <div className="mt-3 rounded-2xl p-3" style={{ background: 'var(--surface2)' }}>
                 <p className="text-xs font-bold">{format(parseISO(openLog.date), 'EEEE d MMM')}</p>
                 <div className="mt-1.5 flex flex-wrap gap-1">
                   {openLog.log.tags.map((tg) => (

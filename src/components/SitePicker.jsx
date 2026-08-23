@@ -71,7 +71,7 @@ export default function SitePicker({ open, onClose, peptide, dose, unit, units }
             <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}
               transition={{ type: 'spring', stiffness: 400, damping: 15 }}
               className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full"
-              style={{ background: 'var(--lime)', color: '#0c1200' }}>
+              style={{ background: 'var(--lime)', color: '#fff' }}>
               <Check size={26} strokeWidth={3} />
             </motion.div>
             <p className="text-base font-black">Logged — {done.label}</p>
@@ -91,7 +91,7 @@ export default function SitePicker({ open, onClose, peptide, dose, unit, units }
               Next time we'll steer you to <span className="font-black" style={{ color: 'var(--text)' }}>{done.next}</span> to keep rotating.
             </p>
           )}
-          <button onClick={close} className="btn-primary w-full rounded-xl py-3 text-sm font-black">Done</button>
+          <button onClick={close} className="btn-primary w-full rounded-full py-3 text-sm font-black">Done</button>
         </div>
       </Modal>
     )
@@ -106,7 +106,7 @@ export default function SitePicker({ open, onClose, peptide, dose, unit, units }
     return (
       <Modal open={open} onClose={close} title={`Take ${peptide.name}`}>
         <div className="space-y-3">
-          <div className="rounded-xl p-4 text-center" style={{ background: 'var(--surface2)' }}>
+          <div className="rounded-2xl p-4 text-center" style={{ background: 'var(--surface2)' }}>
             <p className="text-2xl font-black tracking-tight">{formatDose(dose, unit)}</p>
             <p className="mt-0.5 text-[11px] font-bold" style={{ color: 'var(--muted)' }}>
               Nasal spray · {strength.mcgPerSpray} mcg per spray
@@ -119,13 +119,13 @@ export default function SitePicker({ open, onClose, peptide, dose, unit, units }
           </CoachTip>
 
           {spraysLeft != null && (
-            <p className="flex items-center gap-1.5 rounded-xl p-2.5 text-xs font-bold" style={{ background: 'var(--surface2)' }}>
+            <p className="flex items-center gap-1.5 rounded-2xl p-2.5 text-xs font-bold" style={{ background: 'var(--surface2)' }}>
               <Wind size={13} className="shrink-0" style={{ color: 'var(--indigo)' }} />
               About {spraysLeft} spray{spraysLeft === 1 ? '' : 's'} left in the bottle.
             </p>
           )}
 
-          <div className="rounded-xl" style={{ background: 'var(--surface2)' }}>
+          <div className="rounded-2xl" style={{ background: 'var(--surface2)' }}>
             <button onClick={() => setHowTo((v) => !v)}
               className="flex w-full items-center justify-between gap-2 p-3 text-left">
               <span className="flex items-center gap-1.5 text-xs font-black">
@@ -144,7 +144,7 @@ export default function SitePicker({ open, onClose, peptide, dose, unit, units }
           </div>
 
           <motion.button whileTap={{ scale: 0.97 }} onClick={confirmNasal}
-            className="btn-primary flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-black">
+            className="btn-primary flex w-full items-center justify-center gap-2 rounded-full py-3.5 text-sm font-black">
             <Wind size={18} strokeWidth={2.5} /> Log {formatDose(dose, unit)}
           </motion.button>
         </div>
@@ -156,7 +156,7 @@ export default function SitePicker({ open, onClose, peptide, dose, unit, units }
     <Modal open={open} onClose={close} title={`Where to inject ${peptide.name}`}>
       <div className="space-y-3">
         {/* what you're about to give */}
-        <div className="rounded-xl p-3 text-center" style={{ background: 'var(--surface2)' }}>
+        <div className="rounded-2xl p-3 text-center" style={{ background: 'var(--surface2)' }}>
           <p className="text-2xl font-black tracking-tight">
             {formatDose(dose, unit)}
             <span className="ml-2 text-base font-bold" style={{ color: 'var(--lime)' }}>{formatUnitsLong(units)}</span>
@@ -171,7 +171,7 @@ export default function SitePicker({ open, onClose, peptide, dose, unit, units }
         {/* oil/IM is a different routine to the SubQ insulin-syringe flow, and
             the reminder belongs here, at the moment of injecting */}
         {route === 'IM' && (
-          <div className="rounded-xl p-3" style={{ background: 'color-mix(in srgb, var(--amber) 14%, transparent)' }}>
+          <div className="rounded-2xl p-3" style={{ background: 'color-mix(in srgb, var(--amber) 14%, transparent)' }}>
             <p className="text-[11px] font-black" style={{ color: 'var(--amber)' }}>
               Intramuscular{isPremixed(peptide) ? ' · oil solution' : ''} — not the SubQ insulin-syringe routine
             </p>
@@ -187,7 +187,7 @@ export default function SitePicker({ open, onClose, peptide, dose, unit, units }
         </CoachTip>
 
         {/* where and when, in plain words */}
-        <div className="flex items-start gap-2 rounded-xl p-2.5" style={{ background: 'var(--surface2)' }}>
+        <div className="flex items-start gap-2 rounded-2xl p-2.5" style={{ background: 'var(--surface2)' }}>
           <Clock size={14} className="mt-0.5 shrink-0" style={{ color: 'var(--muted)' }} />
           <p className="text-xs font-bold leading-relaxed">
             {last
@@ -199,7 +199,7 @@ export default function SitePicker({ open, onClose, peptide, dose, unit, units }
         <SiteChooser route={route} zone={zone} picked={picked} onPick={setPicked} onResolve={setResolved} />
 
         {/* how-to, at the moment of injecting */}
-        <div className="rounded-xl" style={{ background: 'var(--surface2)' }}>
+        <div className="rounded-2xl" style={{ background: 'var(--surface2)' }}>
           <button onClick={() => setHowTo((v) => !v)}
             className="flex w-full items-center justify-between gap-2 p-3 text-left">
             <span className="flex items-center gap-1.5 text-xs font-black">
@@ -225,7 +225,7 @@ export default function SitePicker({ open, onClose, peptide, dose, unit, units }
         </div>
 
         <motion.button whileTap={{ scale: 0.97 }} onClick={confirm}
-          className="btn-primary flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-black">
+          className="btn-primary flex w-full items-center justify-center gap-2 rounded-full py-3.5 text-sm font-black">
           <Syringe size={18} strokeWidth={2.5} /> Log here — {chosenSite?.short || chosenSite?.label}
         </motion.button>
       </div>

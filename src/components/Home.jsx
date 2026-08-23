@@ -427,14 +427,14 @@ export default function Home({ goTo, onQuickAction }) {
                   ids: selectedPeptides.map((x) => x.id),
                   name: selectedPeptides.map((x) => x.name).join(', '),
                 })}
-                className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-xl px-3 py-2.5 text-xs font-black"
+                className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-3 py-2.5 text-xs font-black"
                 style={{ background: 'var(--surface2)', color: 'var(--muted)' }}
                 aria-label="Skip the selected doses">
                 <SkipForward size={14} /> Skip
               </motion.button>
               <motion.button whileTap={{ scale: 0.95 }} disabled={selected.size < 2}
                 onClick={() => setCoDraw(true)}
-                className="btn-primary flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl px-3.5 py-2.5 text-sm font-black disabled:opacity-40">
+                className="btn-primary flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2.5 text-sm font-black disabled:opacity-40">
                 <Syringe size={16} /> Log together
               </motion.button>
             </div>
@@ -496,12 +496,12 @@ function SkipSheet({ target, onClose, onConfirm }) {
         </div>
         <p className="text-[10px] font-medium" style={{ color: 'var(--muted)' }}>Optional — tap Skip without one.</p>
         <div className="flex gap-2">
-          <button onClick={onClose} className="flex-1 rounded-xl py-2.5 text-xs font-black"
+          <button onClick={onClose} className="flex-1 rounded-full py-2.5 text-xs font-black"
             style={{ background: 'var(--surface2)', color: 'var(--muted)' }}>
             Cancel
           </button>
           <button onClick={() => onConfirm(reason)} data-testid="skip-confirm"
-            className="flex-1 rounded-xl py-2.5 text-xs font-black"
+            className="flex-1 rounded-full py-2.5 text-xs font-black"
             style={{ backgroundImage: 'linear-gradient(135deg, var(--violet), var(--indigo))', color: '#fff' }}>
             Skip {many ? `all ${target.ids.length}` : ''}
           </button>
@@ -528,7 +528,7 @@ function TakeRow({ supplement: s, taken, skipped, onToggle, onSkip, onUnskip, in
       style={taken ? { background: 'color-mix(in srgb, var(--lime) 10%, var(--surface))' }
         : skipped ? { background: 'color-mix(in srgb, var(--violet) 8%, var(--surface))' } : undefined}
     >
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl"
         style={taken
           ? { background: 'color-mix(in srgb, var(--lime) 20%, transparent)', color: 'var(--lime)' }
           : skipped
@@ -569,7 +569,7 @@ function TakeRow({ supplement: s, taken, skipped, onToggle, onSkip, onUnskip, in
             className="flex h-8 shrink-0 items-center gap-1 rounded-full px-3 text-[11px] font-black"
             style={taken
               ? { background: 'color-mix(in srgb, var(--lime) 20%, transparent)', color: 'var(--lime)' }
-              : { backgroundImage: 'linear-gradient(135deg, var(--lime), var(--lime-deep))', color: '#0c1200' }}>
+              : { backgroundImage: 'linear-gradient(135deg, var(--lime), var(--lime-deep))', color: '#fff' }}>
             {taken ? <><Check size={12} /> Taken</> : 'Taken'}
           </motion.button>
         </>
@@ -600,11 +600,11 @@ function AlertBell({ alerts, nudge, goTo, onDismissNudge }) {
       <motion.button whileTap={{ scale: 0.9 }} onClick={() => setOpen((v) => !v)}
         aria-label={`${count} thing${count === 1 ? '' : 's'} to look at`}
         data-testid="alert-bell"
-        className="relative z-[47] flex h-10 w-10 items-center justify-center rounded-xl"
+        className="relative z-[47] flex h-10 w-10 items-center justify-center rounded-full"
         style={{ background: 'var(--surface2)', color: urgent ? 'var(--amber)' : 'var(--muted)' }}>
         <Bell size={18} />
         <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-black"
-          style={{ background: urgent ? 'var(--amber)' : 'var(--indigo)', color: '#0c1200' }}>
+          style={{ background: urgent ? 'var(--amber)' : 'var(--indigo)', color: '#fff' }}>
           {count}
         </span>
       </motion.button>
@@ -636,12 +636,12 @@ function AlertBell({ alerts, nudge, goTo, onDismissNudge }) {
                       <p className="text-[11px] font-semibold">{nudge.text}</p>
                       <div className="mt-1.5 flex gap-2">
                         <button onClick={() => { setOpen(false); goTo('settings') }}
-                          className="rounded-lg px-2.5 py-1 text-[10px] font-black"
+                          className="rounded-full px-2.5 py-1 text-[10px] font-black"
                           style={{ background: 'var(--indigo)', color: '#fff' }}>
                           Back up now
                         </button>
                         <button onClick={() => { onDismissNudge(); setOpen(false) }}
-                          className="rounded-lg px-2.5 py-1 text-[10px] font-bold" style={{ background: 'var(--surface2)' }}>
+                          className="rounded-full px-2.5 py-1 text-[10px] font-bold" style={{ background: 'var(--surface2)' }}>
                           Later
                         </button>
                       </div>
@@ -678,7 +678,7 @@ function Disclaimer({ open, firstRun, onClose }) {
         <p className="text-xs font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
           Your logs, photos and measurements stay on this device — they're never uploaded anywhere.
         </p>
-        <button onClick={onClose} className="btn-primary w-full rounded-xl py-2.5 text-sm font-black">
+        <button onClick={onClose} className="btn-primary w-full rounded-full py-2.5 text-sm font-black">
           Got it
         </button>
       </div>
@@ -736,7 +736,7 @@ function ShotRow({ group, onAccept }) {
   const many = group.items.length > 1
 
   return (
-    <div className="rounded-xl p-2.5" style={{ background: 'var(--surface2)' }}>
+    <div className="rounded-2xl p-2.5" style={{ background: 'var(--surface2)' }}>
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
           <p className="text-[11px] font-black uppercase tracking-wide"
@@ -760,7 +760,7 @@ function ShotRow({ group, onAccept }) {
         </div>
         {many && (
           <motion.button whileTap={{ scale: 0.94 }} onClick={() => onAccept(group)}
-            className="btn-primary shrink-0 rounded-xl px-3 py-2 text-xs font-black">
+            className="btn-primary shrink-0 rounded-full px-3 py-2 text-xs font-black">
             Log together
           </motion.button>
         )}
@@ -897,14 +897,14 @@ function DueCard({ peptide: p, index, done, titration, partners, slot, onLog, go
       {!done && !skipped && (
         <div className="mt-2.5 flex gap-1.5">
           <motion.button whileTap={{ scale: 0.97 }} onClick={onSkip} data-testid="skip-peptide"
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 text-[11px] font-black"
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-full py-2 text-[11px] font-black"
             style={{ background: 'var(--surface2)', color: 'var(--muted)' }}
             aria-label={`Skip ${p.name}`}>
             <SkipForward size={13} /> Skip
           </motion.button>
           {onFinishVial && !nasal && (
             <motion.button whileTap={{ scale: 0.97 }} onClick={onFinishVial} data-testid="finish-vial"
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 text-[11px] font-black"
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-full py-2 text-[11px] font-black"
               style={{ background: 'var(--surface2)', color: 'var(--muted)' }}
               aria-label={`Finished vial: ${p.name}`}>
               <PackageOpen size={13} /> Vial done
@@ -924,14 +924,14 @@ function DueCard({ peptide: p, index, done, titration, partners, slot, onLog, go
           say "yes, that felt fine" is how a prompt gets ignored for weeks. */}
       {stepDue && !stepOpen && (
         <button onClick={() => setStepOpen(true)} data-testid="stepup-prompt"
-          className="mt-3 flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2 text-xs font-bold"
+          className="mt-3 flex w-full items-center justify-between gap-2 rounded-full px-3 py-2 text-xs font-bold"
           style={{ background: 'color-mix(in srgb, var(--violet) 16%, transparent)', color: 'var(--violet)' }}>
           <span className="flex items-center gap-2"><Zap size={13} /> Step-up ready — tolerating well?</span>
           <ChevronRight size={14} />
         </button>
       )}
       {stepDue && stepOpen && (
-        <div className="mt-3 rounded-xl p-3" data-testid="stepup-confirm"
+        <div className="mt-3 rounded-2xl p-3" data-testid="stepup-confirm"
           style={{ background: 'color-mix(in srgb, var(--violet) 14%, transparent)' }}>
           <p className="text-[11px] font-black" style={{ color: 'var(--violet)' }}>
             {p.ladder.intervalWeeks} week{p.ladder.intervalWeeks === 1 ? '' : 's'} at {formatDose(dose, p.ladder.unit)} —
@@ -942,12 +942,12 @@ function DueCard({ peptide: p, index, done, titration, partners, slot, onLog, go
           </p>
           <div className="mt-2.5 flex gap-2">
             <button onClick={() => { holdStepUp(p.id); setStepOpen(false) }} data-testid="stepup-hold"
-              className="flex-1 rounded-lg py-2 text-[11px] font-black"
+              className="flex-1 rounded-full py-2 text-[11px] font-black"
               style={{ background: 'var(--surface2)', color: 'var(--muted)' }}>
               Hold here
             </button>
             <button onClick={() => { confirmStepUp(p.id); setStepOpen(false) }} data-testid="stepup-advance"
-              className="btn-primary flex-1 rounded-lg py-2 text-[11px] font-black">
+              className="btn-primary flex-1 rounded-full py-2 text-[11px] font-black">
               Advance
             </button>
           </div>

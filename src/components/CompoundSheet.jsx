@@ -93,7 +93,7 @@ export default function CompoundSheet({ open, compoundId, onClose, goTo }) {
         <div className="flex gap-1.5">
           {[['about', 'About'], ['mine', 'My settings'], ['history', 'History']].map(([id, label]) => (
             <button key={id} onClick={() => setTab(id)} data-testid={`sheet-tab-${id}`}
-              className="flex-1 rounded-lg py-1.5 text-[11px] font-black"
+              className="flex-1 rounded-full py-1.5 text-[11px] font-black"
               style={tab === id
                 ? { backgroundImage: 'linear-gradient(135deg, var(--violet), var(--indigo))', color: '#fff' }
                 : { background: 'var(--surface2)', color: 'var(--muted)' }}>
@@ -154,7 +154,7 @@ function AboutTab({ reference, name }) {
       )}
 
       {text && !text.excluded && (text.doseText || text.frequencyText || text.cycleText) && (
-        <div className="rounded-xl p-3" style={{ background: 'var(--surface2)' }}>
+        <div className="rounded-2xl p-3" style={{ background: 'var(--surface2)' }}>
           <p className="text-[10px] font-black uppercase tracking-wide" style={{ color: 'var(--indigo)' }}>
             Dosing reference
           </p>
@@ -166,7 +166,7 @@ function AboutTab({ reference, name }) {
         </div>
       )}
       {text?.excluded && (
-        <p className="flex items-start gap-1.5 rounded-xl p-3 text-[11px] font-bold"
+        <p className="flex items-start gap-1.5 rounded-2xl p-3 text-[11px] font-bold"
           style={{ background: 'color-mix(in srgb, var(--rose) 12%, transparent)', color: 'var(--rose)' }}>
           <AlertTriangle size={13} className="mt-px shrink-0" />
           Dosing is deliberately withheld for this compound — read the safety notes below.
@@ -203,7 +203,7 @@ function MineTab({ peptide, rung, cyc, runway, unlinked, batches, note, onNote, 
           Nothing is scheduled for it and nothing is logged against it.
         </p>
         <button onClick={onEdit} data-testid="add-to-protocol"
-          className="btn-primary flex w-full items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-black">
+          className="btn-primary flex w-full items-center justify-center gap-1.5 rounded-full py-2.5 text-xs font-black">
           <Plus size={14} /> Add it to my protocol
         </button>
       </div>
@@ -216,7 +216,7 @@ function MineTab({ peptide, rung, cyc, runway, unlinked, batches, note, onNote, 
 
   return (
     <div className="space-y-3">
-      <div className="rounded-xl px-3 py-1" style={{ background: 'var(--surface2)' }}>
+      <div className="rounded-2xl px-3 py-1" style={{ background: 'var(--surface2)' }}>
         <Row label="Dose now" value={rung ? formatDose(rung.dose, peptide.ladder?.unit) : '—'} tone="var(--lime)" />
         <Row label="Ladder" value={peptide.ladder?.ceiling > 0
           ? `${formatDose(peptide.ladder.floor, peptide.ladder.unit)} → ${formatDose(peptide.ladder.ceiling, peptide.ladder.unit)}`
@@ -237,7 +237,7 @@ function MineTab({ peptide, rung, cyc, runway, unlinked, batches, note, onNote, 
       </div>
 
       {/* the vial behind it, or the honest absence of one */}
-      <div className="rounded-xl p-3" style={{ background: 'var(--surface2)' }}>
+      <div className="rounded-2xl p-3" style={{ background: 'var(--surface2)' }}>
         <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wide"
           style={{ color: unlinked ? 'var(--amber)' : 'var(--lime)' }}>
           <Package size={12} /> {unlinked ? 'Not in stock' : 'Stock'}
@@ -262,7 +262,7 @@ function MineTab({ peptide, rung, cyc, runway, unlinked, batches, note, onNote, 
       </div>
 
       <button onClick={onEdit} data-testid="edit-in-wizard"
-        className="flex w-full items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-black"
+        className="flex w-full items-center justify-center gap-1.5 rounded-full py-2.5 text-xs font-black"
         style={{ background: 'var(--surface2)', color: 'var(--violet)' }}>
         <Pencil size={13} /> Edit dose &amp; schedule in Build / rebuild
       </button>
@@ -288,7 +288,7 @@ function HistoryTabPane({ logs, skips, peptide, onEdit, onAdd }) {
     <div className="space-y-2">
       {peptide && (
         <button onClick={onAdd} data-testid="backfill-open"
-          className="flex w-full items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-black"
+          className="flex w-full items-center justify-center gap-1.5 rounded-full py-2.5 text-xs font-black"
           style={{ background: 'color-mix(in srgb, var(--lime) 16%, transparent)', color: 'var(--lime)' }}>
           <Plus size={14} /> Add a dose I forgot to log
         </button>
@@ -306,7 +306,7 @@ function HistoryTabPane({ logs, skips, peptide, onEdit, onAdd }) {
 
       <div className="space-y-1.5" data-testid="compound-history">
         {rows.map((r) => r.kind === 'dose' ? (
-          <div key={r.log.id} className="flex items-center gap-2.5 rounded-xl p-2.5" data-testid="history-row"
+          <div key={r.log.id} className="flex items-center gap-2.5 rounded-2xl p-2.5" data-testid="history-row"
             style={{ background: 'var(--surface2)' }}>
             <Syringe size={14} className="shrink-0" style={{ color: 'var(--lime)' }} />
             <div className="min-w-0 flex-1">
@@ -327,13 +327,13 @@ function HistoryTabPane({ logs, skips, peptide, onEdit, onAdd }) {
             </div>
             <button onClick={() => onEdit(r.log)} aria-label={`Edit the dose on ${r.log.date}`}
               data-testid="history-edit"
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full"
               style={{ background: 'var(--surface-solid)', color: 'var(--muted)' }}>
               <Pencil size={12} />
             </button>
           </div>
         ) : (
-          <div key={`${r.skip.peptideId}-${r.skip.date}`} className="flex items-center gap-2.5 rounded-xl p-2.5"
+          <div key={`${r.skip.peptideId}-${r.skip.date}`} className="flex items-center gap-2.5 rounded-2xl p-2.5"
             data-testid="history-row" style={{ background: 'var(--surface2)', opacity: 0.75 }}>
             <SkipForward size={14} className="shrink-0" style={{ color: 'var(--amber)' }} />
             <div className="min-w-0 flex-1">
@@ -389,10 +389,10 @@ function BackfillModal({ peptide, onClose }) {
           </p>
         )}
         <div className="flex gap-2">
-          <button onClick={onClose} className="flex-1 rounded-xl py-2.5 text-xs font-black"
+          <button onClick={onClose} className="flex-1 rounded-full py-2.5 text-xs font-black"
             style={{ background: 'var(--surface2)', color: 'var(--muted)' }}>Cancel</button>
           <button onClick={save} disabled={!date || date > t} data-testid="backfill-save"
-            className="btn-primary flex-1 rounded-xl py-2.5 text-xs font-black disabled:opacity-40">
+            className="btn-primary flex-1 rounded-full py-2.5 text-xs font-black disabled:opacity-40">
             Add it
           </button>
         </div>
@@ -432,10 +432,10 @@ function EditLogModal({ log, onClose }) {
             date both move to match.
           </p>
           <div className="flex gap-2">
-            <button onClick={() => setConfirmDelete(false)} className="flex-1 rounded-xl py-2.5 text-xs font-black"
+            <button onClick={() => setConfirmDelete(false)} className="flex-1 rounded-full py-2.5 text-xs font-black"
               style={{ background: 'var(--surface2)', color: 'var(--muted)' }}>Keep it</button>
             <button onClick={del} data-testid="confirm-delete-log-yes"
-              className="flex-1 rounded-xl py-2.5 text-xs font-black"
+              className="flex-1 rounded-full py-2.5 text-xs font-black"
               style={{ background: 'color-mix(in srgb, var(--coral) 22%, transparent)', color: 'var(--coral)' }}>
               Delete
             </button>
@@ -459,14 +459,14 @@ function EditLogModal({ log, onClose }) {
           </p>
           <div className="flex gap-2">
             <button onClick={() => setConfirmDelete(true)} data-testid="delete-log"
-              className="rounded-xl px-3 py-2.5 text-xs font-black"
+              className="rounded-full px-3 py-2.5 text-xs font-black"
               style={{ background: 'var(--surface2)', color: 'var(--coral)' }}>
               <Trash2 size={13} />
             </button>
-            <button onClick={onClose} className="flex-1 rounded-xl py-2.5 text-xs font-black"
+            <button onClick={onClose} className="flex-1 rounded-full py-2.5 text-xs font-black"
               style={{ background: 'var(--surface2)', color: 'var(--muted)' }}>Cancel</button>
             <button onClick={save} data-testid="edit-log-save"
-              className="btn-primary flex-1 rounded-xl py-2.5 text-xs font-black">Save</button>
+              className="btn-primary flex-1 rounded-full py-2.5 text-xs font-black">Save</button>
           </div>
         </div>
       )}

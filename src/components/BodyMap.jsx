@@ -128,7 +128,7 @@ export default function BodyMap({
 
               {s.n != null && !parked && (
                 <text x={s.x} y={s.y + fs * 0.35} textAnchor="middle" fontSize={fs} fontWeight="900"
-                  fill="#0c1200" opacity={quiet ? 0.55 : 1} style={{ pointerEvents: 'none' }}>{s.n}</text>
+                  fill="#fff" opacity={quiet ? 0.55 : 1} style={{ pointerEvents: 'none' }}>{s.n}</text>
               )}
             </g>
           )
@@ -281,7 +281,7 @@ function InjectHereFlag({ site, zoom }) {
       transition={{ duration: 1.5, repeat: Infinity }}
     >
       <rect x={x} y={y} width={w} height={h} rx={h / 2} fill="var(--lime)" />
-      <text x={x + w / 2} y={y + h * 0.7} textAnchor="middle" fontSize={fs} fontWeight="900" fill="#0c1200">
+      <text x={x + w / 2} y={y + h * 0.7} textAnchor="middle" fontSize={fs} fontWeight="900" fill="#fff">
         INJECT HERE
       </text>
       <path

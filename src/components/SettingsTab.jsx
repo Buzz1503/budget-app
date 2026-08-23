@@ -51,7 +51,12 @@ export default function SettingsTab({ goTo }) {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-extrabold">Settings</h1>
+      <div>
+        <h1 className="text-2xl font-black tracking-tight">Settings</h1>
+        <p className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>
+          Theme, lead time, backup and reset
+        </p>
+      </div>
 
       {/* settings */}
       <div className="card space-y-3 p-4">
@@ -112,7 +117,7 @@ export default function SettingsTab({ goTo }) {
 
       {/* data */}
       <div className="card space-y-3 p-4">
-        <button onClick={exportJson} className="flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-extrabold"
+        <button onClick={exportJson} className="flex w-full items-center justify-center gap-2 rounded-full py-2.5 text-sm font-extrabold"
           style={{ background: 'var(--surface2)' }}>
           <Download size={16} /> Export JSON (data only)
         </button>
@@ -123,11 +128,11 @@ export default function SettingsTab({ goTo }) {
           <div className="space-y-2 text-center">
             <p className="text-xs font-bold" style={{ color: 'var(--coral)' }}>Wipe everything and restore seed data?</p>
             <div className="flex gap-2">
-              <button className="flex-1 rounded-xl py-2 text-sm font-extrabold" style={{ background: 'var(--coral)', color: '#fff' }}
+              <button className="flex-1 rounded-full py-2 text-sm font-extrabold" style={{ background: 'var(--coral)', color: '#fff' }}
                 onClick={() => { resetAll(); setConfirmReset(false) }}>
                 Yes, reset
               </button>
-              <button className="flex-1 rounded-xl py-2 text-sm font-extrabold" style={{ background: 'var(--surface2)' }}
+              <button className="flex-1 rounded-full py-2 text-sm font-extrabold" style={{ background: 'var(--surface2)' }}
                 onClick={() => setConfirmReset(false)}>
                 Cancel
               </button>
@@ -135,14 +140,14 @@ export default function SettingsTab({ goTo }) {
           </div>
         ) : (
           <button onClick={() => setConfirmReset(true)}
-            className="flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-bold"
+            className="flex w-full items-center justify-center gap-2 rounded-full py-2.5 text-sm font-bold"
             style={{ background: 'var(--surface2)', color: 'var(--coral)' }}>
             <RotateCcw size={15} /> Reset all data
           </button>
         )}
       </div>
       <button onClick={() => goTo?.('wizard')}
-        className="btn-violet flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-black">
+        className="btn-violet flex w-full items-center justify-center gap-2 rounded-full py-3 text-sm font-black">
         <Wand2 size={16} /> Build / rebuild my protocol
       </button>
 
@@ -234,13 +239,13 @@ function BackupCard() {
       </p>
 
       <button onClick={doBackup} disabled={!!busy}
-        className="btn-primary flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-black disabled:opacity-50">
+        className="btn-primary flex w-full items-center justify-center gap-2 rounded-full py-2.5 text-sm font-black disabled:opacity-50">
         <Download size={16} /> {busy === 'backup' ? (progress || 'Packing…') : 'Back up everything'}
       </button>
 
       <input ref={fileRef} type="file" accept="application/json,.json" className="hidden" onChange={pickFile} />
       <button onClick={() => fileRef.current?.click()} disabled={!!busy}
-        className="flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-bold disabled:opacity-50"
+        className="flex w-full items-center justify-center gap-2 rounded-full py-2.5 text-sm font-bold disabled:opacity-50"
         style={{ background: 'var(--surface2)' }}>
         <Upload size={15} /> Restore from backup
       </button>
@@ -255,7 +260,7 @@ function BackupCard() {
       {error && <p className="text-[11px] font-bold" style={{ color: 'var(--coral)' }}>{error}</p>}
 
       {pending && (
-        <div className="rounded-xl p-3" style={{ background: 'color-mix(in srgb, var(--amber) 14%, transparent)', border: '1px solid color-mix(in srgb, var(--amber) 40%, transparent)' }}>
+        <div className="rounded-2xl p-3" style={{ background: 'color-mix(in srgb, var(--amber) 14%, transparent)', border: '1px solid color-mix(in srgb, var(--amber) 40%, transparent)' }}>
           <p className="flex items-center gap-1.5 text-xs font-black" style={{ color: 'var(--amber)' }}>
             <AlertTriangle size={14} /> Replace all current data?
           </p>
@@ -267,12 +272,12 @@ function BackupCard() {
           </p>
           <div className="mt-2 flex gap-2">
             <button onClick={doRestore} disabled={busy === 'restore'}
-              className="flex-1 rounded-xl py-2 text-xs font-black disabled:opacity-50"
-              style={{ background: 'var(--amber)', color: '#1a1200' }}>
+              className="flex-1 rounded-full py-2 text-xs font-black disabled:opacity-50"
+              style={{ background: 'var(--amber)', color: '#fff' }}>
               {busy === 'restore' ? (progress || 'Restoring…') : 'Yes, restore'}
             </button>
             <button onClick={() => setPending(null)} disabled={busy === 'restore'}
-              className="flex-1 rounded-xl py-2 text-xs font-black" style={{ background: 'var(--surface2)' }}>
+              className="flex-1 rounded-full py-2 text-xs font-black" style={{ background: 'var(--surface2)' }}>
               Cancel
             </button>
           </div>
@@ -327,7 +332,7 @@ function CalendarCard() {
       <div className="flex gap-1.5">
         {[['ongoing', 'Ongoing'], ['range', 'Date range']].map(([m, label]) => (
           <button key={m} onClick={() => setMode(m)}
-            className="flex-1 rounded-lg py-1.5 text-xs font-black"
+            className="flex-1 rounded-full py-1.5 text-xs font-black"
             style={mode === m
               ? { backgroundImage: 'linear-gradient(135deg, var(--indigo), var(--violet))', color: '#fff' }
               : { background: 'var(--surface2)', color: 'var(--muted)' }}>
@@ -341,7 +346,7 @@ function CalendarCard() {
           <div className="flex gap-1">
             {[1, 3, 6, 12].map((m) => (
               <button key={m} onClick={() => setMonths(m)}
-                className="rounded-lg px-2.5 py-1 text-xs font-black"
+                className="rounded-full px-2.5 py-1 text-xs font-black"
                 style={months === m ? { background: 'var(--indigo)', color: '#fff' } : { background: 'var(--surface2)', color: 'var(--muted)' }}>
                 {m}mo
               </button>
@@ -357,7 +362,7 @@ function CalendarCard() {
         </button>
       </Row>
 
-      <button onClick={doExport} className="btn-violet flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-black">
+      <button onClick={doExport} className="btn-violet flex w-full items-center justify-center gap-2 rounded-full py-2.5 text-sm font-black">
         <CalendarPlus size={16} /> Download .ics
       </button>
 

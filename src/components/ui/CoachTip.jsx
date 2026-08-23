@@ -20,7 +20,7 @@ export default function CoachTip({ id, children, tone = 'lime', when = true }) {
           exit={{ opacity: 0, height: 0 }}
           className="overflow-hidden"
         >
-          <div className="flex items-start gap-2 rounded-xl p-2.5"
+          <div className="flex items-start gap-2 rounded-2xl p-2.5"
             style={{
               background: `color-mix(in srgb, var(--${tone}) 14%, transparent)`,
               border: `1px solid color-mix(in srgb, var(--${tone}) 35%, transparent)`,

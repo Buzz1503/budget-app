@@ -106,7 +106,7 @@ export default function CoDrawModal({ open, onClose, peptides }) {
     <Modal open={open} onClose={onClose} title={`Log together · ${peptides?.length || 0}`}>
       <div className="space-y-3">
         {/* combined draw summary */}
-        <div className="rounded-xl p-3" style={{ background: 'var(--surface2)' }}>
+        <div className="rounded-2xl p-3" style={{ background: 'var(--surface2)' }}>
           {lines.map((l) => (
             <div key={l.name} className="flex items-center justify-between py-0.5 text-sm">
               <span className="font-bold">{l.name}</span>
@@ -141,7 +141,7 @@ export default function CoDrawModal({ open, onClose, peptides }) {
             <p className="mt-3 text-xs font-semibold" style={{ color: 'var(--text)' }}>
               Inject these as separate shots instead — close this and log them one at a time.
             </p>
-            <button onClick={onClose} className="btn-primary mt-3 w-full rounded-xl py-2.5 text-sm font-black">
+            <button onClick={onClose} className="btn-primary mt-3 w-full rounded-full py-2.5 text-sm font-black">
               Got it — log separately
             </button>
           </div>
@@ -153,7 +153,7 @@ export default function CoDrawModal({ open, onClose, peptides }) {
               <Check size={13} /> Every pair is a confirmed mix — one shot, one site
             </p>
             {last && (
-              <p className="flex items-center gap-1.5 rounded-xl p-2.5 text-xs font-bold" style={{ background: 'var(--surface2)' }}>
+              <p className="flex items-center gap-1.5 rounded-2xl p-2.5 text-xs font-bold" style={{ background: 'var(--surface2)' }}>
                 <Clock size={13} className="shrink-0" style={{ color: 'var(--muted)' }} />
                 Last shot: {last.when} — {last.label}.
               </p>
@@ -163,7 +163,7 @@ export default function CoDrawModal({ open, onClose, peptides }) {
             </p>
             <SiteChooser route="SubQ" zone={zone} picked={picked} onPick={setPicked} onResolve={setResolved} />
             <motion.button whileTap={{ scale: 0.97 }} onClick={confirm}
-              className="btn-primary flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-black">
+              className="btn-primary flex w-full items-center justify-center gap-2 rounded-full py-3 text-sm font-black">
               <Check size={18} strokeWidth={3} /> Log {peptides.length} together — {chosenSite?.label}
             </motion.button>
           </>

@@ -94,6 +94,11 @@ export default function App() {
     onStorageError(() => setStorageError(true))
   }, [])
 
+  // A new screen starts at its top. Without this the window keeps whatever
+  // scroll the previous screen had, which leaves the sticky back bar parked
+  // over the new screen's heading.
+  useEffect(() => { window.scrollTo(0, 0) }, [tab])
+
   // The bottom nav's real height (icons + labels + the iOS home-indicator inset)
   // is published as --nav-h so floating bars and scroll padding sit above it
   // instead of guessing a pixel value that's wrong on notched phones.

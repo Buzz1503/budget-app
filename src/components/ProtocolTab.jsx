@@ -90,9 +90,12 @@ export default function ProtocolTab({ goTo }) {
   return (
     <div className="space-y-3" data-testid="protocol-overview">
       <div className="flex items-start justify-between gap-2">
-        <p className="text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
-          Everything I'm currently taking, at a glance.
-        </p>
+        <div>
+          <h1 className="text-2xl font-black tracking-tight">My protocol</h1>
+          <p className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>
+            Everything I'm currently taking, at a glance.
+          </p>
+        </div>
         <span className="chip shrink-0 !py-1.5" style={{ color: 'var(--lime)' }}>
           {rows.length} compound{rows.length === 1 ? '' : 's'}
         </span>
@@ -100,11 +103,11 @@ export default function ProtocolTab({ goTo }) {
 
       <div className="flex gap-2">
         <button onClick={() => goTo?.('wizard')} data-testid="protocol-build"
-          className="btn-primary flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-black">
+          className="btn-primary flex flex-1 items-center justify-center gap-1.5 rounded-full py-2.5 text-xs font-black">
           <Wand2 size={14} /> Build / rebuild
         </button>
         <button onClick={exportIt} data-testid="protocol-export"
-          className="flex items-center justify-center gap-1.5 rounded-xl px-3.5 py-2.5 text-xs font-black"
+          className="flex items-center justify-center gap-1.5 rounded-full px-3.5 py-2.5 text-xs font-black"
           style={{ background: 'var(--surface2)', color: 'var(--indigo)' }}>
           <Share2 size={13} /> Export
         </button>
@@ -114,7 +117,7 @@ export default function ProtocolTab({ goTo }) {
         <div className="card p-6 text-center" style={{ color: 'var(--muted)' }}>
           <p className="text-sm font-bold">Nothing in my protocol yet.</p>
           <button onClick={() => goTo?.('wizard')}
-            className="btn-primary mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-black">
+            className="btn-primary mt-3 flex w-full items-center justify-center gap-1.5 rounded-full py-2.5 text-xs font-black">
             <Plus size={14} /> Build it
           </button>
         </div>

@@ -31,11 +31,11 @@ export default function UpdatePrompt() {
           <RefreshCw size={17} className="shrink-0" style={{ color: 'var(--lime)' }} />
           <p className="flex-1 text-xs font-bold">New version available</p>
           <button onClick={() => applyUpdate()}
-            className="btn-primary rounded-xl px-3 py-2 text-xs font-black">
+            className="btn-primary rounded-full px-3 py-2 text-xs font-black">
             Refresh
           </button>
           <button onClick={() => setApplyUpdate(null)}
-            className="rounded-xl px-2.5 py-2 text-xs font-bold" style={{ background: 'var(--surface2)' }}>
+            className="rounded-full px-2.5 py-2 text-xs font-bold" style={{ background: 'var(--surface2)' }}>
             Later
           </button>
         </motion.div>

@@ -78,7 +78,7 @@ export default function ReferenceInfo({ reference, excludedNote }) {
       )}
 
       {isTx && (
-        <div className="rounded-xl p-3" style={{ background: 'color-mix(in srgb, var(--rose) 14%, transparent)', border: '1px solid color-mix(in srgb, var(--rose) 40%, transparent)' }}>
+        <div className="rounded-2xl p-3" style={{ background: 'color-mix(in srgb, var(--rose) 14%, transparent)', border: '1px solid color-mix(in srgb, var(--rose) 40%, transparent)' }}>
           <p className="flex items-center gap-1.5 text-xs font-black" style={{ color: 'var(--rose)' }}>
             <ShieldAlert size={14} /> Dosing deliberately not provided
           </p>
@@ -100,7 +100,7 @@ export default function ReferenceInfo({ reference, excludedNote }) {
       )}
 
       {r.established?.length > 0 && (
-        <div className="rounded-xl p-2.5" style={{ background: 'color-mix(in srgb, var(--lime) 10%, transparent)' }}>
+        <div className="rounded-2xl p-2.5" style={{ background: 'color-mix(in srgb, var(--lime) 10%, transparent)' }}>
           <Section icon={BadgeCheck} title="Established (evidence)" color="var(--lime)" note={FIELD_NOTES.established}>
             <List items={r.established} color="var(--lime)" />
           </Section>
@@ -108,7 +108,7 @@ export default function ReferenceInfo({ reference, excludedNote }) {
       )}
 
       {r.reported?.length > 0 && (
-        <div className="rounded-xl p-2.5" style={{ background: 'color-mix(in srgb, var(--amber) 10%, transparent)' }}>
+        <div className="rounded-2xl p-2.5" style={{ background: 'color-mix(in srgb, var(--amber) 10%, transparent)' }}>
           <Section icon={MessageCircle} title="Reported (community — not evidence)" color="var(--amber)" note={FIELD_NOTES.reported}>
             <List items={r.reported} color="var(--amber)" />
           </Section>

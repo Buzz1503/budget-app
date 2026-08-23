@@ -105,16 +105,16 @@ export default function SiteChooser({ route = 'SubQ', zone = 'all', picked, onPi
   return (
     <div className="space-y-3">
       {/* mode: decide for me, or just tell me the next one */}
-      <div className="flex rounded-xl p-1" style={{ background: 'var(--surface2)' }}>
+      <div className="flex rounded-full p-1" style={{ background: 'var(--surface2)' }}>
         {[
           ['suggest', 'Suggest a spot', Target],
           ['path', 'Follow the path', Route],
         ].map(([id, label, Icon]) => (
           <button key={id} onClick={() => setRotationMode(id)}
             aria-label={label}
-            className="relative flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-[11px] font-black">
+            className="relative flex flex-1 items-center justify-center gap-1.5 rounded-full py-2 text-[11px] font-black">
             {mode === id && (
-              <motion.span layoutId="rot-mode-pill" className="absolute inset-0 rounded-lg"
+              <motion.span layoutId="rot-mode-pill" className="absolute inset-0 rounded-full"
                 style={{ backgroundImage: 'linear-gradient(135deg, var(--violet), var(--indigo))' }} />
             )}
             <span className="relative flex items-center gap-1.5" style={{ color: mode === id ? '#fff' : 'var(--muted)' }}>
@@ -126,7 +126,7 @@ export default function SiteChooser({ route = 'SubQ', zone = 'all', picked, onPi
 
       {/* why two thirds of the map is missing */}
       {zone === 'thigh' && (
-        <p className="flex items-start gap-1.5 rounded-xl p-2.5 text-[11px] font-semibold leading-relaxed"
+        <p className="flex items-start gap-1.5 rounded-2xl p-2.5 text-[11px] font-semibold leading-relaxed"
           data-testid="zone-note"
           style={{ background: 'color-mix(in srgb, var(--amber) 14%, transparent)', color: 'var(--amber)' }}>
           <AlertTriangle size={13} className="mt-px shrink-0" />
@@ -136,7 +136,7 @@ export default function SiteChooser({ route = 'SubQ', zone = 'all', picked, onPi
 
       {/* the pool as a whole is running tight — said before it is too late */}
       {load.message && (
-        <p className="flex items-start gap-1.5 rounded-xl p-2.5 text-[11px] font-semibold leading-relaxed"
+        <p className="flex items-start gap-1.5 rounded-2xl p-2.5 text-[11px] font-semibold leading-relaxed"
           data-testid="zone-load"
           style={load.level === 'watch'
             ? { background: 'var(--surface2)', color: 'var(--muted)' }
@@ -234,7 +234,7 @@ export default function SiteChooser({ route = 'SubQ', zone = 'all', picked, onPi
           {showKey && (
             <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
               className="overflow-hidden">
-              <div className="mt-2 rounded-xl p-3" style={{ background: 'var(--surface2)' }}>
+              <div className="mt-2 rounded-2xl p-3" style={{ background: 'var(--surface2)' }}>
                 <ColourKey />
               </div>
             </motion.div>
@@ -246,7 +246,7 @@ export default function SiteChooser({ route = 'SubQ', zone = 'all', picked, onPi
       {health.ready && <RotationHealth health={health} />}
 
       {repeats.length > 0 && (
-        <p className="flex items-start gap-1.5 rounded-xl p-2.5 text-[11px] font-bold"
+        <p className="flex items-start gap-1.5 rounded-2xl p-2.5 text-[11px] font-bold"
           style={{ background: 'color-mix(in srgb, var(--amber) 12%, transparent)', color: 'var(--amber)' }}>
           <AlertTriangle size={13} className="mt-0.5 shrink-0" />
           <span>
@@ -275,7 +275,7 @@ export default function SiteChooser({ route = 'SubQ', zone = 'all', picked, onPi
 function RotationHealth({ health }) {
   const [open, setOpen] = useState(false)
   return (
-    <div className="rounded-xl p-3" data-testid="rotation-health" style={{ background: 'var(--surface2)' }}>
+    <div className="rounded-2xl p-3" data-testid="rotation-health" style={{ background: 'var(--surface2)' }}>
       <button onClick={() => setOpen((v) => !v)} className="flex w-full items-center gap-3 text-left">
         <span className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full"
           style={{ background: `conic-gradient(${health.tone} ${health.score}%, var(--surface-solid) 0)` }}>
@@ -354,7 +354,7 @@ function SpotList({ sites, states, chosen, onPick, onOpen }) {
           const meta = st ? SITE_STATUS[st.status] : null
           return (
             <div key={s.id}
-              className="flex w-full items-start gap-2.5 rounded-xl p-2.5"
+              className="flex w-full items-start gap-2.5 rounded-2xl p-2.5"
               style={isSel
                 ? { background: 'color-mix(in srgb, var(--lime) 14%, transparent)', border: '1px solid color-mix(in srgb, var(--lime) 40%, transparent)' }
                 : { background: 'var(--surface2)', border: '1px solid transparent' }}>
@@ -364,7 +364,7 @@ function SpotList({ sites, states, chosen, onPick, onOpen }) {
                 aria-label={`Pick ${s.label}`}
                 className="flex min-w-0 flex-1 items-start gap-2.5 text-left disabled:opacity-50">
                 <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-black"
-                  style={{ background: isSel ? 'var(--lime)' : statusColor(st), color: '#0c1200' }}>
+                  style={{ background: isSel ? 'var(--lime)' : statusColor(st), color: '#fff' }}>
                   {s.n}
                 </span>
                 <span className="min-w-0 flex-1">
@@ -436,7 +436,7 @@ function SiteDetail({ siteId, onClose, states, doseLogs, peptides, reactions, to
           </div>
 
           {st?.overworn && (
-            <p className="mt-2 flex items-start gap-1.5 rounded-xl p-2.5 text-[11px] font-bold"
+            <p className="mt-2 flex items-start gap-1.5 rounded-2xl p-2.5 text-[11px] font-bold"
               style={{ background: 'color-mix(in srgb, var(--violet) 14%, transparent)', color: 'var(--violet)' }}>
               <AlertTriangle size={13} className="mt-0.5 shrink-0" />
               <span>This one has taken well over its share lately. It's on extended rest — nothing will route here
@@ -464,7 +464,7 @@ function SiteDetail({ siteId, onClose, states, doseLogs, peptides, reactions, to
             </div>
 
             {rx.resting && (
-              <p className="mb-2 rounded-xl p-2.5 text-[11px] font-bold"
+              <p className="mb-2 rounded-2xl p-2.5 text-[11px] font-bold"
                 style={{ background: 'color-mix(in srgb, var(--rose) 14%, transparent)', color: 'var(--rose)' }}>
                 Resting — {rx.active.meta?.label.toLowerCase()} logged {rx.active.date}.
                 {rx.daysLeft > 0 ? ` Suggested rest: another ${rx.daysLeft} day${rx.daysLeft === 1 ? '' : 's'}.` : ' Check it before using it again.'}
@@ -473,7 +473,7 @@ function SiteDetail({ siteId, onClose, states, doseLogs, peptides, reactions, to
             )}
 
             {(adding || (!rx.resting && rx.history.length === 0)) && adding && (
-              <div className="mb-2 space-y-2 rounded-xl p-3" style={{ background: 'var(--surface2)' }}>
+              <div className="mb-2 space-y-2 rounded-2xl p-3" style={{ background: 'var(--surface2)' }}>
                 <div className="flex flex-wrap gap-1.5">
                   {REACTION_KINDS.map((k) => (
                     <button key={k.id}
@@ -538,7 +538,7 @@ function SiteDetail({ siteId, onClose, states, doseLogs, peptides, reactions, to
           <button
             onClick={() => onPick(siteId)}
             disabled={st && !st.usable}
-            className="btn-primary mt-4 w-full rounded-xl py-2.5 text-sm font-black disabled:opacity-40">
+            className="btn-primary mt-4 w-full rounded-full py-2.5 text-sm font-black disabled:opacity-40">
             {st && !st.usable ? 'Resting — pick another spot' : 'Use this spot'}
           </button>
         </motion.div>
@@ -549,7 +549,7 @@ function SiteDetail({ siteId, onClose, states, doseLogs, peptides, reactions, to
 
 function Stat({ label, value, warn }) {
   return (
-    <div className="rounded-xl py-2" style={{ background: 'var(--surface2)' }}>
+    <div className="rounded-2xl py-2" style={{ background: 'var(--surface2)' }}>
       <p className="text-sm font-black" style={warn ? { color: 'var(--violet)' } : undefined}>{value}</p>
       <p className="text-[9px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>{label}</p>
     </div>

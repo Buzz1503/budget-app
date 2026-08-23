@@ -69,7 +69,12 @@ export default function CalcTab() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-extrabold">Calc</h1>
+        <div>
+          <h1 className="text-2xl font-black tracking-tight">Calc</h1>
+          <p className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>
+            Reconstitution &amp; syringe units
+          </p>
+        </div>
         <motion.button whileTap={{ scale: 0.94 }} onClick={() => setReverse(!reverse)}
           className="chip !py-1.5 font-bold" style={{ color: 'var(--indigo)' }}>
           <ArrowLeftRight size={13} /> {reverse ? 'units → dose' : 'dose → units'}
@@ -77,15 +82,15 @@ export default function CalcTab() {
       </div>
 
       {/* where the numbers come from */}
-      <div className="flex rounded-xl p-1" data-testid="calc-source" style={{ background: 'var(--surface2)' }}>
+      <div className="flex rounded-full p-1" data-testid="calc-source" style={{ background: 'var(--surface2)' }}>
         {[['protocol', 'From my protocol'], ['manual', 'Manual / any peptide']].map(([m, label]) => (
           <button key={m} onClick={() => { setSource(m); setSaved(false); setSaving(false) }}
-            aria-label={label} className="relative flex-1 rounded-lg py-2 text-xs font-black">
+            aria-label={label} className="relative flex-1 rounded-full py-2 text-xs font-black">
             {source === m && (
-              <motion.span layoutId="calc-source-pill" className="absolute inset-0 rounded-lg"
-                style={{ backgroundImage: 'linear-gradient(135deg, var(--lime), var(--lime-deep))' }} />
+              <motion.span layoutId="calc-source-pill" className="absolute inset-0 rounded-full"
+                style={{ backgroundImage: 'linear-gradient(135deg, var(--violet), var(--indigo))' }} />
             )}
-            <span className="relative" style={{ color: source === m ? '#0c1200' : 'var(--muted)' }}>{label}</span>
+            <span className="relative" style={{ color: source === m ? '#fff' : 'var(--muted)' }}>{label}</span>
           </button>
         ))}
       </div>
@@ -101,7 +106,7 @@ export default function CalcTab() {
             <button key={p.id} onClick={() => pick(p.id)}
               className="shrink-0 rounded-full px-3.5 py-1.5 text-xs font-bold"
               style={pid === p.id
-                ? { backgroundImage: 'linear-gradient(135deg, var(--lime), var(--lime-deep))', color: '#0c1200' }
+                ? { backgroundImage: 'linear-gradient(135deg, var(--lime), var(--lime-deep))', color: '#fff' }
                 : { background: 'var(--surface2)', color: 'var(--muted)' }}>
               {p.name}
             </button>
@@ -114,7 +119,7 @@ export default function CalcTab() {
         <div className="flex gap-1.5">
           {[['recon', 'Reconstitute'], ['premixed', 'Pre-mixed solution']].map(([m, label]) => (
             <button key={m} onClick={() => setPrep(m)}
-              className="flex-1 rounded-lg py-1.5 text-xs font-black"
+              className="flex-1 rounded-full py-1.5 text-xs font-black"
               style={prep === m
                 ? { backgroundImage: 'linear-gradient(135deg, var(--violet), var(--indigo))', color: '#fff' }
                 : { background: 'var(--surface2)', color: 'var(--muted)' }}>
@@ -146,7 +151,7 @@ export default function CalcTab() {
             </label>
           </div>
         )}
-        <div className="rounded-xl p-3 text-center" style={{ background: 'var(--surface2)' }}>
+        <div className="rounded-2xl p-3 text-center" style={{ background: 'var(--surface2)' }}>
           <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>Concentration</p>
           <p className="text-xl font-extrabold">{conc ? `${round(conc, 3)} mg/mL` : '—'}</p>
           {premixed && (
@@ -186,7 +191,7 @@ export default function CalcTab() {
               )}
             </motion.div>
             {premixed && (
-              <p className="flex items-start gap-1.5 rounded-xl p-2.5 text-[11px] font-semibold"
+              <p className="flex items-start gap-1.5 rounded-2xl p-2.5 text-[11px] font-semibold"
                 style={{ background: 'color-mix(in srgb, var(--amber) 14%, transparent)', color: 'var(--amber)' }}>
                 <Droplet size={13} className="mt-0.5 shrink-0" />
                 <span>
@@ -219,7 +224,7 @@ export default function CalcTab() {
       {manual && (
         <div data-testid="calc-save">
           {saved ? (
-            <p className="flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-black"
+            <p className="flex items-center justify-center gap-1.5 rounded-2xl py-2.5 text-xs font-black"
               style={{ background: 'color-mix(in srgb, var(--lime) 16%, transparent)', color: 'var(--lime)' }}>
               <Check size={14} /> Added to my protocol
             </p>
@@ -238,7 +243,7 @@ export default function CalcTab() {
               </p>
               <div className="flex gap-2">
                 <button onClick={() => { setSaving(false); setSaveName('') }}
-                  className="flex-1 rounded-xl py-2 text-xs font-black"
+                  className="flex-1 rounded-full py-2 text-xs font-black"
                   style={{ background: 'var(--surface2)', color: 'var(--muted)' }}>
                   Cancel
                 </button>
@@ -254,14 +259,14 @@ export default function CalcTab() {
                     })
                     if (id) { setSaved(true); setSaving(false); setSaveName('') }
                   }}
-                  className="btn-primary flex-1 rounded-xl py-2 text-xs font-black disabled:opacity-40">
+                  className="btn-primary flex-1 rounded-full py-2 text-xs font-black disabled:opacity-40">
                   Save
                 </button>
               </div>
             </div>
           ) : (
             <button onClick={() => setSaving(true)}
-              className="flex w-full items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-black"
+              className="flex w-full items-center justify-center gap-1.5 rounded-full py-2.5 text-xs font-black"
               style={{ background: 'var(--surface2)', color: 'var(--muted)' }}>
               <Plus size={14} /> Save this to my protocol
             </button>

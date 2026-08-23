@@ -64,7 +64,7 @@ export default function HistoryTab() {
       <div className="flex gap-1.5">
         {WINDOWS.map((w) => (
           <button key={w.id} onClick={() => setDays(w.id)}
-            className="flex-1 rounded-lg py-1.5 text-xs font-black"
+            className="flex-1 rounded-full py-1.5 text-xs font-black"
             style={days === w.id
               ? { backgroundImage: 'linear-gradient(135deg, var(--violet), var(--indigo))', color: '#fff' }
               : { background: 'var(--surface2)', color: 'var(--muted)' }}>
@@ -187,7 +187,7 @@ export default function HistoryTab() {
       {/* shareable summary */}
       <button
         onClick={() => openSummaryDocument({ peptides, titration, doseLogs, measurements, summary, from, to })}
-        className="btn-violet flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-black">
+        className="btn-violet flex w-full items-center justify-center gap-2 rounded-full py-2.5 text-sm font-black">
         <FileText size={16} /> Shareable summary
       </button>
       <p className="-mt-2 px-1 text-[10px] font-medium" style={{ color: 'var(--muted)' }}>
@@ -203,7 +203,7 @@ export default function HistoryTab() {
           <button onClick={() => setPeptideId(null)}
             className="shrink-0 rounded-full px-3 py-1.5 text-xs font-bold"
             style={!peptideId
-              ? { backgroundImage: 'linear-gradient(135deg, var(--lime), var(--lime-deep))', color: '#0c1200' }
+              ? { backgroundImage: 'linear-gradient(135deg, var(--lime), var(--lime-deep))', color: '#fff' }
               : { background: 'var(--surface2)', color: 'var(--muted)' }}>
             All
           </button>
@@ -211,7 +211,7 @@ export default function HistoryTab() {
             <button key={p.id} onClick={() => setPeptideId(p.id)}
               className="shrink-0 rounded-full px-3 py-1.5 text-xs font-bold"
               style={peptideId === p.id
-                ? { backgroundImage: 'linear-gradient(135deg, var(--lime), var(--lime-deep))', color: '#0c1200' }
+                ? { backgroundImage: 'linear-gradient(135deg, var(--lime), var(--lime-deep))', color: '#fff' }
                 : { background: 'var(--surface2)', color: 'var(--muted)' }}>
               {p.name}
             </button>

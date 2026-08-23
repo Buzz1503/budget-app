@@ -52,7 +52,7 @@ export default function StockRoom({ goTo }) {
       </div>
 
       <button onClick={() => setAdding(true)} data-testid="add-stock"
-        className="btn-primary flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-black">
+        className="btn-primary flex w-full items-center justify-center gap-2 rounded-full py-3 text-sm font-black">
         <Plus size={16} /> Add stock
       </button>
 
@@ -159,7 +159,7 @@ function StockGroup({ group: g, peptide, open, onToggle, onOpenSheet, runway }) 
               {/* Inside the expanded panel rather than on the header, so it can
                   never fight the collapse toggle for the same tap. */}
               <button onClick={onOpenSheet} data-testid="stock-open-sheet"
-                className="flex w-full items-center justify-center gap-1.5 rounded-lg py-2 text-[11px] font-black"
+                className="flex w-full items-center justify-center gap-1.5 rounded-full py-2 text-[11px] font-black"
                 style={{ background: 'var(--surface2)', color: 'var(--indigo)' }}>
                 <FileText size={12} /> About {g.name}
               </button>
@@ -191,7 +191,7 @@ function BatchRow({ batch: b, peptide, onAdjust, onRemove, onActivate }) {
 
   if (confirmDelete) {
     return (
-      <div className="rounded-xl p-3" data-testid="confirm-delete-batch"
+      <div className="rounded-2xl p-3" data-testid="confirm-delete-batch"
         style={{ background: 'color-mix(in srgb, var(--coral) 14%, transparent)' }}>
         <p className="flex items-start gap-1.5 text-[12px] font-black" style={{ color: 'var(--coral)' }}>
           <AlertTriangle size={14} className="mt-px shrink-0" />
@@ -203,12 +203,12 @@ function BatchRow({ batch: b, peptide, onAdjust, onRemove, onActivate }) {
           are untouched</span> — this only says you no longer have these.
         </p>
         <div className="mt-2.5 flex gap-2">
-          <button onClick={() => setConfirmDelete(false)} className="flex-1 rounded-lg py-2 text-[11px] font-black"
+          <button onClick={() => setConfirmDelete(false)} className="flex-1 rounded-full py-2 text-[11px] font-black"
             style={{ background: 'var(--surface2)', color: 'var(--muted)' }}>
             Keep it
           </button>
           <button onClick={() => { setConfirmDelete(false); onRemove() }} data-testid="confirm-delete-batch-yes"
-            className="flex-1 rounded-lg py-2 text-[11px] font-black"
+            className="flex-1 rounded-full py-2 text-[11px] font-black"
             style={{ background: 'color-mix(in srgb, var(--coral) 25%, transparent)', color: 'var(--coral)' }}>
             Delete
           </button>
@@ -218,7 +218,7 @@ function BatchRow({ batch: b, peptide, onAdjust, onRemove, onActivate }) {
   }
 
   return (
-    <div className="rounded-xl p-3" style={{ background: 'var(--surface2)' }} data-testid="batch-row">
+    <div className="rounded-2xl p-3" style={{ background: 'var(--surface2)' }} data-testid="batch-row">
       <div className="flex items-start gap-3">
         <span className="mt-0.5 flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full px-1.5 text-[11px] font-black tabular-nums"
           style={{ background: 'var(--surface-solid)', color: 'var(--text)' }}>
@@ -244,12 +244,12 @@ function BatchRow({ batch: b, peptide, onAdjust, onRemove, onActivate }) {
           <CoaButton batch={b} />
           <div className="flex items-center gap-1">
             <button onClick={() => onAdjust(-1)} aria-label={`One fewer ${b.vialMg} mg`}
-              className="flex h-6 w-6 items-center justify-center rounded-lg"
+              className="flex h-6 w-6 items-center justify-center rounded-full"
               style={{ background: 'var(--surface-solid)', color: 'var(--muted)' }}>
               <Minus size={12} />
             </button>
             <button onClick={() => onAdjust(1)} aria-label={`One more ${b.vialMg} mg`}
-              className="flex h-6 w-6 items-center justify-center rounded-lg"
+              className="flex h-6 w-6 items-center justify-center rounded-full"
               style={{ background: 'var(--surface-solid)', color: 'var(--lime)' }}>
               <Plus size={12} />
             </button>
@@ -260,13 +260,13 @@ function BatchRow({ batch: b, peptide, onAdjust, onRemove, onActivate }) {
       <div className="mt-2.5 flex gap-1.5">
         {canActivate && !isActive && (
           <button onClick={onActivate} data-testid="activate-batch"
-            className="flex-1 rounded-lg py-1.5 text-[11px] font-black"
-            style={{ backgroundImage: 'linear-gradient(135deg, var(--lime), var(--lime-deep))', color: '#0c1200' }}>
+            className="flex-1 rounded-full py-1.5 text-[11px] font-black"
+            style={{ backgroundImage: 'linear-gradient(135deg, var(--lime), var(--lime-deep))', color: '#fff' }}>
             Activate this vial
           </button>
         )}
         <button onClick={() => setConfirmDelete(true)} aria-label={`Delete the ${b.vialMg} mg batch`}
-          className="rounded-lg px-2.5 py-1.5" style={{ background: 'var(--surface-solid)', color: 'var(--coral)' }}>
+          className="rounded-full px-2.5 py-1.5" style={{ background: 'var(--surface-solid)', color: 'var(--coral)' }}>
           <Trash2 size={12} />
         </button>
       </div>
@@ -316,7 +316,7 @@ export function CoaButton({ batch: b }) {
         data-testid={b.coaKey ? 'coa-view' : 'coa-attach'}
         onClick={() => (b.coaKey ? view() : fileRef.current?.click())}
         aria-label={b.coaKey ? `View the COA for the ${b.vialMg} mg batch` : `Attach a COA to the ${b.vialMg} mg batch`}
-        className="flex h-7 shrink-0 items-center gap-1 rounded-lg px-2 text-[10px] font-black"
+        className="flex h-7 shrink-0 items-center gap-1 rounded-full px-2 text-[10px] font-black"
         style={b.coaKey
           ? { background: 'color-mix(in srgb, var(--indigo) 20%, transparent)', color: 'var(--indigo)' }
           : { background: 'var(--surface-solid)', color: 'var(--muted)' }}>
@@ -424,7 +424,7 @@ function AddBatchModal({ open, onClose }) {
                 const existing = existingById.get(c.id)
                 return (
                   <button key={c.id} onClick={() => choose(c)}
-                    className="flex w-full items-center gap-2 rounded-xl p-2.5 text-left"
+                    className="flex w-full items-center gap-2 rounded-full p-2.5 text-left"
                     style={{ background: 'var(--surface2)' }}>
                     <Package size={14} className="shrink-0" style={{ color: 'var(--lime)' }} />
                     <div className="min-w-0 flex-1">
@@ -482,7 +482,7 @@ function AddBatchModal({ open, onClose }) {
           <input ref={fileRef} type="file" accept="application/pdf,image/*" className="hidden"
             aria-label="COA file" onChange={(e) => setCoa(e.target.files?.[0] || null)} />
           <button onClick={() => fileRef.current?.click()}
-            className="flex w-full items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-black"
+            className="flex w-full items-center justify-center gap-1.5 rounded-full py-2.5 text-xs font-black"
             style={coa
               ? { background: 'color-mix(in srgb, var(--indigo) 18%, transparent)', color: 'var(--indigo)' }
               : { background: 'var(--surface2)', color: 'var(--muted)' }}>
@@ -491,12 +491,12 @@ function AddBatchModal({ open, onClose }) {
 
           <div className="flex gap-2">
             <button onClick={() => { setPicked(null); setDraft(null) }}
-              className="flex-1 rounded-xl py-2.5 text-xs font-black"
+              className="flex-1 rounded-full py-2.5 text-xs font-black"
               style={{ background: 'var(--surface2)', color: 'var(--muted)' }}>
               Back
             </button>
             <button onClick={save} data-testid="save-batch"
-              className="btn-primary flex-1 rounded-xl py-2.5 text-xs font-black">
+              className="btn-primary flex-1 rounded-full py-2.5 text-xs font-black">
               Add to stock
             </button>
           </div>

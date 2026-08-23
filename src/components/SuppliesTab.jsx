@@ -79,15 +79,15 @@ export default function SuppliesTab({ goTo }) {
         </span>
       </div>
 
-      <div className="flex rounded-xl p-1" data-testid="stock-view" style={{ background: 'var(--surface2)' }}>
+      <div className="flex rounded-full p-1" data-testid="stock-view" style={{ background: 'var(--surface2)' }}>
         {[['stock', 'Stock room'], ['restock', 'Restock list']].map(([id, label]) => (
           <button key={id} onClick={() => setView(id)} aria-label={label}
-            className="relative flex-1 rounded-lg py-2 text-xs font-black">
+            className="relative flex-1 rounded-full py-2 text-xs font-black">
             {view === id && (
-              <motion.span layoutId="stock-view-pill" className="absolute inset-0 rounded-lg"
-                style={{ backgroundImage: 'linear-gradient(135deg, var(--lime), var(--lime-deep))' }} />
+              <motion.span layoutId="stock-view-pill" className="absolute inset-0 rounded-full"
+                style={{ backgroundImage: 'linear-gradient(135deg, var(--violet), var(--indigo))' }} />
             )}
-            <span className="relative" style={{ color: view === id ? '#0c1200' : 'var(--muted)' }}>{label}</span>
+            <span className="relative" style={{ color: view === id ? '#fff' : 'var(--muted)' }}>{label}</span>
           </button>
         ))}
       </div>
@@ -104,7 +104,7 @@ export default function SuppliesTab({ goTo }) {
       <div className="flex gap-1.5">
         {HORIZONS.map((h) => (
           <button key={h.id} onClick={() => setRestockHorizon(h.id)}
-            className="flex-1 rounded-lg py-2 text-[11px] font-black"
+            className="flex-1 rounded-full py-2 text-[11px] font-black"
             style={plan.horizon === h.id
               ? { backgroundImage: 'linear-gradient(135deg, var(--violet), var(--indigo))', color: '#fff' }
               : { background: 'var(--surface2)', color: 'var(--muted)' }}>
@@ -154,7 +154,7 @@ export default function SuppliesTab({ goTo }) {
       {plan.consumables.rows.map((r) => <ConsumableRow key={r.key} row={r} />)}
 
       <button onClick={resetRestock}
-        className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-bold"
+        className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-full py-2.5 text-xs font-bold"
         style={{ background: 'var(--surface2)', color: 'var(--muted)' }}>
         <RotateCcw size={13} /> Clear ticks, quantities and delivery dates
       </button>
@@ -179,7 +179,7 @@ function Row({ children, checked, onToggle, checkLabel, warn }) {
         <button onClick={onToggle} aria-label={checkLabel}
           className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md"
           style={checked
-            ? { background: 'var(--lime)', color: '#0c1200' }
+            ? { background: 'var(--lime)', color: '#fff' }
             : { background: 'var(--surface2)', color: 'var(--muted)' }}>
           {checked ? <Check size={14} strokeWidth={3} /> : null}
         </button>
@@ -193,10 +193,10 @@ function QtyStepper({ value, onChange, onReset, suggested }) {
   return (
     <div className="flex items-center gap-1.5">
       <button onClick={() => onChange(Math.max(0, value - 1))}
-        className="h-7 w-7 rounded-lg text-sm font-black" style={{ background: 'var(--surface2)' }} aria-label="One fewer">−</button>
+        className="h-7 w-7 rounded-full text-sm font-black" style={{ background: 'var(--surface2)' }} aria-label="One fewer">−</button>
       <span className="min-w-8 text-center text-sm font-black tabular-nums">{value}</span>
       <button onClick={() => onChange(value + 1)}
-        className="h-7 w-7 rounded-lg text-sm font-black" style={{ background: 'var(--surface2)' }} aria-label="One more">+</button>
+        className="h-7 w-7 rounded-full text-sm font-black" style={{ background: 'var(--surface2)' }} aria-label="One more">+</button>
       {value !== suggested && (
         <button onClick={onReset} className="ml-1 text-[10px] font-bold underline" style={{ color: 'var(--muted)' }}>
           suggested {suggested}
@@ -227,7 +227,7 @@ function DeliveryField({ value, onChange }) {
 
 function Stat({ label, value, sub, warn, title }) {
   return (
-    <div className="rounded-xl py-2 text-center" style={{ background: 'var(--surface2)' }} title={title}>
+    <div className="rounded-2xl py-2 text-center" style={{ background: 'var(--surface2)' }} title={title}>
       <p className="text-sm font-extrabold" style={warn ? { color: 'var(--amber)' } : undefined}>{value}</p>
       <p className="text-[9px] font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>{label}{sub ? ` · ${sub}` : ''}</p>
     </div>
@@ -304,7 +304,7 @@ function CompoundCard({ row, days, currency }) {
         </p>
       )}
       {!exp && !row.premixed && (
-        <button className="mt-2 rounded-lg px-3 py-1.5 text-xs font-bold"
+        <button className="mt-2 rounded-full px-3 py-1.5 text-xs font-bold"
           style={{ background: 'var(--surface2)', color: 'var(--lime)' }}
           onClick={() => reconstituteVial(row.peptideId)}>
           Mark reconstituted today → starts {p?.recon?.expiryDays ?? 28}d fridge timer
@@ -356,7 +356,7 @@ function CompoundCard({ row, days, currency }) {
               </button>
             </div>
           ))}
-          <button className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-bold"
+          <button className="flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-bold"
             style={{ background: 'var(--surface2)' }}
             onClick={() => addVial(row.peptideId, { vialMg: row.vialMg })}>
             <Plus size={13} /> Add vial purchase

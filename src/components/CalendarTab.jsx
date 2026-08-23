@@ -79,11 +79,11 @@ export default function CalendarTab({ goTo }) {
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
         <h1 className="text-2xl font-black tracking-tight">Calendar</h1>
-        <div className="flex rounded-xl p-1" style={{ background: 'var(--surface2)' }}>
+        <div className="flex rounded-full p-1" style={{ background: 'var(--surface2)' }}>
           {[['week', 'Week', CalendarDays], ['month', 'Month', CalendarRange]].map(([id, label, Icon]) => (
             <button key={id} onClick={() => setView(id)}
-              className="relative flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-black">
-              {view === id && <motion.span layoutId="cal-view-pill" className="absolute inset-0 rounded-lg"
+              className="relative flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-black">
+              {view === id && <motion.span layoutId="cal-view-pill" className="absolute inset-0 rounded-full"
                 style={{ backgroundImage: 'linear-gradient(135deg, var(--violet), var(--indigo))' }} />}
               <span className="relative flex items-center gap-1" style={{ color: view === id ? '#fff' : 'var(--muted)' }}>
                 <Icon size={13} /> {label}
@@ -101,17 +101,17 @@ export default function CalendarTab({ goTo }) {
       {/* period nav */}
       <div className="flex items-center gap-2">
         <button onClick={() => step(-1)} aria-label="Previous period"
-          className="rounded-xl p-2" style={{ background: 'var(--surface2)' }}>
+          className="rounded-full p-2" style={{ background: 'var(--surface2)' }}>
           <ChevronLeft size={18} />
         </button>
         <p className="flex-1 text-center text-sm font-black">{title}</p>
         <button onClick={() => step(1)} aria-label="Next period"
-          className="rounded-xl p-2" style={{ background: 'var(--surface2)' }}>
+          className="rounded-full p-2" style={{ background: 'var(--surface2)' }}>
           <ChevronRight size={18} />
         </button>
         {!atToday && (
-          <button onClick={() => setAnchor(t)} className="rounded-xl px-2.5 py-2 text-xs font-black"
-            style={{ background: 'var(--lime)', color: '#0c1200' }}>
+          <button onClick={() => setAnchor(t)} className="rounded-full px-2.5 py-2 text-xs font-black"
+            style={{ background: 'var(--lime)', color: '#fff' }}>
             Today
           </button>
         )}
@@ -175,9 +175,9 @@ function DayRow({ day: d, index, onOpen }) {
         ? { borderColor: 'var(--lime)', boxShadow: '0 0 0 1.5px var(--lime)' }
         : undefined}>
       <div className="flex items-center gap-2">
-        <span className="flex h-9 w-9 shrink-0 flex-col items-center justify-center rounded-xl leading-none"
+        <span className="flex h-9 w-9 shrink-0 flex-col items-center justify-center rounded-2xl leading-none"
           style={d.isToday
-            ? { backgroundImage: 'linear-gradient(135deg, var(--lime), var(--lime-deep))', color: '#0c1200' }
+            ? { backgroundImage: 'linear-gradient(135deg, var(--lime), var(--lime-deep))', color: '#fff' }
             : { background: 'var(--surface2)', color: 'var(--muted)' }}>
           <span className="text-[8px] font-black uppercase">{DOW[(d.weekday + 6) % 7]}</span>
           <span className="text-xs font-black">{format(parseISO(d.date), 'd')}</span>
@@ -204,7 +204,7 @@ function DayRow({ day: d, index, onOpen }) {
 
       {['AM', 'PM'].map((slot) => (
         d.slots[slot].length > 0 && (
-          <div key={slot} className="mt-2 rounded-xl p-2" style={{ background: 'var(--surface2)' }}>
+          <div key={slot} className="mt-2 rounded-2xl p-2" style={{ background: 'var(--surface2)' }}>
             <p className="mb-1 flex items-center gap-1 text-[10px] font-black uppercase tracking-wide"
               style={{ color: slot === 'AM' ? 'var(--amber)' : 'var(--indigo)' }}>
               {slot === 'AM' ? <Sun size={11} /> : <Moon size={11} />} {slot}
@@ -316,7 +316,7 @@ function MonthCell({ day: d, muted, onOpen }) {
   const hasEvent = d.events.length > 0
   return (
     <button onClick={onOpen} data-testid={`cal-cell-${d.date}`}
-      className="relative flex aspect-square flex-col items-center justify-center rounded-lg"
+      className="relative flex aspect-square flex-col items-center justify-center rounded-full"
       aria-label={`${format(parseISO(d.date), 'd MMMM')} — ${d.scheduled} scheduled, ${ADHERENCE_WORDS[d.adherence]}`}
       style={{
         background: d.adherence === 'none' ? 'transparent' : `color-mix(in srgb, ${tone} ${d.adherence === 'future' ? 60 : 26}%, transparent)`,
@@ -359,7 +359,7 @@ function DayDetail({ date, day, grouped, onClose, goTo }) {
 
         {['AM', 'PM'].map((slot) => (
           day?.slots[slot].length > 0 && (
-            <div key={slot} className="rounded-xl p-3" style={{ background: 'var(--surface2)' }}>
+            <div key={slot} className="rounded-2xl p-3" style={{ background: 'var(--surface2)' }}>
               <p className="mb-1.5 flex items-center gap-1 text-[10px] font-black uppercase tracking-wide"
                 style={{ color: slot === 'AM' ? 'var(--amber)' : 'var(--indigo)' }}>
                 {slot === 'AM' ? <Sun size={11} /> : <Moon size={11} />} {slot}
@@ -383,7 +383,7 @@ function DayDetail({ date, day, grouped, onClose, goTo }) {
 
         {day?.isToday && (
           <button onClick={() => { onClose(); goTo?.('today') }}
-            className="btn-primary w-full rounded-xl py-2.5 text-sm font-black">
+            className="btn-primary w-full rounded-full py-2.5 text-sm font-black">
             Go to today's list to log
           </button>
         )}
@@ -428,7 +428,7 @@ function IcsButton() {
   return (
     <div className="space-y-1.5">
       <button onClick={doExport}
-        className="btn-violet flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-black">
+        className="btn-violet flex w-full items-center justify-center gap-2 rounded-full py-2.5 text-sm font-black">
         <CalendarPlus size={16} /> Add to phone calendar
       </button>
       {msg && <p className="text-[11px] font-bold" style={{ color: msg.ok ? 'var(--lime)' : 'var(--coral)' }}>{msg.text}</p>}

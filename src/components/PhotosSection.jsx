@@ -54,7 +54,7 @@ export default function PhotosSection() {
         <div className="mb-3 flex gap-1.5">
           {POSES.map((ps) => (
             <button key={ps} onClick={() => setPose(ps)}
-              className="flex-1 rounded-lg py-1.5 text-xs font-black capitalize"
+              className="flex-1 rounded-full py-1.5 text-xs font-black capitalize"
               style={pose === ps
                 ? { backgroundImage: 'linear-gradient(135deg, var(--violet), var(--indigo))', color: '#fff' }
                 : { background: 'var(--surface2)', color: 'var(--muted)' }}>
@@ -74,7 +74,7 @@ export default function PhotosSection() {
 
         <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={onFile} />
         <motion.button whileTap={{ scale: 0.97 }} disabled={busy} onClick={() => fileRef.current?.click()}
-          className="btn-violet mt-3 flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-black disabled:opacity-50">
+          className="btn-violet mt-3 flex w-full items-center justify-center gap-2 rounded-full py-2.5 text-sm font-black disabled:opacity-50">
           <Camera size={17} /> {busy ? 'Saving…' : `Capture ${pose} photo`}
         </motion.button>
       </div>
@@ -134,7 +134,7 @@ function Thumb({ photo, onDelete }) {
   const [url, setUrl] = useState(null)
   useEffect(() => { let a = true; blobUrl(photo.blobKey).then((u) => a && setUrl(u)); return () => { a = false } }, [photo.blobKey])
   return (
-    <div className="relative overflow-hidden rounded-xl" style={{ aspectRatio: '3/4', background: 'var(--surface2)' }}>
+    <div className="relative overflow-hidden rounded-2xl" style={{ aspectRatio: '3/4', background: 'var(--surface2)' }}>
       {url && <img src={url} alt={`${photo.pose} ${photo.date}`} className="h-full w-full object-cover" />}
       <span className="absolute inset-x-0 bottom-0 bg-black/50 py-0.5 text-center text-[9px] font-bold text-white">
         {format(parseISO(photo.date), 'd MMM')}

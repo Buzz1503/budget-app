@@ -87,7 +87,7 @@ export default function ReplaceVial({ open, peptideId, onClose, goTo }) {
             </div>
           )}
 
-          <button onClick={close} className="btn-primary w-full rounded-xl py-3 text-sm font-black">
+          <button onClick={close} className="btn-primary w-full rounded-full py-3 text-sm font-black">
             Done
           </button>
         </div>
@@ -103,12 +103,12 @@ export default function ReplaceVial({ open, peptideId, onClose, goTo }) {
           </p>
           <div className="flex gap-2">
             <button onClick={() => setConfirmRemove(false)}
-              className="flex-1 rounded-xl py-2.5 text-xs font-black"
+              className="flex-1 rounded-full py-2.5 text-xs font-black"
               style={{ background: 'var(--surface2)', color: 'var(--muted)' }}>
               Cancel
             </button>
             <button onClick={drop} data-testid="confirm-remove-yes"
-              className="flex-1 rounded-xl py-2.5 text-xs font-black"
+              className="flex-1 rounded-full py-2.5 text-xs font-black"
               style={{ background: 'color-mix(in srgb, var(--coral) 22%, transparent)', color: 'var(--coral)' }}>
               Remove from protocol
             </button>
@@ -131,7 +131,7 @@ export default function ReplaceVial({ open, peptideId, onClose, goTo }) {
                   const preview = activationPreview(peptide, titration[peptide.id], b)
                   return (
                     <button key={b.id} onClick={() => pick(b)} data-testid="replacement-option"
-                      className="flex w-full items-center gap-2.5 rounded-xl p-3 text-left"
+                      className="flex w-full items-center gap-2.5 rounded-full p-3 text-left"
                       style={{ background: 'var(--surface2)' }}>
                       <PackageOpen size={16} className="shrink-0" style={{ color: 'var(--lime)' }} />
                       <div className="min-w-0 flex-1">
@@ -164,7 +164,7 @@ export default function ReplaceVial({ open, peptideId, onClose, goTo }) {
                 know about, or take it out of my protocol until you reorder.
               </p>
               <button onClick={() => { close(); goTo?.('supplies') }} data-testid="go-add-stock"
-                className="btn-primary mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-black">
+                className="btn-primary mt-3 flex w-full items-center justify-center gap-1.5 rounded-full py-2.5 text-xs font-black">
                 <Plus size={14} /> Add stock
               </button>
             </div>
@@ -173,7 +173,7 @@ export default function ReplaceVial({ open, peptideId, onClose, goTo }) {
           <div className="h-px" style={{ background: 'var(--border)' }} />
 
           <button onClick={() => setConfirmRemove(true)} data-testid="dont-replace"
-            className="flex w-full items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-black"
+            className="flex w-full items-center justify-center gap-1.5 rounded-full py-2.5 text-xs font-black"
             style={{ background: 'var(--surface2)', color: 'var(--coral)' }}>
             <Trash2 size={13} /> Don't replace — take it out of my protocol
           </button>

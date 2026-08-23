@@ -47,7 +47,7 @@ export default function Term({ id, children, className = '' }) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, scale: 0.97 }}
             onClick={(e) => { e.stopPropagation(); setOpen(false) }}
-            className="absolute left-0 top-full z-[60] mt-1.5 block w-60 rounded-xl p-2.5 text-left text-[11px] font-medium leading-relaxed shadow-lg"
+            className="absolute left-0 top-full z-[60] mt-1.5 block w-60 rounded-2xl p-2.5 text-left text-[11px] font-medium leading-relaxed shadow-lg"
             style={{ background: 'var(--surface-solid)', border: '1px solid var(--border)', color: 'var(--muted)' }}
           >
             <span className="mb-0.5 block text-[11px] font-black" style={{ color: 'var(--text)' }}>{entry.term}</span>

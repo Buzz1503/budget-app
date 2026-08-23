@@ -58,7 +58,7 @@ export default function SupplementsTab() {
       )}
 
       <button onClick={() => setAdding(true)} data-testid="add-supplement"
-        className="btn-primary flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-black">
+        className="btn-primary flex w-full items-center justify-center gap-2 rounded-full py-3 text-sm font-black">
         <Plus size={16} /> Add a supplement
       </button>
 
@@ -102,7 +102,7 @@ function SupplementRow({ supplement: s, onEdit, onRemove }) {
   return (
     <motion.div layout className="card overflow-hidden">
       <button onClick={() => setOpen(!open)} className="flex w-full items-center gap-3 p-3 text-left">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl"
           style={{ background: 'color-mix(in srgb, var(--amber) 16%, transparent)', color: 'var(--amber)' }}>
           <FormIcon form={s.form} size={16} />
         </div>
@@ -134,12 +134,12 @@ function SupplementRow({ supplement: s, onEdit, onRemove }) {
                 </p>
               )}
               <div className="flex gap-2">
-                <button onClick={onEdit} className="flex-1 rounded-lg py-2 text-[11px] font-black"
+                <button onClick={onEdit} className="flex-1 rounded-full py-2 text-[11px] font-black"
                   style={{ background: 'var(--surface2)' }}>
                   Edit
                 </button>
                 <button onClick={onRemove} aria-label={`Remove ${s.name}`}
-                  className="rounded-lg px-3 py-2" style={{ background: 'var(--surface2)', color: 'var(--coral)' }}>
+                  className="rounded-full px-3 py-2" style={{ background: 'var(--surface2)', color: 'var(--coral)' }}>
                   <Trash2 size={13} />
                 </button>
               </div>
@@ -169,15 +169,15 @@ function AddSupplement({ open, onClose }) {
 
   return (
     <Modal open={open} onClose={close} title="Add a supplement">
-      <div className="flex rounded-xl p-1" style={{ background: 'var(--surface2)' }}>
+      <div className="flex rounded-full p-1" style={{ background: 'var(--surface2)' }}>
         {[['library', 'From the library'], ['manual', 'Enter my own']].map(([m, label]) => (
           <button key={m} onClick={() => setMode(m)} aria-label={label}
-            className="relative flex-1 rounded-lg py-2 text-xs font-black">
+            className="relative flex-1 rounded-full py-2 text-xs font-black">
             {mode === m && (
-              <motion.span layoutId="sup-add-pill" className="absolute inset-0 rounded-lg"
-                style={{ backgroundImage: 'linear-gradient(135deg, var(--amber), var(--gold))' }} />
+              <motion.span layoutId="sup-add-pill" className="absolute inset-0 rounded-full"
+                style={{ backgroundImage: 'linear-gradient(135deg, var(--violet), var(--indigo))' }} />
             )}
-            <span className="relative" style={{ color: mode === m ? '#1a1200' : 'var(--muted)' }}>{label}</span>
+            <span className="relative" style={{ color: mode === m ? '#fff' : 'var(--muted)' }}>{label}</span>
           </button>
         ))}
       </div>
@@ -227,7 +227,7 @@ function AddSupplement({ open, onClose }) {
             <div className="flex gap-1.5">
               {SLOTS.map((sl) => (
                 <button key={sl} onClick={() => setDraft({ ...draft, slot: sl })}
-                  className="flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-black"
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-full py-2 text-xs font-black"
                   style={draft.slot === sl
                     ? { backgroundImage: 'linear-gradient(135deg, var(--violet), var(--indigo))', color: '#fff' }
                     : { background: 'var(--surface2)', color: 'var(--muted)' }}>
@@ -238,7 +238,7 @@ function AddSupplement({ open, onClose }) {
           </Field>
           <button disabled={!draft.name.trim()}
             onClick={() => { addSupplement({ ...draft, name: draft.name.trim() }); close() }}
-            className="btn-primary w-full rounded-xl py-3 text-sm font-black disabled:opacity-40">
+            className="btn-primary w-full rounded-full py-3 text-sm font-black disabled:opacity-40">
             Add to shelf
           </button>
         </div>
@@ -260,7 +260,7 @@ function LibraryGroup({ title, hint, rows, have, onPick, testid }) {
           const added = have.has(r.id)
           return (
             <button key={r.id} disabled={added} onClick={() => onPick(r)}
-              className="flex w-full items-center gap-2.5 rounded-xl p-2.5 text-left disabled:opacity-45"
+              className="flex w-full items-center gap-2.5 rounded-full p-2.5 text-left disabled:opacity-45"
               style={{ background: 'var(--surface2)' }}>
               <FormIcon form={r.form} size={15} style={{ color: 'var(--amber)', flexShrink: 0 }} />
               <div className="min-w-0 flex-1">
@@ -324,7 +324,7 @@ function EditSupplement({ supplement, onClose }) {
           <div className="flex gap-1.5">
             {SLOTS.map((sl) => (
               <button key={sl} onClick={() => set({ slot: sl })}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-black"
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-full py-2 text-xs font-black"
                 style={current.slot === sl
                   ? { backgroundImage: 'linear-gradient(135deg, var(--violet), var(--indigo))', color: '#fff' }
                   : { background: 'var(--surface2)', color: 'var(--muted)' }}>
@@ -339,7 +339,7 @@ function EditSupplement({ supplement, onClose }) {
             <span>{current.doseNote}</span>
           </p>
         )}
-        <button onClick={save} className="btn-primary w-full rounded-xl py-3 text-sm font-black">
+        <button onClick={save} className="btn-primary w-full rounded-full py-3 text-sm font-black">
           Save
         </button>
       </div>

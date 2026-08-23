@@ -87,7 +87,7 @@ function StatsSection() {
         })}
       </div>
 
-      <button onClick={() => setAdding(true)} className="btn-primary flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-black">
+      <button onClick={() => setAdding(true)} className="btn-primary flex w-full items-center justify-center gap-2 rounded-full py-2.5 text-sm font-black">
         <Plus size={16} /> Log measurement
       </button>
 
@@ -147,7 +147,7 @@ function ReferenceDistances({ compact }) {
   const setBodyRef = useStore((s) => s.setBodyRef)
 
   return (
-    <div className={compact ? 'rounded-xl p-3' : 'card p-4'} style={compact ? { background: 'var(--surface2)' } : undefined}>
+    <div className={compact ? 'rounded-2xl p-3' : 'card p-4'} style={compact ? { background: 'var(--surface2)' } : undefined}>
       <p className="mb-2 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--violet)' }}>
         <Pencil size={12} /> My saved reference distances
       </p>
@@ -183,7 +183,7 @@ function MeasureField({ group, form, onSet, bodyRefs }) {
   const ref = lead.refKey ? refPhrase(bodyRefs, lead.refKey) : null
 
   return (
-    <div className="rounded-xl p-3" style={{ background: 'var(--surface2)' }}>
+    <div className="rounded-2xl p-3" style={{ background: 'var(--surface2)' }}>
       <div className="flex items-start gap-2">
         {lead.guide && <MeasureGuide id={lead.guide} size={54} />}
         <div className="min-w-0 flex-1">
@@ -284,7 +284,7 @@ function AddMeasurement({ open, onClose }) {
         </label>
 
         {/* scan import */}
-        <div className="rounded-xl p-3" style={{ background: 'var(--surface2)' }}>
+        <div className="rounded-2xl p-3" style={{ background: 'var(--surface2)' }}>
           <label className="flex cursor-pointer items-center justify-between">
             <span className="flex items-center gap-1.5 text-xs font-bold"><FileText size={14} style={{ color: 'var(--indigo)' }} /> Import DEXA / InBody PDF</span>
             <span className="rounded-lg px-3 py-1.5 text-xs font-black" style={{ background: 'var(--surface-solid)', color: 'var(--indigo)' }}>{scanBusy ? 'Reading…' : 'Choose PDF'}</span>
@@ -294,7 +294,7 @@ function AddMeasurement({ open, onClose }) {
           <p className="mt-1 text-[10px] font-medium" style={{ color: 'var(--muted)' }}>Formats vary — imported values pre-fill for you to confirm, never auto-saved.</p>
         </div>
 
-        <div className="rounded-xl p-3" style={{ background: 'color-mix(in srgb, var(--indigo) 10%, var(--surface2))' }}>
+        <div className="rounded-2xl p-3" style={{ background: 'color-mix(in srgb, var(--indigo) 10%, var(--surface2))' }}>
           <p className="mb-1 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--indigo)' }}>
             <Info size={12} /> Every reading
           </p>
@@ -321,7 +321,7 @@ function AddMeasurement({ open, onClose }) {
           </div>
         )}
 
-        <button onClick={submit} className="btn-primary w-full rounded-xl py-2.5 text-sm font-black">Save measurement</button>
+        <button onClick={submit} className="btn-primary w-full rounded-full py-2.5 text-sm font-black">Save measurement</button>
       </div>
     </Modal>
   )
@@ -355,7 +355,7 @@ function TrendsSection() {
           <button key={mm.key} onClick={() => setKey(mm.key)}
             className="shrink-0 rounded-full px-3 py-1.5 text-xs font-bold"
             style={key === mm.key
-              ? { backgroundImage: 'linear-gradient(135deg, var(--lime), var(--lime-deep))', color: '#0c1200' }
+              ? { backgroundImage: 'linear-gradient(135deg, var(--lime), var(--lime-deep))', color: '#fff' }
               : { background: 'var(--surface2)', color: 'var(--muted)' }}>
             {mm.label}
           </button>
