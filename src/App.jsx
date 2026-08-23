@@ -116,26 +116,6 @@ export default function App() {
     return () => ro.disconnect()
   }, [])
 
-  // The dock condenses out of the way as you read down a screen and comes back
-  // the moment you scroll up or stop. Only the label row collapses — the icons
-  // and their tap targets stay put, so it never moves under your thumb.
-  const [docked, setDocked] = useState(true)
-  useEffect(() => {
-    let last = window.scrollY
-    let idle
-    const onScroll = () => {
-      const y = window.scrollY
-      if (y > last + 6 && y > 80) setDocked(false)
-      else if (y < last - 6) setDocked(true)
-      last = y
-      clearTimeout(idle)
-      idle = setTimeout(() => setDocked(true), 900)
-    }
-    window.addEventListener('scroll', onScroll, { passive: true })
-    return () => { window.removeEventListener('scroll', onScroll); clearTimeout(idle) }
-  }, [])
-  useEffect(() => { setDocked(true) }, [tab])
-
   const Active = SCREENS[tab] || Home
   const isSub = !PRIMARY_IDS.has(tab)
 
@@ -155,11 +135,9 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* nav height + 16 + the home-indicator inset, so the last row of any
-          screen clears the dock at every scroll position */}
       <main
         className="flex-1 px-4 pt-5"
-        style={{ paddingBottom: 'calc(var(--nav-h, 76px) + 16px + env(safe-area-inset-bottom))' }}
+        style={{ paddingBottom: 'calc(var(--nav-h, 76px) + 28px)' }}
       >
         <AnimatePresence mode="wait">
           <motion.div
@@ -174,57 +152,32 @@ export default function App() {
         </AnimatePresence>
       </main>
 
-      {/* The dock. Translucent material rather than an opaque card, so the
-          content scrolling beneath it stays legible as a blur. */}
-      <footer
+      {/* bottom tab bar */}
+      <nav
         ref={navRef}
-        className="fixed inset-x-0 bottom-0 z-40 flex justify-center px-4"
-        style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 12px)', paddingTop: '8px' }}
+        className="fixed inset-x-0 bottom-0 z-40 border-t backdrop-blur-xl"
+        style={{ background: 'color-mix(in srgb, var(--bg) 82%, transparent)', borderColor: 'var(--border)' }}
       >
-        <nav
-          className="flex items-center gap-1 p-1 backdrop-blur-2xl"
-          style={{
-            borderRadius: 'var(--r-pill)',
-            background: 'color-mix(in srgb, var(--surface) 78%, transparent)',
-            boxShadow: 'var(--shadow-nav)',
-            border: '1px solid var(--border)',
-          }}
-        >
+        <div className="mx-auto grid max-w-3xl grid-cols-5 px-1 pb-[max(env(safe-area-inset-bottom),6px)] pt-2">
           {PRIMARY.map(({ id, label, icon: Icon }) => {
             const active = tab === id || (id === 'more' && isSub)
             return (
-              <button
+              <motion.button
                 key={id}
+                whileTap={{ scale: 0.86 }}
                 onClick={() => { if (haptics) { try { haptic(6) } catch { /* optional */ } } setTab(id) }}
-                className="relative flex min-h-[44px] min-w-[44px] flex-col items-center justify-center px-3"
-                style={{ borderRadius: 'var(--r-pill)' }}
+                className="flex flex-col items-center gap-1 rounded-xl py-1.5"
+                style={{ color: active ? 'var(--lime)' : 'var(--muted)' }}
                 aria-label={label}
               >
-                {active && (
-                  <motion.div
-                    layoutId="tab-pill"
-                    className="absolute inset-0"
-                    style={{ background: 'var(--surface-sunk)', borderRadius: 'var(--r-pill)' }}
-                    transition={{ type: 'spring', stiffness: 420, damping: 34 }}
-                  />
-                )}
-                <span className="relative" style={{ color: active ? 'var(--text)' : 'var(--text-3)' }}>
-                  <Icon size={28} strokeWidth={active ? 2.2 : 1.8} />
-                </span>
-                <motion.span
-                  className="relative overflow-hidden text-[11px] font-medium leading-none"
-                  style={{ color: active ? 'var(--text)' : 'var(--text-3)' }}
-                  initial={false}
-                  animate={{ height: docked ? 14 : 0, opacity: docked ? 1 : 0, marginTop: docked ? 4 : 0 }}
-                  transition={{ duration: 0.18 }}
-                >
-                  {label}
-                </motion.span>
-              </button>
+                <Icon size={30} strokeWidth={active ? 2.5 : 2} />
+                <span className="text-[11px] font-bold leading-none">{label}</span>
+                {active && <motion.div layoutId="tab-dot" className="mt-0.5 h-1 w-1 rounded-full" style={{ background: 'var(--lime)' }} />}
+              </motion.button>
             )
           })}
-        </nav>
-      </footer>
+        </div>
+      </nav>
 
       <ScheduleWizard open={wizard} onClose={() => setWizard(false)} />
 

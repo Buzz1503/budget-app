@@ -72,7 +72,7 @@ function initialState() {
     siteReactions: {},
     // 'suggest' picks one spot each time; 'path' walks a pre-planned even sequence.
     rotation: { mode: 'suggest' },
-    settings: { currency: 'AUD', restockLeadDays: 30, theme: 'light', disclaimerDismissed: false, haptics: true, sound: false },
+    settings: { currency: 'AUD', restockLeadDays: 30, theme: 'dark', disclaimerDismissed: false, haptics: true, sound: false },
   }
 }
 

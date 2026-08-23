@@ -247,7 +247,7 @@ function Slot({ compound, label, onClear }) {
     >
       {compound ? (
         <>
-          <span className="h-6 w-6 shrink-0 rounded-full" style={{ background: 'var(--surface-sunk)' }} />
+          <span className="h-6 w-6 shrink-0 rounded-full" style={{ background: compoundColor(compound), boxShadow: `0 0 12px ${compoundColor(compound)}` }} />
           <span className="min-w-0 flex-1">
             <span className="block truncate text-sm font-bold leading-tight">{compound.name}</span>
             <span className="block text-xs font-semibold uppercase" style={{ color: 'var(--text-2)' }}>{compound.class} · tap to clear</span>
@@ -267,11 +267,11 @@ function CompoundCard({ compound, selected, inStack, proven, onSelect }) {
       onClick={onSelect}
       className="card relative overflow-hidden p-3 text-left"
       style={selected
-        ? { background: 'var(--surface-sunk)' }
+        ? { borderColor: compoundColor(compound), boxShadow: `0 0 0 1.5px ${compoundColor(compound)}, var(--shadow)` }
         : undefined}
     >
       <div className="flex items-center gap-2">
-        <span className="h-5 w-5 shrink-0 rounded-full" style={{ background: 'var(--surface-sunk)' }} />
+        <span className="h-5 w-5 shrink-0 rounded-full" style={{ background: compoundColor(compound) }} />
         <span className="min-w-0 flex-1 truncate text-sm font-bold leading-tight">{compound.name}</span>
         {proven && <Award size={13} className="shrink-0" style={{ color: 'var(--warn)' }} />}
       </div>
@@ -288,9 +288,9 @@ function CompoundCard({ compound, selected, inStack, proven, onSelect }) {
 }
 
 function chargeColor(charge) {
-  if (charge === 'cationic') return 'var(--text-2)'
-  if (charge === 'anionic') return 'var(--text-2)'
-  return 'var(--text-2)'
+  if (charge === 'cationic') return 'var(--amber)'
+  if (charge === 'anionic') return 'var(--indigo)'
+  return 'var(--muted)'
 }
 
 function VerdictPanel({ ca, cb, pair, playKey, reasonCodes, classes, forcedSeparate, inspected, setInspected }) {
