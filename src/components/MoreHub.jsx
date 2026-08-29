@@ -1,7 +1,9 @@
+import { useState } from 'react'
 import {
   Package, Settings, ChevronRight, Activity, History, Wand2, FlaskConical,
-  Combine, Pill, ClipboardList,
+  Combine, Pill, ClipboardList, CalendarPlus,
 } from 'lucide-react'
+import BackfillSheet from './BackfillSheet'
 
 /**
  * More, as grouped inset lists.
@@ -22,6 +24,8 @@ const SECTIONS = [
       { id: 'supplies', label: 'Stock', desc: 'Vials I own, run-out dates and what to order', icon: Package },
       { id: 'supplements', label: 'Supplements', desc: 'What I take by mouth, AM and PM', icon: Pill },
       { id: 'history', label: 'History & adherence', desc: 'Every dose, rates, shareable summary', icon: History },
+      // a sheet, not a screen: it is a correction to make and be done with
+      { id: 'backfill', label: 'Add a past dose', desc: 'Log something I took but never recorded', icon: CalendarPlus, sheet: true },
     ],
   },
   {
@@ -43,6 +47,8 @@ const SECTIONS = [
 ]
 
 export default function MoreHub({ goTo }) {
+  const [backfill, setBackfill] = useState(false)
+
   return (
     <div>
       <h1 className="t-display">More</h1>
@@ -56,7 +62,7 @@ export default function MoreHub({ goTo }) {
             {section.links.map((l) => (
               <button
                 key={l.id}
-                onClick={() => goTo(l.id)}
+                onClick={() => (l.sheet ? setBackfill(true) : goTo(l.id))}
                 data-testid={`more-${l.id}`}
                 className="flex w-full items-center gap-4 p-4 text-left"
               >
@@ -71,6 +77,8 @@ export default function MoreHub({ goTo }) {
           </div>
         </section>
       ))}
+
+      <BackfillSheet open={backfill} onClose={() => setBackfill(false)} />
 
       <p className="mt-8 text-center text-xs font-medium" style={{ color: 'var(--text-3)' }}>
         Pepito + · personal tracking tool, not medical advice

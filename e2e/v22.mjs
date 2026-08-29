@@ -66,12 +66,14 @@ if (await modal().count()) { await page.click('button:has-text("Got it")'); awai
 
 await step('the Add-stock search text is never obscured by the icon', async () => {
   await openAddStock()
-  const input = page.locator('[data-testid="stock-picker"] input[aria-label="Search compounds"]')
+  // the search is pinned above the sheet's scroll area, so it is a sibling of
+  // the result list rather than a child of it — scoped to the sheet, not the list
+  const input = page.locator('[data-testid="sheet-pinned"] input[aria-label="Search compounds"]')
   const padLeft = await input.evaluate((el) => parseFloat(getComputedStyle(el).paddingLeft))
   if (!(padLeft >= 28)) throw new Error(`padding-left is only ${padLeft}px — the icon overlaps typed text`)
 
   // belt and braces: the icon's own box must sit entirely left of where text starts
-  const iconBox = await page.locator('[data-testid="stock-picker"] svg').first().boundingBox()
+  const iconBox = await page.locator('[data-testid="sheet-pinned"] svg').first().boundingBox()
   const inputBox = await input.boundingBox()
   if (iconBox.x + iconBox.width > inputBox.x + padLeft - 2) {
     throw new Error('the icon overlaps the text-start position')

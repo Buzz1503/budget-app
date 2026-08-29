@@ -404,14 +404,18 @@ function AddBatchModal({ open, onClose }) {
   }
 
   return (
-    <Modal open={open} onClose={close} title={picked ? `Add ${picked.name}` : 'Add stock'}>
+    <Modal open={open} onClose={close} title={picked ? `Add ${picked.name}` : 'Add stock'}
+      pinned={picked ? null : (
+        // pinned rather than scrolled with the results: typing is what makes
+        // the list change, so the field that drives it has to stay on screen
+        <div className="relative">
+          <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-2)' }} />
+          <input className="input !pl-10" placeholder={`Search ${matrix ? matrix.compounds.length : 86} compounds…`}
+            aria-label="Search compounds" value={query} onChange={(e) => setQuery(e.target.value)} />
+        </div>
+      )}>
       {!picked ? (
         <div className="space-y-3" data-testid="stock-picker">
-          <div className="relative z-0">
-            <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-2)' }} />
-            <input className="input !pl-10" placeholder={`Search ${matrix ? matrix.compounds.length : 86} compounds…`}
-              aria-label="Search compounds" value={query} onChange={(e) => setQuery(e.target.value)} />
-          </div>
           {loadFailed ? (
             <p className="py-6 text-center text-xs font-semibold" style={{ color: 'var(--warn)' }}>
               Couldn't load the compound list — try again in a moment.
@@ -419,8 +423,9 @@ function AddBatchModal({ open, onClose }) {
           ) : !matrix ? (
             <p className="py-6 text-center text-xs font-semibold" style={{ color: 'var(--text-2)' }}>Loading compounds…</p>
           ) : (
-            <div className="relative z-10 max-h-[46vh] space-y-2 overflow-y-auto pr-1"
-              style={{ background: 'var(--surface)' }}>
+            // no scroll box of its own: a list nested inside the sheet's own
+            // scroller was what let results run on under the keyboard
+            <div className="space-y-2" data-testid="stock-results">
               {results.map((c) => {
                 const existing = existingById.get(c.id)
                 return (

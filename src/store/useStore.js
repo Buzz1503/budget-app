@@ -15,6 +15,7 @@ import { toMg, doseToUnits, concentration, isNasal, convertLadderForRoute } from
 import { DEFAULT_BODY_REFS } from '../lib/metrics'
 import { attributeSymptom, attributionSnapshot } from '../lib/attribution'
 import { slotForCategory } from '../lib/supplements'
+import { vialOnDate } from '../lib/backfill'
 
 export const todayStr = () => format(new Date(), 'yyyy-MM-dd')
 
@@ -221,12 +222,12 @@ const useStore = create(
       // ---------- logging ----------
       // Append one dose log + decrement its inventory. No toast here so a
       // co-draw can record several doses then award once. Returns the peptide.
-      _recordDose(peptideId, siteId, loggedAt, coDrawId, dateStr) {
+      _recordDose(peptideId, siteId, loggedAt, coDrawId, dateStr, opts = {}) {
         const s = get()
         const p = s.peptides.find((x) => x.id === peptideId)
         if (!p) return null
         const t = dateStr || todayStr()
-        const { dose } = currentRung(p, s.titration[peptideId])
+        const dose = opts.doseValue != null ? opts.doseValue : currentRung(p, s.titration[peptideId]).dose
         const doseMg = toMg(dose, p.ladder.unit)
         const conc = concentration(p.recon.vialMg, p.recon.bacMl)
         const log = {
@@ -246,7 +247,15 @@ const useStore = create(
         // because it was still taken, but there is nothing to draw it out of.
         // Silently decrementing a vial that does not exist is how an inventory
         // drifts away from the shelf it is supposed to describe.
-        if (!open.unlinked) {
+        //
+        // A backfill onto a day that ran on a vial since finished passes
+        // movesStock: false for the same reason — that drug came out of a vial
+        // that is already gone, and taking it out of today's instead would make
+        // this vial read emptier than it is and move every date downstream.
+        if (opts.movesStock === false) {
+          log.drawnFrom = opts.drawnFrom || null
+          log.movedStock = false
+        } else if (!open.unlinked) {
           open.remainingMg = Math.round((open.remainingMg - doseMg) * 1e6) / 1e6
           if (open.remainingMg <= 1e-9) {
             const idx = vials.findIndex((v) => v.peptideId === peptideId && v.qtyOnHand > 0)
@@ -278,14 +287,40 @@ const useStore = create(
        * difference is the date it lands on and a flag saying it was entered
        * later, so the record does not quietly claim to be something it isn't.
        */
-      backfillDose(peptideId, dateStr, { siteId = null } = {}) {
+      backfillDose(peptideId, dateStr, { siteId = null, doseValue = null, coDrawId = null } = {}) {
         if (!peptideId || !dateStr) return null
-        const p = get()._recordDose(peptideId, siteId, new Date(`${dateStr}T12:00:00`).toISOString(), null, dateStr)
+        const s = get()
+        const v = vialOnDate(peptideId, dateStr, { openVials: s.openVials, finishedVials: s.finishedVials })
+        const p = get()._recordDose(
+          peptideId, siteId, new Date(`${dateStr}T12:00:00`).toISOString(), coDrawId, dateStr,
+          { doseValue, movesStock: v.movesStock, drawnFrom: v.batchId },
+        )
         if (!p) return null
-        set((s) => ({
-          doseLogs: s.doseLogs.map((l, i) => (i === s.doseLogs.length - 1 ? { ...l, backfilled: true } : l)),
+        set((st) => ({
+          doseLogs: st.doseLogs.map((l, i) => (i === st.doseLogs.length - 1 ? { ...l, backfilled: true } : l)),
         }))
         return p
+      },
+
+      /**
+       * Catch up a whole co-draw group: one syringe, one site, one moment.
+       *
+       * The same shape as logCoDraw, because it records the same event — the
+       * only difference is that it happened on a day that has already passed.
+       * Splitting it into separate logs would put three punctures into the
+       * rotation history where there was one.
+       */
+      backfillCoDraw(peptideIds = [], dateStr, { siteId = null, doses = {} } = {}) {
+        if (!peptideIds.length || !dateStr) return []
+        const coDrawId = `cd-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+        const done = []
+        for (const id of peptideIds) {
+          const p = get().backfillDose(id, dateStr, {
+            siteId, coDrawId: peptideIds.length > 1 ? coDrawId : null, doseValue: doses[id] ?? null,
+          })
+          if (p) done.push(p)
+        }
+        return done
       },
 
       /**
@@ -303,7 +338,7 @@ const useStore = create(
           const openVials = { ...s.openVials }
           const oldMg = toMg(log.doseValue, log.unit)
           const newMg = toMg(next.doseValue, next.unit)
-          if (oldMg !== newMg) {
+          if (oldMg !== newMg && log.movedStock !== false) {
             const open = { ...(openVials[log.peptideId] || { remainingMg: 0 }) }
             if (!open.unlinked) {
               open.remainingMg = Math.round((open.remainingMg + oldMg - newMg) * 1e6) / 1e6
@@ -392,7 +427,8 @@ const useStore = create(
           if (!log) return {}
           const p = s.peptides.find((x) => x.id === log.peptideId)
           const open = { ...(s.openVials[log.peptideId] || { remainingMg: 0 }) }
-          if (p && !open.unlinked) open.remainingMg += toMg(log.doseValue, log.unit)
+          // a backfill that never moved the stock has nothing to give back
+          if (p && !open.unlinked && log.movedStock !== false) open.remainingMg += toMg(log.doseValue, log.unit)
           return {
             doseLogs: s.doseLogs.filter((l) => l.id !== logId),
             openVials: { ...s.openVials, [log.peptideId]: open },
@@ -562,8 +598,11 @@ const useStore = create(
       // A skip is an explicit "not today", which is a different thing from
       // forgetting. It never touches inventory — nothing was used — and it is
       // stored rather than inferred so the distinction survives.
-      skipDose(peptideId, reason = '') {
-        const t = todayStr()
+      // `dateStr` lets a past day be cleared as deliberately as today can be:
+      // "I was away that week" is a decision, and recording it as one keeps it
+      // out of the missed column where it would read as a lapse.
+      skipDose(peptideId, reason = '', dateStr = null) {
+        const t = dateStr || todayStr()
         const s = get()
         if (s.skips.some((k) => k.kind === 'peptide' && k.peptideId === peptideId && k.date === t)) return
         const p = s.peptides.find((x) => x.id === peptideId)
@@ -589,8 +628,8 @@ const useStore = create(
         })
       },
       /** Skip several at once — a whole co-draw group, or a multi-selection. */
-      skipMany(peptideIds = [], reason = '') {
-        for (const id of peptideIds) get().skipDose(id, reason)
+      skipMany(peptideIds = [], reason = '', dateStr = null) {
+        for (const id of peptideIds) get().skipDose(id, reason, dateStr)
       },
       /** Undo a skip, putting the occurrence back on today's list. */
       unskip(id) {
@@ -634,8 +673,8 @@ const useStore = create(
       },
       // Taking a supplement is a toggle, not an event: tapping again on the same
       // day undoes a mis-tap rather than recording a second dose.
-      toggleSupplementTaken(id) {
-        const t = todayStr()
+      toggleSupplementTaken(id, dateStr = null) {
+        const t = dateStr || todayStr()
         const s = get()
         const existing = s.supplementLogs.find((l) => l.supplementId === id && l.date === t)
         if (existing) {
@@ -648,9 +687,10 @@ const useStore = create(
             id: `sl-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
             supplementId: id, date: t, takenAt: new Date().toISOString(),
             name: supp?.name || '', slot: supp?.slot || 'AM', dose: supp?.dose || '',
+            backfilled: !!dateStr,
           }],
         })
-        get().showToast(`${supp?.name || 'Supplement'} taken`, () => get().toggleSupplementTaken(id))
+        get().showToast(`${supp?.name || 'Supplement'} taken`, () => get().toggleSupplementTaken(id, dateStr))
         return true
       },
 

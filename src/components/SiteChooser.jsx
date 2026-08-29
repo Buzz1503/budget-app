@@ -17,6 +17,7 @@ import {
   THIGH_ONLY_NOTE,
 } from '../lib/sites'
 import { haptic } from '../lib/feedback'
+import { useVisualViewport, sheetMaxHeight, useKeyboardSafeFocus } from '../lib/viewport'
 
 /**
  * Everything about choosing a spot, shared by the single-dose picker and the
@@ -393,6 +394,9 @@ function SiteDetail({ siteId, onClose, states, doseLogs, peptides, reactions, to
   const clearSiteReactions = useStore((s) => s.clearSiteReactions)
   const [adding, setAdding] = useState(false)
   const [note, setNote] = useState('')
+  const vp = useVisualViewport()
+  const sheetRef = useRef(null)
+  useKeyboardSafeFocus(sheetRef, !!siteId)
 
   useEffect(() => { setAdding(false); setNote('') }, [siteId])
 
@@ -407,11 +411,19 @@ function SiteDetail({ siteId, onClose, states, doseLogs, peptides, reactions, to
     <AnimatePresence>
       <motion.div key={siteId}
         className="fixed inset-0 z-[55] flex items-end justify-center"
+        // sized to what the keyboard has left of the window, not to the window:
+        // this sheet carries a note field, and 80dvh puts it under the keys
+        style={{ top: vp.offsetTop, bottom: 'auto', height: vp.height }}
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
         <div className="absolute inset-0 bg-black/60" onClick={onClose} />
         <motion.div
-          className="card relative max-h-[80dvh] w-full overflow-y-auto rounded-b-none p-4 sm:max-w-md sm:rounded-b-[20px]"
-          style={{ background: 'var(--surface)' }}
+          ref={sheetRef}
+          className="card relative w-full overflow-y-auto overscroll-contain rounded-b-none p-4 sm:max-w-md sm:rounded-b-[20px]"
+          style={{
+            background: 'var(--surface)',
+            maxHeight: sheetMaxHeight(vp),
+            paddingBottom: 'max(env(safe-area-inset-bottom), 16px)',
+          }}
           initial={{ y: 60 }} animate={{ y: 0 }} exit={{ y: 60 }}
           transition={{ type: 'spring', stiffness: 300, damping: 28 }}
           data-testid="site-detail"

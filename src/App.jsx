@@ -6,6 +6,7 @@ import {
 
 import useStore, { onStorageError } from './store/useStore'
 import { haptic } from './lib/feedback'
+import { useVisualViewport, useKeyboardSafeFocus } from './lib/viewport'
 import Home from './components/Home'
 import ProtocolTab from './components/ProtocolTab'
 import CalendarTab from './components/CalendarTab'
@@ -116,6 +117,13 @@ export default function App() {
     return () => ro.disconnect()
   }, [])
 
+  // Fields on a full screen have the same problem as fields in a sheet: focus
+  // one near the bottom and the keyboard covers it. One listener on <main>
+  // covers every screen rather than each of them remembering to.
+  const mainRef = useRef(null)
+  useKeyboardSafeFocus(mainRef)
+  const vp = useVisualViewport()
+
   const Active = SCREENS[tab] || Home
   const isSub = !PRIMARY_IDS.has(tab)
 
@@ -136,6 +144,7 @@ export default function App() {
       </AnimatePresence>
 
       <main
+        ref={mainRef}
         className="flex-1 px-4 pt-5"
         style={{ paddingBottom: 'calc(var(--nav-h, 76px) + 28px)' }}
       >
@@ -155,8 +164,15 @@ export default function App() {
       {/* bottom tab bar */}
       <nav
         ref={navRef}
-        className="fixed inset-x-0 bottom-0 z-40 border-t backdrop-blur-xl"
-        style={{ background: 'color-mix(in srgb, var(--bg) 82%, transparent)', borderColor: 'var(--border)' }}
+        className="fixed inset-x-0 bottom-0 z-40 border-t backdrop-blur-xl transition-opacity"
+        // While the keyboard is up the bar is either behind it or floating over
+        // the field being typed into. Neither is any use, and both are in the way.
+        style={{
+          background: 'color-mix(in srgb, var(--bg) 82%, transparent)',
+          borderColor: 'var(--border)',
+          opacity: vp.keyboardOpen ? 0 : 1,
+          pointerEvents: vp.keyboardOpen ? 'none' : undefined,
+        }}
       >
         <div className="mx-auto grid max-w-3xl grid-cols-5 px-1 pb-[max(env(safe-area-inset-bottom),6px)] pt-2">
           {PRIMARY.map(({ id, label, icon: Icon }) => {

@@ -19,6 +19,7 @@ import Term from './ui/Term'
 import SitePicker from './SitePicker'
 import CoDrawModal from './CoDrawModal'
 import { NextSevenDays } from './CalendarTab'
+import CatchUpCard from './CatchUp'
 import { dueInSlot, takenOn, FORM_LABEL } from '../lib/supplements'
 import { skippedOn, supplementsSkippedOn, skipFor, SKIP_REASONS, REASON_LABEL } from '../lib/skips'
 import { activeVialStatus, coverageFor, coverageWords } from '../lib/stock'
@@ -370,6 +371,9 @@ export default function Home({ goTo }) {
           ))}
         </div>
       )}
+
+      {/* days that went unrecorded, and the way to close them */}
+      <CatchUpCard />
 
       {/* what's coming — taps through to the full calendar */}
       <NextSevenDays goTo={goTo} />

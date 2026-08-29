@@ -1,65 +1,33 @@
-import { useEffect, useMemo, useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { useMemo, useState } from 'react'
+import { motion } from 'framer-motion'
 import {
   ChevronLeft, ChevronRight, CalendarDays, CalendarRange, Sun, Moon, Layers,
-  CalendarPlus, Zap, Wind, Syringe as SyringeIcon, Check, Dot,
+  CalendarPlus, Zap, Wind, Syringe as SyringeIcon, Check, AlertCircle, SkipForward,
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import useStore, { todayStr } from '../store/useStore'
-import { addDaysStr, daysBetween } from '../lib/schedule'
+import { addDaysStr } from '../lib/schedule'
 import {
-  buildCalendar, weekSummary, adherenceTally, groupEvents, weekStart, monthStart, monthEnd,
-  monthGridRange, addMonths, datesBetween, EVENT_META, ADHERENCE_TONE, ADHERENCE_WORDS,
+  weekSummary, adherenceTally, groupEvents, weekStart, monthStart,
+  monthGridRange, addMonths, EVENT_META, ADHERENCE_TONE, ADHERENCE_WORDS,
 } from '../lib/calendarView'
-import { formatDose, formatUnitsLong, round } from '../lib/calc'
-import { loadMatrix, LIB_TO_COMPOUND } from '../lib/mixMatrix'
+import { useCalendarRange } from '../lib/useCalendarRange'
+import { missedOn, missedOralsOn, entryState } from '../lib/backfill'
+import { formatDose, formatUnitsLong } from '../lib/calc'
 import { buildIcs } from '../lib/calendar'
 import { deliveryEvents } from '../lib/restock'
 import Modal from './ui/Modal'
 import CoachTip from './ui/CoachTip'
+import BackfillSheet from './BackfillSheet'
 
 const DOW = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-
-// The chemistry matrix is a lazy ~1.9 MB chunk. Until it lands every dose
-// counts as its own syringe — the safe over-count — and the UI says so.
-function useVerdictOf() {
-  const [matrix, setMatrix] = useState(null)
-  useEffect(() => {
-    let alive = true
-    loadMatrix().then((m) => { if (alive) setMatrix(m) }).catch(() => { /* over-count stands */ })
-    return () => { alive = false }
-  }, [])
-  return useMemo(() => {
-    if (!matrix) return null
-    return (a, b) => matrix.lookup(LIB_TO_COMPOUND[a] || a, LIB_TO_COMPOUND[b] || b)?.verdict || null
-  }, [matrix])
-}
-
-export function useCalendarRange(from, to) {
-  const peptides = useStore((s) => s.peptides)
-  const titration = useStore((s) => s.titration)
-  const doseLogs = useStore((s) => s.doseLogs)
-  const openVials = useStore((s) => s.openVials)
-  const vials = useStore((s) => s.vials)
-  const restock = useStore((s) => s.restock)
-  const supplements = useStore((s) => s.supplements)
-  const supplementLogs = useStore((s) => s.supplementLogs)
-  const skips = useStore((s) => s.skips)
-  const leadDays = useStore((s) => s.settings.restockLeadDays)
-  const verdictOf = useVerdictOf()
-  const t = todayStr()
-
-  return useMemo(
-    () => buildCalendar({ peptides, titration, doseLogs, openVials, vials, supplements, supplementLogs, skips, restock, todayStr: t, from, to, verdictOf, leadDays }),
-    [peptides, titration, doseLogs, openVials, vials, supplements, supplementLogs, skips, restock, t, from, to, verdictOf, leadDays]
-  )
-}
 
 export default function CalendarTab({ goTo }) {
   const [view, setView] = useState('week')
   const t = todayStr()
   const [anchor, setAnchor] = useState(t)
   const [detail, setDetail] = useState(null)
+  const [backfill, setBackfill] = useState(null)
 
   const range = view === 'week'
     ? { from: weekStart(anchor), to: addDaysStr(weekStart(anchor), 6) }
@@ -124,7 +92,10 @@ export default function CalendarTab({ goTo }) {
       <IcsButton />
 
       <DayDetail date={detail} day={detail ? cal.byDate[detail] : null} grouped={cal.grouped}
-        onClose={() => setDetail(null)} goTo={goTo} />
+        onClose={() => setDetail(null)} goTo={goTo}
+        onBackfill={(d) => { setDetail(null); setBackfill(d) }} />
+
+      <BackfillSheet open={!!backfill} date={backfill} onClose={() => setBackfill(null)} />
 
       <p className="px-1 pb-2 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
         Personal tracking tool — not medical advice. Projected doses assume you confirm each step-up;
@@ -229,6 +200,23 @@ function DayRow({ day: d, index, onOpen }) {
 }
 
 // One line per syringe: a co-draw group reads as one line, because it is one shot.
+// Logged, skipped and missed each get their own mark and their own word. On a
+// day that has been and gone, "nothing here" and "deliberately cleared" are not
+// the same fact, and a line that shows neither leaves both invisible.
+function StateMark({ state }) {
+  if (state === 'logged') return <Check size={12} className="mt-1 shrink-0" strokeWidth={3} style={{ color: 'var(--good)' }} aria-label="Logged" />
+  if (state === 'skipped') return <SkipForward size={12} className="mt-1 shrink-0" style={{ color: 'var(--warn)' }} aria-label="Skipped" />
+  if (state === 'missed') return <AlertCircle size={12} className="mt-1 shrink-0" strokeWidth={3} style={{ color: 'var(--danger)' }} aria-label="Missed" />
+  return null
+}
+
+function stateTone(state) {
+  if (state === 'logged') return 'var(--good)'
+  if (state === 'skipped') return 'var(--warn)'
+  if (state === 'missed') return 'var(--danger)'
+  return undefined
+}
+
 function SlotLines({ day: d, slot }) {
   const plan = d.plans[slot]
   const nasal = d.slots[slot].filter((e) => e.nasal)
@@ -239,7 +227,11 @@ function SlotLines({ day: d, slot }) {
       {(plan?.groups || []).map((g, i) => {
         const many = g.items.length > 1
         const entries = g.items.map((it) => byId[it.id]).filter(Boolean)
-        const allTaken = entries.length > 0 && entries.every((e) => e.taken)
+        const states = entries.map((e) => entryState(e, d))
+        // a mixed group reports the worst of what it contains, never an average
+        const state = states.includes('missed') ? 'missed'
+          : states.every((s) => s === 'logged') ? 'logged'
+            : states.includes('skipped') ? 'skipped' : states[0]
         return (
           <p key={i} className="flex items-start gap-2 text-xs font-bold leading-snug">
             {many
@@ -249,27 +241,34 @@ function SlotLines({ day: d, slot }) {
               {entries.map((e, j) => (
                 <span key={e.peptideId}>
                   {j > 0 && <span style={{ color: 'var(--good)' }}> + </span>}
-                  <span style={allTaken ? { color: 'var(--good)' } : undefined}>{e.name}</span>
+                  <span style={{ color: stateTone(entryState(e, d)) }}>{e.name}</span>
                   <span className="font-semibold" style={{ color: 'var(--text-2)' }}> {formatDose(e.dose, e.unit)}</span>
                 </span>
               ))}
               <span className="ml-1" style={{ color: 'var(--good)' }}>{formatUnitsLong(g.units)}</span>
               {many && <span className="font-semibold" style={{ color: 'var(--text-2)' }}> · one syringe</span>}
+              {state === 'missed' && <span className="font-black" style={{ color: 'var(--danger)' }}> · missed</span>}
+              {state === 'skipped' && <span className="font-black" style={{ color: 'var(--warn)' }}> · skipped</span>}
             </span>
-            {allTaken && <Check size={12} className="mt-1 shrink-0" strokeWidth={3} style={{ color: 'var(--good)' }} />}
+            <StateMark state={state} />
           </p>
         )
       })}
-      {nasal.map((e) => (
-        <p key={e.peptideId} className="flex items-start gap-2 text-xs font-bold leading-snug">
-          <Wind size={11} className="mt-1 shrink-0" style={{ color: 'var(--text-2)' }} />
-          <span className="min-w-0 flex-1">
-            <span style={e.taken ? { color: 'var(--good)' } : undefined}>{e.name}</span>
-            <span className="font-semibold" style={{ color: 'var(--text-2)' }}> {formatDose(e.dose, e.unit)} · nasal</span>
-          </span>
-          {e.taken && <Check size={12} className="mt-1 shrink-0" strokeWidth={3} style={{ color: 'var(--good)' }} />}
-        </p>
-      ))}
+      {nasal.map((e) => {
+        const state = entryState(e, d)
+        return (
+          <p key={e.peptideId} className="flex items-start gap-2 text-xs font-bold leading-snug">
+            <Wind size={11} className="mt-1 shrink-0" style={{ color: 'var(--text-2)' }} />
+            <span className="min-w-0 flex-1">
+              <span style={{ color: stateTone(state) }}>{e.name}</span>
+              <span className="font-semibold" style={{ color: 'var(--text-2)' }}> {formatDose(e.dose, e.unit)} · nasal</span>
+              {state === 'missed' && <span className="font-black" style={{ color: 'var(--danger)' }}> · missed</span>}
+              {state === 'skipped' && <span className="font-black" style={{ color: 'var(--warn)' }}> · skipped</span>}
+            </span>
+            <StateMark state={state} />
+          </p>
+        )
+      })}
     </div>
   )
 }
@@ -338,8 +337,9 @@ function MonthCell({ day: d, muted, onOpen }) {
 }
 
 // ---------- day detail ----------
-function DayDetail({ date, day, grouped, onClose, goTo }) {
+function DayDetail({ date, day, grouped, onClose, goTo, onBackfill }) {
   if (!date) return null
+  const missed = day ? missedOn(day).length + missedOralsOn(day).length : 0
   return (
     <Modal open={!!date} onClose={onClose} title={format(parseISO(date), 'EEEE d MMMM')} wide>
       <div className="space-y-3">
@@ -379,6 +379,29 @@ function DayDetail({ date, day, grouped, onClose, goTo }) {
               </p>
             ))}
           </div>
+        )}
+
+        {/* the way into a correction is the day that needs one */}
+        {missed > 0 && (
+          <div className="rounded-[14px] p-3" data-testid="day-missed"
+            style={{ background: 'color-mix(in srgb, var(--danger) 14%, transparent)' }}>
+            <p className="flex items-center gap-1.5 text-xs font-black" style={{ color: 'var(--danger)' }}>
+              <AlertCircle size={13} strokeWidth={3} />
+              {missed} missed — nothing recorded either way
+            </p>
+            <button onClick={() => onBackfill?.(date)} data-testid="day-catch-up"
+              className="btn-primary mt-2 w-full rounded-full py-3 text-xs font-black">
+              Add what I took that day
+            </button>
+          </div>
+        )}
+
+        {day?.isPast && missed === 0 && day.scheduled > 0 && (
+          <button onClick={() => onBackfill?.(date)} data-testid="day-open-backfill"
+            className="w-full rounded-full py-3 text-xs font-black"
+            style={{ background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
+            Correct this day
+          </button>
         )}
 
         {day?.isToday && (

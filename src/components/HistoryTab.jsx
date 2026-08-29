@@ -9,6 +9,7 @@ import { openSummaryDocument } from '../lib/summaryDoc'
 import { SymptomHistory } from './SymptomsTab'
 import { supplementAdherence } from '../lib/supplements'
 import { skipsInRange, skipCounts, splitAdherence, REASON_LABEL } from '../lib/skips'
+import CatchUpCard from './CatchUp'
 
 export default function HistoryTab() {
   const peptides = useStore((s) => s.peptides)
@@ -59,6 +60,9 @@ export default function HistoryTab() {
           Your record — every dose, site and co-draw
         </p>
       </div>
+
+      {/* a rate is only worth reading once the holes in it are accounted for */}
+      <CatchUpCard />
 
       {/* window picker */}
       <div className="flex gap-2">

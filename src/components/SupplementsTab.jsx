@@ -167,28 +167,34 @@ function AddSupplement({ open, onClose }) {
   const close = () => { setQuery(''); setDraft(blankSupplement()); setMode('library'); onClose() }
 
   return (
-    <Modal open={open} onClose={close} title="Add a supplement">
-      <div className="flex rounded-full p-1" style={{ background: 'var(--surface-sunk)' }}>
-        {[['library', 'From the library'], ['manual', 'Enter my own']].map(([m, label]) => (
-          <button key={m} onClick={() => setMode(m)} aria-label={label}
-            className="relative flex-1 rounded-full py-2 text-xs font-black">
-            {mode === m && (
-              <motion.span layoutId="sup-add-pill" className="absolute inset-0 rounded-full"
-                style={{ background: 'var(--accent)' }} />
-            )}
-            <span className="relative" style={{ color: mode === m ? 'var(--accent-fg)' : 'var(--text-2)' }}>{label}</span>
-          </button>
-        ))}
-      </div>
-
-      {mode === 'library' ? (
-        <div className="mt-3 space-y-3" data-testid="supplement-library">
-          <div className="relative">
-            <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-2)' }} />
-            <input className="input pl-10" placeholder="Search supplements…" aria-label="Search supplements"
-              value={query} onChange={(e) => setQuery(e.target.value)} />
+    <Modal open={open} onClose={close} title="Add a supplement"
+      pinned={(
+        <div className="space-y-3">
+          <div className="flex rounded-full p-1" style={{ background: 'var(--surface-sunk)' }}>
+            {[['library', 'From the library'], ['manual', 'Enter my own']].map(([m, label]) => (
+              <button key={m} onClick={() => setMode(m)} aria-label={label}
+                className="relative flex-1 rounded-full py-2 text-xs font-black">
+                {mode === m && (
+                  <motion.span layoutId="sup-add-pill" className="absolute inset-0 rounded-full"
+                    style={{ background: 'var(--accent)' }} />
+                )}
+                <span className="relative" style={{ color: mode === m ? 'var(--accent-fg)' : 'var(--text-2)' }}>{label}</span>
+              </button>
+            ))}
           </div>
-
+          {mode === 'library' && (
+            <div className="relative">
+              <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-2)' }} />
+              {/* !pl-10: .input applies its own px-3 further down the stylesheet,
+                  so a plain pl-10 loses the cascade and the glass lands on the text */}
+              <input className="input !pl-10" placeholder="Search supplements…" aria-label="Search supplements"
+                value={query} onChange={(e) => setQuery(e.target.value)} />
+            </div>
+          )}
+        </div>
+      )}>
+      {mode === 'library' ? (
+        <div className="space-y-3" data-testid="supplement-library">
           <LibraryGroup title="Your shelf" testid="library-owned" hint="What you already have"
             rows={owned} have={have} onPick={(r) => { addSupplement(fromLibrary(r)); close() }} />
           <LibraryGroup title="Could add later" testid="library-available" hint="Common men's-health supplements"
@@ -201,7 +207,7 @@ function AddSupplement({ open, onClose }) {
           )}
         </div>
       ) : (
-        <div className="mt-3 space-y-3" data-testid="supplement-manual">
+        <div className="space-y-3" data-testid="supplement-manual">
           <Field label="Name">
             <input className="input" value={draft.name} aria-label="Supplement name"
               placeholder="e.g. Magnesium glycinate"

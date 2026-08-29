@@ -141,7 +141,16 @@ export default function ScheduleWizard({ open, onClose }) {
   }[step]
 
   return (
-    <Modal open={open} onClose={onClose} title={title} wide>
+    <Modal open={open} onClose={onClose} title={title} wide
+      pinned={step === 'pick' ? (
+        // stays put while the list underneath it scrolls, so the keyboard can
+        // never end up sitting on top of the field driving the search
+        <div className="relative">
+          <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-2)' }} />
+          <input className="input !pl-10" autoFocus placeholder={`Search ${catalogue.length} compounds…`}
+            aria-label="Search compounds" value={query} onChange={(e) => setQuery(e.target.value)} />
+        </div>
+      ) : null}>
       <AnimatePresence mode="wait">
         <motion.div key={step + idx} initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -12 }}
           transition={{ duration: 0.15 }} className="space-y-3">
@@ -153,7 +162,7 @@ export default function ScheduleWizard({ open, onClose }) {
                 add something new — the rest is left exactly as it is.
               </p>
 
-              <div className="max-h-[42vh] space-y-2 overflow-y-auto pr-1" data-testid="manage-list">
+              <div className="space-y-2" data-testid="manage-list">
                 {peptides.map((p) => {
                   const edited = entries.some((e) => e.id === p.id)
                   const gone = removed.includes(p.id)
@@ -309,12 +318,7 @@ export default function ScheduleWizard({ open, onClose }) {
 
           {step === 'pick' && (
             <>
-              <div className="relative">
-                <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-2)' }} />
-                <input className="input !pl-10" autoFocus placeholder={`Search ${catalogue.length} compounds…`}
-                  value={query} onChange={(e) => setQuery(e.target.value)} />
-              </div>
-              <div className="max-h-[44vh] space-y-2 overflow-y-auto pr-1" data-testid="wizard-list">
+              <div className="space-y-2" data-testid="wizard-list">
                 {results.map((c) => {
                   const on = picked.has(c.id)
                   const s = wizardSuggestion(c)
