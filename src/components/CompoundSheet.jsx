@@ -12,7 +12,8 @@ import { currentRung, cycleInfo, prettyDate, addDaysStr } from '../lib/schedule'
 import { formatDose, concentration, isNasal } from '../lib/calc'
 import { scheduledWeekdaySet, WEEKDAYS } from '../lib/daily'
 import { SITE_BY_ID } from '../lib/sites'
-import { runwayFor, durationWords, batchesFor, sealedCount } from '../lib/stock'
+import { batchesFor, sealedCount } from '../lib/stock'
+import { stockRunway } from '../lib/runway'
 
 const FREQ_LABELS = {
   daily: 'Daily', nightly: 'Nightly', weekly: 'Weekly',
@@ -63,9 +64,12 @@ export default function CompoundSheet({ open, compoundId, onClose, goTo }) {
 
   if (!open || !compoundId) return null
 
-  const runway = peptide
-    ? runwayFor(peptide, titration[compoundId], openVials[compoundId], vials, doseLogs, t, leadDays)
-    : null
+  // Same rule as the Stock room: your burn rate if you have one, the
+  // reference's if you don't, and a stated reason if neither exists.
+  const runway = stockRunway({
+    peptideId: compoundId, peptide, tState: titration[compoundId],
+    openVial: openVials[compoundId], vials, doseLogs, todayStr: t, leadDays,
+  })
   const cyc = peptide ? cycleInfo(peptide, t) : null
   const rung = peptide ? currentRung(peptide, titration[compoundId]) : null
   const unlinked = !!openVials[compoundId]?.unlinked
@@ -245,9 +249,13 @@ function MineTab({ peptide, rung, cyc, runway, unlinked, batches, note, onNote, 
         <p className="mt-1 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
           {unlinked
             ? 'This still schedules and still logs — there is just no vial behind it, so nothing is being drawn down.'
-            : runway && isFinite(runway.days)
-              ? `${durationWords(runway.days)} left${runway.restockByDate ? ` · restock by ${prettyDate(runway.restockByDate)}` : ''}`
-              : batches.length ? `${batches.length} batch${batches.length === 1 ? '' : 'es'} on the shelf` : 'Nothing recorded in stock.'}
+            : runway.basis === 'protocol'
+              ? `${runway.words} left${runway.restockByDate ? ` · restock by ${prettyDate(runway.restockByDate)}` : ''}`
+              : runway.basis === 'anecdotal'
+                ? `${runway.words} left — estimated at the reference dose, ${runway.doseWords} ${runway.freqWords}, not at one of your own.`
+                : batches.length
+                  ? `${batches.length} batch${batches.length === 1 ? '' : 'es'} on the shelf. No dose to measure them against — ${runway.note}.`
+                  : 'Nothing recorded in stock.'}
         </p>
       </div>
 

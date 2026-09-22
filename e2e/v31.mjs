@@ -356,6 +356,65 @@ await step('the three layers are still separate and nothing cascaded', async () 
   console.log(`  ${s.peptides.length} protocol items · ${s.vials.length} stock batches · ${s.sharedDraws.length} shared draws`)
 })
 
+// ============================================ every row has a duration
+
+await step('every compound on the shelf carries a duration or says why not', async () => {
+  await page.evaluate(() => {
+    const raw = JSON.parse(localStorage.getItem('peptide-command-center'))
+    const add = (id, name, mg, qty) => raw.state.vials.push({ id: 'v-' + id, peptideId: id, name,
+      vialMg: mg, usdPerVial: null, vendor: '', lot: '', drawProfiles: [],
+      qtyPurchased: qty, qtyOnHand: qty, sealedExpiry: '', coaKey: null })
+    add('tb500', 'TB-500', 10, 3)            // no protocol, but the reference doses it
+    add('tirzepatide', 'Tirzepatide', 30, 2) // dose is in a later sentence
+    add('glow', 'GLOW', 70, 1)               // a blend — no single figure
+    add('hcg', 'HCG', 5, 2)                  // IU, not milligrams
+    add('humanin', 'Humanin', 10, 1)         // the reference states none
+    // a nasal route used to be excluded from the runway outright
+    raw.state.peptides = raw.state.peptides.map((p) => (p.id === 'semax' ? { ...p, route: 'Nasal' } : p))
+    localStorage.setItem('peptide-command-center', JSON.stringify(raw))
+  })
+  await page.reload({ waitUntil: 'networkidle' })
+  await page.waitForTimeout(1200)
+  await stockRoom()
+
+  const rows = await page.evaluate(() => [...document.querySelectorAll('[data-testid="stock-group"]')].map((g) => ({
+    name: (g.querySelector('p')?.textContent || '').trim(),
+    line: g.querySelector('[data-testid="runway"]')?.textContent.replace(/\s+/g, ' ').trim() || null,
+  })))
+  const blank = rows.filter((r) => !r.line)
+  if (blank.length) throw new Error(`${blank.length} row(s) with no duration: ${blank.map((r) => r.name).join(', ')}`)
+  console.log(`  ${rows.length} rows, none blank`)
+
+  const find = (n) => rows.find((r) => r.name.startsWith(n))?.line || ''
+  // your own protocol: a real date to reorder by
+  if (!/left · restock by/.test(find('BPC-157'))) throw new Error(`BPC-157: ${find('BPC-157')}`)
+  // no protocol: an estimate, labelled, with the reference dose shown
+  if (!/left · estimate at 2–2.5 mg 2×\/week/.test(find('TB-500'))) throw new Error(`TB-500: ${find('TB-500')}`)
+  if (!/left · estimate at 10–15 mg weekly/.test(find('Tirzepatide'))) throw new Error(`Tirzepatide: ${find('Tirzepatide')}`)
+  // an estimate never carries a restock-by date — a date is a commitment
+  if (/restock by/.test(find('TB-500'))) throw new Error('an estimate is claiming a restock date')
+  // a nasal bottle gets one now too
+  if (!/left/.test(find('Semax'))) throw new Error(`Semax (nasal): ${find('Semax')}`)
+  // and the three kinds of nothing each say which kind they are
+  if (!/blend, dosed at the vendor/.test(find('GLOW'))) throw new Error(`GLOW: ${find('GLOW')}`)
+  if (!/IU or mL, not milligrams/.test(find('HCG'))) throw new Error(`HCG: ${find('HCG')}`)
+  if (!/states none for this one/.test(find('Humanin'))) throw new Error(`Humanin: ${find('Humanin')}`)
+  for (const n of ['BPC-157', 'TB-500', 'Tirzepatide', 'Semax', 'GLOW', 'HCG', 'Humanin']) {
+    console.log(`  ${n.padEnd(12)} ${find(n)}`)
+  }
+})
+
+await step('no duration is invented for a compound the reference will not dose', async () => {
+  const rows = await page.evaluate(() => [...document.querySelectorAll('[data-testid="stock-group"]')]
+    .map((g) => g.querySelector('[data-testid="runway"]')?.textContent || ''))
+  for (const line of rows) {
+    if (/No dose to measure against/.test(line) && /(day|week|month|year)s? left/.test(line)) {
+      throw new Error(`a refusal and a duration in the same line: ${line}`)
+    }
+  }
+})
+
+await page.screenshot({ path: `${SHOT}/v31-stock-runway.png`, fullPage: true })
 await page.screenshot({ path: `${SHOT}/v31-home.png` })
 console.log(`\n--- console/page errors: ${errors.filter((e) => e.startsWith('console') || e.startsWith('pageerror')).length}`)
 for (const e of errors) console.log('  ' + e.split('\n')[0])

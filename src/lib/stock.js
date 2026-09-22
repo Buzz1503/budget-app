@@ -290,7 +290,11 @@ export function durationWords(days) {
  * answers alone.
  */
 export function runwayFor(peptide, tState, openVial, vials = [], doseLogs = [], todayStr, leadDays = 30) {
-  if (!peptide || isNasal(peptide)) return null
+  // A nasal bottle used to be excluded here, which left the one compound whose
+  // stock is hardest to eyeball — sprays, not vials — as the only one with no
+  // answer. Milligrams are milligrams: toMg converts a spray like any other
+  // unit, so the burn rate and the run-out date are as real as anyone else's.
+  if (!peptide) return null
   // shared, so the restock date agrees with the vial's own "empties in" figure
   const perWeekMg = sharedWeeklyUsageMg(peptide, tState, vials)
   const openMg = openVialRemainingMg(peptide, openVial, doseLogs)

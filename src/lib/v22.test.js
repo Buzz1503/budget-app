@@ -153,8 +153,18 @@ describe('runwayFor combines the open vial and the sealed shelf', () => {
     expect(r.out).toBe(true)
   })
 
-  it('returns null for a nasal spray', () => {
-    expect(runwayFor(pep({ route: 'Nasal' }), tState, null, [], [], T, 30)).toBe(null)
+  // A nasal bottle used to be the one thing with no answer, which is backwards:
+  // sprays are harder to eyeball than vials, not easier. Milligrams convert.
+  it('answers for a nasal spray too, in the same milligrams', () => {
+    const r = runwayFor(pep({ route: 'Nasal' }), tState, null, [batch({ qtyOnHand: 1, vialMg: 10 })], [], T, 30)
+    expect(r).not.toBe(null)
+    expect(r.perWeekMg).toBeGreaterThan(0)
+    expect(Number.isFinite(r.days)).toBe(true)
+    expect(r.runOutDate).toBeTruthy()
+  })
+
+  it('still returns null when there is no compound at all', () => {
+    expect(runwayFor(null, tState, null, [], [], T, 30)).toBe(null)
   })
 })
 

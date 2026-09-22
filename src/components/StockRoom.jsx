@@ -2,10 +2,11 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Package, Plus, Minus, ChevronRight, FileText, Trash2, Search,
-  Paperclip, AlertTriangle, Boxes, CheckCircle2, Clock, Users,
+  Paperclip, AlertTriangle, Boxes, CheckCircle2, Clock, Users, HelpCircle,
 } from 'lucide-react'
 import useStore, { todayStr } from '../store/useStore'
-import { groupStock, blankBatch, runwayFor, durationWords, openVialRemainingMg } from '../lib/stock'
+import { groupStock, blankBatch, openVialRemainingMg } from '../lib/stock'
+import { stockRunway } from '../lib/runway'
 import { drawdown, emptiesInWords, FREQUENCIES } from '../lib/drawdown'
 import { prettyDate } from '../lib/schedule'
 import { putBlob, getBlob, deleteBlob } from '../lib/blobStore'
@@ -66,9 +67,12 @@ export default function StockRoom({ goTo }) {
       <div className="space-y-3" data-testid="stock-groups">
         {groups.map((g) => {
           const peptide = peptides.find((p) => p.id === g.peptideId)
-          const runway = peptide
-            ? runwayFor(peptide, titration[peptide.id], openVials[peptide.id], vials, doseLogs, t, leadDays)
-            : null
+          // Every row gets a duration: yours if you have a protocol, the
+          // reference's if you don't, and a stated reason if neither exists.
+          const runway = stockRunway({
+            peptideId: g.peptideId, peptide, tState: titration[g.peptideId],
+            openVial: openVials[g.peptideId], vials, doseLogs, todayStr: t, leadDays,
+          })
           return (
             <StockGroup
               key={g.peptideId}
@@ -96,24 +100,50 @@ export default function StockRoom({ goTo }) {
   )
 }
 
-/** The one-line, once-per-peptide answer to "when do I run out" — open vial and shelf combined. */
+/**
+ * How long this compound lasts — open vial and sealed shelf combined.
+ *
+ * An estimate against the reference dose is drawn differently from a figure
+ * off your own protocol, and says so in the line itself. Showing them
+ * identically would be claiming to know somebody else's dose as well as you
+ * know your own.
+ */
 function RunwayLine({ runway }) {
   if (!runway) return null
+
   if (runway.out) {
     return (
-      <p className="mt-1 flex items-center gap-1 text-xs font-bold leading-tight" style={{ color: 'var(--danger)' }}>
+      <p className="mt-1 flex items-center gap-1 text-xs font-bold leading-tight" data-testid="runway"
+        style={{ color: 'var(--danger)' }}>
         <AlertTriangle size={11} /> Nothing left — reorder
       </p>
     )
   }
-  if (!isFinite(runway.days)) return null
+
+  if (runway.basis === 'none') {
+    return (
+      <p className="mt-1 flex items-start gap-1 text-xs font-medium leading-tight" data-testid="runway"
+        style={{ color: 'var(--text-3)' }}>
+        <HelpCircle size={11} className="mt-0.5 shrink-0" />
+        <span>No dose to measure against — {runway.note}</span>
+      </p>
+    )
+  }
+
+  const estimate = runway.basis === 'anecdotal'
   return (
-    <p className="mt-1 flex items-center gap-1 text-xs font-medium leading-tight"
-      style={{ color: runway.low ? 'var(--warn)' : 'var(--text-2)' }}>
-      <Clock size={11} className="shrink-0" />
+    <p className="mt-1 flex items-start gap-1 text-xs leading-tight" data-testid="runway"
+      style={{ color: runway.low ? 'var(--warn)' : estimate ? 'var(--text-3)' : 'var(--text-2)' }}>
+      <Clock size={11} className="mt-0.5 shrink-0" />
       <span>
-        {durationWords(runway.days)} left
-        {runway.restockByDate ? ` · restock by ${prettyDate(runway.restockByDate)}` : ''}
+        {/* durationWords already writes its own ~ on anything over a
+            fortnight; a second one is the app stuttering. */}
+        <span className="font-bold">{runway.words} left</span>
+        {estimate
+          ? <span className="font-medium"> · estimate at {runway.doseWords} {runway.freqWords}</span>
+          : runway.restockByDate
+            ? <span className="font-medium"> · restock by {prettyDate(runway.restockByDate)}</span>
+            : null}
       </span>
     </p>
   )
