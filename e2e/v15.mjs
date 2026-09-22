@@ -116,14 +116,13 @@ await step('the dose list leads the screen', async () => {
   await waitText(/Pepito/)
   await page.click('button:has-text("AM")')
   await page.waitForTimeout(500)
-  // v16 lists every compound in the combine plan rather than truncating to one
-  // line, which makes the plan taller — but the plan IS dose content, not
-  // chrome. Measure to whichever dose block comes first; v16 asserts the
-  // tighter 200px bound on this same quantity.
+  // v31 moved the combine row below the cards, so the dose list itself is the
+  // first dose content on the screen. Measured to the list rather than to the
+  // first unlogged Log button, which sits one card lower once one is logged.
   const y = await page.evaluate(() => {
+    const list = document.querySelector('main .card.rows')
     const card = document.querySelector('main button[aria-label^="Log "]')
-    const plan = document.querySelector('[data-testid="shot-plan"]')
-    const tops = [card, plan].filter(Boolean).map((el) => el.getBoundingClientRect().top + window.scrollY)
+    const tops = [list, card].filter(Boolean).map((el) => el.getBoundingClientRect().top + window.scrollY)
     return tops.length ? Math.min(...tops) : null
   })
   if (y == null) throw new Error('no dose content found')

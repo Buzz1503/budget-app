@@ -7,8 +7,8 @@ import useStore, { todayStr } from '../store/useStore'
 import { replacementsFor, activationPreview } from '../lib/stock'
 import { formatDose } from '../lib/calc'
 import Modal from './ui/Modal'
+import { useMoney } from '../lib/useMoney'
 
-const money = (n) => `$${Math.round((n || 0) * 100) / 100}`
 
 /**
  * What happens after a vial runs out.
@@ -24,6 +24,7 @@ const money = (n) => `$${Math.round((n || 0) * 100) / 100}`
  * surprise this app exists to prevent.
  */
 export default function ReplaceVial({ open, peptideId, onClose, goTo }) {
+  const m = useMoney()
   const peptides = useStore((s) => s.peptides)
   const vials = useStore((s) => s.vials)
   const titration = useStore((s) => s.titration)
@@ -139,7 +140,7 @@ export default function ReplaceVial({ open, peptideId, onClose, goTo }) {
                           {b.vialMg} mg{b.vendor ? ` · ${b.vendor}` : ''}
                         </p>
                         <p className="truncate text-xs font-semibold leading-tight" style={{ color: 'var(--text-2)' }}>
-                          {b.qtyOnHand} sealed · {money(b.costAud)} each
+                          {b.qtyOnHand} sealed · {m.show(m.vial(b.usdPerVial), 'no price set')} each
                           {b.lot ? ` · lot ${b.lot}` : ''}
                         </p>
                         {preview && !preview.sameSize && (

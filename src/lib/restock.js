@@ -6,7 +6,8 @@
 import { addDaysStr, currentRung, cycleInfo, daysBetween } from './schedule'
 import { isDueToday, slotOf, needsProtocolSetup, SLOTS } from './daily'
 import { toMg, isNasal, isPremixed, nasalStrength, NASAL_RECIPE, fromMg } from './calc'
-import { totalMgOnHand, vialsFor, runOutInfo, costPerDose, expiryInfo } from './inventory'
+import { totalMgOnHand, vialsFor, runOutInfo, costPerDoseUsd, expiryInfo } from './inventory'
+import { referenceUsdPerVial } from './cost'
 import { planShots } from './grouping'
 import { LIB_TO_COMPOUND } from './mixMatrix'
 
@@ -93,13 +94,14 @@ export function syringesInWindow(peptides, titration, fromStr, days, verdictOf) 
   return { syringes, injections, grouped: !!verdictOf }
 }
 
-// Weighted average cost of a vial from what's been bought.
-export function costPerVial(peptideId, vials) {
-  const mine = vialsFor(vials, peptideId)
+// Weighted average USD cost of a vial from what's been bought, falling back to
+// the reference table for a compound nothing has been bought for yet.
+export function costPerVialUsd(peptideId, vials, peptide = null) {
+  const mine = vialsFor(vials, peptideId).filter((v) => v.usdPerVial != null)
   const qty = mine.reduce((s, v) => s + (v.qtyPurchased ?? v.qtyOnHand ?? 0), 0)
-  const cost = mine.reduce((s, v) => s + (v.costAud || 0) * (v.qtyPurchased ?? v.qtyOnHand ?? 0), 0)
-  if (!qty || !cost) return 0
-  return cost / qty
+  const cost = mine.reduce((s, v) => s + v.usdPerVial * (v.qtyPurchased ?? v.qtyOnHand ?? 0), 0)
+  if (qty > 0) return cost / qty
+  return peptide ? (referenceUsdPerVial(peptide) ?? 0) : 0
 }
 
 /** One row per compound: what's left, what the window needs, what to order. */
@@ -143,8 +145,8 @@ export function restockRows({ peptides, titration, vials, openVials, todayStr, d
       expiry: expiryInfo(p, openVials?.[p.id], todayStr),
       openMg: Math.max(0, openVials?.[p.id]?.remainingMg || 0),
       reconstituted: !!openVials?.[p.id]?.reconstitutedAt,
-      costPerDose: costPerDose(p, titration?.[p.id], vials),
-      unitCost: costPerVial(p.id, vials),
+      costPerDoseUsd: costPerDoseUsd(p, titration?.[p.id], vials),
+      unitCostUsd: costPerVialUsd(p.id, vials, p),
       priority: !isFinite(ro.daysLeft) ? 'ok' : ro.daysLeft <= leadDays ? 'now' : ro.daysLeft <= days ? 'soon' : 'ok',
     })
   }
@@ -152,14 +154,17 @@ export function restockRows({ peptides, titration, vials, openVials, todayStr, d
   return rows.sort((a, b) => (a.daysLeft ?? Infinity) - (b.daysLeft ?? Infinity))
 }
 
-export const DEFAULT_UNIT_COSTS = {
-  syringe: 0.35,
-  bac: 4,
-  saline: 3,
-  bottle: 6,
-  swab: 0.05,
-  sharps: 12,
-  imNeedle: 0.5,
+// USD, like every other price here, so one exchange rate converts the whole
+// order rather than half of it. These are the long-standing AUD defaults
+// divided by the default rate, so what the screen shows does not move.
+export const DEFAULT_UNIT_COSTS_USD = {
+  syringe: 0.245,
+  bac: 2.797,
+  saline: 2.098,
+  bottle: 4.196,
+  swab: 0.035,
+  sharps: 8.392,
+  imNeedle: 0.35,
 }
 
 export const CONSUMABLE_META = {
@@ -218,7 +223,7 @@ export function consumableRows({ peptides, titration, vials, openVials, todayStr
       .filter(([, n]) => n > 0)
       .map(([id, n]) => {
         const key = `consumable:${id}`
-        const unitCost = restock.unitCosts?.[id] ?? DEFAULT_UNIT_COSTS[id] ?? 0
+        const unitCostUsd = restock.unitCostsUsd?.[id] ?? DEFAULT_UNIT_COSTS_USD[id] ?? 0
         return {
           key,
           kind: 'consumable',
@@ -227,20 +232,20 @@ export function consumableRows({ peptides, titration, vials, openVials, todayStr
           unitLabel: CONSUMABLE_META[id].unit,
           suggestedVials: n,
           qty: restock.qty?.[key] ?? n,
-          unitCost,
+          unitCostUsd,
         }
       }),
   }
 }
 
-/** Everything the Restock screen renders, plus the AUD total. */
+/** Everything the Restock screen renders, plus the order total in USD. */
 export function restockPlan({ peptides, titration, vials, openVials, todayStr, restock = {}, leadDays = 30, verdictOf = null }) {
   const kind = restock.horizon || 'cycles'
   const days = horizonDays(kind, peptides, todayStr)
   const rows = restockRows({ peptides, titration, vials, openVials, todayStr, days, leadDays, restock })
   const consumables = consumableRows({ peptides, titration, vials, openVials, todayStr, days, verdictOf, restock })
 
-  const line = (r) => Math.round(r.qty * (r.unitCost || 0) * 100) / 100
+  const line = (r) => r.qty * (r.unitCostUsd || 0)
   const vialCost = rows.reduce((s, r) => s + line(r), 0)
   const consumableCost = consumables.rows.reduce((s, r) => s + line(r), 0)
 
@@ -252,9 +257,9 @@ export function restockPlan({ peptides, titration, vials, openVials, todayStr, r
     rows,
     consumables,
     orderNow: rows.filter((r) => r.priority === 'now' && r.qty > 0),
-    totalAud: Math.round((vialCost + consumableCost) * 100) / 100,
-    vialCost: Math.round(vialCost * 100) / 100,
-    consumableCost: Math.round(consumableCost * 100) / 100,
+    totalUsd: Math.round((vialCost + consumableCost) * 100) / 100,
+    vialCostUsd: Math.round(vialCost * 100) / 100,
+    consumableCostUsd: Math.round(consumableCost * 100) / 100,
   }
 }
 

@@ -15,6 +15,7 @@
 import { referenceFor, isExcludedTier, referenceAttachment, protocolTextFrom } from './reference'
 import { seedPeptides, DEFAULT_BAC_ML } from '../data/seed'
 import { NASAL_RECIPE, MCG_PER_SPRAY } from './calc'
+import { referenceUsdPerVial } from './cost'
 
 const SEED_BY_ID = new Map(seedPeptides('2026-01-01').map((p) => [p.id, p]))
 
@@ -240,7 +241,7 @@ export function entryFromPeptide(peptide) {
     allowedZone: peptide.allowedZone || null,
     startDate: peptide.startDate,
     stockVials: 0,
-    costAud: 0,
+    usdPerVial: referenceUsdPerVial(peptide),
   }
 }
 

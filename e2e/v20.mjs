@@ -345,16 +345,20 @@ await step('a skip is not a dose — nothing is logged and no stock moves', asyn
   }
 })
 
-await step('a skipped dose leaves the due list and the ring', async () => {
+// v31 removed the hero and its ring, so the skip is reported where the dose
+// itself is. Both halves of the original claim still hold: the card says it
+// was skipped, and it says the vial was not touched.
+await step('a skipped dose reads as skipped, and leaves the stock alone', async () => {
   await nav('Home')
   await page.waitForTimeout(700)
-  const hero = await page.locator('[data-testid="hero"]').textContent()
-  if (!/skipped/i.test(hero)) throw new Error(`the hero does not mention the skip: ${hero.replace(/\s+/g, ' ')}`)
-  const m = hero.match(/(\d+)\/(\d+)\s*this (?:AM|PM)/i)
-  if (!m) throw new Error('no slot count in the hero')
   const t = await main()
   if (!/Skipped today/.test(t)) throw new Error('the card does not read as skipped')
   if (!/nothing taken from stock/i.test(t)) throw new Error('the card does not say stock is untouched')
+  const st = await state()
+  if (!st.skips.length) throw new Error('nothing was recorded as skipped')
+  if (st.doseLogs.some((l) => l.date === st.skips[0].date && l.peptideId === st.skips[0].peptideId)) {
+    throw new Error('a skip also wrote a dose log')
+  }
 })
 
 await step('a skip can be undone', async () => {

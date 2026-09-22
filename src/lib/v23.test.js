@@ -22,7 +22,7 @@ const pep = (over = {}) => ({
 
 const batch = (over = {}) => ({
   id: 'b1', peptideId: 'tb500', name: 'TB-500', vialMg: 5, vendor: 'Test Labs',
-  qtyOnHand: 2, qtyPurchased: 2, costAud: 60, lot: '', sealedExpiry: '', coaKey: null, ...over,
+  qtyOnHand: 2, qtyPurchased: 2, usdPerVial: 60, lot: '', sealedExpiry: '', coaKey: null, ...over,
 })
 
 // ================================================ 1 · owning is not taking

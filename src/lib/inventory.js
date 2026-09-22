@@ -1,6 +1,7 @@
 // Burn rate, run-out, cost and expiry math.
 import { dosesPerWeek, currentRung, addDaysStr, daysBetween } from './schedule'
 import { toMg } from './calc'
+import { referenceUsdPerVial } from './cost'
 
 export function vialsFor(vials, peptideId) {
   return vials.filter((v) => v.peptideId === peptideId)
@@ -26,18 +27,29 @@ export function runOutInfo(peptide, tState, vials, openVial, todayStr) {
   return { daysLeft, runOutDate: addDaysStr(todayStr, daysLeft), mg, rate }
 }
 
-export function totalSpend(vials) {
-  return vials.reduce((s, v) => s + (v.costAud || 0) * (v.qtyPurchased ?? v.qtyOnHand), 0)
+// Everything below is in USD, because USD is the only currency this app stores.
+// The one exchange rate in Settings turns it into money at the moment it is
+// drawn — see lib/cost.js.
+export function totalSpendUsd(vials) {
+  return vials.reduce((s, v) => s + (v.usdPerVial || 0) * (v.qtyPurchased ?? v.qtyOnHand), 0)
 }
 
-// Weighted average cost per mg from purchased vials → cost of the current dose
-export function costPerDose(peptide, tState, vials) {
-  const mine = vialsFor(vials, peptide.id)
-  const totMg = mine.reduce((s, v) => s + v.vialMg * (v.qtyPurchased ?? v.qtyOnHand), 0)
-  const totCost = mine.reduce((s, v) => s + (v.costAud || 0) * (v.qtyPurchased ?? v.qtyOnHand), 0)
-  if (totMg <= 0) return null
+// Weighted average cost per mg from purchased vials → cost of the current dose.
+// Falls back to the reference table when nothing has been bought yet, so a
+// stack priced only by the catalogue still shows a figure.
+export function costPerDoseUsd(peptide, tState, vials) {
+  const mine = vialsFor(vials, peptide.id).filter((v) => v.usdPerVial != null)
   const { dose } = currentRung(peptide, tState)
-  return toMg(dose, peptide.ladder.unit) * (totCost / totMg)
+  const doseMg = toMg(dose, peptide.ladder.unit)
+  const totMg = mine.reduce((s, v) => s + v.vialMg * (v.qtyPurchased ?? v.qtyOnHand), 0)
+  if (totMg > 0) {
+    const totCost = mine.reduce((s, v) => s + v.usdPerVial * (v.qtyPurchased ?? v.qtyOnHand), 0)
+    return doseMg * (totCost / totMg)
+  }
+  const ref = referenceUsdPerVial(peptide)
+  const vialMg = peptide.recon?.vialMg
+  if (ref == null || !(vialMg > 0)) return null
+  return ref * (doseMg / vialMg)
 }
 
 export function expiryInfo(peptide, openVial, todayStr) {

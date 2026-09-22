@@ -20,7 +20,7 @@ const tState = { level: 0, levelStartDate: day(-90) }
 
 const batch = (over = {}) => ({
   id: 'b1', peptideId: 'reta', name: 'Retatrutide', vialMg: 10, vendor: 'Vendor A',
-  qtyOnHand: 2, qtyPurchased: 2, costAud: 180, lot: '', sealedExpiry: '', coaKey: null, ...over,
+  qtyOnHand: 2, qtyPurchased: 2, usdPerVial: 180, lot: '', sealedExpiry: '', coaKey: null, ...over,
 })
 const dose = (offset, units = 20, peptideId = 'reta') => ({
   id: `d${offset}`, peptideId, date: day(offset),

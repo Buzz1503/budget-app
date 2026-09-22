@@ -6,8 +6,9 @@ import {
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import useStore, { todayStr } from '../store/useStore'
-import { restockPlan, HORIZONS, DEFAULT_UNIT_COSTS } from '../lib/restock'
-import { totalSpend, vialsFor } from '../lib/inventory'
+import { restockPlan, HORIZONS, DEFAULT_UNIT_COSTS_USD } from '../lib/restock'
+import { totalSpendUsd, vialsFor } from '../lib/inventory'
+import { useMoney } from '../lib/useMoney'
 import { loadMatrix, LIB_TO_COMPOUND } from '../lib/mixMatrix'
 import { formatDose, round } from '../lib/calc'
 import CoachTip from './ui/CoachTip'
@@ -63,7 +64,9 @@ export default function SuppliesTab({ goTo }) {
     () => restockPlan({ peptides, titration, vials, openVials, todayStr: t, restock, leadDays, verdictOf }),
     [peptides, titration, vials, openVials, t, restock, leadDays, verdictOf]
   )
-  const spend = useMemo(() => totalSpend(vials), [vials])
+  const m = useMoney()
+  // USD on the shelf, turned into money at today's rate rather than remembered
+  const spend = useMemo(() => m.vial(totalSpendUsd(vials)), [m, vials])
 
   return (
     <div className="space-y-3">
@@ -119,9 +122,12 @@ export default function SuppliesTab({ goTo }) {
         <div className="flex items-center gap-3">
           <ShoppingCart size={20} className="shrink-0" style={{ color: 'var(--good)' }} />
           <div className="min-w-0 flex-1">
-            <p className="text-2xl font-black tracking-tight">{money(plan.totalAud)} <span className="text-sm">AUD</span></p>
+            <p className="text-2xl font-black tracking-tight" data-testid="order-total">
+              {money(m.vial(plan.totalUsd))} <span className="text-sm">{settings.currency}</span>
+            </p>
             <p className="text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
-              {money(plan.vialCost)} compounds · {money(plan.consumableCost)} consumables
+              {money(m.vial(plan.vialCostUsd))} compounds · {money(m.vial(plan.consumableCostUsd))} consumables
+              <span style={{ color: 'var(--text-3)' }}> · ${plan.totalUsd.toFixed(2)} USD @ {m.fx}</span>
             </p>
           </div>
         </div>
@@ -245,6 +251,7 @@ function VField({ label, children }) {
 
 /** Holdings and the order line for one compound — one card, one set of numbers. */
 function CompoundCard({ row, days, currency }) {
+  const m = useMoney()
   const vials = useStore((s) => s.vials)
   const restock = useStore((s) => s.restock)
   const setRestockQty = useStore((s) => s.setRestockQty)
@@ -288,7 +295,7 @@ function CompoundCard({ row, days, currency }) {
           value={isFinite(row.daysLeft) ? `~${row.daysLeft}d` : '—'}
           title={row.runOutDate ? `runs out ${row.runOutDate}` : 'no burn rate yet'}
           sub={row.runOutDate ? format(parseISO(row.runOutDate), row.daysLeft > 300 ? 'MMM yyyy' : 'd MMM') : ''} />
-        <Stat label="cost/dose" value={row.costPerDose != null ? `$${round(row.costPerDose, 2)}` : '—'} />
+        <Stat label="cost/dose" value={row.costPerDoseUsd != null ? `$${round(m.vial(row.costPerDoseUsd), 2)}` : '—'} />
       </div>
 
       {exp && (
@@ -316,7 +323,7 @@ function CompoundCard({ row, days, currency }) {
         <QtyStepper value={row.qty} suggested={row.suggestedVials}
           onChange={(n) => setRestockQty(row.key, n)} onReset={() => clearRestockQty(row.key)} />
         <span className="text-xs font-black tabular-nums">
-          {row.unitCost > 0 ? money(row.qty * row.unitCost) : <span style={{ color: 'var(--text-2)' }}>no price set</span>}
+          {row.unitCostUsd > 0 ? money(row.qty * m.vial(row.unitCostUsd)) : <span style={{ color: 'var(--text-2)' }}>No price set</span>}
         </span>
       </div>
       <div className="mt-2 flex items-center justify-between gap-2">
@@ -342,10 +349,12 @@ function CompoundCard({ row, days, currency }) {
                   aria-label={`${row.name} mg per vial`}
                   onChange={(n) => updateVial(v.id, { vialMg: n ?? 0 })} />
               </VField>
-              <VField label={`cost (${currency})`}>
-                <NumberField className="!px-2 !py-2 text-center" value={v.costAud} min={0}
-                  aria-label={`${row.name} cost per vial`}
-                  onChange={(n) => updateVial(v.id, { costAud: n ?? 0 })} />
+              {/* USD, because USD is what the vial was bought in and the only
+                  thing worth writing down. The AUD beside it is worked out. */}
+              <VField label="cost (USD)">
+                <NumberField className="!px-2 !py-2 text-center" value={v.usdPerVial ?? 0} min={0}
+                  aria-label={`${row.name} USD per vial`}
+                  onChange={(n) => updateVial(v.id, { usdPerVial: n > 0 ? n : null })} />
               </VField>
               <VField label="vendor">
                 <input className="input !px-2 !py-2" value={v.vendor} placeholder="—"
@@ -368,6 +377,7 @@ function CompoundCard({ row, days, currency }) {
 }
 
 function ConsumableRow({ row }) {
+  const m = useMoney()
   const restock = useStore((s) => s.restock)
   const setRestockQty = useStore((s) => s.setRestockQty)
   const clearRestockQty = useStore((s) => s.clearRestockQty)
@@ -387,7 +397,7 @@ function ConsumableRow({ row }) {
             suggested {row.suggestedVials} {row.unitLabel}
           </p>
         </div>
-        <span className="text-xs font-black tabular-nums">{money(row.qty * row.unitCost)}</span>
+        <span className="text-xs font-black tabular-nums">{money(row.qty * m.vial(row.unitCostUsd))}</span>
       </div>
       <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
         <QtyStepper value={row.qty} suggested={row.suggestedVials}
@@ -397,15 +407,15 @@ function ConsumableRow({ row }) {
             $
             <NumberField step="0.01" className="!w-20 !py-1 !text-xs"
               aria-label={`Unit cost for ${row.label}`}
-              value={row.unitCost} min={0}
+              value={row.unitCostUsd} min={0}
               onChange={(n) => setRestockUnitCost(row.id, n ?? 0)}
               onBlur={() => setEditing(false)} autoFocus />
-            each
+            USD each
           </label>
         ) : (
           <button onClick={() => setEditing(true)} className="flex items-center gap-1 text-xs font-bold" style={{ color: 'var(--text-2)' }}>
-            <Pencil size={11} /> {money(row.unitCost)} each
-            {row.unitCost === DEFAULT_UNIT_COSTS[row.id] ? ' (default)' : ''}
+            <Pencil size={11} /> {money(m.vial(row.unitCostUsd))} each
+            {row.unitCostUsd === DEFAULT_UNIT_COSTS_USD[row.id] ? ' (default)' : ''}
           </button>
         )}
       </div>

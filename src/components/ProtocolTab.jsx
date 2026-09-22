@@ -7,12 +7,36 @@ import useStore, { todayStr } from '../store/useStore'
 import CompoundSheet from './CompoundSheet'
 import { currentRung, cycleInfo, prettyDate } from '../lib/schedule'
 import { formatDose, isNasal } from '../lib/calc'
+import { stackCost, money } from '../lib/cost'
 import { scheduledWeekdaySet, WEEKDAYS, needsProtocolSetup } from '../lib/daily'
 import { runwayFor, durationWords, sealedCount } from '../lib/stock'
 
 const FREQ_LABELS = {
   daily: 'Daily', nightly: 'Nightly', weekly: 'Weekly',
   '2xweek': '2×/week', '3xweek': '3×/week', '5on2off': '5 on / 2 off',
+}
+
+/** The per-dose price of one stack item, or an honest blank. */
+function DosePrice({ peptide }) {
+  const vials = useStore((s) => s.vials)
+  const titration = useStore((s) => s.titration)
+  const settings = useStore((s) => s.settings)
+  const c = stackCost(peptide, titration[peptide.id], vials, settings)
+  if (!c.priced) {
+    return (
+      <p className="truncate text-xs font-medium leading-tight" data-testid="stack-cost"
+        style={{ color: 'var(--text-3)' }}>
+        No price set
+      </p>
+    )
+  }
+  return (
+    <p className="truncate text-xs font-medium leading-tight" data-testid="stack-cost"
+      style={{ color: 'var(--text-3)' }}>
+      {money(c.audPerDose)}/dose
+      {c.fromReference && <span style={{ color: 'var(--text-3)' }}> · reference price</span>}
+    </p>
+  )
 }
 
 function daysWords(peptide) {
@@ -152,6 +176,8 @@ export default function ProtocolTab({ goTo }) {
                   ? <><AlertTriangle size={10} /> not in stock — still scheduled</>
                   : <><Package size={10} /> {r.runway && isFinite(r.runway.days) ? `${durationWords(r.runway.days)} left` : `${r.sealed} sealed`}</>}
               </p>
+              {/* What this item costs each time it is taken, at today's rate. */}
+              <DosePrice peptide={r.p} />
             </div>
             <ChevronRight size={16} className="mt-1 shrink-0" style={{ color: 'var(--text-2)' }} />
           </motion.button>

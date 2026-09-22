@@ -157,7 +157,7 @@ describe('buildCalendar day model', () => {
       ...base,
       peptides: [peptide({ startDate: T, cycleOnDays: 5, cycleOffDays: 5, ladder: { floor: 100, step: 100, intervalWeeks: 2, ceiling: 400, unit: 'mcg' } })],
       openVials: { bpc157: { remainingMg: 1, reconstitutedAt: T } },
-      vials: [{ id: 'v1', peptideId: 'bpc157', vialMg: 10, qtyOnHand: 1, costAud: 100 }],
+      vials: [{ id: 'v1', peptideId: 'bpc157', vialMg: 10, qtyOnHand: 1, usdPerVial: 100 }],
       restock: { delivery: { 'vial:bpc157': addDaysStr(T, 2) } },
       from: T, to: addDaysStr(T, 60), verdictOf: MIX_ALL,
     })
@@ -331,7 +331,7 @@ describe('restock rows carry the stock figures too', () => {
   const args = {
     peptides: [peptide()],
     titration: { bpc157: { level: 0, levelStartDate: '2026-01-01' } },
-    vials: [{ id: 'v1', peptideId: 'bpc157', vialMg: 10, qtyOnHand: 2, qtyPurchased: 2, costAud: 80 }],
+    vials: [{ id: 'v1', peptideId: 'bpc157', vialMg: 10, qtyOnHand: 2, qtyPurchased: 2, usdPerVial: 80 }],
     openVials: { bpc157: { remainingMg: 4, reconstitutedAt: '2026-03-01' } },
     todayStr: T,
     days: 56,
@@ -343,7 +343,7 @@ describe('restock rows carry the stock figures too', () => {
     expect(row.expiry.daysLeft).toBe(25)
     expect(row.openMg).toBe(4)
     expect(row.reconstituted).toBe(true)
-    expect(row.costPerDose).toBeCloseTo(0.25 * (160 / 20), 6) // 0.25 mg at $8/mg
+    expect(row.costPerDoseUsd).toBeCloseTo(0.25 * (160 / 20), 6) // 0.25 mg at $8 USD/mg
   })
 
   it('reports no expiry clock for an un-reconstituted vial', () => {

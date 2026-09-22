@@ -87,12 +87,17 @@ await step('the first-run "start your streak" coach line is gone', async () => {
 })
 
 // ---------- 3 · the hero ----------
-await step('the hero is just the ring and the count', async () => {
-  const hero = await page.locator('[data-testid="hero"]').textContent()
-  if (!hero) throw new Error('no hero row found')
-  if (!/to inject|Clear morning|Clear evening|done/.test(hero)) throw new Error(`hero has no headline: ${hero}`)
-  if (/XP/.test(hero)) throw new Error('XP is still in the hero')
-  if (/Lvl|Rookie/.test(hero)) throw new Error('the level is still in the hero')
+// v31 removed the hero summary card outright — Home opens on the doses. What
+// this step really guarded, that no XP or level ever creeps back onto the
+// screen, is checked over the whole of Home by the step below.
+await step('Home opens on the dose list, with no summary card above it', async () => {
+  if (await page.locator('[data-testid="hero"]').count()) {
+    throw new Error('the hero summary card is back on Home')
+  }
+  const list = page.locator('main .card.rows').first()
+  await list.waitFor({ timeout: 10000 })
+  const txt = await list.textContent()
+  if (!/Log|Skip/.test(txt)) throw new Error(`the dose list carries no doses: ${txt.slice(0, 120)}`)
 })
 
 await step('v23 removed levels and XP from Home entirely', async () => {
@@ -172,27 +177,25 @@ await step('fewer boxes: the header block carries no card chrome', async () => {
 })
 
 // ---------- 6 · the full co-draw list ----------
-await step('the combine card lists every compound, nothing clipped', async () => {
-  const names = page.locator('[data-testid="codraw-names"]').first()
-  await names.waitFor({ timeout: 15000 })
-  const items = await names.locator('li').allTextContents()
-  if (items.length < 3) throw new Error(`only ${items.length} compounds listed in the co-draw`)
-  if (/…|\.\.\./.test(items.join(' '))) throw new Error('the list is still truncated with an ellipsis')
-  // nothing visually clipped either
-  const clipped = await names.evaluate((el) => {
-    for (const li of el.querySelectorAll('li')) {
-      if (li.scrollWidth > li.clientWidth + 1) return li.textContent
-      const st = getComputedStyle(li)
-      if (st.textOverflow === 'ellipsis' || st.whiteSpace === 'nowrap') return li.textContent
-    }
-    return null
-  })
-  if (clipped) throw new Error(`"${clipped}" is clipped`)
-  // and it matches the plan the app actually holds
-  const headline = await page.locator('[data-testid="shot-plan"]').textContent()
-  const n = Number((headline.match(/Combine into 1 shot · (\d+)/) || [])[1])
-  if (n && n !== items.length) throw new Error(`headline says ${n} compounds, list shows ${items.length}`)
-  console.log(`  co-draw lists ${items.length}: ${items.map((s) => s.replace(/^·\s*/, '')).join(', ')}`)
+// v31 slimmed the combine card to one row and stopped printing the compound
+// names — the cards directly above it already carry them. The group is still
+// complete and still readable back, now as data rather than as a list.
+await step('the combine row names no compounds, and its group is still complete', async () => {
+  const row = page.locator('[data-testid="codraw-row"]').first()
+  await row.waitFor({ timeout: 15000 })
+  if (await page.locator('[data-testid="codraw-names"]').count()) {
+    throw new Error('the combine row is listing compound names again')
+  }
+  const groups = JSON.parse(await row.getAttribute('data-groups'))
+  const biggest = groups.reduce((a, g) => (g.length > a.length ? g : a), [])
+  if (biggest.length < 3) throw new Error(`the largest group holds only ${biggest.length} compounds`)
+  // the headline count and the group it describes must agree
+  const txt = await row.textContent()
+  const m = txt.match(/(\d+) shots? instead of (\d+)/)
+  if (!m) throw new Error(`no headline on the combine row: ${txt}`)
+  const total = groups.reduce((n, g) => n + g.length, 0)
+  if (Number(m[2]) !== total) throw new Error(`headline says ${m[2]} doses, groups hold ${total}`)
+  console.log(`  ${m[0]} · largest group: ${biggest.join(' + ')}`)
 })
 
 // ---------- 7 · Testosterone E in a neutral voice ----------

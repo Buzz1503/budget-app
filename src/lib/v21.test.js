@@ -22,7 +22,7 @@ const tState = { level: 0, levelStartDate: day(-60) }
 
 const batch = (over = {}) => ({
   id: 'b1', peptideId: 'reta', name: 'Retatrutide', vialMg: 10, vendor: 'Vendor A',
-  qtyOnHand: 2, qtyPurchased: 2, costAud: 180, lot: '', sealedExpiry: '', coaKey: null, ...over,
+  qtyOnHand: 2, qtyPurchased: 2, usdPerVial: 180, lot: '', sealedExpiry: '', coaKey: null, ...over,
 })
 const dose = (offset, units = 20, peptideId = 'reta') => ({
   id: `d${offset}`, peptideId, date: day(offset),
@@ -118,7 +118,9 @@ describe('grouping for the screen', () => {
     expect(b.vialMg).toBe(10)
     expect(b.peptideId).toBe('reta')
     expect(b.vendor).toBe('')
-    expect(b.costAud).toBe(0)
+    // unpriced rather than zero: 'Retatrutide' at 10 mg is in the reference
+    // table, so a blank batch opens with the table's price, not with free
+    expect(b.usdPerVial).toBe(10)
     expect(b.coaKey).toBe(null)
   })
 })

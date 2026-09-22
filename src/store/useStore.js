@@ -16,6 +16,7 @@ import { DEFAULT_BODY_REFS } from '../lib/metrics'
 import { attributeSymptom, attributionSnapshot } from '../lib/attribution'
 import { slotForCategory } from '../lib/supplements'
 import { vialOnDate } from '../lib/backfill'
+import { DEFAULT_FX_USD_TO_AUD, referenceUsdPerVial } from '../lib/cost'
 
 export const todayStr = () => format(new Date(), 'yyyy-MM-dd')
 
@@ -64,16 +65,25 @@ function initialState() {
     // Vials that have been used up. Kept as a record rather than deleted: it is
     // the only trace of how long a vial actually lasted.
     finishedVials: [],
+    // Draws taken out of a shared vial by someone who is not on this protocol.
+    // Deliberately not doseLogs: they move the vial, and nothing else.
+    sharedDraws: [],
     coachMarks: {}, // one-time beginner tips already seen, by id
     // restock list: horizon, per-line quantity overrides, what's been ordered,
     // expected delivery dates, and editable consumable unit costs
-    restock: { horizon: 'cycles', qty: {}, checked: {}, delivery: {}, unitCosts: {} },
+    restock: { horizon: 'cycles', qty: {}, checked: {}, delivery: {}, unitCostsUsd: {} },
     // Reactions logged against an injection site: { siteId: [{ id, kind, date, note, cleared }] }.
     // An uncleared reaction parks the site — nothing routes to it until it's cleared.
     siteReactions: {},
     // 'suggest' picks one spot each time; 'path' walks a pre-planned even sequence.
     rotation: { mode: 'suggest' },
-    settings: { currency: 'AUD', restockLeadDays: 30, theme: 'dark', disclaimerDismissed: false, haptics: true, sound: false },
+    // fx_usd_to_aud is the only half of a price that is allowed to change
+    // without the vial changing. Everything in dollars is multiplied out from
+    // it at render time — see lib/cost.js for why none of it is stored.
+    settings: {
+      currency: 'AUD', fx_usd_to_aud: DEFAULT_FX_USD_TO_AUD, restockLeadDays: 30,
+      theme: 'dark', disclaimerDismissed: false, haptics: true, sound: false,
+    },
   }
 }
 
@@ -451,12 +461,112 @@ const useStore = create(
       addVial(peptideId, data) {
         const vial = {
           id: `vial-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
-          peptideId, vialMg: 10, costAud: 0, vendor: '', lot: '',
+          peptideId, vialMg: 10, usdPerVial: null, vendor: '', lot: '',
           sealedExpiry: '', coaKey: null,
+          drawProfiles: [],
           qtyPurchased: 1, qtyOnHand: 1, ...data,
         }
         set((s) => ({ vials: [...s.vials, vial] }))
         return vial.id
+      },
+
+      // ---------- shared vials ----------
+      // One vial, more than one person drawing from it at different doses.
+      // The profiles describe who draws what; the vial's remaining_mg stays a
+      // single number, because there is only one vial.
+      addDrawProfile(vialId, profile = {}) {
+        const id = `dp-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`
+        set((s) => ({
+          vials: s.vials.map((v) => (v.id === vialId
+            ? {
+              ...v,
+              drawProfiles: [...(v.drawProfiles || []), {
+                id, label: 'Someone else', doseMg: 0, frequency: 'daily', ...profile,
+              }],
+            }
+            : v)),
+        }))
+        return id
+      },
+      updateDrawProfile(vialId, profileId, patch) {
+        set((s) => ({
+          vials: s.vials.map((v) => (v.id === vialId
+            ? { ...v, drawProfiles: (v.drawProfiles || []).map((d) => (d.id === profileId ? { ...d, ...patch } : d)) }
+            : v)),
+        }))
+      },
+      // Removing a profile removes a description of who draws, never the vial
+      // and never anything already logged out of it.
+      removeDrawProfile(vialId, profileId) {
+        set((s) => ({
+          vials: s.vials.map((v) => (v.id === vialId
+            ? { ...v, drawProfiles: (v.drawProfiles || []).filter((d) => d.id !== profileId) }
+            : v)),
+        }))
+      },
+
+      /**
+       * A draw taken by someone other than the stack owner.
+       *
+       * It comes out of the same open vial the owner's own doses come out of —
+       * that is the whole point of sharing one — so it runs through the same
+       * decrement, including rolling onto the next sealed vial when this one
+       * runs dry. It is not a dose log: it is not on the owner's protocol, so
+       * it must not touch their adherence, their rotation or their history.
+       */
+      logSharedDraw(peptideId, profileId) {
+        const s = get()
+        const open = s.openVials[peptideId]
+        if (!open || open.unlinked) return null
+        const batch = s.vials.find((v) => v.id === open.batchId)
+          || s.vials.find((v) => v.peptideId === peptideId && (v.drawProfiles || []).length > 0)
+        const profile = (batch?.drawProfiles || []).find((d) => d.id === profileId)
+        const doseMg = Number(profile?.doseMg)
+        if (!(doseMg > 0)) return null
+
+        const next = { ...open }
+        let vials = s.vials
+        next.remainingMg = Math.round((next.remainingMg - doseMg) * 1e6) / 1e6
+        if (next.remainingMg <= 1e-9) {
+          const idx = vials.findIndex((v) => v.peptideId === peptideId && v.qtyOnHand > 0)
+          if (idx >= 0) {
+            vials = vials.map((v, i) => (i === idx ? { ...v, qtyOnHand: v.qtyOnHand - 1 } : v))
+            next.remainingMg = Math.round((next.remainingMg + s.vials[idx].vialMg) * 1e6) / 1e6
+            next.batchId = s.vials[idx].id
+            next.vialMg = s.vials[idx].vialMg
+            next.reconstitutedAt = todayStr()
+            next.activatedAt = new Date().toISOString()
+          } else {
+            next.remainingMg = Math.max(0, next.remainingMg)
+          }
+        }
+        const draw = {
+          id: `sd-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+          peptideId, profileId, label: profile.label || '', doseMg,
+          date: todayStr(), at: new Date().toISOString(),
+        }
+        set((st) => ({
+          openVials: { ...st.openVials, [peptideId]: next },
+          vials,
+          sharedDraws: [...(st.sharedDraws || []), draw],
+        }))
+        get().showToast(
+          `${profile.label || 'Draw'} · ${doseMg} mg out of the vial`,
+          () => get().undoSharedDraw(draw.id),
+        )
+        return draw.id
+      },
+      undoSharedDraw(drawId) {
+        set((s) => {
+          const draw = (s.sharedDraws || []).find((d) => d.id === drawId)
+          if (!draw) return {}
+          const open = { ...(s.openVials[draw.peptideId] || { remainingMg: 0 }) }
+          if (!open.unlinked) open.remainingMg = Math.round((open.remainingMg + draw.doseMg) * 1e6) / 1e6
+          return {
+            sharedDraws: s.sharedDraws.filter((d) => d.id !== drawId),
+            openVials: { ...s.openVials, [draw.peptideId]: open },
+          }
+        })
       },
       /** Bought more, was given some, binned one — a signed nudge either way. */
       adjustVialQty(id, delta) {
@@ -806,8 +916,8 @@ const useStore = create(
           return { restock: { ...s.restock, delivery } }
         })
       },
-      setRestockUnitCost(id, aud) {
-        set((s) => ({ restock: { ...s.restock, unitCosts: { ...s.restock.unitCosts, [id]: Math.max(0, aud || 0) } } }))
+      setRestockUnitCost(id, usd) {
+        set((s) => ({ restock: { ...s.restock, unitCostsUsd: { ...s.restock.unitCostsUsd, [id]: Math.max(0, usd || 0) } } }))
       },
       resetRestock() {
         set((s) => ({ restock: { ...s.restock, qty: {}, checked: {}, delivery: {} } }))
@@ -866,14 +976,19 @@ const useStore = create(
           }
           // optional stock + cost feed inventory and the restock list
           const qty = Math.max(0, Math.round(entry.stockVials || 0))
-          const cost = Math.max(0, entry.costAud || 0)
-          if (qty > 0 || cost > 0) {
+          // Unset, not zero: a vial nobody has priced falls back to the
+          // reference table, and $0.00 is a price rather than a silence.
+          const usd = entry.usdPerVial != null && entry.usdPerVial >= 0
+            ? entry.usdPerVial
+            : referenceUsdPerVial(data)
+          if (qty > 0 || usd != null) {
             set((s) => ({
               vials: [
                 ...s.vials.filter((v) => v.id !== `vial-${data.id}`),
                 {
                   id: `vial-${data.id}`, peptideId: data.id, vialMg: data.recon.vialMg || 0,
-                  costAud: cost, vendor: '', lot: '', qtyPurchased: qty, qtyOnHand: qty,
+                  usdPerVial: usd, vendor: '', lot: '', drawProfiles: [],
+                  qtyPurchased: qty, qtyOnHand: qty,
                 },
               ],
             }))
@@ -924,7 +1039,7 @@ const useStore = create(
     }),
     {
       name: 'peptide-command-center', // storage key is history — renaming it would orphan existing data
-      version: 8,
+      version: 9,
       storage: createJSONStorage(() => safeStorage),
       // Saves written before a release can't pick new library entries up from
       // the seed, so each version bump backfills them here — once. Deleting one
@@ -937,10 +1052,42 @@ const useStore = create(
       //   v6: skipped doses
       //   v7: batch stock room + the active vial's own clock
       //   v8: gamification and the weekly recap removed
+      //   v9: prices held in USD + one exchange rate, never in stored AUD
       migrate: (persisted, from) => {
-        if (!persisted || from >= 8) return persisted
+        if (!persisted || from >= 9) return persisted
         const s = { ...persisted }
         const t = todayStr()
+        if (from < 9) {
+          // Money stops being stored in AUD. An existing costAud was entered at
+          // whatever rate was in force then, and nothing recorded what that was
+          // — so the default rate is the only honest divisor available, and the
+          // result is the figure that reproduces what the user already sees.
+          // A zero is dropped rather than carried across: it always meant
+          // "never filled in", and keeping it would read as "this was free" and
+          // block the reference price from ever standing in.
+          const fx = DEFAULT_FX_USD_TO_AUD
+          s.settings = { fx_usd_to_aud: fx, ...(s.settings || {}) }
+          s.sharedDraws = s.sharedDraws || []
+          s.vials = (s.vials || []).map((v) => {
+            const { costAud, ...rest } = v
+            const usd = rest.usdPerVial != null
+              ? rest.usdPerVial
+              : (costAud > 0 ? Math.round((costAud / fx) * 100) / 100 : null)
+            return { ...rest, usdPerVial: usd, drawProfiles: rest.drawProfiles || [] }
+          })
+          // The restock list kept its own per-unit AUD overrides. Same rule.
+          if (s.restock?.unitCosts) {
+            s.restock = {
+              ...s.restock,
+              unitCostsUsd: Object.fromEntries(
+                Object.entries(s.restock.unitCosts)
+                  .filter(([, aud]) => aud > 0)
+                  .map(([id, aud]) => [id, Math.round((aud / fx) * 100) / 100])
+              ),
+            }
+            delete s.restock.unitCosts
+          }
+        }
         if (from < 8) {
           // XP, levels, badges and streaks are gone. Dropping the slice rather
           // than leaving it inert keeps a stale streak count out of every
@@ -1014,7 +1161,7 @@ const useStore = create(
           }
           s.vials = [...(s.vials || []), {
             id: `vial-${TEST_E_ID}`, peptideId: TEST_E_ID, vialMg: te.recon.vialMg,
-            costAud: 0, vendor: '', lot: '', qtyPurchased: 1, qtyOnHand: 1,
+            usdPerVial: null, vendor: '', lot: '', drawProfiles: [], qtyPurchased: 1, qtyOnHand: 1,
           }]
         }
         return s
@@ -1039,6 +1186,11 @@ const useStore = create(
         supplementLogs: persisted?.supplementLogs || current.supplementLogs,
         skips: persisted?.skips || current.skips,
         finishedVials: persisted?.finishedVials || current.finishedVials,
+        sharedDraws: persisted?.sharedDraws || current.sharedDraws,
+        // merged rather than replaced, so a setting added in a later release
+        // arrives with its default instead of being undefined on every existing
+        // save — fx_usd_to_aud is the first one this actually matters for
+        settings: { ...current.settings, ...(persisted?.settings || {}) },
       }),
       onRehydrateStorage: () => (state) => {
         state?.enrichLibraryFromReference?.()

@@ -112,7 +112,8 @@ await step('a second batch of the same peptide is held apart, not merged', async
   await page.fill('input[aria-label="Vial size in mg"]', '10')
   await page.fill('input[aria-label="How many vials"]', '3')
   await page.fill('input[aria-label="Vendor"]', 'Vendor B')
-  await page.fill('input[aria-label="Cost per vial"]', '150')
+  // the price field is USD now — the AUD beside it is worked out from the rate
+  await page.fill('input[aria-label="USD per vial"]', '150')
   await page.click('[data-testid="save-batch"]')
   await page.waitForTimeout(900)
 
@@ -121,9 +122,10 @@ await step('a second batch of the same peptide is held apart, not merged', async
   if (mine.length !== before + 1) throw new Error(`expected a new batch, have ${mine.length}`)
   const added = mine.find((v) => v.vendor === 'Vendor B')
   if (!added) throw new Error('the vendor did not save')
-  if (added.vialMg !== 10 || added.qtyOnHand !== 3 || added.costAud !== 150) {
-    throw new Error(`batch saved as ${JSON.stringify({ mg: added.vialMg, qty: added.qtyOnHand, cost: added.costAud })}`)
+  if (added.vialMg !== 10 || added.qtyOnHand !== 3 || added.usdPerVial !== 150) {
+    throw new Error(`batch saved as ${JSON.stringify({ mg: added.vialMg, qty: added.qtyOnHand, usd: added.usdPerVial })}`)
   }
+  if ('costAud' in added) throw new Error('the batch stored an AUD figure')
 })
 
 await step('the group totals across batches of different sizes, kept separate as their own rows', async () => {
@@ -337,7 +339,7 @@ await step('finishing opens the replace page for that peptide', async () => {
     // a second batch at a different size, so the recompute has something to show
     raw.state.vials.push({
       id: 'b-alt', peptideId: 'bpc157', name: 'BPC-157', vialMg: 10, vendor: 'Vendor B',
-      qtyOnHand: 2, qtyPurchased: 2, costAud: 60, lot: '', sealedExpiry: '', coaKey: null,
+      qtyOnHand: 2, qtyPurchased: 2, usdPerVial: 60, lot: '', sealedExpiry: '', coaKey: null,
     })
     localStorage.setItem(K, JSON.stringify(raw))
   })

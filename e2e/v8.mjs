@@ -180,8 +180,17 @@ await step('the oil compound cannot be selected for a co-draw', async () => {
 await step('Home groups same-slot doses into the fewest syringes', async () => {
   await waitText(/shots? instead of|nothing safely combinable/, 25000)
   const body = await page.textContent('body')
-  if (!/Combine into 1 shot/.test(body)) throw new Error('no combinable group proposed for the seeded AM stack')
-  if (!/units total/.test(body)) throw new Error('combined group does not show total units')
+  // The plan is one compact row now: shots, total units, total mL, one action.
+  // The compound names live on the cards above it rather than being repeated.
+  if (!(await page.locator('[data-testid="codraw-row"]').count())) {
+    throw new Error('no combinable group proposed for the seeded AM stack')
+  }
+  if (!/units/.test(body) || !/mL total/.test(body)) {
+    throw new Error('the combine row does not show total units and mL')
+  }
+  if (!(await page.locator('[data-testid="log-together"]').count())) {
+    throw new Error('the combine row offers no way to log them together')
+  }
   const m = body.match(/(\d+) shots? instead of (\d+)/)
   if (!m) throw new Error('no "N shots instead of M" headline')
   if (Number(m[1]) >= Number(m[2])) throw new Error(`headline claims no saving: ${m[0]}`)
@@ -189,9 +198,12 @@ await step('Home groups same-slot doses into the fewest syringes', async () => {
 })
 
 await step('the plan keeps the oil compound as its own separate shot', async () => {
-  const rows = await page.evaluate((name) => [...document.querySelectorAll('div')]
-    .filter((d) => d.textContent.includes(name) && /Separate shot/.test(d.textContent)).length, TE)
-  if (rows === 0) throw new Error('test E is not listed as its own separate shot')
+  // still called out by name — "never share a syringe with this" is a safety
+  // statement, so it survives the slimming that dropped the other names
+  const notes = await page.locator('[data-testid="separate-note"]').allTextContents()
+  const mine = notes.filter((n) => n.includes(TE))
+  if (mine.length === 0) throw new Error('test E is not listed as its own separate shot')
+  if (!/its own/i.test(mine[0])) throw new Error(`separate note reads: ${mine[0]}`)
   await waitText(/Oil-based and not in the peptide compatibility matrix|Always injected on its own/)
 })
 

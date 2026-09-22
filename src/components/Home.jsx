@@ -2,24 +2,20 @@ import { useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Check, Info, Clock, AlertTriangle, Combine, Sun, Moon, ChevronRight, MapPin, Syringe, X, Circle, CheckCircle2, ShieldCheck, Layers, Wind, Bell, Zap, Pill, SkipForward, Undo2, PackageOpen, Droplet } from 'lucide-react'
 import useStore, { todayStr } from '../store/useStore'
-import { cycleInfo, currentRung, stepUpDue } from '../lib/schedule'
+import { cyclePhase, currentRung, stepUpDue, addDaysStr, prettyDate } from '../lib/schedule'
 import { isDueToday, slotOf, isDueSlot, currentSlot, slotIsFlexible, needsProtocolSetup } from '../lib/daily'
 import { formatDose, formatUnitsLong, unitsFor, round, isNasal } from '../lib/calc'
 import { loadMatrix, LIB_TO_COMPOUND } from '../lib/mixMatrix'
-import { planShots, shotsHeadline, MAX_GROUP_ML } from '../lib/grouping'
+import { planShots, MAX_GROUP_ML } from '../lib/grouping'
 import { expiryInfo, runOutInfo } from '../lib/inventory'
 import { daysSince, SITE_BY_ID } from '../lib/sites'
 import { backupNudge, countEntries } from '../lib/backup'
 import { deliveryCovers } from '../lib/restock'
 import Modal from './ui/Modal'
-import Ring from './ui/Ring'
-import CountUp from './ui/CountUp'
 import CoachTip from './ui/CoachTip'
 import Term from './ui/Term'
 import SitePicker from './SitePicker'
 import CoDrawModal from './CoDrawModal'
-import { NextSevenDays } from './CalendarTab'
-import CatchUpCard from './CatchUp'
 import { dueInSlot, takenOn, FORM_LABEL } from '../lib/supplements'
 import { skippedOn, supplementsSkippedOn, skipFor, SKIP_REASONS, REASON_LABEL } from '../lib/skips'
 import { activeVialStatus, coverageFor, coverageWords } from '../lib/stock'
@@ -53,6 +49,19 @@ export default function Home({ goTo }) {
   })
 
   const scheduledToday = useMemo(() => peptides.filter((p) => isDueToday(p, t)), [peptides, t])
+  /**
+   * Cycled compounds sitting out their off-weeks.
+   *
+   * They are still on the protocol — they have not been stopped — so they stay
+   * on the screen. Vanishing for a fortnight is what makes people think an item
+   * has been lost, and re-add it as a second copy. Shown without a Log button,
+   * because injecting one today would break the rest that is the point of it.
+   */
+  const resting = useMemo(() => peptides
+    .filter((p) => !needsProtocolSetup(p))
+    .map((p) => ({ p, phase: cyclePhase(p, t) }))
+    .filter((r) => r.phase.phase === 'rest')
+    .sort((a, b) => a.phase.daysLeft - b.phase.daysLeft), [peptides, t])
   const slotDue = useMemo(() => scheduledToday.filter((p) => slotOf(p) === slot), [scheduledToday, slot])
   const otherSlot = slot === 'AM' ? 'PM' : 'AM'
   const otherCount = scheduledToday.filter((p) => slotOf(p) === otherSlot).length
@@ -81,20 +90,11 @@ export default function Home({ goTo }) {
   const slotSupps = useMemo(() => dueInSlot(supplements, slot), [supplements, slot])
   const takenIds = useMemo(() => takenOn(supplementLogs, t), [supplementLogs, t])
   const suppDone = slotSupps.filter((x) => takenIds.has(x.id)).length
-  const suppDayTotal = supplements.length
-  const suppDayDone = supplements.filter((x) => takenIds.has(x.id)).length
 
   const loggedToday = useMemo(
     () => new Set(doseLogs.filter((l) => l.date === t).map((l) => l.peptideId)),
     [doseLogs, t]
   )
-  const slotDone = slotDue.filter((p) => loggedToday.has(p.id)).length
-  const dayDone = scheduledToday.filter((p) => loggedToday.has(p.id)).length
-  const unlogged = useMemo(
-    () => slotDue.filter((p) => !loggedToday.has(p.id) && !skippedIds.has(p.id)),
-    [slotDue, loggedToday, skippedIds]
-  )
-  const unloggedCount = unlogged.length
   // selection resolved against the live slot list so done/removed/skipped ids drop out
   const selectedPeptides = slotDue.filter(
     (p) => selected.has(p.id) && !loggedToday.has(p.id) && !skippedIds.has(p.id)
@@ -104,11 +104,8 @@ export default function Home({ goTo }) {
   // to do something is a decision, and the ring should not scold you for it.
   const slotSkipped = slotDue.filter((p) => skippedIds.has(p.id)).length
     + slotSupps.filter((x) => skippedSupps.has(x.id)).length
-  const daySkipped = scheduledToday.filter((p) => skippedIds.has(p.id)).length
     + supplements.filter((x) => skippedSupps.has(x.id)).length
   const slotTotal = Math.max(0, slotDue.length + slotSupps.length - slotSkipped)
-  const slotDoneAll = slotDone + suppDone
-  const ringPct = slotTotal ? slotDoneAll / slotTotal : (scheduledToday.length === 0 ? 0 : 1)
   const firstRun = doseLogs.length === 0
 
   // "back up your data" nudge — weekly, or after a batch of new entries
@@ -268,36 +265,6 @@ export default function Home({ goTo }) {
         </div>
       </div>
 
-      {/* The focal point: how much of this slot is left, as one number. */}
-      <motion.div layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={spring}
-        className="card flex items-center gap-5 p-5" data-testid="hero">
-        <div className="min-w-0 flex-1">
-          <p className="t-metric">
-            <CountUp value={slotDoneAll} /><span style={{ color: 'var(--text-3)' }}>/{slotTotal}</span>
-          </p>
-          <p className="t-caption mt-1" style={{ color: 'var(--text-3)' }}>this {slot}</p>
-          <p className="t-label mt-2" style={{ color: 'var(--text-2)' }}>
-            {slotTotal === 0 ? (slot === 'AM' ? 'Clear morning' : 'Clear evening')
-              : ringPct === 1 ? `${slot} done`
-                : unloggedCount > 0
-                  ? `${unloggedCount} to inject`
-                  : `${slotSupps.filter((x) => !takenIds.has(x.id) && !skippedSupps.has(x.id)).length} to take`}
-          </p>
-          <p className="t-caption num mt-2 normal-case tracking-normal" style={{ color: 'var(--text-3)' }}>
-            {dayDone + suppDayDone}/{Math.max(0, scheduledToday.length + suppDayTotal - daySkipped)} today
-            {daySkipped > 0 && <> · {daySkipped} skipped</>} · {otherCount} this {otherSlot}
-          </p>
-        </div>
-        <Ring pct={ringPct} size={72} stroke={6} />
-      </motion.div>
-
-      {/* combine-your-shots plan — only when there is actually something to
-          combine. "Nothing is combinable" is not news worth a block of screen;
-          each card already says whether it can share a syringe. */}
-      {plan && plan.saved > 0 && selected.size === 0 && (
-        <ShotPlan plan={plan} slot={slot} onAccept={acceptGroup} />
-      )}
-
       {/* first-run pointer at the Log button */}
       <CoachTip id="log-button" when={slotDue.length > 0}>
         Tap the green <span className="font-black">Log</span> button on a card when you've taken a dose —
@@ -326,10 +293,10 @@ export default function Home({ goTo }) {
             )}
           </div>
         )}
-        {/* The heading only earns its space once both kinds are on screen —
-            with injections alone the old unlabelled list is cleaner. */}
+        {/* pt-6: the hairline above this row sits tight against the card edge,
+            and a heading pressed onto a rule reads as part of the row above it */}
         {slotDue.length > 0 && slotSupps.length > 0 && (
-          <p className="t-caption flex items-center gap-2 px-4 pt-4"
+          <p className="t-caption flex items-center gap-2 px-4 pb-1 pt-6"
             style={{ color: 'var(--text-3)' }} data-testid="inject-heading">
             <Syringe size={12} /> Inject · {slotDue.length}
           </p>
@@ -372,11 +339,18 @@ export default function Home({ goTo }) {
         </div>
       )}
 
-      {/* days that went unrecorded, and the way to close them */}
-      <CatchUpCard />
+      {/* Below the cards, not above them: the individual doses are the job,
+          and combining them is a shortcut offered once you can see what there
+          is to combine. */}
+      {plan && plan.saved > 0 && selected.size === 0 && (
+        <ShotPlan plan={plan} slot={slot} onAccept={acceptGroup} />
+      )}
 
-      {/* what's coming — taps through to the full calendar */}
-      <NextSevenDays goTo={goTo} />
+      {/* Still on the protocol, just not today. */}
+      <RestingGroup resting={resting} onOpenSheet={setSheetId} />
+
+      {/* what tomorrow asks for, with the doses */}
+      <Tomorrow />
 
       {/* keeps the last card clear of the floating co-draw bar */}
       {selected.size > 0 && <div aria-hidden className="h-20" />}
@@ -690,89 +664,186 @@ function Disclaimer({ open, firstRun, onClose }) {
 // Fewest-syringes plan for the selected slot. Accepting a group hands straight
 // off to the existing co-draw flow, which re-runs the mix check, gates CAUTION
 // on visual inspection, and takes one site for the whole group.
+/**
+ * The combine-your-shots offer, as one row.
+ *
+ * Shots, units, millilitres and the action — nothing else. The compound names
+ * are directly above in the cards this row is about, and repeating them here
+ * was most of this block's height for none of its meaning. A *separate*-only
+ * plan still gets its say, because "never share a syringe with this" is a
+ * safety statement rather than a shortcut.
+ */
 function ShotPlan({ plan, slot, onAccept }) {
-  const headline = shotsHeadline(plan, slot)
-  const combinable = plan.groups.filter((g) => g.items.length > 1)
   const [why, setWhy] = useState(false)
+  const combinable = plan.groups.filter((g) => g.items.length > 1)
+  const separates = plan.groups.filter((g) => g.separate)
+  if (combinable.length === 0 && separates.length === 0) return null
+
+  const shots = combinable.length
+  const units = combinable.reduce((n, g) => n + g.units, 0)
+  const ml = combinable.reduce((n, g) => n + g.ml, 0)
 
   return (
     <motion.div layout className="space-y-2" data-testid="shot-plan"
       initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-      <div className="flex items-center gap-2">
-        <Layers size={15} className="shrink-0" style={{ color: 'var(--good)' }} />
-        <p className="flex-1 text-sm font-black leading-tight">{headline}</p>
-        {/* the reasoning is real, but it isn't the point of the screen */}
-        <button onClick={() => setWhy((v) => !v)} aria-label="Why these are combined"
-          className="shrink-0 rounded-full p-2"
-          style={{ background: 'var(--surface-sunk)', color: why ? 'var(--good)' : 'var(--text-2)' }}>
-          <Info size={13} />
-        </button>
-      </div>
+      {/* The names are deliberately not rendered — the cards above already
+          carry them. They stay on the row as data, so what went into each
+          syringe is still checkable against the matrix. */}
+      {combinable.length > 0 && (
+        <div className="card flex items-center gap-3 p-3" data-testid="codraw-row"
+          data-groups={JSON.stringify(combinable.map((g) => g.items.map((x) => x.name)))}>
+          <Layers size={15} className="shrink-0" style={{ color: 'var(--good)' }} />
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-black leading-tight">
+              {shots === 1 ? '1 shot instead of ' : `${shots} shots instead of `}
+              {combinable.reduce((n, g) => n + g.items.length, 0)} this {slot}
+            </p>
+            <p className="text-xs font-bold leading-tight" style={{ color: 'var(--good)' }}>
+              {formatUnitsLong(units)}
+              <span className="font-semibold" style={{ color: 'var(--text-2)' }}> · {round(ml, 2)} mL total</span>
+            </p>
+          </div>
+          <button onClick={() => setWhy((v) => !v)} aria-label="Why these are combined"
+            className="shrink-0 rounded-full p-2"
+            style={{ background: 'var(--surface-sunk)', color: why ? 'var(--good)' : 'var(--text-2)' }}>
+            <Info size={13} />
+          </button>
+          {/* One syringe at a time. Two combinable groups are two separate
+              injections into two separate sites, so the tap opens the first
+              and the row recomputes to offer the next once it is logged —
+              never a single tap that quietly logs one and drops the other. */}
+          <motion.button whileTap={{ scale: 0.94 }} data-testid="log-together"
+            onClick={() => onAccept(combinable[0])}
+            className="btn-primary shrink-0 rounded-full px-3 py-2 text-xs font-black">
+            Log together{shots > 1 ? ` · 1 of ${shots}` : ''}
+          </motion.button>
+        </div>
+      )}
 
+      {/* Behind a tap, not printed: the reasoning is real and has to be
+          reachable, but it is not what the row is for. */}
       <AnimatePresence initial={false}>
-        {why && (
-          <motion.p initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
-            {combinable.length > 0
-              ? <>Only pairs the matrix rates <span className="font-bold">safe to mix</span> are combined, capped at {MAX_GROUP_ML} mL a syringe. That still isn't proof of compatibility — inspect every draw.</>
-              : <>Nothing here shares a syringe: a pair is combined only on a confirmed “safe to mix”, so caution, don't-mix and unrated pairs all get their own shot.</>}
+        {why && combinable.length > 0 && (
+          <motion.p initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }} data-testid="codraw-note"
+            className="overflow-hidden px-1 text-xs font-medium leading-relaxed"
+            style={{ color: 'var(--text-2)' }}>
+            Only pairs the matrix rates <span className="font-bold">safe to mix</span> are combined, capped at
+            {' '}{MAX_GROUP_ML} mL a syringe — still inspect every draw.
           </motion.p>
         )}
       </AnimatePresence>
 
-      {/* Only the rows that say something. A plain "on its own" row repeated
-          the card directly below it and was most of this block's height; a
-          *separate* shot stays, because "never share a syringe with this" is a
-          safety statement, not a restatement of the schedule. */}
-      <div className="space-y-2">
-        {plan.groups.filter((g) => g.items.length > 1 || g.separate).map((g, i) => (
-          <ShotRow key={g.items.map((x) => x.id).join('+') || i} group={g} onAccept={onAccept} />
-        ))}
-      </div>
+      {separates.map((g, i) => (
+        <p key={i} className="flex items-start gap-2 px-1 text-xs font-medium leading-relaxed"
+          data-testid="separate-note" style={{ color: 'var(--text-2)' }}>
+          <ShieldCheck size={12} className="mt-0.5 shrink-0" style={{ color: 'var(--warn)' }} />
+          <span>
+            <span className="font-black" style={{ color: 'var(--text)' }}>{g.items.map((x) => x.name).join(', ')}</span>
+            {' — '}{g.separateReason || 'always injected on its own.'}
+          </span>
+        </p>
+      ))}
     </motion.div>
   )
 }
 
-function ShotRow({ group, onAccept }) {
-  const many = group.items.length > 1
+/**
+ * Cycled compounds resting through their off-weeks.
+ *
+ * Deliberately inert: no Log button, no circle to select, no tap target beyond
+ * opening the compound's own sheet. A rest is only a rest if the app does not
+ * quietly invite you to break it.
+ */
+function RestingGroup({ resting, onOpenSheet }) {
+  if (!resting.length) return null
+  return (
+    <div className="space-y-2" data-testid="resting-group">
+      <p className="flex items-center gap-2 px-1 text-xs font-bold uppercase tracking-wide"
+        style={{ color: 'var(--text-3)' }}>
+        <Moon size={12} /> Resting · {resting.length}
+      </p>
+      <div className="card rows overflow-hidden">
+        {resting.map(({ p, phase }) => (
+          <button key={p.id} onClick={() => onOpenSheet(p.id)} data-testid="resting-row"
+            className="flex w-full items-center gap-3 p-3 text-left" style={{ opacity: 0.62 }}>
+            <Moon size={14} className="shrink-0" style={{ color: 'var(--text-3)' }} />
+            <span className="min-w-0 flex-1">
+              <span className="flex items-baseline gap-2">
+                <span className="truncate text-sm font-bold leading-tight">{p.name}</span>
+                <span className="shrink-0 text-xs font-bold tabular-nums" style={{ color: 'var(--text-3)' }}>
+                  day {phase.dayOfPhase}/{phase.phaseLength}
+                </span>
+              </span>
+              {/* wraps rather than truncating: "back in 12 days" is the whole
+                  point of the row, and "back in 12 da…" answers nothing */}
+              <span className="block text-xs font-semibold leading-tight" style={{ color: 'var(--text-3)' }}>
+                part of your stack · resting, back in {phase.daysLeft} day{phase.daysLeft === 1 ? '' : 's'}
+              </span>
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Tomorrow, with the doses.
+ *
+ * A week of numbers told you how many shots and nothing about what they were.
+ * One day, named and dosed, is what you can actually act on tonight — whether
+ * to reconstitute something, or whether tomorrow is a rest.
+ */
+function Tomorrow() {
+  const peptides = useStore((s) => s.peptides)
+  const titration = useStore((s) => s.titration)
+  const supplements = useStore((s) => s.supplements)
+  const tomorrow = addDaysStr(todayStr(), 1)
+
+  const rows = useMemo(() => peptides
+    .filter((p) => isDueToday(p, tomorrow))
+    .map((p) => {
+      const { dose } = currentRung(p, titration[p.id])
+      return {
+        id: p.id,
+        name: p.name,
+        slot: slotOf(p),
+        nasal: isNasal(p),
+        dose: formatDose(dose, p.ladder.unit),
+        units: isNasal(p) ? null : formatUnitsLong(unitsFor(p, dose)),
+      }
+    }), [peptides, titration, tomorrow])
+
+  const orals = useMemo(() => supplements.length, [supplements])
 
   return (
-    <div className="rounded-[14px] p-3" style={{ background: 'var(--surface-sunk)' }}>
-      <div className="flex items-start gap-2">
-        <div className="min-w-0 flex-1">
-          <p className="text-xs font-black uppercase tracking-wide"
-            style={{ color: many ? 'var(--good)' : 'var(--text-2)' }}>
-            {many ? `Combine into 1 shot · ${group.items.length}` : group.separate ? 'Separate shot' : 'On its own'}
-          </p>
-          {/* Every compound in the draw, listed — this is the one place that
-              answers "what exactly am I about to put in one syringe", so it
-              wraps rather than truncating. */}
-          <ul className="mt-1" data-testid="codraw-names">
-            {group.items.map((it) => (
-              <li key={it.id} className="text-sm font-bold leading-snug">
-                {many && <span style={{ color: 'var(--good)' }}>· </span>}{it.name}
-              </li>
-            ))}
-          </ul>
-          <p className="mt-1 text-xs font-bold" style={{ color: 'var(--good)' }}>
-            {formatUnitsLong(group.units)}{many ? ' total' : ''}
-            <span className="font-semibold" style={{ color: 'var(--text-2)' }}> · {round(group.ml, 2)} mL</span>
-          </p>
-        </div>
-        {many && (
-          <motion.button whileTap={{ scale: 0.94 }} onClick={() => onAccept(group)}
-            className="btn-primary shrink-0 rounded-full px-3 py-2 text-xs font-black">
-            Log together
-          </motion.button>
-        )}
-      </div>
-
-      {/* Stated plainly, in the same muted voice as everything else. It is a
-          fact about how this compound is given, not an alarm. */}
-      {group.separate && (
-        <p className="mt-2 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
-          {group.separateReason || 'Always injected on its own.'}
+    <div className="card p-3" data-testid="tomorrow">
+      <p className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wide"
+        style={{ color: 'var(--text-3)' }}>
+        <ChevronRight size={12} /> Tomorrow · {prettyDate(tomorrow)}
+      </p>
+      {rows.length === 0 ? (
+        <p className="text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
+          Nothing to inject{orals > 0 ? ` — ${orals} oral${orals === 1 ? '' : 's'} as usual` : ' — a clear day'}
         </p>
+      ) : (
+        <div className="space-y-1">
+          {rows.map((r) => (
+            <p key={r.id} className="flex items-baseline gap-2 text-xs font-bold leading-snug"
+              data-testid="tomorrow-row">
+              {r.nasal
+                ? <Wind size={11} className="shrink-0 translate-y-0.5" style={{ color: 'var(--text-3)' }} />
+                : <Syringe size={11} className="shrink-0 translate-y-0.5" style={{ color: 'var(--text-3)' }} />}
+              <span className="min-w-0 flex-1 truncate">{r.name}</span>
+              <span className="shrink-0 tabular-nums" style={{ color: 'var(--text)' }}>{r.dose}</span>
+              {r.units && (
+                <span className="shrink-0 tabular-nums font-semibold" style={{ color: 'var(--text-2)' }}>{r.units}</span>
+              )}
+              <span className="shrink-0 text-xs font-semibold" style={{ color: 'var(--text-3)' }}>{r.slot}</span>
+            </p>
+          ))}
+        </div>
       )}
     </div>
   )
@@ -783,7 +854,7 @@ function DueCard({ peptide: p, index, done, titration, partners, slot, onLog, go
   const { dose, level, maxLevel } = currentRung(p, tState)
   const nasal = isNasal(p)
   const units = nasal ? null : unitsFor(p, dose)
-  const cyc = cycleInfo(p, today)
+  const cyc = cyclePhase(p, today)
   const stepDue = stepUpDue(p, tState, today)
   const [stepOpen, setStepOpen] = useState(false)
   const confirmStepUp = useStore((s) => s.confirmStepUp)
@@ -847,7 +918,13 @@ function DueCard({ peptide: p, index, done, titration, partners, slot, onLog, go
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-medium leading-tight" style={{ color: 'var(--text-3)' }}>
             <span className="flex items-center gap-1"><Clock size={12} /> {p.timing}</span>
-            <span>{cyc.ongoing ? `day ${cyc.cycleDay} · ongoing` : `day ${cyc.cycleDay}/${cyc.onDays + cyc.offDays}`}</span>
+            {/* A cycled compound says where it is and how long the on-stretch
+                has left, so the rest that follows is never a surprise. */}
+            <span data-testid="cycle-line">
+              {cyc.phase === 'on'
+                ? `Day ${cyc.dayOfPhase}/${cyc.phaseLength} · ${cyc.daysLeft} day${cyc.daysLeft === 1 ? '' : 's'} left this cycle`
+                : `day ${cyc.cycleDay} · ongoing`}
+            </span>
             {hint && (
               <button className="flex items-center gap-1" style={{ color: hint.ok ? 'var(--good)' : 'var(--text-3)' }} onClick={() => goTo('mix')}>
                 {nasal ? <Wind size={12} /> : <Combine size={12} />} {hint.text}

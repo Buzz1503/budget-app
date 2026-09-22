@@ -1,5 +1,6 @@
 // Seed data — editable anecdotal starting points, not medical advice.
 import { format } from 'date-fns'
+import { referenceUsdPerVial } from '../lib/cost'
 
 const wk = (n) => n * 7
 
@@ -117,20 +118,19 @@ export function testosteroneEnanthate(startDate) {
 }
 
 // Placeholder AUD costs — edit to your real prices.
-const SEED_COSTS = {
-  retatrutide: 180, selank: 55, semax: 60, kpv: 50, ss31: 150, dsip: 40,
-  motsc: 120, bpc157: 45, ghkcu: 60, nad: 90, tesamorelin: 95,
-}
-
+// Seeded vials take their price from the reference table rather than from a
+// list of made-up AUD figures. A compound the table does not cover starts
+// unpriced, which is the truth about it, and the Stock room asks.
 export function seedVials(peptides) {
   return peptides.map((p) => ({
     id: `vial-${p.id}`,
     peptideId: p.id,
     name: p.name,
     vialMg: p.recon.vialMg,
-    costAud: SEED_COSTS[p.id] ?? 0,
+    usdPerVial: referenceUsdPerVial(p),
     vendor: '',
     lot: '',
+    drawProfiles: [],
     qtyPurchased: 2,
     qtyOnHand: 2,
     sealedExpiry: '',

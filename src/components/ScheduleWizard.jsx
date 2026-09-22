@@ -97,7 +97,7 @@ export default function ScheduleWizard({ open, onClose }) {
   const toggle = (c) => {
     setEntries((prev) => prev.some((e) => e.id === c.id)
       ? prev.filter((e) => e.id !== c.id)
-      : [...prev, { ...wizardSuggestion(c), stockVials: 0, costAud: 0 }])
+      : [...prev, { ...wizardSuggestion(c), stockVials: 0 }])
   }
 
   const patch = (i, p) => setEntries((prev) => prev.map((e, j) => (j === i ? { ...e, ...p } : e)))
@@ -769,7 +769,7 @@ function PeptideStep({ entry: e, onPatch }) {
           Optional · cost and what you already have
         </summary>
         <div className="mt-2 grid grid-cols-2 gap-3">
-          <Field label="Cost per vial (AUD)"><Num value={e.costAud || 0} onChange={(v) => onPatch({ costAud: v })} /></Field>
+          <Field label="Cost per vial (USD)"><Num value={e.usdPerVial ?? 0} onChange={(v) => onPatch({ usdPerVial: v > 0 ? v : null })} /></Field>
           <Field label="Vials on hand"><Num value={e.stockVials || 0} step="1" onChange={(v) => onPatch({ stockVials: Math.max(0, Math.round(v)) })} /></Field>
         </div>
         <p className="mt-2 text-xs font-medium" style={{ color: 'var(--text-2)' }}>

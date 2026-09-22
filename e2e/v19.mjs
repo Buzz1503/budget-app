@@ -345,19 +345,18 @@ await step('one tap logs it taken, and a second tap undoes it', async () => {
   await page.waitForTimeout(1000)
 })
 
-await step('supplements count towards the day, not just the injections', async () => {
+// v31 removed Home's day-tally card, so the oral group's own count is where
+// supplements now report. The point stands: they are counted, not ignored.
+await step('supplements are counted on Home, not just the injections', async () => {
   await nav('Home')
   await page.waitForTimeout(700)
-  const hero = await page.locator('[data-testid="hero"]').textContent()
-  const today = hero.match(/(\d+)\/(\d+) today/)
-  if (!today) throw new Error(`no day count in the hero: ${hero.replace(/\s+/g, ' ')}`)
-  const st = await state()
-  const scheduledInjections = st.peptides.length // upper bound, just needs to exceed it
-  if (parseInt(today[2], 10) <= 0) throw new Error('the day total is zero with a full shelf')
-  // the shelf has 7 supplements by now; the total must reflect them
-  if (parseInt(today[2], 10) < st.supplements.length) {
-    throw new Error(`day total ${today[2]} is below the ${st.supplements.length} supplements alone`)
-  }
+  const group = page.locator('[data-testid="take-group"]')
+  if (!(await group.count())) throw new Error('the oral group is missing from Home')
+  const txt = await group.textContent()
+  const m = txt.match(/Take · (\d+)\/(\d+)/)
+  if (!m) throw new Error(`no count on the oral group: ${txt.replace(/\s+/g, ' ').slice(0, 120)}`)
+  if (parseInt(m[2], 10) <= 0) throw new Error('the oral total is zero with a full shelf')
+  console.log(`  Take · ${m[1]}/${m[2]}`)
 })
 
 // ================================================ 4 · calendar + adherence

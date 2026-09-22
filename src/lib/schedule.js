@@ -60,6 +60,50 @@ export function cycleInfo(peptide, dateStr) {
   }
 }
 
+/**
+ * Where a cycled compound is in its cycle, in the words a person would use.
+ *
+ * A compound on its off-weeks is still part of the stack — it has not been
+ * stopped, it is resting, and it comes back on a known date. Dropping it off
+ * the screen entirely is what makes people think they have lost it, or worse,
+ * re-add it as a second copy.
+ */
+export function cyclePhase(peptide, dateStr) {
+  const c = cycleInfo(peptide, dateStr)
+  if (c.ongoing) return { ...c, phase: 'ongoing', daysLeft: null, backOn: null }
+  if (c.beforeStart) return { ...c, phase: 'before', daysLeft: null, backOn: null }
+
+  const onDays = c.onDays || 0
+  const offDays = c.offDays || 0
+  if (!onDays || !offDays) return { ...c, phase: 'ongoing', daysLeft: null, backOn: null }
+
+  if (c.isOn) {
+    // the last day of the on-stretch still has one day left on it, itself
+    const daysLeft = onDays - c.cycleDay + 1
+    return {
+      ...c,
+      phase: 'on',
+      dayOfPhase: c.cycleDay,
+      phaseLength: onDays,
+      daysLeft,
+      restsOn: addDaysStr(dateStr, daysLeft),
+      backOn: null,
+    }
+  }
+
+  const dayOff = c.cycleDay - onDays
+  const daysLeft = offDays - dayOff + 1
+  return {
+    ...c,
+    phase: 'rest',
+    dayOfPhase: dayOff,
+    phaseLength: offDays,
+    daysLeft,
+    restsOn: null,
+    backOn: addDaysStr(dateStr, daysLeft),
+  }
+}
+
 export function dosesPerWeek(frequency) {
   switch (frequency) {
     case 'weekly': return 1

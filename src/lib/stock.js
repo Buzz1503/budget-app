@@ -16,6 +16,8 @@
 import { unitsFor, concentration, isPremixed, isNasal } from './calc'
 import { currentRung, dosesPerWeek, addDaysStr, prettyDate } from './schedule'
 import { toMg } from './calc'
+import { referenceUsdPerVial } from './cost'
+import { drawsPerWeek } from './drawdown'
 
 export const VIAL_STATES = ['sealed', 'active', 'finished']
 
@@ -103,7 +105,7 @@ export function blankBatch(peptide) {
     vialMg: peptide?.recon?.vialMg || 0,
     vendor: '',
     qtyOnHand: 1,
-    costAud: 0,
+    usdPerVial: referenceUsdPerVial(peptide),
     lot: '',
     sealedExpiry: '',
     coaKey: null,
@@ -216,6 +218,23 @@ export function weeklyUsageMg(peptide, tState) {
   return raw * cycleDutyFraction(peptide)
 }
 
+/**
+ * The same figure, plus whatever anyone else draws off the same vials.
+ *
+ * A vial two people share empties roughly twice as fast, so a run-out date that
+ * only counts the owner's doses is a date that arrives with an empty fridge.
+ * The extra profiles are not on a cycle — they are somebody else's protocol —
+ * so their draw is counted flat.
+ */
+export function sharedWeeklyUsageMg(peptide, tState, vials = []) {
+  const mine = weeklyUsageMg(peptide, tState)
+  const others = vials
+    .filter((v) => v.peptideId === peptide?.id)
+    .flatMap((v) => v.drawProfiles || [])
+    .reduce((sum, d) => sum + (d.doseMg > 0 ? d.doseMg * drawsPerWeek(d) : 0), 0)
+  return mine + others
+}
+
 export function coverageFor(peptide, tState, vials = [], todayStr) {
   const mgOnShelf = sealedMg(vials, peptide.id)
   const perWeekMg = weeklyUsageMg(peptide, tState)
@@ -272,7 +291,8 @@ export function durationWords(days) {
  */
 export function runwayFor(peptide, tState, openVial, vials = [], doseLogs = [], todayStr, leadDays = 30) {
   if (!peptide || isNasal(peptide)) return null
-  const perWeekMg = weeklyUsageMg(peptide, tState)
+  // shared, so the restock date agrees with the vial's own "empties in" figure
+  const perWeekMg = sharedWeeklyUsageMg(peptide, tState, vials)
   const openMg = openVialRemainingMg(peptide, openVial, doseLogs)
   const shelfMg = sealedMg(vials, peptide.id)
   const totalMg = openMg + shelfMg

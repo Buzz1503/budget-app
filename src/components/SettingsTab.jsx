@@ -12,6 +12,7 @@ import { buildBackup, restoreBackup, validateBackup, describeBackup, backupFilen
 import { buildIcs } from '../lib/calendar'
 import { deliveryEvents } from '../lib/restock'
 import { addDaysStr } from '../lib/schedule'
+import { DEFAULT_FX_USD_TO_AUD } from '../lib/cost'
 
 export default function SettingsTab({ goTo }) {
   const settings = useStore((s) => s.settings)
@@ -70,6 +71,18 @@ export default function SettingsTab({ goTo }) {
           <input className="input !w-20 text-center" value={settings.currency}
             onChange={(e) => updateSettings({ currency: e.target.value.toUpperCase().slice(0, 3) })} />
         </Row>
+        {/* The only rate in the app. Vials are bought in USD and every dollar
+            on screen is worked out from this at the moment it is drawn, so
+            changing it here moves the whole app at once. */}
+        <Row label="USD→AUD rate">
+          <NumberField className="!w-24 text-center" value={settings.fx_usd_to_aud} min={0.01}
+            aria-label="USD to AUD rate" data-testid="fx-rate"
+            onChange={(n) => updateSettings({ fx_usd_to_aud: n > 0 ? n : DEFAULT_FX_USD_TO_AUD })} />
+        </Row>
+        <p className="-mt-1 px-1 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
+          Vial prices are held in USD. Every {settings.currency} figure in the app is this rate times that —
+          nothing is stored in {settings.currency}, so correcting the rate corrects the whole history at once.
+        </p>
         <Row label="Restock lead time (days)">
           <NumberField className="!w-20 text-center" value={settings.restockLeadDays} min={1} integer
             aria-label="Restock lead time in days"

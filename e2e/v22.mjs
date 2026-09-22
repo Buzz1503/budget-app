@@ -188,7 +188,7 @@ await step('a peptide with two batches shows each as its own row, and the summar
     const raw = JSON.parse(localStorage.getItem(K))
     raw.state.vials.push({
       id: 'v22-second-batch', peptideId: 'retatrutide', name: 'Retatrutide', vialMg: 20,
-      vendor: 'Vendor B', qtyOnHand: 1, qtyPurchased: 1, costAud: 300, lot: '', sealedExpiry: '', coaKey: null,
+      vendor: 'Vendor B', qtyOnHand: 1, qtyPurchased: 1, usdPerVial: 300, lot: '', sealedExpiry: '', coaKey: null,
     })
     localStorage.setItem(K, JSON.stringify(raw))
   })

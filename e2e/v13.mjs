@@ -214,12 +214,19 @@ await step('.ics export downloads from the Calendar', async () => {
   if (!dl.suggestedFilename().endsWith('.ics')) throw new Error(dl.suggestedFilename())
 })
 
-await step('Home carries a next-7-days strip that opens the Calendar', async () => {
+// v31 replaced the seven-day strip with a "Tomorrow" section: one day, named
+// and dosed, instead of a week of bare shot counts.
+await step('Home looks one day ahead, with the doses', async () => {
   await nav('Home')
-  const strip = page.locator('[data-testid="next-7-days"]')
-  await strip.waitFor({ timeout: 8000 })
-  await strip.click()
-  await waitText(/This week/, 8000)
+  const tm = page.locator('[data-testid="tomorrow"]')
+  await tm.waitFor({ timeout: 8000 })
+  if (await page.locator('[data-testid="next-7-days"]').count()) {
+    throw new Error('the seven-day strip is still on Home')
+  }
+  const rows = tm.locator('[data-testid="tomorrow-row"]')
+  if ((await rows.count()) === 0) throw new Error('Tomorrow lists nothing')
+  const first = await rows.first().textContent()
+  if (!/\d/.test(first)) throw new Error(`a Tomorrow row carries no dose: ${first}`)
 })
 
 // ---------- 3. merged stock + restock ----------

@@ -2,19 +2,20 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Package, Plus, Minus, ChevronRight, FileText, Trash2, Search,
-  Paperclip, AlertTriangle, Boxes, CheckCircle2, Clock,
+  Paperclip, AlertTriangle, Boxes, CheckCircle2, Clock, Users,
 } from 'lucide-react'
 import useStore, { todayStr } from '../store/useStore'
-import { groupStock, blankBatch, runwayFor, durationWords } from '../lib/stock'
+import { groupStock, blankBatch, runwayFor, durationWords, openVialRemainingMg } from '../lib/stock'
+import { drawdown, emptiesInWords, FREQUENCIES } from '../lib/drawdown'
 import { prettyDate } from '../lib/schedule'
 import { putBlob, getBlob, deleteBlob } from '../lib/blobStore'
-import { isNasal } from '../lib/calc'
+import { isNasal, round } from '../lib/calc'
 import { loadMatrix } from '../lib/mixMatrix'
 import Modal from './ui/Modal'
 import CompoundSheet from './CompoundSheet'
 import NumberField from './ui/NumberField'
-
-const money = (n) => `$${Math.round((n || 0) * 100) / 100}`
+import { useMoney } from '../lib/useMoney'
+import { sizesFor, referencePrice } from '../lib/cost'
 
 /**
  * The stock room: every vial you physically own, grouped by peptide.
@@ -170,6 +171,7 @@ function StockGroup({ group: g, peptide, open, onToggle, onOpenSheet, runway }) 
               )}
               {g.batches.map((b) => (
                 <BatchRow key={b.id} batch={b} peptide={peptide}
+                  firstBatch={b.id === g.batches[0]?.id}
                   onAdjust={(d) => adjustVialQty(b.id, d)}
                   onRemove={() => removeVial(b.id)}
                   onActivate={() => activateBatch(b.peptideId, b.id)} />
@@ -183,9 +185,78 @@ function StockGroup({ group: g, peptide, open, onToggle, onOpenSheet, runway }) 
 }
 
 /** One batch, one row: size, quantity, vendor — never merged with a sibling batch. */
-function BatchRow({ batch: b, peptide, onAdjust, onRemove, onActivate }) {
+/**
+ * What this batch costs, in money rather than in USD.
+ *
+ * Two figures because they answer different questions: per vial is what the
+ * order costs, per dose is what tonight costs. Both are worked out here from
+ * the vial's USD price and the rate in Settings — neither is stored, so both
+ * move the moment the rate does.
+ */
+function VialCost({ batch: b, peptide }) {
+  const m = useMoney()
+  const updateVial = useStore((s) => s.updateVial)
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(b.usdPerVial ?? 0)
+
+  const perVial = m.vial(b.usdPerVial)
+  const doseMg = m.doseMgFor(b.peptideId)
+  const perDose = m.dose(b.usdPerVial, b.vialMg, doseMg)
+  const sizes = sizesFor(peptide?.name || b.name)
+
+  if (editing) {
+    return (
+      <div className="mt-1 flex items-center gap-1" data-testid="vial-price-edit">
+        <span className="text-xs font-bold" style={{ color: 'var(--text-2)' }}>USD</span>
+        <NumberField className="!w-20 !px-2 !py-1 text-center" value={draft} min={0}
+          aria-label="USD per vial" onChange={(n) => setDraft(n ?? 0)} />
+        <button data-testid="vial-price-save"
+          onClick={() => { updateVial(b.id, { usdPerVial: draft > 0 ? draft : null }); setEditing(false) }}
+          className="rounded-full px-2 py-1 text-xs font-black"
+          style={{ background: 'var(--accent)', color: 'var(--accent-fg)' }}>Save</button>
+        <button onClick={() => { setDraft(b.usdPerVial ?? 0); setEditing(false) }}
+          className="rounded-full px-2 py-1 text-xs font-bold" style={{ color: 'var(--text-2)' }}>Cancel</button>
+      </div>
+    )
+  }
+
+  return (
+    <button onClick={() => setEditing(true)} data-testid="vial-cost"
+      className="mt-1 block text-left text-xs font-bold leading-tight">
+      {perVial == null ? (
+        <>
+          <span style={{ color: 'var(--warn)' }}>No price set</span>
+          <span className="ml-1 font-medium" style={{ color: 'var(--text-2)' }}>
+            — tap to enter USD per vial
+            {sizes.length > 0 && ` (priced at ${sizes.map((s) => `${s.mg_per_vial} mg`).join(', ')})`}
+          </span>
+        </>
+      ) : (
+        <>
+          <span style={{ color: 'var(--text)' }}>{m.fmt(perVial)}/vial</span>
+          {perDose != null && (
+            <span className="ml-2" style={{ color: 'var(--text-2)' }}>
+              {m.fmt(perDose)}/dose
+            </span>
+          )}
+          <span className="ml-1 font-medium" style={{ color: 'var(--text-3)' }}>
+            · ${b.usdPerVial} USD
+          </span>
+        </>
+      )}
+    </button>
+  )
+}
+
+function BatchRow({ batch: b, peptide, firstBatch, onAdjust, onRemove, onActivate }) {
   const openVial = useStore((s) => s.openVials?.[b.peptideId])
-  const isActive = openVial?.batchId === b.id
+  // An open vial carries no batchId until a batch is explicitly activated, but
+  // doses still come out of it from day one. Without this, a shelf nobody has
+  // activated has no vial to attach draw profiles to — which is every fresh
+  // install, and exactly the case where sharing gets set up.
+  const isActive = openVial?.batchId
+    ? openVial.batchId === b.id
+    : !!firstBatch && (openVial?.remainingMg ?? 0) > 0
   const canActivate = peptide && !isNasal(peptide) && (b.qtyOnHand || 0) > 0
   const [confirmDelete, setConfirmDelete] = useState(false)
 
@@ -235,10 +306,10 @@ function BatchRow({ batch: b, peptide, onAdjust, onRemove, onActivate }) {
             {b.vendor || 'No vendor recorded'}
           </p>
           <p className="truncate text-xs font-medium leading-tight" style={{ color: 'var(--text-2)' }}>
-            {money(b.costAud)} each
-            {b.lot ? ` · lot ${b.lot}` : ''}
+            {b.lot ? `lot ${b.lot}` : 'No lot recorded'}
             {b.sealedExpiry ? ` · exp ${b.sealedExpiry}` : ''}
           </p>
+          <VialCost batch={b} peptide={peptide} />
         </div>
         <div className="flex shrink-0 flex-col items-end gap-2">
           <CoaButton batch={b} />
@@ -257,6 +328,10 @@ function BatchRow({ batch: b, peptide, onAdjust, onRemove, onActivate }) {
         </div>
       </div>
 
+      {isActive && peptide && !isNasal(peptide) && (
+        <SharedVial batch={b} peptide={peptide} openVial={openVial} />
+      )}
+
       <div className="mt-3 flex gap-2">
         {canActivate && !isActive && (
           <button onClick={onActivate} data-testid="activate-batch"
@@ -270,6 +345,109 @@ function BatchRow({ batch: b, peptide, onAdjust, onRemove, onActivate }) {
           <Trash2 size={12} />
         </button>
       </div>
+    </div>
+  )
+}
+
+// --------------------------------------------------------- the shared vial
+
+/**
+ * Who draws on this vial, and how long it lasts with all of them on it.
+ *
+ * Doses-left is reported per person rather than as one number, because with two
+ * different dose sizes one number is wrong for at least one of them. The single
+ * figure that is shared — and the one that decides when to reorder — is how many
+ * days the vial has left with everybody drawing.
+ */
+function SharedVial({ batch: b, peptide, openVial }) {
+  const titration = useStore((s) => s.titration)
+  const doseLogs = useStore((s) => s.doseLogs)
+  const addDrawProfile = useStore((s) => s.addDrawProfile)
+  const updateDrawProfile = useStore((s) => s.updateDrawProfile)
+  const removeDrawProfile = useStore((s) => s.removeDrawProfile)
+  const logSharedDraw = useStore((s) => s.logSharedDraw)
+  const [open, setOpen] = useState(false)
+
+  const remainingMg = openVialRemainingMg(peptide, openVial, doseLogs)
+  const d = drawdown(b, peptide, titration[b.peptideId], remainingMg)
+
+  return (
+    <div className="mt-3 rounded-[14px] p-3" style={{ background: 'var(--surface)' }} data-testid="drawdown">
+      <button onClick={() => setOpen(!open)} className="flex w-full items-center gap-2 text-left">
+        <Users size={13} className="shrink-0" style={{ color: 'var(--text-2)' }} />
+        <span className="min-w-0 flex-1">
+          <span className="block text-xs font-black leading-tight">
+            {round(d.remainingMg, 2)} mg left · empties in {emptiesInWords(d)}
+          </span>
+          <span className="block text-xs font-semibold leading-tight" style={{ color: 'var(--text-2)' }}>
+            {d.shared
+              ? `${d.profiles.length} people drawing · ${round(d.combinedMgPerWeek, 2)} mg a week between them`
+              : 'Just me · tap to share this vial'}
+          </span>
+        </span>
+        <ChevronRight size={14} className="shrink-0 transition-transform"
+          style={{ color: 'var(--text-2)', transform: open ? 'rotate(90deg)' : 'none' }} />
+      </button>
+
+      {/* Per-profile doses-left is always visible, shared or not: it is the
+          number the person standing at the fridge is actually after. */}
+      <div className="mt-2 space-y-1" data-testid="draw-profiles">
+        {d.profiles.map((p) => (
+          <div key={p.id} className="flex items-center gap-2 text-xs font-bold" data-testid="draw-profile">
+            <span className="min-w-0 flex-1 truncate">
+              {p.label}
+              <span className="ml-1 font-semibold" style={{ color: 'var(--text-2)' }}>
+                {round(p.doseMg, 3)} mg · {p.perWeek}×/wk
+              </span>
+            </span>
+            <span className="shrink-0 tabular-nums" style={{ color: 'var(--text-2)' }}>
+              {p.dosesLeft} left
+            </span>
+            {!p.owner && (
+              <button onClick={() => logSharedDraw(b.peptideId, p.id)} data-testid="log-shared-draw"
+                aria-label={`Log a draw for ${p.label}`}
+                className="shrink-0 rounded-full px-2 py-1 text-xs font-black"
+                style={{ background: 'var(--surface-sunk)', color: 'var(--good)' }}>
+                Log draw
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {open && (
+        <div className="mt-3 space-y-2 border-t pt-3" style={{ borderColor: 'var(--border)' }}>
+          {(b.drawProfiles || []).map((p) => (
+            <div key={p.id} className="flex items-center gap-2" data-testid="draw-profile-edit">
+              <input className="input !px-2 !py-1 !text-xs" value={p.label}
+                aria-label="Who draws" placeholder="Who"
+                onChange={(e) => updateDrawProfile(b.id, p.id, { label: e.target.value })} />
+              <NumberField className="!w-16 !px-2 !py-1 text-center !text-xs" value={p.doseMg} min={0}
+                aria-label="Their dose in mg"
+                onChange={(n) => updateDrawProfile(b.id, p.id, { doseMg: n ?? 0 })} />
+              <select className="input !w-24 !px-2 !py-1 !text-xs" value={p.frequency}
+                aria-label="How often they draw"
+                onChange={(e) => updateDrawProfile(b.id, p.id, { frequency: e.target.value })}>
+                {FREQUENCIES.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
+              </select>
+              <button onClick={() => removeDrawProfile(b.id, p.id)} aria-label={`Remove ${p.label}`}
+                className="shrink-0 rounded-full p-1" style={{ color: 'var(--danger)' }}>
+                <Trash2 size={12} />
+              </button>
+            </div>
+          ))}
+          <button onClick={() => addDrawProfile(b.id, { doseMg: d.profiles[0]?.doseMg || 0 })}
+            data-testid="add-draw-profile"
+            className="flex w-full items-center justify-center gap-2 rounded-full py-2 text-xs font-black"
+            style={{ background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
+            <Plus size={12} /> Someone else draws from this vial
+          </button>
+          <p className="text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
+            Each person's "left" is how many more <em>they</em> could get out of it on their own — those
+            counts overlap, because there is only one vial. The days figure is the one that empties it.
+          </p>
+        </div>
+      )}
     </div>
   )
 }
@@ -368,7 +546,25 @@ function AddBatchModal({ open, onClose }) {
   const choose = (c) => {
     const existing = existingById.get(c.id) || null
     setPicked({ id: c.id, name: c.name, compound: c, existing })
-    setDraft(blankBatch(existing))
+    const base = blankBatch(existing)
+    // The reference price for this compound at this vial size, as the starting
+    // suggestion. Whatever the user types over it is what the vial cost — a
+    // real receipt beats a table every time.
+    const ref = referencePrice(c.name, base.vialMg)
+    setDraft({ ...base, name: c.name, usdPerVial: ref ? ref.usd_per_vial : base.usdPerVial })
+  }
+
+  // Changing the vial size changes which reference row applies, so the
+  // suggestion follows it — unless the user has already priced it themselves.
+  const setVialMg = (mg) => {
+    const ref = referencePrice(picked?.name, mg)
+    const untouched = draft.usdPerVial == null
+      || draft.usdPerVial === referencePrice(picked?.name, draft.vialMg)?.usd_per_vial
+    setDraft({
+      ...draft,
+      vialMg: mg,
+      usdPerVial: untouched ? (ref ? ref.usd_per_vial : null) : draft.usdPerVial,
+    })
   }
 
   const save = async () => {
@@ -393,9 +589,9 @@ function AddBatchModal({ open, onClose }) {
       name: picked.name,
       vialMg: draft.vialMg || 0,
       vendor: draft.vendor,
+      usdPerVial: draft.usdPerVial ?? null,
       qtyOnHand: Math.max(0, draft.qtyOnHand || 0),
       qtyPurchased: Math.max(0, draft.qtyOnHand || 0),
-      costAud: draft.costAud || 0,
       lot: draft.lot,
       sealedExpiry: draft.sealedExpiry,
       coaKey, coaMeta,
@@ -458,7 +654,7 @@ function AddBatchModal({ open, onClose }) {
           <div className="grid grid-cols-2 gap-3">
             <Field label="Vial size (mg)">
               <NumberField value={draft.vialMg} aria-label="Vial size in mg"
-                onChange={(v) => setDraft({ ...draft, vialMg: v ?? 0 })} min={0} />
+                onChange={(v) => setVialMg(v ?? 0)} min={0} />
             </Field>
             <Field label="How many">
               <NumberField value={draft.qtyOnHand} aria-label="How many vials" integer
@@ -471,9 +667,10 @@ function AddBatchModal({ open, onClose }) {
               onChange={(e) => setDraft({ ...draft, vendor: e.target.value })} />
           </Field>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Cost each (AUD)">
-              <NumberField value={draft.costAud} aria-label="Cost per vial"
-                onChange={(v) => setDraft({ ...draft, costAud: v ?? 0 })} min={0} />
+            <Field label="Cost each (USD)">
+              <NumberField value={draft.usdPerVial ?? 0} aria-label="USD per vial"
+                data-testid="batch-usd"
+                onChange={(v) => setDraft({ ...draft, usdPerVial: v > 0 ? v : null })} min={0} />
             </Field>
             <Field label="Lot (optional)">
               <input className="input" value={draft.lot} aria-label="Lot number"

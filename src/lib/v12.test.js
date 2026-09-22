@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   horizonDays, dosesInWindow, syringesInWindow, restockRows, consumableRows,
-  restockPlan, costPerVial, deliveryCovers, deliveryEvents, DEFAULT_UNIT_COSTS,
+  restockPlan, costPerVialUsd, deliveryCovers, deliveryEvents, DEFAULT_UNIT_COSTS_USD,
 } from './restock'
 import {
   parseDoseRange, ladderFromRange, niceStep, wizardSuggestion, toPeptide,
@@ -101,7 +101,7 @@ describe('syringes, with co-draws counted once', () => {
 
 describe('what to order', () => {
   const p = daily() // 0.5 mg a day out of a 10 mg vial
-  const vials = [{ id: 'v', peptideId: 'a', vialMg: 10, costAud: 60, qtyPurchased: 2, qtyOnHand: 1 }]
+  const vials = [{ id: 'v', peptideId: 'a', vialMg: 10, usdPerVial: 60, qtyPurchased: 2, qtyOnHand: 1 }]
   const openVials = { a: { remainingMg: 10, reconstitutedAt: null } }
 
   it('orders the shortfall, in whole vials', () => {
@@ -127,12 +127,12 @@ describe('what to order', () => {
   })
 
   it('prices from the weighted average paid per vial', () => {
-    expect(costPerVial('a', vials)).toBe(60)
-    expect(costPerVial('a', [
-      { peptideId: 'a', costAud: 50, qtyPurchased: 1 },
-      { peptideId: 'a', costAud: 70, qtyPurchased: 1 },
+    expect(costPerVialUsd('a', vials)).toBe(60)
+    expect(costPerVialUsd('a', [
+      { peptideId: 'a', usdPerVial: 50, qtyPurchased: 1 },
+      { peptideId: 'a', usdPerVial: 70, qtyPurchased: 1 },
     ])).toBe(60)
-    expect(costPerVial('a', [])).toBe(0)
+    expect(costPerVialUsd('a', [])).toBe(0)
   })
 
   it('honours a manual quantity override', () => {
@@ -148,7 +148,7 @@ describe('what to order', () => {
     const slow = daily({ id: 'slow', name: 'Slow', ladder: { floor: 100, step: 0, intervalWeeks: 1, ceiling: 100, unit: 'mcg' } })
     const rows = restockRows({
       peptides: [p, slow], titration: titrationFor([p, slow]),
-      vials: [...vials, { id: 'v2', peptideId: 'slow', vialMg: 10, costAud: 20, qtyPurchased: 1, qtyOnHand: 1 }],
+      vials: [...vials, { id: 'v2', peptideId: 'slow', vialMg: 10, usdPerVial: 20, qtyPurchased: 1, qtyOnHand: 1 }],
       openVials: { ...openVials, slow: { remainingMg: 10 } }, todayStr: TODAY, days: 84,
     })
     expect(rows[0].peptideId).toBe('a')
@@ -218,7 +218,7 @@ describe('consumables follow the schedule', () => {
 
 describe('the whole plan', () => {
   const a = daily({ id: 'a', name: 'A' })
-  const vials = [{ id: 'v', peptideId: 'a', vialMg: 10, costAud: 60, qtyPurchased: 1, qtyOnHand: 0 }]
+  const vials = [{ id: 'v', peptideId: 'a', vialMg: 10, usdPerVial: 60, qtyPurchased: 1, qtyOnHand: 0 }]
 
   it('totals compounds and consumables in AUD', () => {
     const plan = restockPlan({
@@ -227,9 +227,9 @@ describe('the whole plan', () => {
     })
     expect(plan.days).toBe(56)
     expect(plan.rows[0].suggestedVials).toBe(3) // 28 mg needed, none on hand
-    expect(plan.vialCost).toBe(180)
-    expect(plan.consumableCost).toBeGreaterThan(0)
-    expect(plan.totalAud).toBeCloseTo(plan.vialCost + plan.consumableCost, 2)
+    expect(plan.vialCostUsd).toBe(180)
+    expect(plan.consumableCostUsd).toBeGreaterThan(0)
+    expect(plan.totalUsd).toBeCloseTo(plan.vialCostUsd + plan.consumableCostUsd, 2)
   })
 
   it('uses an edited unit cost for consumables', () => {
@@ -239,10 +239,10 @@ describe('the whole plan', () => {
     })
     const dearer = restockPlan({
       peptides: [a], titration: titrationFor([a]), vials: [], openVials: {},
-      todayStr: TODAY, restock: { horizon: '8w', unitCosts: { syringe: DEFAULT_UNIT_COSTS.syringe * 10 } },
+      todayStr: TODAY, restock: { horizon: '8w', unitCostsUsd: { syringe: DEFAULT_UNIT_COSTS_USD.syringe * 10 } },
       verdictOf: () => 'MIX',
     })
-    expect(dearer.consumableCost).toBeGreaterThan(base.consumableCost)
+    expect(dearer.consumableCostUsd).toBeGreaterThan(base.consumableCostUsd)
   })
 })
 

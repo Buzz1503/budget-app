@@ -252,11 +252,19 @@ await step('a past day with nothing logged reads as missed, not as blank', async
   if (!/missed/i.test(body)) throw new Error('the calendar never says "missed"')
 })
 
-await step('Home offers the way in when days have gone unrecorded', async () => {
+// v31 took the missed-dose surfacing off Home entirely — it lives in the
+// Calendar and under More now. The way in still has to exist; it just is not
+// on the screen you open the app to.
+await step('missed days are surfaced where they now live, not on Home', async () => {
   await nav('Home')
   await page.waitForTimeout(700)
+  if (await page.locator('[data-testid="catch-up-card"]').count()) {
+    throw new Error('the catch-up card is back on Home')
+  }
+  await more('history')
+  await page.waitForTimeout(900)
   const card = page.locator('[data-testid="catch-up-card"]')
-  if (!(await card.count())) throw new Error('no catch-up card on Home')
+  if (!(await card.count())) throw new Error('no catch-up card on History either')
   const txt = await card.textContent()
   if (!/missed dose/i.test(txt)) throw new Error(`catch-up card does not say what is missing: ${txt}`)
   console.log(`  ${txt.trim().split('\n')[0]}`)
@@ -385,8 +393,8 @@ await step('a skip never touches the vial — nothing was taken', async () => {
 })
 
 await step('the catch-up flow can clear a whole run of days at once', async () => {
-  await nav('Home')
-  await page.waitForTimeout(700)
+  await more('history')
+  await page.waitForTimeout(900)
   const card = page.locator('[data-testid="catch-up-card"]')
   if (!(await card.count())) { console.log('  nothing left missed — skipped'); return }
   await page.click('[data-testid="catch-up-open"]')
@@ -405,21 +413,22 @@ await step('the catch-up flow can clear a whole run of days at once', async () =
   console.log(`  ${s.skips.length - before} doses skipped across ${dates.size} days`)
 })
 
-await step('Home stops offering a catch-up once the days are accounted for', async () => {
-  await nav('Home')
+await step('it stops asking once the days are accounted for', async () => {
+  await more('history')
   await page.waitForTimeout(900)
   const card = page.locator('[data-testid="catch-up-card"]')
   if (await card.count()) {
     const txt = await card.textContent()
     throw new Error(`still asking to catch up: ${txt.trim().split('\n')[0]}`)
   }
-  if (!(await page.locator('[data-testid="home-add-past-dose"]').count())) {
+  if (!(await page.locator('[data-testid="history-add-past-dose"], [data-testid="home-add-past-dose"]').count())) {
     throw new Error('the plain "Add a past dose" entry is gone too')
   }
 })
 
 await step('the backfill sheet itself is keyboard-safe', async () => {
-  await page.click('[data-testid="home-add-past-dose"]')
+  // reached from More now that Home no longer carries it
+  await more('backfill')
   await page.waitForTimeout(700)
   await page.click('[data-testid="backfill-date"]')
   await openKeyboard()

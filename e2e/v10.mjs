@@ -116,13 +116,14 @@ await step('every proposed group contains only MIX pairs', async () => {
   // read the plan out of the DOM, then check each group against the matrix
   // v16 lists every compound in the draw as its own <li> instead of one
   // truncated "A + B + …" line, so the group is read back from the items.
+  // v31 slimmed the plan to one row and stopped printing the names, so the
+  // group membership is read from the row's data rather than from its text.
+  // The check itself is unchanged: every pair in every group must be a MIX.
   const groups = await page.evaluate(() => {
-    const out = []
-    for (const ul of document.querySelectorAll('[data-testid="codraw-names"]')) {
-      const items = [...ul.querySelectorAll('li')].map((li) => li.textContent.replace(/^·\s*/, '').trim())
-      if (items.length > 1) out.push(items.join(' + '))
-    }
-    return [...new Set(out)]
+    const row = document.querySelector('[data-testid="codraw-row"]')
+    if (!row) return []
+    const parsed = JSON.parse(row.dataset.groups || '[]')
+    return [...new Set(parsed.filter((g) => g.length > 1).map((g) => g.join(' + ')))]
   })
   if (!groups.length) throw new Error('no combined group proposed at all')
   const NAME_TO_ID = {
@@ -150,8 +151,16 @@ await step('the plan never offers a caution combine path', async () => {
   if (/confirm the drawn solution is clear before it logs/.test(body)) {
     throw new Error('the caution-then-confirm combine path is still present')
   }
-  const note = await planNote()
+  // v31 put the reasoning behind the info tap rather than printing it, so the
+  // row stays one line. It still has to be there, and still has to say this.
+  const info = page.locator('button[aria-label="Why these are combined"]').first()
+  if (!(await info.count())) throw new Error('no way to ask why these are combined')
+  await info.click()
+  await page.waitForTimeout(500)
+  const note = await page.locator('[data-testid="codraw-note"]').first().textContent()
   if (!/safe to mix/.test(note)) throw new Error('the plan does not say it only combines confirmed mixes')
+  await info.click()
+  await page.waitForTimeout(300)
 })
 await page.screenshot({ path: `${SHOT}/v10-01-mix-only-plan.png` })
 
@@ -204,8 +213,9 @@ await step('DSIP and GHK-Cu agree between the card hint and the plan', async () 
   }
   // and the plan agrees
   const combined = await page.evaluate(() => {
-    for (const ul of document.querySelectorAll('[data-testid="codraw-names"]')) {
-      const items = [...ul.querySelectorAll('li')].map((li) => li.textContent.replace(/^·\s*/, '').trim())
+    const row = document.querySelector('[data-testid="codraw-row"]')
+    if (!row) return null
+    for (const items of JSON.parse(row.dataset.groups || '[]')) {
       if (items.includes('DSIP') && items.includes('GHK-Cu')) return items
     }
     return null
