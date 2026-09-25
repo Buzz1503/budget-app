@@ -62,3 +62,14 @@ describe('seed integrity', () => {
     expect(names).not.toContain('hack-squat')
   })
 })
+
+describe('approved defaults', () => {
+  it('every session and block line has a rest period', () => {
+    const lines = [
+      ...SESSIONS.flatMap((s) => s.entries.filter(isItem)),
+      ...WRIST_STAGES.flatMap((w) => w.exercises),
+      ...SHOULDER_CARE,
+    ].filter((i) => i.exerciseId !== 'bike')
+    for (const l of lines) expect(l.restSec, l.exerciseId).not.toBeNull()
+  })
+})

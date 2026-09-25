@@ -185,6 +185,8 @@ export type SwapAction =
   | { kind: 'loadChange'; pct: number; label: string }
   | { kind: 'drop'; scope: 'week'; label: string }
   | { kind: 'hold'; label: string }
+  | { kind: 'replace'; exerciseId: string; label: string }
+  | { kind: 'skip'; label: string }
 
 export interface SwapRule {
   exerciseIds: string[]

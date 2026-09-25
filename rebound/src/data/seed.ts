@@ -737,6 +737,15 @@ function shoulderDrill(id: string, name: string, machine: string, steps: string[
 
 // ---------------------------------------------------------------- Section 5
 
+/**
+ * Rest periods the plan leaves blank, filled with defaults Buzz approved on
+ * 25 Sep 2026: reuse the same exercise's rest from another session, core and
+ * calf raise machine 60 s, pulldown 90 s (same as the row), holds and wrist
+ * drills 30 s. Wrapped so they stay searchable apart from plan values.
+ */
+const D = { rest: (sec: number) => sec }
+
+
 type ItemOpts = Partial<Omit<SessionItem, 'exerciseId' | 'section' | 'prescription'>>
 
 function item(exerciseId: string, section: SessionItem['section'], prescription: SessionItem['prescription'], opts: ItemOpts = {}): SessionItem {
@@ -756,7 +765,7 @@ const sets = (n: number, min: number, max: number = min) => ({ kind: 'fixed' as 
 const kneeStage = { kind: 'kneeStage' as const }
 
 const bike = item('bike', 'warmup', { kind: 'duration', minutes: { min: 5, max: 5 } }, { note: 'Easy' })
-const kneePrimer = item('spanish-squat', 'kneePrimer', { kind: 'timed', sets: 2, holdSec: { min: 30, max: 30 } }, { note: 'Spanish squat or wall sit' })
+const kneePrimer = item('spanish-squat', 'kneePrimer', { kind: 'timed', sets: 2, holdSec: { min: 30, max: 30 } }, { restSec: D.rest(30), note: 'Spanish squat or wall sit' })
 const wristBlock = { block: 'wristBlock', section: 'wristBlock', optional: false } as const
 const shoulderCare = { block: 'shoulderCare', section: 'shoulderCare', optional: true } as const
 
@@ -775,7 +784,7 @@ export const SESSIONS: SessionTemplate[] = [
       item('leg-press-calf-raise', 'gluteHam', sets(3, 12, 15), { restSec: 60 }),
       item('chest-press', 'upper', sets(3, 8, 12), { restSec: 90 }),
       item('cable-tricep-pushdown', 'upper', sets(3, 10, 15), { restSec: 60 }),
-      item('dead-bug', 'core', sets(3, 8), { perSide: true }),
+      item('dead-bug', 'core', sets(3, 8), { perSide: true, restSec: D.rest(60) }),
       shoulderCare,
     ],
   },
@@ -786,15 +795,15 @@ export const SESSIONS: SessionTemplate[] = [
       bike,
       kneePrimer,
       wristBlock,
-      item('leg-extension', 'kneeStrength', kneeStage, { tempo: '3-0-3' }),
-      item('leg-press', 'kneeStrength', kneeStage, { tempo: '3-0-3' }),
+      item('leg-extension', 'kneeStrength', kneeStage, { tempo: '3-0-3', restSec: D.rest(120) }),
+      item('leg-press', 'kneeStrength', kneeStage, { tempo: '3-0-3', restSec: D.rest(120) }),
       item('lying-hamstring-curl', 'gluteHam', sets(4, 8, 10), { tempo: '3 sec lowering', restSec: 120 }),
       item('cable-glute-kickback', 'gluteHam', sets(3, 12, 15), { perSide: true, restSec: 60, note: 'Ankle strap' }),
       item('hip-abduction', 'gluteHam', sets(3, 12, 15), { tempo: '2 sec hold at open', restSec: 60 }),
       item('chest-supported-row', 'upper', sets(3, 8, 12), { restSec: 90, note: 'Neutral grip, straps' }),
-      item('lat-pulldown', 'upper', sets(3, 10, 12), { skipIf: { joint: 'shoulder', above: 2 }, note: 'Skip if shoulder above 2/10' }),
+      item('lat-pulldown', 'upper', sets(3, 10, 12), { restSec: D.rest(90), skipIf: { joint: 'shoulder', above: 2 }, note: 'Skip if shoulder above 2/10' }),
       item('cable-hammer-curl', 'upper', sets(3, 10, 15), { restSec: 60 }),
-      item('reverse-crunch', 'core', sets(3, 10, 15), { note: 'On bench' }),
+      item('reverse-crunch', 'core', sets(3, 10, 15), { restSec: D.rest(60), note: 'On bench' }),
       shoulderCare,
     ],
   },
@@ -805,17 +814,17 @@ export const SESSIONS: SessionTemplate[] = [
       bike,
       kneePrimer,
       wristBlock,
-      item('leg-extension', 'kneeStrength', kneeStage, { tempo: '3-0-3' }),
-      item('leg-press', 'kneeStrength', kneeStage, { tempo: '3-0-3' }),
+      item('leg-extension', 'kneeStrength', kneeStage, { tempo: '3-0-3', restSec: D.rest(120) }),
+      item('leg-press', 'kneeStrength', kneeStage, { tempo: '3-0-3', restSec: D.rest(120) }),
       item('hip-thrust', 'gluteHam', sets(3, 12, 15), { tempo: '2 sec squeeze at top', restSec: 90 }),
       item('lying-hamstring-curl', 'gluteHam', sets(3, 12, 15), { restSec: 90 }),
       item('hip-adduction', 'gluteHam', sets(3, 12, 15), { restSec: 60 }),
-      item('calf-raise-machine', 'gluteHam', sets(3, 12, 15), { note: 'Straight knee' }),
-      item('chest-press', 'upper', sets(3, 8, 12)),
-      item('cable-hammer-curl', 'upper', sets(3, 10, 15)),
-      item('cable-tricep-pushdown', 'upper', sets(3, 10, 15)),
-      item('cable-crunch', 'core', sets(3, 12, 15), { note: 'Kneeling, rope' }),
-      item('forearm-side-plank', 'core', { kind: 'timed', sets: 3, holdSec: { min: 20, max: 30 } }, { perSide: true }),
+      item('calf-raise-machine', 'gluteHam', sets(3, 12, 15), { restSec: D.rest(60), note: 'Straight knee' }),
+      item('chest-press', 'upper', sets(3, 8, 12), { restSec: D.rest(90) }),
+      item('cable-hammer-curl', 'upper', sets(3, 10, 15), { restSec: D.rest(60) }),
+      item('cable-tricep-pushdown', 'upper', sets(3, 10, 15), { restSec: D.rest(60) }),
+      item('cable-crunch', 'core', sets(3, 12, 15), { restSec: D.rest(60), note: 'Kneeling, rope' }),
+      item('forearm-side-plank', 'core', { kind: 'timed', sets: 3, holdSec: { min: 20, max: 30 } }, { perSide: true, restSec: D.rest(60) }),
       shoulderCare,
     ],
   },
@@ -838,7 +847,8 @@ export const WEEK_PLAN: WeekPlanDay[] = [
   { label: 'Next', kind: 'home', session: null, plan: 'Home rehab' },
   { label: 'Gym 3', kind: 'gym', session: 'C', plan: 'Session C' },
   { label: 'Next', kind: 'home', session: null, plan: 'Home rehab' },
-  { label: 'Rest', kind: 'rest', session: null, plan: 'Wrist W1 only' },
+  // Plan says "Wrist W1 only"; approved reading: the wrist block at the current stage.
+  { label: 'Rest', kind: 'rest', session: null, plan: 'Wrist block only' },
 ]
 
 // ---------------------------------------------------------------- Section 3 + 8 (wrist)
@@ -854,11 +864,11 @@ export const WRIST_STAGES: WristStage[] = [
     status: 'current',
     unlockRule: ['14 days in a row of wrist pain 2/10 or less'],
     exercises: [
-      item('w1-palm-down-iso', 'wristBlock', hold(3, 10, 5, 10)),
-      item('w1-palm-up-iso', 'wristBlock', hold(3, 10, 5, 10)),
-      item('w1-pinky-side-iso', 'wristBlock', hold(3, 10, 5)),
-      item('w1-grip-putty', 'wristBlock', hold(3, 10, 5)),
-      item('w1-dart-throw', 'wristBlock', sets(2, 15)),
+      item('w1-palm-down-iso', 'wristBlock', hold(3, 10, 5, 10), { restSec: D.rest(30) }),
+      item('w1-palm-up-iso', 'wristBlock', hold(3, 10, 5, 10), { restSec: D.rest(30) }),
+      item('w1-pinky-side-iso', 'wristBlock', hold(3, 10, 5), { restSec: D.rest(30) }),
+      item('w1-grip-putty', 'wristBlock', hold(3, 10, 5), { restSec: D.rest(30) }),
+      item('w1-dart-throw', 'wristBlock', sets(2, 15), { restSec: D.rest(30) }),
     ],
     notes: [],
   },
@@ -869,11 +879,11 @@ export const WRIST_STAGES: WristStage[] = [
     status: 'locked',
     unlockRule: ['14 days in a row of wrist pain 2/10 or less'],
     exercises: [
-      item('w2-band-turns', 'wristBlock', sets(3, 10, 15)),
-      item('w2-band-ecu-lift', 'wristBlock', sets(3, 15)),
-      item('w2-band-ext-flex', 'wristBlock', sets(3, 15)),
-      item('w2-grip-putty', 'wristBlock', hold(3, 10, 5)),
-      item('w2-dart-throw-band', 'wristBlock', sets(2, 15)),
+      item('w2-band-turns', 'wristBlock', sets(3, 10, 15), { restSec: D.rest(30) }),
+      item('w2-band-ecu-lift', 'wristBlock', sets(3, 15), { restSec: D.rest(30) }),
+      item('w2-band-ext-flex', 'wristBlock', sets(3, 15), { restSec: D.rest(30) }),
+      item('w2-grip-putty', 'wristBlock', hold(3, 10, 5), { restSec: D.rest(30) }),
+      item('w2-dart-throw-band', 'wristBlock', sets(2, 15), { restSec: D.rest(30) }),
     ],
     notes: [],
   },
@@ -884,10 +894,10 @@ export const WRIST_STAGES: WristStage[] = [
     status: 'locked',
     unlockRule: ['14 days in a row of wrist pain 2/10 or less'],
     exercises: [
-      item('w3-wall-pushup-hold', 'wristBlock', hold(3, 10, 5)),
-      item('w3-weight-shifts', 'wristBlock', sets(2, 10)),
-      item('w3-ball-catch', 'wristBlock', sets(3, 30)),
-      item('w3-band-twist', 'wristBlock', sets(3, 10)),
+      item('w3-wall-pushup-hold', 'wristBlock', hold(3, 10, 5), { restSec: D.rest(30) }),
+      item('w3-weight-shifts', 'wristBlock', sets(2, 10), { restSec: D.rest(30) }),
+      item('w3-ball-catch', 'wristBlock', sets(3, 30), { restSec: D.rest(30) }),
+      item('w3-band-twist', 'wristBlock', sets(3, 10), { restSec: D.rest(30) }),
     ],
     notes: ['Gradually stop using straps on rows.'],
   },
@@ -898,9 +908,9 @@ export const WRIST_BLOCK_MINUTES = { min: 8, max: 10 } as const
 // ---------------------------------------------------------------- Section 7
 
 export const SHOULDER_CARE: SessionItem[] = [
-  item('sc-iso-er', 'shoulderCare', hold(1, 5, 10)),
-  item('sc-cable-er', 'shoulderCare', sets(2, 15)),
-  item('sc-blade-squeeze', 'shoulderCare', sets(2, 15)),
+  item('sc-iso-er', 'shoulderCare', hold(1, 5, 10), { restSec: D.rest(30) }),
+  item('sc-cable-er', 'shoulderCare', sets(2, 15), { restSec: D.rest(30) }),
+  item('sc-blade-squeeze', 'shoulderCare', sets(2, 15), { restSec: D.rest(30) }),
 ]
 export const SHOULDER_CARE_MINUTES = 5
 
@@ -910,7 +920,7 @@ export const SHOULDER_CARE_MINUTES = 5
 export const HOME_DAY: SessionEntry[] = [
   item('spanish-squat', 'kneePrimer', { kind: 'timed', sets: 5, holdSec: { min: 45, max: 45 } }, { restSec: 120, note: 'Spanish squat or wall sit' }),
   { block: 'wristBlock', section: 'wristBlock', optional: false },
-  item('floor-glute-bridge', 'gluteHam', sets(2, 15), { note: 'Bodyweight, glute activation, no equipment' }),
+  item('floor-glute-bridge', 'gluteHam', sets(2, 15), { restSec: D.rest(60), note: 'Bodyweight, glute activation, no equipment' }),
   item('walk', 'warmup', { kind: 'duration', minutes: { min: 20, max: 30 } }, { note: 'Flat' }),
 ]
 
@@ -959,6 +969,12 @@ export const PROGRESSION = {
 } as const
 
 export const SWAPS: SwapRule[] = [
+  // Approved default (plan lists no knee swap): fall back to the Stage 1 isometric.
+  {
+    exerciseIds: ['leg-extension', 'leg-press'],
+    trigger: { joint: 'knee', above: 3 },
+    steps: [{ kind: 'replace', exerciseId: 'spanish-squat', label: 'Swap to Spanish squat / wall sit hold' }],
+  },
   {
     exerciseIds: ['chest-press'],
     trigger: { joint: 'shoulder', above: 2 },
@@ -984,6 +1000,9 @@ export const SWAPS: SwapRule[] = [
     ],
   },
 ]
+
+/** Default gym days (0 = Sunday): Mon, Wed, Fri. Approved default, editable. */
+export const DEFAULT_GYM_DAYS = [1, 3, 5] as const
 
 /** Any wrist > 3 or shoulder > 2 on any set: hold load, flag exercise, offer swap. */
 export const PAIN_FLAG_ACTION = { kind: 'hold', label: 'Hold load next session and flag exercise' } as const
