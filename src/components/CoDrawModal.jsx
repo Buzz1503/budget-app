@@ -1,10 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { MapPin, Check, Ban, Clock } from 'lucide-react'
-import useStore, { todayStr } from '../store/useStore'
+import { Check, Ban } from 'lucide-react'
+import useStore from '../store/useStore'
 import Modal from './ui/Modal'
-import SiteChooser from './SiteChooser'
-import { SITE_BY_ID, lastShot, zoneForGroup } from '../lib/sites'
 import { loadMatrix, LIB_TO_COMPOUND } from '../lib/mixMatrix'
 import { currentRung } from '../lib/schedule'
 import { toMg, doseToUnits, concentration, formatDose, formatUnits } from '../lib/calc'
@@ -18,26 +16,20 @@ const BLOCK_REASON = {
   NEVER: null,
 }
 
-// Co-draw = one shot into one site. Runs the Mix engine over every selected pair
-// first: only a confirmed MIX may share a syringe. CAUTION, DONT_MIX, NEVER and
-// "no data" all block, and the user is told to inject those separately.
+// Co-draw = several compounds in one syringe. Runs the Mix engine over every
+// selected pair first: only a confirmed MIX may share one. CAUTION, DONT_MIX,
+// NEVER and "no data" all block, and the user is told to inject those
+// separately. Once it clears, logging is the one remaining tap.
 export default function CoDrawModal({ open, onClose, peptides }) {
   const titration = useStore((s) => s.titration)
-  const doseLogs = useStore((s) => s.doseLogs)
   const logCoDraw = useStore((s) => s.logCoDraw)
-  const t = todayStr()
-
-  // One thigh-only compound in the syringe makes the whole shot thigh-only —
-  // they go in together, so the strictest rule wins.
-  const zone = zoneForGroup(peptides || [])
 
   const [matrix, setMatrix] = useState(null)
-  const [phase, setPhase] = useState('loading') // loading | blocked | site
-  const [picked, setPicked] = useState(null)
+  const [phase, setPhase] = useState('loading') // loading | blocked | ready
 
   useEffect(() => {
     if (!open) return
-    setPhase('loading'); setPicked(null)
+    setPhase('loading')
     let alive = true
     loadMatrix().then((m) => alive && setMatrix(m)).catch(() => alive && setMatrix(false))
     return () => { alive = false }
@@ -83,16 +75,11 @@ export default function CoDrawModal({ open, onClose, peptides }) {
 
   useEffect(() => {
     if (!review) return
-    setPhase(review.problems.length ? 'blocked' : 'site')
+    setPhase(review.problems.length ? 'blocked' : 'ready')
   }, [review])
 
-  const last = useMemo(() => lastShot(doseLogs, t), [doseLogs, t])
-  const [resolved, setResolved] = useState(null)
-  const chosen = picked || resolved
-  const chosenSite = SITE_BY_ID[chosen]
-
   const confirm = () => {
-    logCoDraw(peptides.map((p) => p.id), chosen)
+    logCoDraw(peptides.map((p) => p.id))
     onClose()
   }
 
@@ -147,24 +134,14 @@ export default function CoDrawModal({ open, onClose, peptides }) {
           </div>
         )}
 
-        {phase === 'site' && (
+        {phase === 'ready' && (
           <>
             <p className="flex items-center justify-center gap-2 text-xs font-bold" style={{ color: 'var(--good)' }}>
-              <Check size={13} /> Every pair is a confirmed mix — one shot, one site
+              <Check size={13} /> Every pair is a confirmed mix — one syringe
             </p>
-            {last && (
-              <p className="flex items-center gap-2 rounded-[14px] p-3 text-xs font-bold" style={{ background: 'var(--surface-sunk)' }}>
-                <Clock size={13} className="shrink-0" style={{ color: 'var(--text-2)' }} />
-                Last shot: {last.when} — {last.label}.
-              </p>
-            )}
-            <p className="flex items-center gap-2 text-xs font-bold">
-              <MapPin size={13} style={{ color: 'var(--good)' }} /> One shot, so pick one spot
-            </p>
-            <SiteChooser route="SubQ" zone={zone} picked={picked} onPick={setPicked} onResolve={setResolved} />
-            <motion.button whileTap={{ scale: 0.97 }} onClick={confirm}
+            <motion.button whileTap={{ scale: 0.97 }} onClick={confirm} data-testid="codraw-confirm"
               className="btn-primary flex w-full items-center justify-center gap-2 rounded-full py-3 text-sm font-black">
-              <Check size={18} strokeWidth={3} /> Log {peptides.length} together — {chosenSite?.label}
+              <Check size={18} strokeWidth={3} /> Log {peptides.length} together
             </motion.button>
           </>
         )}

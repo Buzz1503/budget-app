@@ -176,7 +176,6 @@ export function wizardSuggestion(compound) {
       scheduleWeekdays: seed.scheduleWeekdays,
       cycleOnDays: seed.cycleOnDays || 0,
       cycleOffDays: seed.cycleOffDays || 0,
-      allowedZone: seed.allowedZone || null,
       vehicle: seed.vehicle,
       preparation: seed.preparation,
       alwaysSeparate: seed.alwaysSeparate,
@@ -238,7 +237,6 @@ export function entryFromPeptide(peptide) {
     scheduleWeekdays: peptide.scheduleWeekdays ? [...peptide.scheduleWeekdays] : undefined,
     cycleOnDays: peptide.cycleOnDays || 0,
     cycleOffDays: peptide.cycleOffDays || 0,
-    allowedZone: peptide.allowedZone || null,
     startDate: peptide.startDate,
     stockVials: 0,
     usdPerVial: referenceUsdPerVial(peptide),
@@ -273,7 +271,6 @@ export function toPeptide(entry, startDate) {
     cycleText: entry.cycleText || '',
   }
   if (entry.scheduleWeekdays?.length) out.scheduleWeekdays = [...entry.scheduleWeekdays]
-  if (entry.allowedZone) out.allowedZone = entry.allowedZone
   if (entry.intranasalCapable) out.intranasalCapable = true
   if (entry.vehicle) out.vehicle = entry.vehicle
   if (entry.preparation) out.preparation = entry.preparation

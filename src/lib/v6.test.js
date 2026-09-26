@@ -153,7 +153,8 @@ describe('history grouping', () => {
     expect(ev.length).toBe(1)
     expect(ev[0].coDraw).toBe(true)
     expect(ev[0].items.length).toBe(2)
-    expect(ev[0].siteLabel).toMatch(/Abdomen/)
+    // no site on the event any more — a log no longer records where it went
+    expect(ev[0].siteLabel).toBeUndefined()
   })
 
   it('keeps separate single logs as separate events', () => {

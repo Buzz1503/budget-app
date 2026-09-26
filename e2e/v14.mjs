@@ -198,9 +198,9 @@ await step('a compound started recently outranks a long-running one', async () =
     const raw = JSON.parse(localStorage.getItem('peptide-command-center'))
     const old = new Date(Date.now() - 200 * 86400000).toISOString().slice(0, 10)
     const fresh = new Date(Date.now() - 2 * 86400000).toISOString().slice(0, 10)
-    raw.state.peptides = raw.state.peptides.map((p) => ({ ...p, startDate: old }))
+    raw.state.peptides = raw.state.peptides.map((p) => ({ ...p, startDate: old, startedOn: old }))
     for (const k of Object.keys(raw.state.titration)) raw.state.titration[k] = { level: 0, levelStartDate: old }
-    raw.state.peptides = raw.state.peptides.map((p) => (p.id === 'selank' ? { ...p, startDate: fresh } : p))
+    raw.state.peptides = raw.state.peptides.map((p) => (p.id === 'selank' ? { ...p, startDate: fresh, startedOn: fresh } : p))
     raw.state.titration.selank = { level: 0, levelStartDate: fresh }
     localStorage.setItem('peptide-command-center', JSON.stringify(raw))
   })

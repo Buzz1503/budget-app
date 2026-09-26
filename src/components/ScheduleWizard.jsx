@@ -16,6 +16,7 @@ import { WEEKDAYS, weekdayPickCount, scheduledWeekdaySet } from '../lib/daily'
 import {
   formatDose, concentration, doseToUnits, toMg, round, MCG_PER_SPRAY, convertLadderForRoute,
 } from '../lib/calc'
+import { prettyDate } from '../lib/schedule'
 
 const FREQ_LABELS = {
   daily: 'Daily', nightly: 'Nightly', weekly: 'Weekly',
@@ -385,14 +386,27 @@ export default function ScheduleWizard({ open, onClose }) {
           {step === 'start' && (
             <>
               <p className="text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
-                This sets the clock for every <Term id="titration" /> ladder and <Term id="cycle" /> you just configured.
-                Today is usually right; pick the day you actually started if you're catching up.
+                This sets the clock for every <Term id="titration" /> ladder and <Term id="cycle" /> you just configured,
+                and it is the day your time-on-compound counts from. Today is usually right; set it back to the day
+                you actually started if you have been on these a while.
               </p>
               <label className="block">
                 <span className="mb-1 block text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-2)' }}>Start date</span>
-                <input type="date" className="input" value={startDate}
+                <input type="date" className="input" value={startDate} max={t} data-testid="wizard-start-date"
                   onChange={(e) => e.target.value && setStartDate(e.target.value)} />
               </label>
+              {startDate < t && (
+                <p className="rounded-[14px] p-3 text-xs font-medium leading-relaxed" data-testid="wizard-backdated"
+                  style={{ background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
+                  Backdated to {prettyDate(startDate)}. That is a statement about how long you have been on these,
+                  not a set of doses — nothing is logged for those days, no vial moves, and your adherence figure
+                  does not change, because it only ever counts what you actually recorded.
+                </p>
+              )}
+              <p className="text-xs font-medium leading-relaxed" style={{ color: 'var(--text-3)' }}>
+                If you started some of these at different times, set each one's own date — and what you were on
+                before you started logging — on its compound page, under Timeline → Since.
+              </p>
               <Nav back={() => { setIdx(Math.max(0, entries.length - 1)); setStep('config') }} next={() => setStep('review')} nextLabel="Review" />
             </>
           )}
@@ -656,21 +670,6 @@ function PeptideStep({ entry: e, onPatch }) {
           </p>
         )}
 
-        {/* Which part of the body this one is allowed on. A reaction-prone
-            compound kept off the belly stays off it, and the rotation map,
-            the suggestion and the co-draw all read this same field. */}
-        {!nasal && (
-          <div className="mt-3">
-            <Field label="Allowed injection zone">
-              <select className="input" aria-label="Allowed injection zone"
-                value={e.allowedZone || 'all'}
-                onChange={(ev) => onPatch({ allowedZone: ev.target.value === 'all' ? null : ev.target.value })}>
-                <option value="all">All SubQ sites</option>
-                <option value="thigh">Thigh only</option>
-              </select>
-            </Field>
-          </div>
-        )}
       </div>
 
       {/* ladder */}

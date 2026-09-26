@@ -268,9 +268,22 @@ export const WEIGHTS = { recency: 0.5, proximity: 0.25, evidence: 0.25 }
 /**
  * When this compound last *changed* — started, or stepped up a rung. Both are
  * the kind of change that brings a new symptom with it.
+ *
+ * Tenure is the anchor, not the schedule date: someone who has been on a
+ * compound for a year should not have it scored as a recent change because they
+ * re-ran the wizard last week. Where a real dose-change event was recorded it
+ * wins over the ladder's own bookkeeping, since it is the thing that actually
+ * happened.
  */
-export function lastChange(peptide, tState) {
-  const dates = [peptide.startDate, tState?.levelStartDate].filter(Boolean)
+export function lastChange(peptide, tState, doseEvents = []) {
+  const recorded = doseEvents
+    .filter((e) => e.peptideId === peptide.id && (e.kind === 'step-up' || e.kind === 'override' || e.kind === 'route'))
+    .map((e) => e.date)
+  const dates = [
+    peptide.startedOn || peptide.startDate,
+    tState?.levelStartDate,
+    ...recorded,
+  ].filter(Boolean)
   if (!dates.length) return null
   return dates.sort().at(-1)
 }
@@ -327,7 +340,7 @@ export const LIKELIHOOD_TONE = { High: 'var(--coral)', Medium: 'var(--amber)', L
  *   real answer, not a failure: it means none of what you're running is a
  *   known cause.
  */
-export function attributeSymptom(symptomId, { peptides = [], titration = {}, doseLogs = [], todayStr }) {
+export function attributeSymptom(symptomId, { peptides = [], titration = {}, doseLogs = [], doseEvents = [], todayStr }) {
   const meta = SYMPTOM_META[symptomId]
   const polarity = meta?.type || 'neg'
   const distinct = distinctiveness(symptomId)
@@ -339,7 +352,7 @@ export function attributeSymptom(symptomId, { peptides = [], titration = {}, dos
     const listed = [...(eff.positive || []), ...(eff.negative || [])].includes(symptomId)
     if (!listed) continue
 
-    const changed = lastChange(p, titration[p.id])
+    const changed = lastChange(p, titration[p.id], doseEvents)
     const daysSinceChange = changed ? daysBetween(changed, todayStr) : null
     const recency = recencyScore(changed, todayStr)
     const proximity = proximityScore(p, doseLogs, todayStr)

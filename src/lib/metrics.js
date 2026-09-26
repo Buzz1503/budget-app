@@ -185,22 +185,36 @@ export function subjectiveSeries(symptomLogs) {
     .sort((a, b) => a.date.localeCompare(b.date))
 }
 
-// A peptide's delivered dose (in its ladder unit) across a date range; 0 when
-// off-cycle. Uses the *current* confirmed rung (we don't store rung history).
-export function peptideDoseSeries(peptide, tState, fromStr, toStr) {
+/**
+ * A peptide's delivered dose (in its ladder unit) across a date range; 0 when
+ * off-cycle.
+ *
+ * Reads the recorded dose timeline where there is one, so a chart of the last
+ * four months shows the dose it was actually on in each of them rather than
+ * today's number stretched backwards. Without recorded events it falls back to
+ * the current rung, which is the best available answer and is flagged as such
+ * by `estimated`.
+ */
+export function peptideDoseSeries(peptide, tState, fromStr, toStr, { doseEvents = [] } = {}) {
   const n = Math.max(1, daysBetween(fromStr, toStr) + 1)
   const { dose } = currentRung(peptide, tState)
+  // recorded dose changes, oldest first — the step function to sample
+  const steps = doseEvents
+    .filter((e) => e.peptideId === peptide.id && e.to != null)
+    .sort((a, b) => a.date.localeCompare(b.date))
   const out = []
   for (let i = 0; i < n; i++) {
     const date = addDaysStr(fromStr, i)
     const c = cycleInfo(peptide, date)
-    out.push({ date, dose: c.isOn ? dose : 0, isOn: c.isOn })
+    const step = [...steps].reverse().find((e) => e.date <= date)
+    const atDate = step ? step.to : dose
+    out.push({ date, dose: c.isOn ? atDate : 0, isOn: c.isOn, estimated: !step })
   }
   return out
 }
 
-// Cycle on/off transitions + the current titration step marker, as annotations.
-export function peptideEvents(peptide, tState, fromStr, toStr) {
+// Cycle on/off transitions plus every recorded dose change, as annotations.
+export function peptideEvents(peptide, tState, fromStr, toStr, { doseEvents = [] } = {}) {
   const events = []
   const n = Math.max(1, daysBetween(fromStr, toStr) + 1)
   let prevOn = null
@@ -212,7 +226,16 @@ export function peptideEvents(peptide, tState, fromStr, toStr) {
     }
     prevOn = on
   }
-  if (tState?.levelStartDate && tState.level > 0 && tState.levelStartDate >= fromStr && tState.levelStartDate <= toStr) {
+  // Every step-up that was actually recorded, not just the rung standing now.
+  const recorded = doseEvents.filter((e) => (
+    e.peptideId === peptide.id && e.date >= fromStr && e.date <= toStr
+    && (e.kind === 'step-up' || e.kind === 'override')
+  ))
+  for (const e of recorded) {
+    events.push({ date: e.date, kind: 'step-up', label: e.to != null ? `${e.to}` : 'Dose change' })
+  }
+  if (!recorded.length && tState?.levelStartDate && tState.level > 0
+    && tState.levelStartDate >= fromStr && tState.levelStartDate <= toStr) {
     events.push({ date: tState.levelStartDate, kind: 'step-up', label: `Lvl ${tState.level + 1}` })
   }
   return events

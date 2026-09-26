@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { History, Syringe, MapPin, FileText, Filter, Pill, SkipForward } from 'lucide-react'
+import { History, Syringe, FileText, Filter, Pill, SkipForward } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import useStore, { todayStr } from '../store/useStore'
 import { adherenceSummary, historyEvents, WINDOWS, windowRange } from '../lib/adherence'
@@ -10,6 +10,7 @@ import { SymptomHistory } from './SymptomsTab'
 import { supplementAdherence } from '../lib/supplements'
 import { skipsInRange, skipCounts, splitAdherence, REASON_LABEL } from '../lib/skips'
 import CatchUpCard from './CatchUp'
+import { DoseSparkline, TenureLine } from './Tenure'
 
 export default function HistoryTab() {
   const peptides = useStore((s) => s.peptides)
@@ -19,6 +20,7 @@ export default function HistoryTab() {
   const supplements = useStore((s) => s.supplements)
   const supplementLogs = useStore((s) => s.supplementLogs)
   const skips = useStore((s) => s.skips)
+  const runs = useStore((s) => s.runs)
   const t = todayStr()
 
   const [days, setDays] = useState(30)
@@ -51,13 +53,14 @@ export default function HistoryTab() {
   }), [summary, skipRows])
 
   const pct = summary.overall.pct
+  const picked = peptideId ? peptides.find((p) => p.id === peptideId) : null
 
   return (
     <div className="space-y-3">
       <div>
         <h1 className="text-2xl font-black tracking-tight">History</h1>
         <p className="text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
-          Your record — every dose, site and co-draw
+          Your record — every dose, co-draw and skip
         </p>
       </div>
 
@@ -86,8 +89,14 @@ export default function HistoryTab() {
             {pct == null ? '—' : `${pct}%`}
           </span>
         </div>
-        <p className="text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
+        <p className="text-xs font-semibold tabular-nums" style={{ color: 'var(--text-2)' }}>
           {summary.overall.taken} of {summary.overall.scheduled} scheduled doses · last {days} days
+        </p>
+        {/* the figure counts records, not history. Someone who has been on a
+            compound for a year and logging for a month should not read this as
+            a year of behaviour. */}
+        <p className="text-xs font-medium" style={{ color: 'var(--text-3)' }} data-testid="adherence-basis">
+          Since logging began — it counts what you recorded, not how long you have been on anything.
         </p>
         {split.skipped > 0 && (
           <p className="mt-1 flex flex-wrap items-center gap-x-2 text-xs font-bold" data-testid="skip-summary">
@@ -190,7 +199,7 @@ export default function HistoryTab() {
 
       {/* shareable summary */}
       <button
-        onClick={() => openSummaryDocument({ peptides, titration, doseLogs, measurements, summary, from, to })}
+        onClick={() => openSummaryDocument({ peptides, titration, doseLogs, measurements, summary, from, to, runs })}
         className="btn-primary flex w-full items-center justify-center gap-2 rounded-full py-3 text-sm font-black">
         <FileText size={16} /> Shareable summary
       </button>
@@ -222,6 +231,18 @@ export default function HistoryTab() {
           ))}
         </div>
       </div>
+
+      {/* the filtered compound, in its own terms: how long, and what the dose
+          has done, which the flat event list cannot show */}
+      {picked && (
+        <div className="card p-3" data-testid="history-compound">
+          <div className="flex items-center gap-2">
+            <p className="min-w-0 flex-1 truncate text-sm font-bold">{picked.name}</p>
+            <DoseSparkline peptide={picked} width={72} height={18} />
+          </div>
+          <TenureLine peptide={picked} />
+        </div>
+      )}
 
       {/* log */}
       <div className="space-y-2">
@@ -257,11 +278,6 @@ export default function HistoryTab() {
                     </p>
                   ))}
                 </div>
-                {ev.siteLabel && (
-                  <p className="mt-1 flex items-center gap-1 text-xs font-bold" style={{ color: 'var(--good)' }}>
-                    <MapPin size={10} /> {ev.siteLabel}
-                  </p>
-                )}
               </div>
             </div>
           </motion.div>

@@ -32,6 +32,7 @@ export default function SymptomsTab() {
   const peptides = useStore((s) => s.peptides)
   const titration = useStore((s) => s.titration)
   const doseLogs = useStore((s) => s.doseLogs)
+  const doseEvents = useStore((s) => s.doseEvents)
   const logSymptomCheckin = useStore((s) => s.logSymptomCheckin)
   const t = todayStr()
 
@@ -49,9 +50,12 @@ export default function SymptomsTab() {
   const [polarity, setPolarity] = useState('neg')
   const [openCats, setOpenCats] = useState(() => new Set())
 
+  // doseEvents is what makes attribution honest about time: a compound you
+  // stepped up on Tuesday is a recent change, one you have been holding at the
+  // same dose since March is not.
   const ctx = useMemo(
-    () => ({ peptides, titration, doseLogs, todayStr: t }),
-    [peptides, titration, doseLogs, t]
+    () => ({ peptides, titration, doseLogs, doseEvents, todayStr: t }),
+    [peptides, titration, doseLogs, doseEvents, t]
   )
   const stackIndex = useMemo(() => stackSymptomIndex(peptides), [peptides])
   const stack = useMemo(() => stackSymptoms(peptides), [peptides])

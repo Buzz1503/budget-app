@@ -25,10 +25,6 @@ export const GLOSSARY = {
     term: 'reconstitute',
     plain: 'Adding bacteriostatic water to a vial of powder to turn it into a liquid you can draw.',
   },
-  rotation: {
-    term: 'rotation',
-    plain: 'Using a different spot each time so no single patch of skin gets lumpy or scarred.',
-  },
   cycle: {
     term: 'cycle',
     plain: 'A stretch of days on the compound followed by a stretch off it, then repeat.',

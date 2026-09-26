@@ -12,6 +12,7 @@ import { unitsFor, isNasal } from './calc'
 import { planShots } from './grouping'
 import { LIB_TO_COMPOUND } from './mixMatrix'
 import { expiryInfo, runOutInfo } from './inventory'
+import { runsFor, MILESTONES } from './tenure'
 
 export const WEEK_STARTS_ON = 1 // Monday
 
@@ -23,6 +24,8 @@ export const EVENT_META = {
   'vial-expiry': { label: 'Vial expires', tone: 'var(--coral)', glyph: '🧪' },
   'restock-by': { label: 'Runs out', tone: 'var(--coral)', glyph: '📦' },
   delivery: { label: 'Delivery expected', tone: 'var(--indigo)', glyph: '🚚' },
+  started: { label: 'Started', tone: 'var(--indigo)', glyph: '◆' },
+  anniversary: { label: 'Time on compound', tone: 'var(--lime)', glyph: '◇' },
 }
 
 // Adherence states a past day can be in. Future days are 'future'; a day with
@@ -105,7 +108,7 @@ export function datesBetween(fromStr, toStr) {
 export function buildCalendar({
   peptides = [], titration = {}, doseLogs = [], openVials = {}, vials = [],
   supplements = [], supplementLogs = [], skips = [],
-  restock = {}, todayStr, from, to, verdictOf = null, leadDays = 30,
+  restock = {}, runs = {}, todayStr, from, to, verdictOf = null, leadDays = 30,
 }) {
   const dates = datesBetween(from, to)
   if (dates.length === 0) return { days: [], byDate: {}, from, to, grouped: !!verdictOf }
@@ -175,6 +178,20 @@ export function buildCalendar({
         kind: 'restock-by', peptideId: p.id,
         text: `${p.name} — stock runs out${ro.daysLeft <= leadDays ? ' (order now)' : ''}`,
       })
+    }
+
+    // The day each run began, and the markers since. These are tenure, so they
+    // come off the run list and `startedOn` rather than off the first log — the
+    // two are different dates for anyone who was on something before installing
+    // this, and the calendar should show the one they would recognise.
+    for (const r of runsFor(p, runs)) {
+      pushEvent(r.startedOn, { kind: 'started', peptideId: p.id, text: `${p.name} — started` })
+      if (r.endedOn) continue
+      for (const m of MILESTONES) {
+        pushEvent(addDaysStr(r.startedOn, m.days), {
+          kind: 'anniversary', peptideId: p.id, text: `${p.name} — ${m.label} on it`,
+        })
+      }
     }
   }
 

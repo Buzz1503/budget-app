@@ -1,20 +1,20 @@
 import { useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Check, Info, Clock, AlertTriangle, Combine, Sun, Moon, ChevronRight, MapPin, Syringe, X, Circle, CheckCircle2, ShieldCheck, Layers, Wind, Bell, Zap, Pill, SkipForward, Undo2, PackageOpen, Droplet } from 'lucide-react'
+import { Check, Info, Clock, AlertTriangle, Sun, Moon, ChevronRight, Syringe, X, ShieldCheck, Layers, Wind, Bell, Zap, SkipForward, Undo2, PackageOpen, MoreHorizontal } from 'lucide-react'
 import useStore, { todayStr } from '../store/useStore'
 import { cyclePhase, currentRung, stepUpDue, addDaysStr, prettyDate } from '../lib/schedule'
 import { isDueToday, slotOf, isDueSlot, currentSlot, slotIsFlexible, needsProtocolSetup } from '../lib/daily'
 import { formatDose, formatUnitsLong, unitsFor, round, isNasal } from '../lib/calc'
+import { displayName } from '../lib/naming'
+import { tenureFor, milestonesFor } from '../lib/tenure'
 import { loadMatrix, LIB_TO_COMPOUND } from '../lib/mixMatrix'
 import { planShots, MAX_GROUP_ML } from '../lib/grouping'
 import { expiryInfo, runOutInfo } from '../lib/inventory'
-import { daysSince, SITE_BY_ID } from '../lib/sites'
 import { backupNudge, countEntries } from '../lib/backup'
 import { deliveryCovers } from '../lib/restock'
 import Modal from './ui/Modal'
 import CoachTip from './ui/CoachTip'
 import Term from './ui/Term'
-import SitePicker from './SitePicker'
 import CoDrawModal from './CoDrawModal'
 import { dueInSlot, takenOn, FORM_LABEL } from '../lib/supplements'
 import { skippedOn, supplementsSkippedOn, skipFor, SKIP_REASONS, REASON_LABEL } from '../lib/skips'
@@ -29,6 +29,7 @@ export default function Home({ goTo }) {
   const peptides = useStore((s) => s.peptides)
   const titration = useStore((s) => s.titration)
   const doseLogs = useStore((s) => s.doseLogs)
+  const runs = useStore((s) => s.runs)
   const openVials = useStore((s) => s.openVials)
   const vials = useStore((s) => s.vials)
   const settings = useStore((s) => s.settings)
@@ -37,7 +38,6 @@ export default function Home({ goTo }) {
 
   const t = todayStr()
   const [slot, setSlot] = useState(() => currentSlot())
-  const [picker, setPicker] = useState(null) // peptide being logged (single)
   const [selected, setSelected] = useState(() => new Set()) // co-draw selection
   const [coDraw, setCoDraw] = useState(false)
   const [showAbout, setShowAbout] = useState(false)
@@ -95,6 +95,49 @@ export default function Home({ goTo }) {
     () => new Set(doseLogs.filter((l) => l.date === t).map((l) => l.peptideId)),
     [doseLogs, t]
   )
+
+  const logDose = useStore((st) => st.logDose)
+  const logMany = useStore((st) => st.logMany)
+
+  // Everything in this slot still waiting on a tap — injections and orals
+  // together, because "log all" has to mean all of it.
+  const outstandingPeptides = useMemo(
+    () => slotDue.filter((p) => !loggedToday.has(p.id) && !skippedIds.has(p.id)),
+    [slotDue, loggedToday, skippedIds]
+  )
+  const outstandingSupps = useMemo(
+    () => slotSupps.filter((x) => !takenIds.has(x.id) && !skippedSupps.has(x.id)),
+    [slotSupps, takenIds, skippedSupps]
+  )
+  const outstanding = outstandingPeptides.length + outstandingSupps.length
+  const logSlot = () => logMany(
+    outstandingPeptides.map((p) => p.id),
+    outstandingSupps.map((x) => x.id),
+  )
+
+  /**
+   * Anything still open from the slot that has already been and gone.
+   *
+   * The app flips itself to PM partway through the day, and whatever the
+   * morning did not get is then one tab away and invisible — which is exactly
+   * when it is most likely to be forgotten.
+   */
+  const earlierSlot = slot === 'PM' ? 'AM' : null
+  const earlierDue = useMemo(() => {
+    if (!earlierSlot) return []
+    return scheduledToday
+      .filter((p) => slotOf(p) === earlierSlot)
+      .filter((p) => !loggedToday.has(p.id) && !skippedIds.has(p.id))
+  }, [earlierSlot, scheduledToday, loggedToday, skippedIds])
+  const earlierSupps = useMemo(() => {
+    if (!earlierSlot) return []
+    return dueInSlot(supplements, earlierSlot)
+      .filter((x) => !takenIds.has(x.id) && !skippedSupps.has(x.id))
+  }, [earlierSlot, supplements, takenIds, skippedSupps])
+  const logEarlier = () => logMany(
+    earlierDue.map((p) => p.id),
+    earlierSupps.map((x) => x.id),
+  )
   // selection resolved against the live slot list so done/removed/skipped ids drop out
   const selectedPeptides = slotDue.filter(
     (p) => selected.has(p.id) && !loggedToday.has(p.id) && !skippedIds.has(p.id)
@@ -141,20 +184,6 @@ export default function Home({ goTo }) {
     if (!matrix) return null
     return (a, b) => matrix.lookup(LIB_TO_COMPOUND[a] || a, LIB_TO_COMPOUND[b] || b)?.verdict || null
   }, [matrix])
-
-  // Who each peptide can actually share a syringe with, in the context of what
-  // else is due in this slot. Compatibility is pairwise, so this is computed —
-  // never a fixed per-peptide tag — and the plan below reads the same verdicts.
-  const partnersById = useMemo(() => {
-    const out = {}
-    if (!verdictOf) return out
-    for (const p of injectable) {
-      out[p.id] = p.alwaysSeparate ? [] : injectable.filter((o) => (
-        o.id !== p.id && !o.alwaysSeparate && verdictOf(p.id, o.id) === 'MIX'
-      ))
-    }
-    return out
-  }, [verdictOf, injectable])
 
   const unloggedInjectable = useMemo(
     () => injectable.filter((p) => !loggedToday.has(p.id)), [injectable, loggedToday]
@@ -220,6 +249,51 @@ export default function Home({ goTo }) {
     return out
   }, [peptides, openVials, vials, titration, settings.restockLeadDays, restock, t])
 
+  /**
+   * The titration question, moved off the card list.
+   *
+   * It is a decision about a dose rather than a dose to take, and asking it in
+   * the middle of a list of things to do is how it got ignored for weeks.
+   */
+  const stepUps = useMemo(() => scheduledToday
+    .filter((p) => stepUpDue(p, titration[p.id], t))
+    .map((p) => {
+      const { dose } = currentRung(p, titration[p.id])
+      return {
+        id: p.id,
+        name: displayName(p),
+        weeks: p.ladder?.intervalWeeks || 1,
+        doseText: formatDose(dose, p.ladder?.unit),
+      }
+    }), [scheduledToday, titration, t])
+
+  /**
+   * Markers reached today.
+   *
+   * Four weeks, eight, twelve, six months, a year — the kind of thing people
+   * notice about a compound long after the app has stopped having anything new
+   * to say about it. Off the cards and into the bell, once, on the day.
+   */
+  const milestones = useMemo(() => peptides.map((p) => {
+    const ten = tenureFor(p, { runs, todayStr: t })
+    const hit = ten?.running ? milestonesFor(ten.currentDays).today : null
+    return hit ? { id: p.id, text: `${displayName(p)} — ${hit.label} on it today.` } : null
+  }).filter(Boolean), [peptides, runs, t])
+
+  // Everything still owed today across both slots, so the bell can clear it.
+  const overdueToday = useMemo(() => [
+    ...scheduledToday
+      .filter((p) => !loggedToday.has(p.id) && !skippedIds.has(p.id))
+      .map((p) => ({ kind: 'peptide', id: p.id, name: displayName(p) })),
+    ...supplements
+      .filter((x) => !takenIds.has(x.id) && !skippedSupps.has(x.id))
+      .map((x) => ({ kind: 'supplement', id: x.id, name: x.name })),
+  ], [scheduledToday, loggedToday, skippedIds, supplements, takenIds, skippedSupps])
+  const logOverdue = () => logMany(
+    overdueToday.filter((x) => x.kind === 'peptide').map((x) => x.id),
+    overdueToday.filter((x) => x.kind === 'supplement').map((x) => x.id),
+  )
+
   const now = new Date()
 
   return (
@@ -246,7 +320,8 @@ export default function Home({ goTo }) {
             </button>
           </p>
           <div className="flex shrink-0 items-center gap-2">
-          <AlertBell alerts={alerts} nudge={nudge} goTo={goTo} onDismissNudge={dismissBackupNudge} />
+          <AlertBell alerts={alerts} nudge={nudge} goTo={goTo} onDismissNudge={dismissBackupNudge}
+            stepUps={stepUps} overdue={overdueToday} onLogOverdue={logOverdue} milestones={milestones} />
           <div className="sunk flex p-1" style={{ borderRadius: 'var(--r-pill)' }}>
             {['AM', 'PM'].map((s) => (
               <button key={s} onClick={() => setSlot(s)} aria-label={s}
@@ -265,18 +340,15 @@ export default function Home({ goTo }) {
         </div>
       </div>
 
-      {/* first-run pointer at the Log button */}
+      {/* first-run pointer at the row */}
       <CoachTip id="log-button" when={slotDue.length > 0}>
-        Tap the green <span className="font-black">Log</span> button on a card when you've taken a dose —
-        we'll show you a labelled body map and tell you exactly where to inject.
+        Tap a row to log it — that is the whole thing. Undo sits on the toast if you mis-tap,
+        and <span className="font-black">…</span> holds skip and vial actions.
       </CoachTip>
 
-      {/* co-draw hint */}
-      {unloggedInjectable.length >= 2 && selected.size === 0 && !plan && (
-        <p className="px-1 text-center text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
-          Injecting more than one? Tap the circles to <span className="font-bold" style={{ color: 'var(--good)' }}>log them together</span> as one <Term id="codraw" />.
-        </p>
-      )}
+      {/* anything still open from earlier today, without changing tabs */}
+      <EarlierSlot from={earlierSlot} count={earlierDue.length + earlierSupps.length}
+        onLogAll={logEarlier} onSwitch={() => setSlot(earlierSlot)} />
 
       {/* The day's doses as rows in one card, divided by hairlines. A stack of
           separate floating cards was most of this screen's visual noise. */}
@@ -293,25 +365,33 @@ export default function Home({ goTo }) {
             )}
           </div>
         )}
-        {/* pt-6: the hairline above this row sits tight against the card edge,
-            and a heading pressed onto a rule reads as part of the row above it */}
+        {/* One tap for the whole slot. Above the rows because it is the fastest
+            path through them, and gone once nothing is outstanding rather than
+            lingering as a dead button. */}
+        {outstanding > 1 && (
+          <div className="px-4 pb-1 pt-4">
+            <motion.button whileTap={{ scale: 0.98 }} onClick={logSlot} data-testid="log-all"
+              className="btn-primary flex w-full items-center justify-center gap-2 rounded-full py-2.5 text-xs font-black">
+              <Check size={14} strokeWidth={3} /> Log all {outstanding} this {slot}
+            </motion.button>
+          </div>
+        )}
+        {/* quieter: a label, not a banner */}
         {slotDue.length > 0 && slotSupps.length > 0 && (
-          <p className="t-caption flex items-center gap-2 px-4 pb-1 pt-6"
+          <p className="px-4 pb-1 pt-5 text-xs font-medium"
             style={{ color: 'var(--text-3)' }} data-testid="inject-heading">
-            <Syringe size={12} /> Inject · {slotDue.length}
+            Inject
           </p>
         )}
         {slotDue.map((p, i) => (
           <DueCard key={p.id} peptide={p} index={i} done={loggedToday.has(p.id)}
-            titration={titration} partners={partnersById[p.id]} slot={slot}
-            onLog={() => setPicker(p)} goTo={goTo} today={t} doseLogs={doseLogs}
+            titration={titration}
+            onLog={() => logDose(p.id)}
             selected={selected.has(p.id)} onToggleSelect={() => toggleSelect(p.id)}
-            selectMode={selected.size > 0}
             skipped={skippedIds.has(p.id)}
             skipReason={skipFor(skips, p.id, t)?.reason}
             onSkip={() => setSkipping({ kind: 'peptide', ids: [p.id], name: p.name })}
             onUnskip={() => unskipToday(p.id)}
-            vial={activeVialStatus(p, titration[p.id], openVials[p.id], doseLogs)}
             onFinishVial={() => { finishVial(p.id); setReplacing(p.id) }}
             onOpenSheet={setSheetId}
             beckon={firstRun && i === slotDue.findIndex((x) => !loggedToday.has(x.id))} />
@@ -322,9 +402,8 @@ export default function Home({ goTo }) {
           units: tapping it is the whole interaction. */}
       {slotSupps.length > 0 && (
         <div className="space-y-2" data-testid="take-group">
-          <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide"
-            style={{ color: 'var(--warn)' }}>
-            <Pill size={12} /> Take · {suppDone}/{slotSupps.length}
+          <p className="px-1 text-xs font-medium" style={{ color: 'var(--text-3)' }}>
+            Take · {suppDone}/{slotSupps.length}
           </p>
           {slotSupps.map((sup, i) => (
             <TakeRow key={sup.id} supplement={sup} taken={takenIds.has(sup.id)} index={i}
@@ -413,14 +492,6 @@ export default function Home({ goTo }) {
           </motion.div>
         )}
       </AnimatePresence>
-
-      <SitePicker
-        open={!!picker} onClose={() => setPicker(null)}
-        peptide={picker}
-        dose={picker ? currentRung(picker, titration[picker.id]).dose : 0}
-        unit={picker?.ladder.unit}
-        units={picker ? unitsFor(picker, currentRung(picker, titration[picker.id]).dose) : 0}
-      />
 
       <CoDrawModal
         open={coDraw}
@@ -550,9 +621,11 @@ function TakeRow({ supplement: s, taken, skipped, onToggle, onSkip, onUnskip, in
   )
 }
 
-function AlertBell({ alerts, nudge, goTo, onDismissNudge }) {
+function AlertBell({ alerts, nudge, goTo, onDismissNudge, stepUps = [], overdue = [], onLogOverdue, milestones = [] }) {
   const [open, setOpen] = useState(false)
-  const count = alerts.length + (nudge ? 1 : 0)
+  const confirmStepUp = useStore((s) => s.confirmStepUp)
+  const holdStepUp = useStore((s) => s.holdStepUp)
+  const count = alerts.length + stepUps.length + milestones.length + (overdue.length ? 1 : 0) + (nudge ? 1 : 0)
   const urgent = alerts.some((a) => a.kind === 'expired' || a.kind === 'stock')
 
   useEffect(() => { if (count === 0) setOpen(false) }, [count])
@@ -596,6 +669,67 @@ function AlertBell({ alerts, nudge, goTo, onDismissNudge }) {
               className="fixed inset-x-3 top-16 z-[45] rounded-[14px] p-4"
               style={{ background: 'var(--surface)', boxShadow: 'var(--shadow-nav)' }}>
               <div className="space-y-3">
+                {/* Anything still owed today, logged from here rather than by
+                    going and finding it. */}
+                {overdue.length > 0 && (
+                  <div className="flex items-start gap-2" data-testid="bell-overdue">
+                    <Clock size={13} className="mt-1 shrink-0" style={{ color: 'var(--warn)' }} />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-semibold">
+                        {overdue.length} still due today — {overdue.map((x) => x.name).join(', ')}
+                      </p>
+                      <button onClick={() => { onLogOverdue?.(); setOpen(false) }} data-testid="bell-log-overdue"
+                        className="mt-2 rounded-full px-3 py-1 text-xs font-black"
+                        style={{ background: 'var(--accent)', color: 'var(--accent-fg)' }}>
+                        Log {overdue.length}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* The titration question, asked here instead of interrupting
+                    the list of things to do. It is a decision, not a dose. */}
+                {stepUps.map((st) => (
+                  <div key={st.id} className="flex items-start gap-2" data-testid="bell-stepup">
+                    <Zap size={13} className="mt-1 shrink-0" style={{ color: 'var(--text-2)' }} />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-semibold">
+                        {st.name} — {st.weeks} week{st.weeks === 1 ? '' : 's'} at {st.doseText}. Tolerating well?
+                      </p>
+                      <p className="mt-0.5 text-xs font-medium" style={{ color: 'var(--text-2)' }}>
+                        Advancing moves to the next rung; holding keeps this dose and asks again next interval.
+                      </p>
+                      <div className="mt-2 flex gap-2">
+                        <button onClick={() => confirmStepUp(st.id)} data-testid="stepup-advance"
+                          className="rounded-full px-3 py-1 text-xs font-black"
+                          style={{ background: 'var(--accent)', color: 'var(--accent-fg)' }}>
+                          Advance
+                        </button>
+                        <button onClick={() => holdStepUp(st.id)} data-testid="stepup-hold"
+                          className="rounded-full px-3 py-1 text-xs font-bold" style={{ background: 'var(--surface-sunk)' }}>
+                          Hold here
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {/* A marker passed, stated once and never dressed up as an
+                    achievement. It is a fact about elapsed time. */}
+                {milestones.map((m) => (
+                  <button key={m.id} onClick={() => { setOpen(false); goTo('protocol') }}
+                    data-testid="bell-milestone"
+                    className="flex w-full items-start gap-2 text-left">
+                    <Clock size={13} className="mt-1 shrink-0" style={{ color: 'var(--text-2)' }} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-xs font-semibold">{m.text}</span>
+                      <span className="block text-xs font-medium" style={{ color: 'var(--text-2)' }}>
+                        Its timeline and everything taken so far are on its compound page.
+                      </span>
+                    </span>
+                  </button>
+                ))}
+
                 {alerts.map((a) => (
                   <button key={a.id} onClick={() => { setOpen(false); goTo('supplies') }}
                     className="flex w-full items-start gap-2 text-left text-xs font-semibold">
@@ -849,188 +983,165 @@ function Tomorrow() {
   )
 }
 
-function DueCard({ peptide: p, index, done, titration, partners, slot, onLog, goTo, today, doseLogs, beckon, selected, onToggleSelect, selectMode, skipped, skipReason, onSkip, onUnskip, vial, onFinishVial, onOpenSheet }) {
+/**
+ * One dose, one tap.
+ *
+ * The whole row is the log button. There used to be a circle on the left for
+ * co-draw selection and a Log button on the right, which read as two controls
+ * for one act; the circle is gone and the row itself is the target.
+ *
+ * Everything that is not the name, the dose or when to take it has left the
+ * card. Rung position, doses-left and the step-up question are all real, and
+ * all belong somewhere you go to read rather than somewhere you go to tap —
+ * they are on the compound page and in the bell now.
+ */
+function DueCard({ peptide: p, index, done, titration, onLog, selected, onToggleSelect, skipped, skipReason, onSkip, onUnskip, onFinishVial, onOpenSheet, beckon }) {
   const tState = titration[p.id]
-  const { dose, level, maxLevel } = currentRung(p, tState)
+  const { dose } = currentRung(p, tState)
   const nasal = isNasal(p)
   const units = nasal ? null : unitsFor(p, dose)
-  const cyc = cyclePhase(p, today)
-  const stepDue = stepUpDue(p, tState, today)
-  const [stepOpen, setStepOpen] = useState(false)
-  const confirmStepUp = useStore((s) => s.confirmStepUp)
-  const holdStepUp = useStore((s) => s.holdStepUp)
-  const noCoDraw = nasal || !!p.alwaysSeparate
+  const [menu, setMenu] = useState(false)
+  const [dragging, setDragging] = useState(false)
+  const name = displayName(p)
 
-  // The hint is pairwise and comes from the same matrix the combine plan reads,
-  // in the context of what else is due in this slot — so the two can never
-  // disagree. `partners` is undefined until the matrix resolves; that's the one
-  // case where no claim is made either way.
-  const when = slot === 'PM' ? 'tonight' : 'today'
-  const hint = nasal
-    ? { ok: false, text: 'Nasal spray — nothing to draw' }
-    : p.alwaysSeparate
-      ? { ok: false, text: p.vehicle === 'oil' ? 'Always its own shot — oil-based' : 'Always its own shot' }
-      : partners == null
-        ? null
-        : partners.length
-          ? { ok: true, text: `Can combine with ${partners.map((x) => x.name).join(', ')} ${when}` }
-          : { ok: false, text: `Best on its own ${when}` }
-
-  // last site used for this peptide
-  const lastSiteLog = [...doseLogs].filter((l) => l.peptideId === p.id && l.siteId).sort((a, b) => (b.loggedAt || b.date).localeCompare(a.loggedAt || a.date))[0]
+  if (skipped) {
+    return (
+      <motion.div layout className="flex items-center gap-3 p-4" style={{ opacity: 0.6 }}
+        initial={{ opacity: 0, y: 8 }} animate={{ opacity: 0.6, y: 0 }}>
+        <div className="min-w-0 flex-1">
+          <p className="t-label font-semibold leading-tight">{name}</p>
+          <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs font-medium" style={{ color: 'var(--text-3)' }}>
+            <SkipForward size={12} /> Skipped today{skipReason ? ` · ${REASON_LABEL[skipReason] || skipReason}` : ''}
+            <span>· nothing taken from stock</span>
+          </p>
+        </div>
+        <motion.button whileTap={{ scale: 0.92 }} onClick={onUnskip}
+          className="flex h-10 shrink-0 items-center gap-1.5 rounded-full px-3 text-xs font-black"
+          style={{ background: 'var(--surface-sunk)', color: 'var(--text)' }}
+          aria-label={`Undo skip: ${p.name}`}>
+          <Undo2 size={14} /> Undo
+        </motion.button>
+      </motion.div>
+    )
+  }
 
   return (
-    <motion.div layout className="p-4"
+    <motion.div layout className="relative overflow-hidden"
       initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ ...spring, delay: index * 0.03 }}
-      style={selected
-        ? { background: 'var(--surface-sunk)' }
-        : skipped ? { opacity: 0.6 } : undefined}>
-      <div className="flex items-center gap-3">
-        {/* co-draw select toggle */}
-        {!done && !skipped && (noCoDraw ? (
-          <span className="shrink-0"
-            title={nasal ? 'Sprayed, not injected — cannot be co-drawn' : 'Always injected on its own — cannot be co-drawn'}
-            aria-label={`${p.name} cannot be co-drawn`}
-            style={{ color: 'var(--text-2)', opacity: 0.7 }}>
-            {nasal ? <Wind size={24} /> : <Syringe size={24} />}
-          </span>
-        ) : (
-          <motion.button whileTap={{ scale: 0.85 }} onClick={onToggleSelect}
-            className="shrink-0" aria-label={selected ? `Deselect ${p.name}` : `Select ${p.name} to co-draw`}
-            style={{ color: selected ? 'var(--good)' : 'var(--text-2)' }}>
-            {selected ? <CheckCircle2 size={24} /> : <Circle size={24} />}
-          </motion.button>
-        ))}
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <button onClick={() => onOpenSheet?.(p.id)} data-testid="open-compound-sheet"
-              aria-label={`About ${p.name}`} className="min-w-0 truncate text-left leading-tight">
-              <h3 className="t-label truncate font-semibold">{p.name}</h3>
-            </button>
-            <span className="chip" style={{ color: 'var(--text)' }}>Rung {level + 1}{level === maxLevel ? ' · top' : ''}</span>
-          </div>
-          {/* Dose and units are one fact in two scales, and you draw the
-              units — so they sit in the same near-black, not relegated to a
-              faded tint beside the milligrams. */}
-          <p className="mt-1 flex items-baseline gap-2">
-            <span className="t-metric-sm">{formatDose(dose, p.ladder.unit)}</span>
-            {!nasal && <span className="t-metric-sm" style={{ color: 'var(--text)' }}>{formatUnitsLong(units)}</span>}
-          </p>
-          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-medium leading-tight" style={{ color: 'var(--text-3)' }}>
-            <span className="flex items-center gap-1"><Clock size={12} /> {p.timing}</span>
-            {/* A cycled compound says where it is and how long the on-stretch
-                has left, so the rest that follows is never a surprise. */}
-            <span data-testid="cycle-line">
-              {cyc.phase === 'on'
-                ? `Day ${cyc.dayOfPhase}/${cyc.phaseLength} · ${cyc.daysLeft} day${cyc.daysLeft === 1 ? '' : 's'} left this cycle`
-                : `day ${cyc.cycleDay} · ongoing`}
-            </span>
-            {hint && (
-              <button className="flex items-center gap-1" style={{ color: hint.ok ? 'var(--good)' : 'var(--text-3)' }} onClick={() => goTo('mix')}>
-                {nasal ? <Wind size={12} /> : <Combine size={12} />} {hint.text}
-              </button>
-            )}
-            {done && lastSiteLog && (
-              <span className="flex items-center gap-1" style={{ color: 'var(--good)' }}>
-                <MapPin size={12} /> {SITE_BY_ID[lastSiteLog.siteId]?.label}
-              </span>
-            )}
-            {/* a heads-up, not an authority — your taps decide when a vial is
-                done, and this is only what the logs add up to */}
-            {vial?.dosesLeft != null && (
-              <span className="flex items-center gap-1" data-testid="doses-left"
-                style={{ color: vial.dosesLeft <= 2 ? 'var(--warn)' : 'var(--text-3)' }}>
-                <Droplet size={12} /> ~{vial.dosesLeft} dose{vial.dosesLeft === 1 ? '' : 's'} left in this vial
-              </span>
-            )}
-          </div>
-        </div>
-        {skipped ? (
-          <motion.button whileTap={{ scale: 0.92 }} onClick={onUnskip}
-            className="flex h-12 shrink-0 flex-col items-center justify-center gap-1 rounded-[14px] px-3"
-            style={{ background: 'var(--surface-sunk)', color: 'var(--text)' }}
-            aria-label={`Undo skip: ${p.name}`}>
-            <Undo2 size={18} />
-            <span className="text-xs font-black">Undo</span>
-          </motion.button>
-        ) : (
-          <div className="flex shrink-0 items-center gap-2">
-            <motion.button whileTap={{ scale: 0.9 }} disabled={done} onClick={onLog}
-              className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-[14px] text-sm font-black ${done ? '' : 'btn-primary'}`}
-              style={done ? { background: 'var(--surface-sunk)', color: 'var(--good)' } : undefined}
-              aria-label={done ? `${p.name} logged` : `Log ${p.name}`}>
-              {done ? (
-                <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 400, damping: 15 }}>
-                  <Check size={26} strokeWidth={3} />
-                </motion.span>
-              ) : 'Log'}
-            </motion.button>
-          </div>
-        )}
-      </div>
+      style={selected ? { background: 'var(--surface-sunk)' } : undefined}>
 
-      {/* Secondary actions sit under the row rather than beside Log: three
-          full-height buttons abreast pushed the name and the dose into
-          truncation at 390px, and the dose is the thing you came to read. */}
-      {!done && !skipped && (
-        <div className="mt-2 flex gap-2">
-          <motion.button whileTap={{ scale: 0.97 }} onClick={onSkip} data-testid="skip-peptide"
-            className="flex flex-1 items-center justify-center gap-2 rounded-full py-2 text-xs font-black"
-            style={{ background: 'var(--surface-sunk)', color: 'var(--text-2)' }}
-            aria-label={`Skip ${p.name}`}>
+      {/* Revealed by dragging the row aside — the same action the … menu holds,
+          for anyone who reaches for a swipe first. Rendered only while the drag
+          is happening: the row's own background is translucent by design, so a
+          layer parked underneath it shows through at rest. */}
+      {dragging && (
+        <div className="absolute inset-y-0 right-0 flex items-center pr-5" aria-hidden>
+          <span className="flex items-center gap-1 text-xs font-black" style={{ color: 'var(--warn)' }}>
             <SkipForward size={13} /> Skip
-          </motion.button>
-          {onFinishVial && !nasal && (
-            <motion.button whileTap={{ scale: 0.97 }} onClick={onFinishVial} data-testid="finish-vial"
-              className="flex flex-1 items-center justify-center gap-2 rounded-full py-2 text-xs font-black"
-              style={{ background: 'var(--surface-sunk)', color: 'var(--text-2)' }}
-              aria-label={`Finished vial: ${p.name}`}>
-              <PackageOpen size={13} /> Vial done
-            </motion.button>
-          )}
+          </span>
         </div>
       )}
 
-      {skipped && (
-        <p className="mt-2 flex items-center gap-2 text-xs font-bold" style={{ color: 'var(--text)' }}>
-          <SkipForward size={12} /> Skipped today{skipReason ? ` · ${REASON_LABEL[skipReason] || skipReason}` : ''}
-          <span className="font-medium" style={{ color: 'var(--text-2)' }}>· nothing taken from stock</span>
-        </p>
-      )}
-      {/* The step-up decision is answered where it is asked. It is a titration
-          call, not a schedule edit, and sending someone to another screen to
-          say "yes, that felt fine" is how a prompt gets ignored for weeks. */}
-      {stepDue && !stepOpen && (
-        <button onClick={() => setStepOpen(true)} data-testid="stepup-prompt"
-          className="mt-3 flex w-full items-center justify-between gap-2 rounded-full px-3 py-2 text-xs font-bold"
-          style={{ background: 'var(--surface-sunk)', color: 'var(--text)' }}>
-          <span className="flex items-center gap-2"><Zap size={13} /> Step-up ready — tolerating well?</span>
-          <ChevronRight size={14} />
+      <motion.div
+        drag={done ? false : 'x'}
+        dragConstraints={{ left: -100, right: 0 }}
+        dragElastic={0.06}
+        dragSnapToOrigin
+        onDragStart={() => setDragging(true)}
+        onDragEnd={(e, info) => { setDragging(false); if (info.offset.x < -70) onSkip() }}
+        className="relative flex items-center">
+
+        {/* the row is the button */}
+        <motion.button whileTap={done ? undefined : { scale: 0.99 }} onClick={done ? undefined : onLog}
+          disabled={done} data-testid="log-row"
+          className={`flex min-w-0 flex-1 items-center gap-3 p-4 text-left ${beckon ? 'beckon' : ''}`}
+          aria-label={done ? `${p.name} logged` : `Log ${p.name}`}>
+          <span className="min-w-0 flex-1">
+            {/* wraps rather than truncates — a short name is short enough to fit */}
+            <span className="t-label block font-semibold leading-tight">{name}</span>
+            <span className="mt-1 flex items-baseline gap-2">
+              <span className="t-metric-sm tabular-nums">{formatDose(dose, p.ladder.unit)}</span>
+              {!nasal && <span className="t-metric-sm tabular-nums" style={{ color: 'var(--text)' }}>{formatUnitsLong(units)}</span>}
+            </span>
+            <span className="mt-1 flex items-center gap-1 text-xs font-medium leading-tight" style={{ color: 'var(--text-3)' }}>
+              <Clock size={12} /> {p.timing}
+            </span>
+          </span>
+          <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] text-xs font-black ${done ? '' : 'btn-primary'}`}
+            style={done ? { background: 'var(--surface-sunk)', color: 'var(--good)' } : undefined}>
+            {done ? (
+              <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 400, damping: 15 }}>
+                <Check size={24} strokeWidth={3} />
+              </motion.span>
+            ) : 'Log'}
+          </span>
+        </motion.button>
+
+        {/* everything occasional, out of the way of the thing done daily */}
+        <button onClick={() => setMenu((v) => !v)} data-testid="row-overflow"
+          aria-label={`More for ${p.name}`} aria-expanded={menu}
+          className="mr-3 flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
+          style={{ background: menu ? 'var(--surface-sunk)' : 'transparent', color: 'var(--text-3)' }}>
+          <MoreHorizontal size={18} />
         </button>
-      )}
-      {stepDue && stepOpen && (
-        <div className="mt-3 rounded-[14px] p-3" data-testid="stepup-confirm"
-          style={{ background: 'var(--surface-sunk)' }}>
-          <p className="text-xs font-black" style={{ color: 'var(--text)' }}>
-            {p.ladder.intervalWeeks} week{p.ladder.intervalWeeks === 1 ? '' : 's'} at {formatDose(dose, p.ladder.unit)} —
-            tolerating well?
-          </p>
-          <p className="mt-1 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
-            Advancing moves you to the next rung. Holding keeps this dose and asks again next interval.
-          </p>
-          <div className="mt-3 flex gap-2">
-            <button onClick={() => { holdStepUp(p.id); setStepOpen(false) }} data-testid="stepup-hold"
-              className="flex-1 rounded-full py-2 text-xs font-black"
-              style={{ background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
-              Hold here
-            </button>
-            <button onClick={() => { confirmStepUp(p.id); setStepOpen(false) }} data-testid="stepup-advance"
-              className="btn-primary flex-1 rounded-full py-2 text-xs font-black">
-              Advance
-            </button>
-          </div>
-        </div>
-      )}
+      </motion.div>
+
+      <AnimatePresence initial={false}>
+        {menu && (
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }} className="overflow-hidden" data-testid="row-menu">
+            <div className="flex flex-wrap gap-2 px-4 pb-3">
+              <MenuAction icon={SkipForward} label="Skip" testid="skip-peptide"
+                onClick={() => { setMenu(false); onSkip() }} />
+              {!nasal && onFinishVial && (
+                <MenuAction icon={PackageOpen} label="Vial done" testid="finish-vial"
+                  onClick={() => { setMenu(false); onFinishVial() }} />
+              )}
+              {!nasal && !p.alwaysSeparate && !done && (
+                <MenuAction icon={Layers} label={selected ? 'In co-draw' : 'Log together'} testid="row-codraw"
+                  active={selected} onClick={() => { setMenu(false); onToggleSelect() }} />
+              )}
+              <MenuAction icon={Info} label="About" testid="open-compound-sheet"
+                onClick={() => { setMenu(false); onOpenSheet?.(p.id) }} />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
+  )
+}
+
+function MenuAction({ icon: Icon, label, onClick, testid, active }) {
+  return (
+    <button onClick={onClick} data-testid={testid}
+      className="flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-black"
+      style={{
+        background: active ? 'color-mix(in srgb, var(--good) 16%, transparent)' : 'var(--surface-sunk)',
+        color: active ? 'var(--good)' : 'var(--text-2)',
+      }}>
+      <Icon size={13} /> {label}
+    </button>
+  )
+}
+
+/**
+ * "2 still due from this morning."
+ *
+ * One line that clears itself without going anywhere, for the doses the app
+ * scrolled past when it flipped itself to the evening.
+ */
+function EarlierSlot({ from, count, onLogAll, onSwitch }) {
+  if (!from || count <= 0) return null
+  return (
+    <div className="card flex items-center gap-3 p-3" data-testid="earlier-slot">
+      <Clock size={15} className="shrink-0" style={{ color: 'var(--warn)' }} />
+      <button onClick={onSwitch} className="min-w-0 flex-1 text-left text-xs font-bold">
+        {count} still due from this {from === 'AM' ? 'morning' : 'evening'}
+      </button>
+      <motion.button whileTap={{ scale: 0.96 }} onClick={onLogAll} data-testid="log-earlier"
+        className="btn-primary shrink-0 rounded-full px-3 py-2 text-xs font-black">
+        Log {count}
+      </motion.button>
+    </div>
   )
 }

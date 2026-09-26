@@ -85,18 +85,13 @@ describe('loading an existing protocol item back into the editor', () => {
   })
 
   it('survives the round trip back into a peptide unchanged', () => {
-    const mine = pep({ allowedZone: 'thigh', scheduleWeekdays: [1, 4] })
+    const mine = pep({ scheduleWeekdays: [1, 4] })
     const back = toPeptide(entryFromPeptide(mine), T)
     expect(back.ladder).toEqual(mine.ladder)
     expect(back.frequency).toBe(mine.frequency)
-    expect(back.allowedZone).toBe('thigh')
     expect(back.scheduleWeekdays).toEqual([1, 4])
   })
 
-  it('carries the allowed zone, so a thigh-only compound stays thigh-only', () => {
-    expect(entryFromPeptide(pep({ allowedZone: 'thigh' })).allowedZone).toBe('thigh')
-    expect(entryFromPeptide(pep()).allowedZone).toBe(null)
-  })
 
   it('offers the nasal route only where the compound supports it', () => {
     expect(entryFromPeptide(pep({ id: 'semax', intranasalCapable: true })).routes).toContain('Nasal')

@@ -9,17 +9,6 @@ const wk = (n) => n * 7
 // Every peptide's BAC water stays editable per-compound.
 export const DEFAULT_BAC_ML = 2
 
-/**
- * Compounds that reliably raise a local reaction — welts, redness, lumps,
- * stinging — and are therefore kept out of belly fat and into the thigh, which
- * tolerates them better and is easier to live with while it settles.
- *
- * A default, not a rule: the Library exposes the zone per compound, and this
- * list only decides where each one starts. MOTS-c and cagrilintide are left
- * flexible deliberately — moderate risk, not enough to give up two thirds of
- * the map for.
- */
-export const THIGH_ONLY_IDS = ['ss31', 'nad', 'testosterone-e', 'tesamorelin', 'ghkcu']
 
 // What each seeded peptide's BAC volume used to be. A stored value matching
 // this was never edited by the user, so it can safely move to the new default;
@@ -33,7 +22,10 @@ export const LEGACY_BAC_ML = {
 // intranasalCapable: can be switched to a nasal spray (same prep and strength)
 export function seedPeptides(todayStr) {
   const start = todayStr || format(new Date(), 'yyyy-MM-dd')
-  const p = (o) => ({ route: 'SubQ', startDate: start, ...o })
+  // startDate anchors the schedule; startedOn is tenure. They are the same day
+  // for a protocol built today, and the second one is the one the user can move
+  // backwards when they were already on something before installing this.
+  const p = (o) => ({ route: 'SubQ', startDate: start, startedOn: start, ...o })
   return [
     p({ id: 'retatrutide', name: 'Retatrutide', frequency: 'weekly', timing: 'Consistent day each week', slot: 'AM',
       cycleOnDays: 0, cycleOffDays: 0,
@@ -51,7 +43,7 @@ export function seedPeptides(todayStr) {
       cycleOnDays: wk(8), cycleOffDays: wk(2),
       ladder: { floor: 100, step: 100, intervalWeeks: 1, ceiling: 500, unit: 'mcg' },
       recon: { vialMg: 10, bacMl: DEFAULT_BAC_ML, expiryDays: 30 } }),
-    p({ id: 'ss31', allowedZone: 'thigh', name: 'SS-31', frequency: 'daily', timing: 'Morning',
+    p({ id: 'ss31', name: 'SS-31', frequency: 'daily', timing: 'Morning',
       cycleOnDays: wk(4), cycleOffDays: wk(4),
       ladder: { floor: 2.5, step: 2.5, intervalWeeks: 2, ceiling: 10, unit: 'mg' },
       recon: { vialMg: 50, bacMl: DEFAULT_BAC_ML, expiryDays: 14 } }),
@@ -67,15 +59,15 @@ export function seedPeptides(todayStr) {
       cycleOnDays: wk(6), cycleOffDays: wk(2),
       ladder: { floor: 250, step: 250, intervalWeeks: 2, ceiling: 500, unit: 'mcg' },
       recon: { vialMg: 5, bacMl: DEFAULT_BAC_ML, expiryDays: 28 } }),
-    p({ id: 'ghkcu', allowedZone: 'thigh', name: 'GHK-Cu', frequency: 'daily', timing: 'Before bed',
+    p({ id: 'ghkcu', name: 'GHK-Cu', frequency: 'daily', timing: 'Before bed',
       cycleOnDays: 30, cycleOffDays: 30,
       ladder: { floor: 1, step: 1, intervalWeeks: 2, ceiling: 2, unit: 'mg' },
       recon: { vialMg: 50, bacMl: DEFAULT_BAC_ML, expiryDays: 28 } }),
-    p({ id: 'nad', allowedZone: 'thigh', name: 'NAD+', frequency: '3xweek', timing: 'Morning',
+    p({ id: 'nad', name: 'NAD+', frequency: '3xweek', timing: 'Morning',
       cycleOnDays: 0, cycleOffDays: 0,
       ladder: { floor: 20, step: 25, intervalWeeks: 1, ceiling: 100, unit: 'mg' },
       recon: { vialMg: 500, bacMl: DEFAULT_BAC_ML, expiryDays: 14 } }),
-    p({ id: 'tesamorelin', allowedZone: 'thigh', name: 'Tesamorelin', frequency: 'daily', timing: 'Fasted AM or bedtime', slot: 'AM',
+    p({ id: 'tesamorelin', name: 'Tesamorelin', frequency: 'daily', timing: 'Fasted AM or bedtime', slot: 'AM',
       cycleOnDays: wk(8), cycleOffDays: wk(4),
       ladder: { floor: 1, step: 1, intervalWeeks: 2, ceiling: 2, unit: 'mg' },
       recon: { vialMg: 10, bacMl: DEFAULT_BAC_ML, expiryDays: 7 } }),
@@ -95,6 +87,7 @@ export function testosteroneEnanthate(startDate) {
     id: TEST_E_ID,
     name: 'Testosterone Enanthate',
     startDate,
+    startedOn: startDate,
     frequency: '2xweek',
     scheduleWeekdays: [1, 4], // Mon / Thu — editable
     slot: 'AM',
@@ -102,7 +95,7 @@ export function testosteroneEnanthate(startDate) {
     // SubQ into thigh fat rather than IM: a small oil volume goes in fine
     // subcutaneously, and it keeps a reaction-prone compound off the belly.
     route: 'SubQ',
-    allowedZone: 'thigh',
+   
     vehicle: 'oil',
     preparation: 'premixed',
     alwaysSeparate: true,
@@ -143,6 +136,40 @@ export function seedTitration(peptides, todayStr) {
   const t = {}
   for (const p of peptides) t[p.id] = { level: 0, levelStartDate: todayStr || p.startDate }
   return t
+}
+
+/**
+ * One open run per peptide, from the day the protocol starts.
+ *
+ * Runs are never deleted — taking a compound off the protocol closes its run,
+ * and adding it back opens a second one, so "I ran this for four months last
+ * year" survives the list it was on.
+ */
+export function seedRuns(peptides, todayStr) {
+  const r = {}
+  for (const p of peptides) {
+    r[p.id] = [{ id: `run-${p.id}`, startedOn: p.startedOn || todayStr || p.startDate, endedOn: null }]
+  }
+  return r
+}
+
+/**
+ * The first point on each compound's dose line.
+ *
+ * Without it the timeline has a start date and no dose to draw at it, which
+ * reads as "nothing recorded" for a protocol that plainly has a dose. Every
+ * later point — step-up, hold, hand-set dose — is appended as it happens.
+ */
+export function seedDoseEvents(peptides, todayStr) {
+  return peptides.map((p) => ({
+    id: `de-seed-${p.id}`,
+    peptideId: p.id,
+    kind: 'start',
+    date: p.startedOn || todayStr || p.startDate,
+    at: null,
+    to: p.ladder?.floor ?? null,
+    unit: p.ladder?.unit ?? null,
+  }))
 }
 
 // One open vial per peptide, not yet reconstituted (expiry timer starts on reconstitution).

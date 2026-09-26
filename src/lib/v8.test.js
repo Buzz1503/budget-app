@@ -6,7 +6,6 @@ import {
 import { buildRungs, currentRung, stepUpDue, frequencyHits, dosesPerWeek } from './schedule'
 import { isDueToday, scheduledWeekdaySet, weekdayPickCount, needsProtocolSetup, slotOf } from './daily'
 import { expiryInfo } from './inventory'
-import { suggestSite, sitesForRoute, SITES, IM_SITES, SITE_BY_ID } from './sites'
 import { testosteroneEnanthate, TEST_E_ID, seedPeptides } from '../data/seed'
 
 const TE = testosteroneEnanthate('2026-01-01')
@@ -93,43 +92,14 @@ describe('Testosterone Enanthate — oil-based injectable', () => {
 
   // v20 moved it onto the SubQ map, into thigh fat, to keep a reaction-prone
   // compound off the belly. It is still oil, and still never co-drawn.
-  it('is subcutaneous oil into thigh fat by default', () => {
+  it('is subcutaneous oil by default', () => {
     expect(TE.route).toBe('SubQ')
-    expect(TE.allowedZone).toBe('thigh')
     expect(TE.vehicle).toBe('oil')
+    // the zone it used to carry went with injection-site rotation
+    expect(TE.allowedZone).toBeUndefined()
   })
 })
 
-describe('IM rotation map', () => {
-  it('offers glute / delt / quad for IM and the belly/thigh map for SubQ', () => {
-    const im = sitesForRoute('IM')
-    expect(im).toBe(IM_SITES)
-    expect(im.map((s) => s.region).sort()).toEqual(
-      ['delt-L', 'delt-R', 'glute-L', 'glute-R', 'quad-L', 'quad-R']
-    )
-    expect(sitesForRoute('SubQ')).toBe(SITES)
-    expect(sitesForRoute(undefined)).toBe(SITES)
-  })
-
-  it('suggests within the requested route only', () => {
-    const logs = []
-    expect(SITE_BY_ID[suggestSite(logs, '2026-02-01', 'IM')].route).toBe('IM')
-    expect(SITE_BY_ID[suggestSite(logs, '2026-02-01')].route).toBeUndefined()
-  })
-
-  it('does not let an IM injection steer the SubQ suggestion', () => {
-    const logs = [{ peptideId: TEST_E_ID, siteId: 'im-glute-l', date: '2026-02-01', loggedAt: '2026-02-01T08:00:00Z' }]
-    const s = suggestSite(logs, '2026-02-01', 'SubQ')
-    expect(SITES.some((x) => x.id === s)).toBe(true)
-  })
-
-  it('rotates away from the last IM site used', () => {
-    const logs = [{ peptideId: TEST_E_ID, siteId: 'im-glute-l', date: '2026-02-01', loggedAt: '2026-02-01T08:00:00Z' }]
-    expect(suggestSite(logs, '2026-02-02', 'IM')).not.toBe('im-glute-l')
-  })
-})
-
-// ---- shot grouping ----
 const V = {
   'a|b': 'MIX', 'a|c': 'MIX', 'b|c': 'MIX',
   'a|d': 'DONT_MIX', 'b|d': 'MIX', 'c|d': 'MIX',

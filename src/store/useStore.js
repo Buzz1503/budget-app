@@ -2,8 +2,8 @@ import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import { format } from 'date-fns'
 import {
-  seedPeptides, seedVials, seedTitration, seedOpenVials,
-  testosteroneEnanthate, TEST_E_ID, DEFAULT_BAC_ML, LEGACY_BAC_ML, THIGH_ONLY_IDS,
+  seedPeptides, seedVials, seedTitration, seedOpenVials, seedRuns, seedDoseEvents,
+  testosteroneEnanthate, TEST_E_ID, DEFAULT_BAC_ML, LEGACY_BAC_ML,
 } from '../data/seed'
 import { SEED_KNOWN_GOOD } from '../lib/mixing'
 import { currentRung, cycleInfo, addDaysStr } from '../lib/schedule'
@@ -68,15 +68,27 @@ function initialState() {
     // Draws taken out of a shared vial by someone who is not on this protocol.
     // Deliberately not doseLogs: they move the vial, and nothing else.
     sharedDraws: [],
+    /**
+     * How long each compound has been run, across stops and restarts.
+     *
+     * { peptideId: [{ id, startedOn, endedOn|null, reason }] } — the open run
+     * is the one with endedOn null. Removing a compound closes its run rather
+     * than deleting it, because "I ran this for four months last year" is a
+     * fact about me that survives me taking it off the list.
+     */
+    runs: seedRuns(peptides, t),
+    /**
+     * Every change to what a dose actually was, in order.
+     *
+     * The titration slice only ever knew the rung it is on now, which cannot
+     * draw a line. These are the points on it: step-ups, holds, manual
+     * overrides, route changes and the run boundaries. Append-only.
+     */
+    doseEvents: seedDoseEvents(peptides, t),
     coachMarks: {}, // one-time beginner tips already seen, by id
     // restock list: horizon, per-line quantity overrides, what's been ordered,
     // expected delivery dates, and editable consumable unit costs
     restock: { horizon: 'cycles', qty: {}, checked: {}, delivery: {}, unitCostsUsd: {} },
-    // Reactions logged against an injection site: { siteId: [{ id, kind, date, note, cleared }] }.
-    // An uncleared reaction parks the site — nothing routes to it until it's cleared.
-    siteReactions: {},
-    // 'suggest' picks one spot each time; 'path' walks a pre-planned even sequence.
-    rotation: { mode: 'suggest' },
     // fx_usd_to_aud is the only half of a price that is allowed to change
     // without the vial changing. Everything in dollars is multiplied out from
     // it at render time — see lib/cost.js for why none of it is stored.
@@ -138,6 +150,7 @@ const useStore = create(
             return { ...p, route, ladder: convertLadderForRoute(p.ladder, nowNasal) }
           }),
         }))
+        get()._recordDoseEvent(id, 'route', { note: route })
       },
       updateRecon(id, patch) {
         set((s) => ({
@@ -145,8 +158,49 @@ const useStore = create(
         }))
       },
       // `data.id` may carry a compound id from the matrix — keeping it as the
-      // peptide id is what wires the new entry into Mix / co-draw / rotation
+      // peptide id is what wires the new entry into Mix and co-draw
       // with no manual mapping. Returns null if that id is already in the stack.
+      /** Append one point to the dose timeline. */
+      _recordDoseEvent(peptideId, kind, patch = {}) {
+        const ev = {
+          id: `de-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          peptideId, kind, date: patch.date || todayStr(), at: new Date().toISOString(), ...patch,
+        }
+        set((s) => ({ doseEvents: [...(s.doseEvents || []), ev] }))
+        return ev.id
+      },
+
+      /** Open a run for a compound, closing nothing — restarts stack up. */
+      _openRun(peptideId, startedOn) {
+        set((s) => {
+          const mine = s.runs?.[peptideId] || []
+          if (mine.some((r) => !r.endedOn)) return {}
+          return {
+            runs: {
+              ...s.runs,
+              [peptideId]: [...mine, {
+                id: `run-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+                startedOn: startedOn || todayStr(), endedOn: null,
+              }],
+            },
+          }
+        })
+      },
+
+      /** Close the open run. Never deletes one — the history is the point. */
+      _closeRun(peptideId, reason = 'removed') {
+        set((s) => {
+          const mine = s.runs?.[peptideId] || []
+          if (!mine.some((r) => !r.endedOn)) return {}
+          return {
+            runs: {
+              ...s.runs,
+              [peptideId]: mine.map((r) => (r.endedOn ? r : { ...r, endedOn: todayStr(), reason })),
+            },
+          }
+        })
+      },
+
       addPeptide(data = {}) {
         const t = todayStr()
         const id = data.id || `custom-${Date.now()}`
@@ -162,12 +216,88 @@ const useStore = create(
         // Attach the evidence reference and seed the descriptive protocol text.
         // Structured dose/ladder/recon are never derived from it.
         const peptide = { ...base, ...(enrichPeptide(base) || {}) }
+        // startedOn is tenure and startDate is the schedule's anchor. They are
+        // the same day when you start today, and different the moment you say
+        // you have been on this since March — which is the whole point of it.
+        if (!peptide.startedOn) peptide.startedOn = peptide.startDate || t
         set((s) => ({
           peptides: [...s.peptides, peptide],
           titration: { ...s.titration, [id]: { level: 0, levelStartDate: t } },
           openVials: { ...s.openVials, [id]: { remainingMg: peptide.recon.vialMg || 0, reconstitutedAt: null } },
         }))
+        get()._openRun(id, peptide.startedOn)
+        get()._recordDoseEvent(id, 'start', {
+          date: peptide.startedOn,
+          to: peptide.ladder?.floor ?? null, unit: peptide.ladder?.unit ?? null,
+        })
         return id
+      },
+
+      /**
+       * Move a compound's start date, including backwards.
+       *
+       * Tenure only. No logs are written, no stock moves and adherence does not
+       * shift — a date you were taking something on is not evidence that you
+       * recorded it, and the app must not manufacture the difference.
+       */
+      setStartedOn(id, date) {
+        if (!date) return
+        set((s) => ({
+          peptides: s.peptides.map((p) => (p.id === id ? { ...p, startedOn: date } : p)),
+          runs: {
+            ...s.runs,
+            [id]: (s.runs?.[id] || []).map((r, i) => (i === 0 ? { ...r, startedOn: date } : r)),
+          },
+          // The 'start' point is the same fact as the start date, so it moves
+          // with it. Leaving it behind would draw a line that starts two years
+          // after the run it belongs to.
+          doseEvents: (s.doseEvents || []).map((e) => (
+            e.peptideId === id && e.kind === 'start' ? { ...e, date } : e
+          )),
+        }))
+      },
+
+      /**
+       * What I was doing before I started logging.
+       *
+       * Entered by hand, kept apart from logs, and labelled estimated wherever
+       * it surfaces. It feeds tenure and the earliest segment of the timeline;
+       * it never feeds adherence, because nothing here was recorded at the time.
+       */
+      setPriorDoseHistory(id, entries = []) {
+        set((s) => ({
+          peptides: s.peptides.map((p) => (p.id === id
+            ? { ...p, priorDoseHistory: entries.filter((e) => e && e.fromDate) }
+            : p)),
+        }))
+      },
+      addPriorDose(id, entry = {}) {
+        set((s) => ({
+          peptides: s.peptides.map((p) => (p.id === id
+            ? {
+              ...p,
+              priorDoseHistory: [...(p.priorDoseHistory || []), {
+                id: `ph-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+                fromDate: entry.fromDate || todayStr(),
+                dose: entry.dose ?? p.ladder?.floor ?? 0,
+                unit: entry.unit || p.ladder?.unit || 'mcg',
+                frequency: entry.frequency || p.frequency || 'daily',
+              }].sort((a, b) => a.fromDate.localeCompare(b.fromDate)),
+            }
+            : p)),
+        }))
+      },
+      removePriorDose(id, entryId) {
+        set((s) => ({
+          peptides: s.peptides.map((p) => (p.id === id
+            ? { ...p, priorDoseHistory: (p.priorDoseHistory || []).filter((e) => e.id !== entryId) }
+            : p)),
+        }))
+      },
+      setShortName(id, shortName) {
+        set((s) => ({
+          peptides: s.peptides.map((p) => (p.id === id ? { ...p, shortName: String(shortName || '').trim() } : p)),
+        }))
       },
       /**
        * Take a compound out of my protocol.
@@ -182,6 +312,10 @@ const useStore = create(
        * The only thing that ends is the schedule.
        */
       removePeptide(id) {
+        // Closes the run rather than forgetting it: re-adding later starts a
+        // second run beside the first, and the lifetime total is the sum of both.
+        get()._closeRun(id, 'removed')
+        get()._recordDoseEvent(id, 'stop')
         set((s) => {
           const titration = { ...s.titration }
           const openVials = { ...s.openVials }
@@ -206,6 +340,9 @@ const useStore = create(
         set((st) => ({
           titration: { ...st.titration, [id]: { level: newLevel, levelStartDate: todayStr() } },
         }))
+        get()._recordDoseEvent(id, 'step-up', {
+          from: rungs[level], to: rungs[newLevel], unit: p.ladder.unit,
+        })
         const prev = s.titration[id]
         get().showToast(
           `${p.name} stepped up to ${rungs[newLevel]} ${p.ladder.unit}`,
@@ -214,9 +351,15 @@ const useStore = create(
       },
       holdStepUp(id) {
         // declined → keep dose, restart the interval so it re-asks next interval
-        set((s) => ({
-          titration: { ...s.titration, [id]: { ...s.titration[id], levelStartDate: todayStr() } },
+        const s = get()
+        const p = s.peptides.find((x) => x.id === id)
+        set((st) => ({
+          titration: { ...st.titration, [id]: { ...st.titration[id], levelStartDate: todayStr() } },
         }))
+        if (p) {
+          const { dose } = currentRung(p, s.titration[id])
+          get()._recordDoseEvent(id, 'hold', { from: dose, to: dose, unit: p.ladder.unit })
+        }
       },
       setRungLevel(id, level) {
         const s = get()
@@ -224,15 +367,21 @@ const useStore = create(
         if (!p) return
         const { maxLevel } = currentRung(p, s.titration[id])
         const clamped = Math.max(0, Math.min(level, maxLevel))
+        const { dose: fromDose, rungs } = currentRung(p, s.titration[id])
         set((st) => ({
           titration: { ...st.titration, [id]: { level: clamped, levelStartDate: todayStr() } },
         }))
+        if (rungs[clamped] !== fromDose) {
+          get()._recordDoseEvent(id, 'override', {
+            from: fromDose, to: rungs[clamped], unit: p.ladder.unit,
+          })
+        }
       },
 
       // ---------- logging ----------
       // Append one dose log + decrement its inventory. No toast here so a
       // co-draw can record several doses then award once. Returns the peptide.
-      _recordDose(peptideId, siteId, loggedAt, coDrawId, dateStr, opts = {}) {
+      _recordDose(peptideId, loggedAt, coDrawId, dateStr, opts = {}) {
         const s = get()
         const p = s.peptides.find((x) => x.id === peptideId)
         if (!p) return null
@@ -247,7 +396,6 @@ const useStore = create(
           // and no injection site
           insulinUnits: isNasal(p) ? null : Math.round(doseToUnits(doseMg, conc) * 10) / 10,
           route: p.route || 'SubQ',
-          siteId: isNasal(p) ? null : (siteId || null),
           loggedAt: loggedAt || new Date(`${t}T12:00:00`).toISOString(),
           coDrawId: coDrawId || null,
         }
@@ -297,12 +445,12 @@ const useStore = create(
        * difference is the date it lands on and a flag saying it was entered
        * later, so the record does not quietly claim to be something it isn't.
        */
-      backfillDose(peptideId, dateStr, { siteId = null, doseValue = null, coDrawId = null } = {}) {
+      backfillDose(peptideId, dateStr, { doseValue = null, coDrawId = null } = {}) {
         if (!peptideId || !dateStr) return null
         const s = get()
         const v = vialOnDate(peptideId, dateStr, { openVials: s.openVials, finishedVials: s.finishedVials })
         const p = get()._recordDose(
-          peptideId, siteId, new Date(`${dateStr}T12:00:00`).toISOString(), coDrawId, dateStr,
+          peptideId, new Date(`${dateStr}T12:00:00`).toISOString(), coDrawId, dateStr,
           { doseValue, movesStock: v.movesStock, drawnFrom: v.batchId },
         )
         if (!p) return null
@@ -318,15 +466,15 @@ const useStore = create(
        * The same shape as logCoDraw, because it records the same event — the
        * only difference is that it happened on a day that has already passed.
        * Splitting it into separate logs would put three punctures into the
-       * rotation history where there was one.
+       * history where there was one.
        */
-      backfillCoDraw(peptideIds = [], dateStr, { siteId = null, doses = {} } = {}) {
+      backfillCoDraw(peptideIds = [], dateStr, { doses = {} } = {}) {
         if (!peptideIds.length || !dateStr) return []
         const coDrawId = `cd-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
         const done = []
         for (const id of peptideIds) {
           const p = get().backfillDose(id, dateStr, {
-            siteId, coDrawId: peptideIds.length > 1 ? coDrawId : null, doseValue: doses[id] ?? null,
+            coDrawId: peptideIds.length > 1 ? coDrawId : null, doseValue: doses[id] ?? null,
           })
           if (p) done.push(p)
         }
@@ -372,21 +520,53 @@ const useStore = create(
         return get().doseLogs.slice(-count).map((l) => l.id)
       },
 
-      logDose(peptideId, siteId) {
-        const p = get()._recordDose(peptideId, siteId, new Date().toISOString(), null)
+      logDose(peptideId) {
+        const p = get()._recordDose(peptideId, new Date().toISOString(), null)
         if (!p) return
         const [id] = get()._lastLoggedIds(1)
         get().showToast(`${p.name} logged`, () => get().undoLog(id))
       },
 
+      /**
+       * Log a whole slot in one tap.
+       *
+       * Deliberately not a co-draw: these are separate injections that happen
+       * to be due together, so they get separate logs and no shared coDrawId.
+       * One toast covers the batch, and its Undo takes the whole batch back
+       * out — a row of six toasts, each undoing one sixth of what just
+       * happened, is not an undo anybody can use.
+       */
+      logMany(peptideIds = [], supplementIds = []) {
+        const loggedAt = new Date().toISOString()
+        const names = []
+        for (const id of peptideIds) {
+          const p = get()._recordDose(id, loggedAt, null)
+          if (p) names.push(p.name)
+        }
+        const doseIds = get()._lastLoggedIds(names.length)
+        const suppTaken = []
+        for (const id of supplementIds) {
+          if (get().toggleSupplementTaken(id, null, { quiet: true })) suppTaken.push(id)
+        }
+        const n = names.length + suppTaken.length
+        if (n === 0) return
+        get().showToast(
+          n === 1 ? `${names[0] || 'Taken'} logged` : `${n} logged`,
+          () => {
+            for (const id of doseIds) get().undoLog(id)
+            for (const id of suppTaken) get().toggleSupplementTaken(id, null, { quiet: true })
+          },
+        )
+      },
+
       // Co-draw: several peptides drawn into one syringe → one injection event
       // at one site with one shared timestamp + coDrawId.
-      logCoDraw(peptideIds, siteId) {
+      logCoDraw(peptideIds) {
         const loggedAt = new Date().toISOString()
         const coDrawId = `cd-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
         const logged = []
         for (const id of peptideIds) {
-          const p = get()._recordDose(id, siteId, loggedAt, coDrawId)
+          const p = get()._recordDose(id, loggedAt, coDrawId)
           if (p) logged.push(p)
         }
         if (!logged.length) return
@@ -396,39 +576,6 @@ const useStore = create(
           () => { for (const id of ids) get().undoLog(id) }
         )
       },
-      // ---------- injection-site reactions ----------
-      logSiteReaction(siteId, kind, note) {
-        if (!siteId || !kind) return
-        const entry = {
-          id: `rx-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-          kind, date: todayStr(), note: note || '', cleared: false,
-        }
-        set((s) => ({
-          siteReactions: { ...s.siteReactions, [siteId]: [...(s.siteReactions[siteId] || []), entry] },
-        }))
-      },
-      // Clearing marks the history rather than deleting it — a site that keeps
-      // reacting is worth knowing about even after each one settles.
-      clearSiteReactions(siteId) {
-        set((s) => ({
-          siteReactions: {
-            ...s.siteReactions,
-            [siteId]: (s.siteReactions[siteId] || []).map((r) => (r.cleared ? r : { ...r, cleared: true, clearedAt: todayStr() })),
-          },
-        }))
-      },
-      removeSiteReaction(siteId, reactionId) {
-        set((s) => ({
-          siteReactions: {
-            ...s.siteReactions,
-            [siteId]: (s.siteReactions[siteId] || []).filter((r) => r.id !== reactionId),
-          },
-        }))
-      },
-      setRotationMode(mode) {
-        set({ rotation: { mode: mode === 'path' ? 'path' : 'suggest' } })
-      },
-
       // Deleting a log puts the drug back in the vial it came out of — the dose
       // never happened, so the inventory must not go on believing it did.
       undoLog(logId) {
@@ -512,7 +659,7 @@ const useStore = create(
        * that is the whole point of sharing one — so it runs through the same
        * decrement, including rolling onto the next sealed vial when this one
        * runs dry. It is not a dose log: it is not on the owner's protocol, so
-       * it must not touch their adherence, their rotation or their history.
+       * it must not touch their adherence or their history.
        */
       logSharedDraw(peptideId, profileId) {
         const s = get()
@@ -783,7 +930,7 @@ const useStore = create(
       },
       // Taking a supplement is a toggle, not an event: tapping again on the same
       // day undoes a mis-tap rather than recording a second dose.
-      toggleSupplementTaken(id, dateStr = null) {
+      toggleSupplementTaken(id, dateStr = null, { quiet = false } = {}) {
         const t = dateStr || todayStr()
         const s = get()
         const existing = s.supplementLogs.find((l) => l.supplementId === id && l.date === t)
@@ -800,7 +947,7 @@ const useStore = create(
             backfilled: !!dateStr,
           }],
         })
-        get().showToast(`${supp?.name || 'Supplement'} taken`, () => get().toggleSupplementTaken(id, dateStr))
+        if (!quiet) get().showToast(`${supp?.name || 'Supplement'} taken`, () => get().toggleSupplementTaken(id, dateStr))
         return true
       },
 
@@ -815,7 +962,10 @@ const useStore = create(
         // Attribution is snapshotted onto the entry rather than recomputed on
         // read: months later the stack will have changed, and the honest answer
         // is what the suspects were on the day, not what they'd be now.
-        const ctx = { peptides: s.peptides, titration: s.titration, doseLogs: s.doseLogs, todayStr: t }
+        const ctx = {
+          peptides: s.peptides, titration: s.titration, doseLogs: s.doseLogs,
+          doseEvents: s.doseEvents || [], todayStr: t,
+        }
         const withCause = tags.map((tg) => {
           const snap = attributionSnapshot(attributeSymptom(tg.id, ctx))
           return snap ? { ...tg, attribution: snap } : tg
@@ -1039,7 +1189,7 @@ const useStore = create(
     }),
     {
       name: 'peptide-command-center', // storage key is history — renaming it would orphan existing data
-      version: 9,
+      version: 10,
       storage: createJSONStorage(() => safeStorage),
       // Saves written before a release can't pick new library entries up from
       // the seed, so each version bump backfills them here — once. Deleting one
@@ -1053,10 +1203,45 @@ const useStore = create(
       //   v7: batch stock room + the active vial's own clock
       //   v8: gamification and the weekly recap removed
       //   v9: prices held in USD + one exchange rate, never in stored AUD
+      //   v10: injection-site rotation removed
       migrate: (persisted, from) => {
-        if (!persisted || from >= 9) return persisted
+        if (!persisted || from >= 10) return persisted
         const s = { ...persisted }
         const t = todayStr()
+        if (from < 10) {
+          // Tenure needs a starting point and an open run for everything
+          // already on the protocol. The honest one is the schedule's own
+          // startDate — the first day the app believed a dose was due — and
+          // the user can move it backwards from there.
+          s.doseEvents = s.doseEvents || []
+          s.runs = s.runs || {}
+          for (const p of (s.peptides || [])) {
+            if (!p.startedOn) p.startedOn = p.startDate || t
+            if (!s.runs[p.id]?.length) {
+              s.runs[p.id] = [{ id: `run-${p.id}`, startedOn: p.startedOn, endedOn: null }]
+            }
+            // The rung standing now is the only dose history that was ever
+            // stored, so it becomes the first point on the line rather than
+            // the line starting empty for everyone who upgrades.
+            if (!s.doseEvents.some((e) => e.peptideId === p.id)) {
+              s.doseEvents.push({
+                id: `de-mig-${p.id}`, peptideId: p.id, kind: 'start', date: p.startedOn, at: null,
+                to: p.ladder?.floor ?? null, unit: p.ladder?.unit ?? null,
+              })
+            }
+          }
+          // Rotation is gone: the reaction log, the path mode and the per-
+          // compound zone described a feature that no longer exists, and a
+          // dead slice in storage is a dead slice in every future backup.
+          //
+          // The siteId already on a dose log is left exactly where it is. Those
+          // are records of things that happened, the app simply stops reading
+          // the field — deleting history to tidy up a removed feature would be
+          // the app editing the past to match its own present.
+          delete s.siteReactions
+          delete s.rotation
+          s.peptides = (s.peptides || []).map(({ allowedZone, ...p }) => p)
+        }
         if (from < 9) {
           // Money stops being stored in AUD. An existing costAud was entered at
           // whatever rate was in force then, and nothing recorded what that was
@@ -1118,15 +1303,11 @@ const useStore = create(
         }
         if (from < 6) s.skips = s.skips || []
         if (from < 5) {
-          // Only set a zone where the save has none — a peptide the user has
-          // already given an explicit zone is their decision, not ours.
-          s.peptides = (s.peptides || []).map((p) => {
-            const patch = {}
-            if (p.allowedZone == null && THIGH_ONLY_IDS.includes(p.id)) patch.allowedZone = 'thigh'
-            // Test E moves off IM onto SubQ thigh fat, unless it was re-routed
-            if (p.id === TEST_E_ID && p.route === 'IM') patch.route = 'SubQ'
-            return Object.keys(patch).length ? { ...p, ...patch } : p
-          })
+          // The zone this step used to set is gone with rotation; the route
+          // change it also made is not, so that half stays.
+          s.peptides = (s.peptides || []).map((p) => (
+            p.id === TEST_E_ID && p.route === 'IM' ? { ...p, route: 'SubQ' } : p
+          ))
         }
         if (from < 4) {
           // new slices, empty — nothing to convert, just present
@@ -1179,14 +1360,14 @@ const useStore = create(
         coachMarks: { ...current.coachMarks, ...(persisted?.coachMarks || {}) },
         restock: { ...current.restock, ...(persisted?.restock || {}) },
         bodyRefs: { ...current.bodyRefs, ...(persisted?.bodyRefs || {}) },
-        siteReactions: { ...current.siteReactions, ...(persisted?.siteReactions || {}) },
-        rotation: { ...current.rotation, ...(persisted?.rotation || {}) },
         // saves written before v19 have neither key
         supplements: persisted?.supplements || current.supplements,
         supplementLogs: persisted?.supplementLogs || current.supplementLogs,
         skips: persisted?.skips || current.skips,
         finishedVials: persisted?.finishedVials || current.finishedVials,
         sharedDraws: persisted?.sharedDraws || current.sharedDraws,
+        doseEvents: persisted?.doseEvents || current.doseEvents,
+        runs: { ...current.runs, ...(persisted?.runs || {}) },
         // merged rather than replaced, so a setting added in a later release
         // arrives with its default instead of being undefined on every existing
         // save — fx_usd_to_aud is the first one this actually matters for

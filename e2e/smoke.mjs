@@ -69,19 +69,17 @@ await step('Home: disclaimer + ring + 5-tab bar', async () => {
   await page.click('text=Got it')
 })
 
-await step('Home: log a dose via site picker marks it done', async () => {
-  await page.locator('button[aria-label^="Log "]').first().click()
-  await waitText(/Tap any spot to pick it|INJECT HERE|Next on your path/)
-  await page.click('button:has-text("Log here")')
-  await page.waitForTimeout(400)
-  await page.click('button:text-is("Done")') // v9: dismiss the written confirmation
-  await page.waitForTimeout(400)
-  await page.waitForTimeout(1000)
+// v30 removed injection-site rotation: tapping the row is the whole act, and
+// nothing in between asks where the dose went.
+await step('Home: tapping a row logs the dose outright', async () => {
+  await page.locator('[data-testid="log-row"]:not([disabled])').first().click()
+  await page.waitForTimeout(900)
+  if (await page.locator('[data-testid="sheet"]').count()) throw new Error('a sheet opened between tap and log')
   const logged = await page.locator('button[aria-label$=" logged"]').count()
   if (!logged) throw new Error('no logged state after logging')
   const store = await page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state)
   if (!store.doseLogs.length) throw new Error('doseLog not persisted')
-  if (!store.doseLogs[0].siteId) throw new Error('siteId not recorded')
+  if (store.doseLogs[0].siteId !== undefined) throw new Error('a new log still carries a siteId')
 })
 await page.screenshot({ path: `${SHOT}/v2-01-today.png` })
 
@@ -187,7 +185,7 @@ await step('Calculator lives under More', async () => {
 })
 await page.screenshot({ path: `${SHOT}/v2-07-more.png` })
 
-await step('the titration step-up is confirmed inline on the Home card', async () => {
+await step('the titration step-up is confirmed from the bell', async () => {
   await page.evaluate(() => {
     const raw = JSON.parse(localStorage.getItem('peptide-command-center'))
     const d = new Date(Date.now() - 8 * 86400000).toISOString().slice(0, 10)
@@ -201,10 +199,14 @@ await step('the titration step-up is confirmed inline on the Home card', async (
   // Selank is a morning compound; Home opens on the current wall-clock slot
   await page.click('button:has-text("AM")').catch(() => {})
   await page.waitForTimeout(500)
-  const card = page.locator('.card').filter({ has: page.locator('h3:text-is("Selank")') }).first()
-  await card.locator('[data-testid="stepup-prompt"]').click()
+  // v30 moved the question off the card and into the bell: it is a decision
+  // about a dose, not a dose to take, and the card is for doses.
+  const cards = await page.locator('[data-testid="log-row"]').allInnerTexts()
+  if (cards.some((c) => /tolerating well/i.test(c))) throw new Error('the step-up question is back on a card')
+  await page.click('[data-testid="alert-bell"]')
+  await page.waitForTimeout(600)
   await waitText(/tolerating well/i)
-  await card.locator('[data-testid="stepup-advance"]').click()
+  await page.locator('[data-testid="stepup-advance"]').first().click()
   await page.waitForTimeout(1000)
   const store = await page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state)
   if (store.titration.selank.level !== 1) throw new Error('titration confirm did not advance')

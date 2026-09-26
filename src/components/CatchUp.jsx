@@ -90,9 +90,8 @@ export default function CatchUpCard() {
  * The gap, day by day.
  *
  * Skipping the whole run is one tap, because "I was away" needs no further
- * detail. Logging is not, and is not pretended to be: every injection has to
- * say where it went, or the rotation history it feeds becomes fiction. So each
- * day opens its own list rather than being swept in behind a single button.
+ * detail. Logging opens the day itself, because what was actually taken on a
+ * given day is a question only that day's list can answer.
  */
 function CatchUpSheet({ open, days, run, onClose, onPickDay }) {
   const skipMany = useStore((s) => s.skipMany)
@@ -170,10 +169,6 @@ function CatchUpSheet({ open, days, run, onClose, onPickDay }) {
             <SkipForward size={13} /> I was away — mark them all skipped
           </button>
 
-          <p className="pb-1 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
-            Skipping is one tap because it needs no detail. Logging isn't: each injection still has to say
-            where it went, or the rotation history it feeds stops being true.
-          </p>
         </div>
       )}
     </Modal>

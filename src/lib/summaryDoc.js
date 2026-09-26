@@ -6,6 +6,7 @@ import { currentRung } from './schedule'
 import { slotOf, scheduledWeekdaySet, needsProtocolSetup, WEEKDAYS } from './daily'
 import { formatDose } from './calc'
 import { metricSeries, rollingAverage, METRIC_BY_KEY } from './metrics'
+import { tenureFor, cumulativeExposure, cyclePosition } from './tenure'
 
 function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, (c) => (
@@ -19,20 +20,46 @@ function weekdayLabel(peptide) {
   return days.map((d) => WEEKDAYS[d]).join(', ')
 }
 
-export function buildSummaryHtml({ peptides, titration, doseLogs, measurements, summary, from, to }) {
+export function buildSummaryHtml({ peptides, titration, doseLogs, measurements, summary, from, to, runs = {} }) {
   const fmt = (d) => format(parseISO(d), 'd MMM yyyy')
   const active = peptides.filter((p) => !needsProtocolSetup(p))
+  const today = format(new Date(), 'yyyy-MM-dd')
 
   const protocolRows = active.map((p) => {
     const { dose, level, maxLevel } = currentRung(p, titration[p.id])
+    const ten = tenureFor(p, { runs, todayStr: today })
     return `<tr>
       <td><strong>${esc(p.name)}</strong>${p.reference?.tier ? `<span class="tier">${esc(p.reference.tier)}</span>` : ''}</td>
       <td>${esc(formatDose(dose, p.ladder.unit))}</td>
       <td>${esc(weekdayLabel(p))} · ${esc(slotOf(p))}</td>
       <td>${level + 1} of ${maxLevel + 1}</td>
       <td>${p.cycleOnDays && p.cycleOffDays ? `${p.cycleOnDays}d on / ${p.cycleOffDays}d off` : 'Ongoing'}</td>
+      <td>${esc(ten ? (ten.running ? ten.currentWords : `stopped · ${ten.lifetimeWords} lifetime`) : '—')}</td>
     </tr>`
   }).join('')
+
+  // How long each compound has been running, and everything taken of it. The
+  // estimated column is typed-in history multiplied out, and is labelled so
+  // nobody reads it back as a measurement.
+  let anyEstimate = false
+  const tenureRows = active.map((p) => {
+    const ten = tenureFor(p, { runs, todayStr: today })
+    if (!ten) return ''
+    const exp = cumulativeExposure(p, { doseLogs, todayStr: today })
+    const cyc = cyclePosition(p, today)
+    if (exp?.hasEstimate) anyEstimate = true
+    const unit = p.ladder?.unit === 'mcg' ? 'mcg' : 'mg'
+    const show = (mg) => `${Math.round((unit === 'mcg' ? mg * 1000 : mg) * 100) / 100} ${unit}`
+    return `<tr>
+      <td><strong>${esc(p.name)}</strong></td>
+      <td>${esc(fmt(ten.startedOn))}</td>
+      <td>${esc(ten.running ? ten.currentWords : 'not running')}${ten.runCount > 1 ? ` <span class="muted">(${ten.runCount} runs, ${esc(ten.lifetimeWords)} lifetime)</span>` : ''}</td>
+      <td>${esc(cyc?.cycled ? cyc.words : 'ongoing')}</td>
+      <td class="num">${exp ? exp.doses : 0}</td>
+      <td class="num">${exp ? show(exp.loggedMg) : '—'}</td>
+      <td class="num">${exp?.hasEstimate ? show(exp.estimatedMg) + ' *' : '—'}</td>
+    </tr>`
+  }).filter(Boolean).join('')
 
   const adherenceRows = summary.rows.map((r) => `<tr>
       <td>${esc(r.name)}</td>
@@ -57,9 +84,12 @@ export function buildSummaryHtml({ peptides, titration, doseLogs, measurements, 
     </tr>`
   }).filter(Boolean).join('')
 
-  const recentSites = [...new Set(
-    doseLogs.filter((l) => l.siteId && l.date >= from && l.date <= to).map((l) => l.siteId)
-  )].length
+  // the compound that has been running longest, for the header
+  const longest = active
+    .map((p) => tenureFor(p, { runs, todayStr: today }))
+    .filter((x) => x && x.running)
+    .sort((a, b) => b.currentDays - a.currentDays)[0]
+  const longestWords = longest ? longest.currentWords : '—'
 
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8" />
@@ -101,13 +131,21 @@ export function buildSummaryHtml({ peptides, titration, doseLogs, measurements, 
     <div class="kpi"><div class="v">${summary.overall.pct == null ? '—' : summary.overall.pct + '%'}</div><div class="l">Adherence</div></div>
     <div class="kpi"><div class="v">${summary.overall.taken}/${summary.overall.scheduled}</div><div class="l">Doses taken</div></div>
     <div class="kpi"><div class="v">${active.length}</div><div class="l">Active peptides</div></div>
-    <div class="kpi"><div class="v">${recentSites}</div><div class="l">Sites rotated</div></div>
+    <div class="kpi"><div class="v">${esc(longestWords)}</div><div class="l">Longest running</div></div>
   </div>
 
   <h2>Current protocol</h2>
   ${active.length ? `<table>
-    <thead><tr><th>Peptide</th><th>Current dose</th><th>Schedule</th><th>Titration</th><th>Cycle</th></tr></thead>
+    <thead><tr><th>Peptide</th><th>Current dose</th><th>Schedule</th><th>Titration</th><th>Cycle</th><th>Time on</th></tr></thead>
     <tbody>${protocolRows}</tbody></table>` : '<p class="empty">No peptides configured.</p>'}
+
+  <h2>Time on compound &amp; total exposure</h2>
+  ${tenureRows ? `<table>
+    <thead><tr><th>Peptide</th><th>Started</th><th>Time on</th><th>Cycle position</th>
+      <th class="num">Doses logged</th><th class="num">Total logged</th><th class="num">Estimated</th></tr></thead>
+    <tbody>${tenureRows}</tbody></table>
+    ${anyEstimate ? '<p class="empty">* Estimated: entered by hand for a period before logging began, multiplied out from a stated dose and frequency. Not a record made at the time, and not counted in adherence.</p>' : ''}`
+    : '<p class="empty">No peptides configured.</p>'}
 
   <h2>Adherence by peptide</h2>
   ${adherenceRows ? `<table>
@@ -122,6 +160,8 @@ export function buildSummaryHtml({ peptides, titration, doseLogs, measurements, 
   <div class="note">
     <strong>About this document.</strong> Self-reported data from a personal tracking app. It is a record of what was
     logged, not medical advice, and no dose, schedule or evidence tier here has been reviewed by a clinician.
+    Adherence counts only doses that were recorded at the time; time-on-compound is the user's own stated start
+    date and may reach back before any of this was being logged.
     Evidence-tier labels (T1–T5) reflect the strength of published data for a compound, not a recommendation.
   </div>
 </body></html>`

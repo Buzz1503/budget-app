@@ -6,13 +6,11 @@ import {
 } from 'lucide-react'
 import useStore, { todayStr } from '../store/useStore'
 import Modal from './ui/Modal'
-import SiteChooser from './SiteChooser'
 import NumberField from './ui/NumberField'
 import { useCalendarRange } from '../lib/useCalendarRange'
 import { missedGroups, missedOralsOn, entryState, vialOnDate, stockNote, doseOnDate } from '../lib/backfill'
 import { addDaysStr, prettyDate } from '../lib/schedule'
 import { formatDose, formatUnitsLong } from '../lib/calc'
-import { SITE_BY_ID, zoneOf } from '../lib/sites'
 
 // Logged / Skipped / Missed are three different things and are never allowed to
 // look like each other: each gets its own icon, its own word and its own tone.
@@ -35,13 +33,11 @@ const STATE_STYLE = {
 export default function BackfillSheet({ open, onClose, date: initialDate }) {
   const t = todayStr()
   const [date, setDate] = useState(initialDate || addDaysStr(t, -1))
-  const [siteStep, setSiteStep] = useState(null)   // { group } awaiting a site
   const [editing, setEditing] = useState(null)     // a logged dose being corrected
 
   useEffect(() => {
     if (open) {
       setDate(initialDate || addDaysStr(t, -1))
-      setSiteStep(null)
       setEditing(null)
     }
   }, [open, initialDate, t])
@@ -76,10 +72,10 @@ export default function BackfillSheet({ open, onClose, date: initialDate }) {
     return p ? doseOnDate(p, date, doseLogs, item.dose).dose : item.dose
   }
 
-  const commit = (group, siteId) => {
+  const commit = (group) => {
     const ids = group.items.map((i) => i.peptideId)
     const doses = Object.fromEntries(group.items.map((i) => [i.peptideId, doseFor(i)]))
-    const done = backfillCoDraw(ids, date, { siteId, doses })
+    const done = backfillCoDraw(ids, date, { doses })
     if (!done.length) return
     const written = useStore.getState().doseLogs.slice(-done.length).map((l) => l.id)
     showToast(
@@ -88,47 +84,24 @@ export default function BackfillSheet({ open, onClose, date: initialDate }) {
         : `${done[0].name} added on ${prettyDate(date)}`,
       () => { for (const id of written) undoLog(id) },
     )
-    setSiteStep(null)
   }
 
-  const logGroup = (group) => {
-    if (group.nasal) { commit(group, null); return }
-    setSiteStep({ group })
-  }
+  const logGroup = (group) => commit(group)
 
-  // Everything that needs no decision goes in at once; every injection still
-  // asks where it went, one group at a time. Inventing a site nobody chose
-  // would poison the rotation history that the next suggestion is built from.
+  // Nothing here asks a question any more, so the whole day goes in at once.
   const logAll = () => {
     for (const g of groups) {
-      if (!g.nasal) continue
       backfillCoDraw(g.items.map((i) => i.peptideId), date, {
-        siteId: null, doses: Object.fromEntries(g.items.map((i) => [i.peptideId, doseFor(i)])),
+        doses: Object.fromEntries(g.items.map((i) => [i.peptideId, doseFor(i)])),
       })
     }
     for (const s of orals) toggleSupplementTaken(s.supplementId, date)
-    const needsSite = groups.filter((g) => !g.nasal)
-    if (needsSite.length > 0) setSiteStep({ group: needsSite[0] })
-    else showToast(`${prettyDate(date)} caught up`)
+    showToast(`${prettyDate(date)} caught up`)
   }
 
   const skipGroup = (group) => {
     for (const i of group.items) skipDose(i.peptideId, 'Added later — deliberately skipped', date)
     showToast(`Marked skipped on ${prettyDate(date)}`)
-  }
-
-  // ---- site step: one site for the whole group, because it was one puncture ----
-  if (siteStep) {
-    return (
-      <SiteStep
-        group={siteStep.group}
-        date={date}
-        peptides={peptides}
-        note={stockNote(stockFor(siteStep.group))}
-        onBack={() => setSiteStep(null)}
-        onConfirm={(siteId) => commit(siteStep.group, siteId)}
-      />
-    )
   }
 
   if (editing) {
@@ -218,7 +191,6 @@ export default function BackfillSheet({ open, onClose, date: initialDate }) {
                     {e.name}
                     <span className="ml-2 font-semibold" style={{ color: 'var(--text-2)' }}>
                       {e.oral ? e.dose : formatDose(e.dose, e.unit)}
-                      {log?.siteId ? ` · ${SITE_BY_ID[log.siteId]?.short || SITE_BY_ID[log.siteId]?.label}` : ''}
                       {log?.backfilled ? ' · added later' : ''}
                     </span>
                   </span>
@@ -265,7 +237,7 @@ export default function BackfillSheet({ open, onClose, date: initialDate }) {
 
         <p className="pb-1 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
           A dose added here is recorded exactly like a live one — same draw on the vial that was open that
-          day, same effect on your run-out date, your adherence and your site rotation.
+          day, same effect on your run-out date and your adherence.
         </p>
       </div>
     </Modal>
@@ -324,47 +296,6 @@ function MissedGroup({ group, note, onLog, onSkip }) {
         </button>
       </div>
     </div>
-  )
-}
-
-// One site for the whole group. Three compounds in one syringe went into one
-// spot, and recording three spots would corrupt the rotation history that the
-// next suggestion is built from.
-function SiteStep({ group, date, peptides, note, onBack, onConfirm }) {
-  const [picked, setPicked] = useState(null)
-  const [resolved, setResolved] = useState(null)
-  const chosen = picked || resolved
-  const first = peptides.find((p) => p.id === group.items[0].peptideId)
-  const route = first?.route === 'IM' ? 'IM' : 'SubQ'
-  const site = SITE_BY_ID[chosen]
-
-  return (
-    <Modal open onClose={onBack} title={`Where did it go on ${prettyDate(date)}?`}>
-      <div className="space-y-3">
-        <button onClick={onBack} className="flex items-center gap-1 text-xs font-black" style={{ color: 'var(--text-2)' }}>
-          <ChevronLeft size={14} /> Back to the day
-        </button>
-
-        <div className="rounded-[14px] p-3 text-center" style={{ background: 'var(--surface-sunk)' }}>
-          <p className="text-lg font-black leading-tight">
-            {group.items.map((i) => i.name).join(' + ')}
-          </p>
-          <p className="mt-1 text-xs font-bold" style={{ color: 'var(--text-2)' }}>
-            {formatUnitsLong(group.units)}{group.items.length > 1 ? ' · one syringe' : ''}
-          </p>
-        </div>
-
-        <p className="text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>{note}</p>
-
-        <SiteChooser route={route} zone={zoneOf(first)} picked={picked} onPick={setPicked} onResolve={setResolved} />
-
-        <motion.button whileTap={{ scale: 0.97 }} onClick={() => onConfirm(chosen)}
-          data-testid="backfill-confirm-site"
-          className="btn-primary flex w-full items-center justify-center gap-2 rounded-full py-4 text-sm font-black">
-          <SyringeIcon size={17} strokeWidth={2.5} /> Add it here — {site?.short || site?.label || 'pick a spot'}
-        </motion.button>
-      </div>
-    </Modal>
   )
 }
 

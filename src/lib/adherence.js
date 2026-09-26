@@ -1,7 +1,6 @@
 // History + adherence: doses actually taken vs. doses scheduled over a window.
 import { addDaysStr, daysBetween } from './schedule'
 import { isDueToday } from './daily'
-import { SITE_BY_ID } from './sites'
 
 export function dateRange(fromStr, toStr) {
   const n = daysBetween(fromStr, toStr)
@@ -66,8 +65,6 @@ export function historyEvents(doseLogs, peptides, { peptideId = null, from = nul
     if (!groups.has(key)) {
       groups.set(key, {
         key, date: l.date, loggedAt: l.loggedAt || `${l.date}T12:00:00`,
-        siteId: l.siteId || null,
-        siteLabel: l.siteId ? (SITE_BY_ID[l.siteId]?.label || l.siteId) : null,
         coDraw: !!l.coDrawId, items: [],
       })
     }

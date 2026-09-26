@@ -11,9 +11,9 @@ import { referenceFor, protocolTextFrom } from '../lib/reference'
 import { currentRung, cycleInfo, prettyDate, addDaysStr } from '../lib/schedule'
 import { formatDose, concentration, isNasal } from '../lib/calc'
 import { scheduledWeekdaySet, WEEKDAYS } from '../lib/daily'
-import { SITE_BY_ID } from '../lib/sites'
 import { batchesFor, sealedCount } from '../lib/stock'
 import { stockRunway } from '../lib/runway'
+import { TenureBlock, DoseTimelineChart, ExposureBlock, TenureEditor } from './Tenure'
 
 const FREQ_LABELS = {
   daily: 'Daily', nightly: 'Nightly', weekly: 'Weekly',
@@ -46,6 +46,7 @@ export default function CompoundSheet({ open, compoundId, onClose, goTo }) {
   const [tab, setTab] = useState('about')
   const [editing, setEditing] = useState(null)
   const [adding, setAdding] = useState(false)
+  const [tenureOpen, setTenureOpen] = useState(false)
 
   const peptide = peptides.find((p) => p.id === compoundId)
   const batches = batchesFor(vials, compoundId)
@@ -94,8 +95,8 @@ export default function CompoundSheet({ open, compoundId, onClose, goTo }) {
           )}
         </div>
 
-        <div className="flex gap-2">
-          {[['about', 'About'], ['mine', 'My settings'], ['history', 'History']].map(([id, label]) => (
+        <div className="flex gap-1.5">
+          {[['about', 'About'], ['mine', 'Mine'], ['timeline', 'Timeline'], ['history', 'Log']].map(([id, label]) => (
             <button key={id} onClick={() => setTab(id)} data-testid={`sheet-tab-${id}`}
               className="flex-1 rounded-full py-2 text-xs font-black"
               style={tab === id
@@ -117,6 +118,25 @@ export default function CompoundSheet({ open, compoundId, onClose, goTo }) {
           />
         )}
 
+        {/* the centrepiece: how long, at what dose, and every time it moved */}
+        {tab === 'timeline' && (
+          peptide ? (
+            <div className="space-y-3" data-testid="timeline-pane">
+              <TenureBlock peptide={peptide} onEdit={() => setTenureOpen(true)} />
+              <DoseTimelineChart peptide={peptide} />
+              <ExposureBlock peptide={peptide} />
+              <p className="px-1 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
+                A record of what you did, not a judgement of it. Anything you typed in from memory is drawn
+                dashed and labelled estimated wherever it appears.
+              </p>
+            </div>
+          ) : (
+            <p className="py-6 text-center text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
+              Nothing to plot — this one isn't in my protocol, so it has no start date and no dose history.
+            </p>
+          )
+        )}
+
         {tab === 'history' && (
           <HistoryTabPane
             logs={logs} skips={mySkips} peptide={peptide}
@@ -127,6 +147,7 @@ export default function CompoundSheet({ open, compoundId, onClose, goTo }) {
 
       {editing && <EditLogModal log={editing} onClose={() => setEditing(null)} />}
       {adding && peptide && <BackfillModal peptide={peptide} onClose={() => setAdding(false)} />}
+      <TenureEditor peptide={peptide} open={tenureOpen} onClose={() => setTenureOpen(false)} />
     </Modal>
   )
 }
@@ -237,7 +258,10 @@ function MineTab({ peptide, rung, cyc, runway, unlinked, batches, note, onNote, 
         )}
         <Row label="Cycle" value={cyc?.ongoing ? 'Ongoing' : `Day ${cyc?.cycleDay} · ${cyc?.isOn ? 'on' : 'off'}`}
           tone={cyc && !cyc.ongoing && !cyc.isOn ? 'var(--text-2)' : undefined} />
-        <Row label="Started" value={prettyDate(peptide.startDate)} />
+        {/* two different facts: when the schedule is anchored, and how long
+            you have actually been on the compound */}
+        <Row label="Schedule from" value={prettyDate(peptide.startDate)} />
+        <Row label="On it since" value={prettyDate(peptide.startedOn || peptide.startDate)} />
       </div>
 
       {/* the vial behind it, or the honest absence of one */}
@@ -328,7 +352,6 @@ function HistoryTabPane({ logs, skips, peptide, onEdit, onAdd }) {
               </p>
               <p className="truncate text-xs font-semibold leading-tight" style={{ color: 'var(--text-2)' }}>
                 {prettyDate(r.log.date)}
-                {r.log.siteId ? ` · ${SITE_BY_ID[r.log.siteId]?.label || r.log.siteId}` : ''}
                 {r.log.backfilled ? ' · added later' : ''}
                 {r.log.edited ? ' · edited' : ''}
               </p>

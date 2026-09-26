@@ -10,6 +10,9 @@ import { formatDose, isNasal } from '../lib/calc'
 import { stackCost, money } from '../lib/cost'
 import { scheduledWeekdaySet, WEEKDAYS, needsProtocolSetup } from '../lib/daily'
 import { runwayFor, durationWords, sealedCount } from '../lib/stock'
+import { protocolTenure } from '../lib/tenure'
+import { DoseSparkline } from './Tenure'
+import { displayName } from '../lib/naming'
 
 const FREQ_LABELS = {
   daily: 'Daily', nightly: 'Nightly', weekly: 'Weekly',
@@ -53,6 +56,13 @@ function daysWords(peptide) {
  * keeping it read-only is what stops it drifting from Build/rebuild, which is
  * the single place any of it changes.
  */
+const SORTS = [
+  { id: 'name', label: 'A–Z' },
+  { id: 'longest', label: 'Longest running' },
+  { id: 'newest', label: 'Just started' },
+  { id: 'ceiling', label: 'At ceiling' },
+]
+
 export default function ProtocolTab({ goTo }) {
   const peptides = useStore((s) => s.peptides)
   const supplements = useStore((s) => s.supplements)
@@ -60,26 +70,47 @@ export default function ProtocolTab({ goTo }) {
   const openVials = useStore((s) => s.openVials)
   const titration = useStore((s) => s.titration)
   const doseLogs = useStore((s) => s.doseLogs)
+  const runs = useStore((s) => s.runs)
   const leadDays = useStore((s) => s.settings.restockLeadDays)
   const t = todayStr()
   const [sheetId, setSheetId] = useState(null)
+  const [sort, setSort] = useState('name')
 
-  const rows = useMemo(() => peptides.map((p) => {
-    const rung = currentRung(p, titration[p.id])
-    const cyc = cycleInfo(p, t)
-    const runway = runwayFor(p, titration[p.id], openVials[p.id], vials, doseLogs, t, leadDays)
-    return {
-      p,
-      dose: rung.dose,
-      rung,
-      cyc,
-      runway,
-      unlinked: !!openVials[p.id]?.unlinked,
-      sealed: sealedCount(vials, p.id),
-      needsSetup: needsProtocolSetup(p),
+  const rows = useMemo(() => {
+    const list = peptides.map((p) => {
+      const rung = currentRung(p, titration[p.id])
+      const cyc = cycleInfo(p, t)
+      const runway = runwayFor(p, titration[p.id], openVials[p.id], vials, doseLogs, t, leadDays)
+      return {
+        p,
+        dose: rung.dose,
+        rung,
+        cyc,
+        runway,
+        // how long, where in the cycle, and whether it is worth a second look
+        ten: protocolTenure(p, { runs, titration, todayStr: t }),
+        atCeiling: rung.maxLevel > 0 && rung.level >= rung.maxLevel,
+        unlinked: !!openVials[p.id]?.unlinked,
+        sealed: sealedCount(vials, p.id),
+        needsSetup: needsProtocolSetup(p),
+      }
+    })
+    const byName = (a, b) => a.p.name.localeCompare(b.p.name)
+    const days = (r) => r.ten?.tenure?.currentDays ?? 0
+    if (sort === 'longest') return list.sort((a, b) => days(b) - days(a) || byName(a, b))
+    if (sort === 'newest') return list.sort((a, b) => days(a) - days(b) || byName(a, b))
+    if (sort === 'ceiling') {
+      return list.sort((a, b) => (Number(b.atCeiling) - Number(a.atCeiling)) || days(b) - days(a) || byName(a, b))
     }
-  }).sort((a, b) => a.p.name.localeCompare(b.p.name)),
-  [peptides, titration, openVials, vials, doseLogs, t, leadDays])
+    return list.sort(byName)
+  }, [peptides, titration, openVials, vials, doseLogs, runs, t, leadDays, sort])
+
+  // compounds that have quietly been running a long time, surfaced rather than
+  // left for someone to notice on their own
+  const longRunning = useMemo(
+    () => rows.filter((r) => r.ten?.reassess).slice(0, 3),
+    [rows]
+  )
 
   const exportIt = () => {
     const lines = [
@@ -93,8 +124,12 @@ export default function ProtocolTab({ goTo }) {
           r.p.slot || 'AM',
           isNasal(r.p) ? 'Nasal' : (r.p.route || 'SubQ'),
           r.cyc.ongoing ? 'ongoing' : `cycle day ${r.cyc.cycleDay} (${r.cyc.isOn ? 'on' : 'off'})`,
+          // how long it has been running travels with it
+          r.ten?.tenure
+            ? (r.ten.tenure.runCount > 1 ? r.ten.tenure.summary : `on ${r.ten.tenure.currentWords}`)
+            : null,
           r.unlinked ? 'not in stock' : `${r.sealed} sealed`,
-        ]
+        ].filter(Boolean)
         return `${r.p.name} — ${bits.join(' · ')}`
       }),
       ...(supplements.length ? ['', 'Supplements', ...supplements.map((s) => `${s.name}${s.dose ? ` — ${s.dose}` : ''} · ${s.slot}`)] : []),
@@ -137,6 +172,38 @@ export default function ProtocolTab({ goTo }) {
         </button>
       </div>
 
+      {/* a long run is not a problem, but it is a thing worth having seen */}
+      {longRunning.length > 0 && (
+        <div className="card p-3" data-testid="long-running">
+          <p className="t-caption" style={{ color: 'var(--text-2)' }}>Running a while</p>
+          <div className="mt-1 space-y-1">
+            {longRunning.map((r) => (
+              <button key={r.p.id} onClick={() => setSheetId(r.p.id)}
+                className="flex w-full items-baseline gap-2 text-left" data-testid="long-running-row">
+                <span className="shrink-0 text-xs font-black">{displayName(r.p)}</span>
+                <span className="min-w-0 flex-1 truncate text-xs font-medium" style={{ color: 'var(--text-2)' }}>
+                  {r.ten.reassess.text}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {rows.length > 1 && (
+        <div className="flex gap-1.5 overflow-x-auto pb-0.5" data-testid="protocol-sort">
+          {SORTS.map((s) => (
+            <button key={s.id} onClick={() => setSort(s.id)} data-testid={`sort-${s.id}`}
+              className="flex min-h-[40px] shrink-0 items-center rounded-full px-3.5 text-xs font-black"
+              style={sort === s.id
+                ? { background: 'var(--accent)', color: 'var(--accent-fg)' }
+                : { background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
+              {s.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {rows.length === 0 && (
         <div className="card p-5 text-center" style={{ color: 'var(--text-2)' }}>
           <p className="text-sm font-bold">Nothing in my protocol yet.</p>
@@ -159,16 +226,33 @@ export default function ProtocolTab({ goTo }) {
               {isNasal(r.p) ? <Wind size={16} /> : <Syringe size={16} />}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-bold leading-tight">{r.p.name}</p>
-              <p className="truncate text-xs font-semibold leading-tight" style={{ color: 'var(--text-2)' }}>
+              <div className="flex items-center gap-2">
+                <p className="min-w-0 flex-1 truncate text-sm font-bold leading-tight">{displayName(r.p)}</p>
+                {/* has the dose been moving, at a glance */}
+                <DoseSparkline peptide={r.p} />
+              </div>
+              <p className="truncate text-xs font-semibold tabular-nums leading-tight" style={{ color: 'var(--text-2)' }}>
                 {r.needsSetup
                   ? 'no dose set yet'
                   : `${formatDose(r.dose, r.p.ladder?.unit)} · ${FREQ_LABELS[r.p.frequency] || r.p.frequency} · ${r.p.slot || 'AM'}`}
               </p>
-              <p className="truncate text-xs font-medium leading-tight" style={{ color: 'var(--text-2)' }}>
+              {/* how long, and where in the cycle */}
+              {r.ten?.tenure && (
+                <p className="truncate text-xs font-bold tabular-nums leading-tight" data-testid="protocol-tenure"
+                  style={{ color: r.atCeiling ? 'var(--text)' : 'var(--text-2)' }}>
+                  {r.ten.tenure.running
+                    ? (r.ten.tenure.currentDays === 0 ? 'started today' : `${r.ten.tenure.currentWords} on`)
+                    : `stopped · ${r.ten.tenure.lifetimeWords} lifetime`}
+                  {r.ten.tenure.runCount > 1 && ` · ${r.ten.tenure.runCount} runs`}
+                  {r.ten.cycle?.cycled && ` · ${r.ten.cycle.words}`}
+                  {r.atCeiling && ' · at ceiling'}
+                </p>
+              )}
+              <p className="truncate text-xs font-medium tabular-nums leading-tight" style={{ color: 'var(--text-2)' }}>
                 {daysWords(r.p)} · {isNasal(r.p) ? 'Nasal' : (r.p.route || 'SubQ')}
-                {' · '}
-                {r.cyc.ongoing ? 'ongoing' : `cycle day ${r.cyc.cycleDay} ${r.cyc.isOn ? 'on' : 'off'}`}
+                {r.ten?.cycle?.nextChange
+                  ? ` · ${r.ten.cycle.phase === 'on' ? 'rests' : 'back on'} ${prettyDate(r.ten.cycle.nextChange)}`
+                  : ''}
               </p>
               <p className="mt-1 flex items-center gap-1 truncate text-xs font-bold leading-tight"
                 style={{ color: r.unlinked ? 'var(--warn)' : r.runway?.low ? 'var(--warn)' : 'var(--text-2)' }}>
