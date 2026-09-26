@@ -268,7 +268,8 @@ await step('and comes back to the due list on its own when the rest ends', async
   if (!/Semax/.test(body)) throw new Error('Semax did not come back onto Home')
   const card = page.locator('main div.p-4').filter({ hasText: 'Semax' }).first()
   const cycleLine = await card.locator('[data-testid="cycle-line"]').first().textContent()
-  if (!/Day \d+\/\d+ · \d+ days? left this cycle/.test(cycleLine)) {
+  // v30.1 restated this line as "Day 11 of 28" — see the brief
+  if (!/Day \d+ of \d+/.test(cycleLine)) {
     throw new Error(`Semax's active cycle line reads: ${cycleLine}`)
   }
   console.log(`  back on the due list · ${cycleLine.trim()}`)

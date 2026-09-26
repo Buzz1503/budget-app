@@ -42,6 +42,11 @@ export default function CatchUpCard({ quiet = false }) {
           <span className="min-w-0 flex-1 truncate text-xs font-medium tabular-nums" style={{ color: 'var(--text-2)' }}>
             {total} dose{total === 1 ? '' : 's'} unrecorded over {days.length} day{days.length === 1 ? '' : 's'}
           </span>
+          <button onClick={() => setSheet('add')} data-testid="history-add-past-dose"
+            className="shrink-0 rounded-full px-3 py-1.5 text-xs font-black"
+            style={{ background: 'transparent', color: 'var(--text-3)' }}>
+            Add one
+          </button>
           <button onClick={() => setSheet('run')} data-testid="catch-up-open"
             className="shrink-0 rounded-full px-3 py-1.5 text-xs font-black"
             style={{ background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
@@ -54,7 +59,26 @@ export default function CatchUpCard({ quiet = false }) {
       </>
     )
   }
-  if (quiet) return null
+  // Nothing missed is not a reason to remove the way in. Somebody who took
+  // something last Tuesday and never logged it has no gap for the app to
+  // notice, and this line is the only thing that helps them.
+  if (quiet) {
+    return (
+      <>
+        <div className="flex items-center gap-2 px-1" data-testid="catch-up-quiet">
+          <span className="min-w-0 flex-1 truncate text-xs font-medium" style={{ color: 'var(--text-3)' }}>
+            Nothing unrecorded in the last {LOOKBACK} days
+          </span>
+          <button onClick={() => setSheet('add')} data-testid="history-add-past-dose"
+            className="shrink-0 rounded-full px-3 py-1.5 text-xs font-black"
+            style={{ background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
+            Add a past dose
+          </button>
+        </div>
+        <BackfillSheet open={sheet === 'add'} onClose={() => setSheet(null)} />
+      </>
+    )
+  }
 
   if (total === 0) {
     return (

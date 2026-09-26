@@ -263,10 +263,15 @@ await step('missed days are surfaced where they now live, not on Home', async ()
   }
   await more('history')
   await page.waitForTimeout(900)
-  const card = page.locator('[data-testid="catch-up-card"]')
-  if (!(await card.count())) throw new Error('no catch-up card on History either')
-  const txt = await card.textContent()
-  if (!/missed dose/i.test(txt)) throw new Error(`catch-up card does not say what is missing: ${txt}`)
+  // v30.1 demoted this from a red card to one quiet line with a Catch up
+  // action — same facts, same way in, the size of a footnote.
+  const line = page.locator('[data-testid="catch-up-quiet"]')
+  if (!(await line.count())) throw new Error('nothing on History says days went unrecorded')
+  const txt = await line.textContent()
+  if (!/unrecorded/i.test(txt)) throw new Error(`the line does not say what is missing: ${txt}`)
+  if (!(await page.locator('[data-testid="catch-up-open"]').count())) {
+    throw new Error('no way to act on it')
+  }
   console.log(`  ${txt.trim().split('\n')[0]}`)
 })
 
