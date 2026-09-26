@@ -65,7 +65,7 @@ await step('Home: AM slot shows AM peptides, PM shows PM peptides', async () => 
 await step('Rotation: Log opens body map with suggestion, records site', async () => {
   await page.click('button:has-text("AM")')
   await page.waitForTimeout(300)
-  await page.locator('button[aria-label^="Log "]').first().click()
+  await page.locator('[aria-label^="Log "]').first().click()
   await waitText(/Tap any spot to pick it|INJECT HERE|Next on your path/)
   await waitText(/Inject here — spot \d+/i)
   // confirm the suggested site

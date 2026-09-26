@@ -486,7 +486,7 @@ await step('logging still works after all of it', async () => {
   await nav('Home')
   await page.waitForTimeout(700)
   const before = (await state()).doseLogs.length
-  const btn = page.locator('button[aria-label^="Log "]').first()
+  const btn = page.locator('[aria-label^="Log "]').first()
   if (!(await btn.count())) throw new Error('nothing left to log')
   await btn.click()
   await page.waitForTimeout(1200)

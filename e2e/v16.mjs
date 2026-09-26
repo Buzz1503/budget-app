@@ -150,7 +150,7 @@ await step('the dose list dominates the screen', async () => {
   // dose content — it is the action for this morning's shots — so the ruler
   // runs to whichever comes first, the plan or the first card.
   const geo = await page.evaluate(() => {
-    const card = document.querySelector('main button[aria-label^="Log "]')
+    const card = document.querySelector('main [aria-label^="Log "]')
     const plan = document.querySelector('[data-testid="shot-plan"]')
     const m = document.querySelector('main')
     const tops = [card, plan].filter(Boolean).map((el) => el.getBoundingClientRect().top + scrollY)
@@ -167,7 +167,7 @@ await step('the dose list dominates the screen', async () => {
 // exactly one card above the dose list is now correct rather than a smell.
 await step('fewer boxes: the header block carries no card chrome', async () => {
   const boxes = await page.evaluate(() => {
-    const card = document.querySelector('main button[aria-label^="Log "]')
+    const card = document.querySelector('main [aria-label^="Log "]')
     const plan = document.querySelector('[data-testid="shot-plan"]')
     const cutoff = Math.min(...[card, plan].filter(Boolean).map((el) => el.getBoundingClientRect().top))
     return [...document.querySelectorAll('main .card')]
@@ -229,7 +229,7 @@ await step('Testosterone E carries no red text or icon', async () => {
 
 await step('and it still cannot be co-drawn', async () => {
   const card = page.locator('main div.p-4', { hasText: 'Testosterone En' })
-    .filter({ has: page.locator('button[aria-label^="Log Testosterone"]') }).first()
+    .filter({ has: page.locator('[aria-label^="Log Testosterone"]') }).first()
   if (await card.locator('button[aria-label^="Select "]').count()) {
     throw new Error('Test E is offered for co-draw selection')
   }

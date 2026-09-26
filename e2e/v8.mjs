@@ -35,7 +35,7 @@ const MORE_LINK = {
   Protocol: 'text=Everything I’m on, at a glance',
   'Right Now': 'text=What my protocol is doing for me today',
   History: 'text=Every dose, rates',
-  Settings: 'text=Theme, lead time, backup and reset',
+  Settings: 'text=Lead time, currency, backup and reset',
     Wizard: 'text=Add, remove or edit anything I take',
 }
 const nav = async (label) => {

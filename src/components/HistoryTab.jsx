@@ -1,30 +1,36 @@
 import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { History, Syringe, FileText, Filter, Pill, SkipForward } from 'lucide-react'
+import { History, Syringe, FileText, Filter } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import useStore, { todayStr } from '../store/useStore'
 import { adherenceSummary, historyEvents, WINDOWS, windowRange } from '../lib/adherence'
 import { formatDose } from '../lib/calc'
-import { openSummaryDocument } from '../lib/summaryDoc'
 import { SymptomHistory } from './SymptomsTab'
-import { supplementAdherence } from '../lib/supplements'
-import { skipsInRange, skipCounts, splitAdherence, REASON_LABEL } from '../lib/skips'
+import { skipsInRange, splitAdherence } from '../lib/skips'
 import CatchUpCard from './CatchUp'
-import { DoseSparkline, TenureLine } from './Tenure'
+import SummarySheet from './SummarySheet'
+import { TenureTable, CompoundDetail, DoseSparkline, TenureLine } from './Tenure'
+import { displayName } from '../lib/naming'
 
+/**
+ * What have I been on, for how long, at what doses, and how has the dose moved.
+ *
+ * That question is the page. It used to open with an adherence percentage,
+ * which answers a different and much smaller one — whether you remembered to
+ * press a button — and buried the dose history under supplement rates and a
+ * list of days off. Adherence is still here, below, where a supporting figure
+ * belongs.
+ */
 export default function HistoryTab() {
   const peptides = useStore((s) => s.peptides)
   const doseLogs = useStore((s) => s.doseLogs)
-  const titration = useStore((s) => s.titration)
-  const measurements = useStore((s) => s.measurements)
-  const supplements = useStore((s) => s.supplements)
-  const supplementLogs = useStore((s) => s.supplementLogs)
   const skips = useStore((s) => s.skips)
-  const runs = useStore((s) => s.runs)
   const t = todayStr()
 
   const [days, setDays] = useState(30)
   const [peptideId, setPeptideId] = useState(null)
+  const [detailId, setDetailId] = useState(null)
+  const [summaryOpen, setSummaryOpen] = useState(false)
   const { from, to } = useMemo(() => windowRange(days, t), [days, t])
 
   const summary = useMemo(
@@ -35,17 +41,10 @@ export default function HistoryTab() {
     () => historyEvents(doseLogs, peptides, { peptideId, from, to }),
     [doseLogs, peptides, peptideId, from, to]
   )
-  // Kept as its own figure rather than folded into the injection rate: one is
-  // a needle and the other is a capsule, and averaging them hides both.
-  const supps = useMemo(
-    () => supplementAdherence(supplements, supplementLogs, from, to),
-    [supplements, supplementLogs, from, to]
-  )
-  // Skips are reported as their own category. A deliberate pause is not the
-  // same failure as forgetting, and averaging them together would tell the user
-  // something untrue about a week they chose to take off.
+  // Skips stay their own category wherever they are counted. A deliberate pause
+  // is not the same failure as forgetting, and averaging them together would say
+  // something untrue about a week somebody chose to take off.
   const skipRows = useMemo(() => skipsInRange(skips, from, to), [skips, from, to])
-  const skippedPerPeptide = useMemo(() => skipCounts(skips, from, to), [skips, from, to])
   const split = useMemo(() => splitAdherence({
     scheduled: summary.overall.scheduled,
     taken: summary.overall.taken,
@@ -60,18 +59,33 @@ export default function HistoryTab() {
       <div>
         <h1 className="text-2xl font-black tracking-tight">History</h1>
         <p className="text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
-          Your record — every dose, co-draw and skip
+          What I've been on, for how long, and at what dose
         </p>
       </div>
 
-      {/* a rate is only worth reading once the holes in it are accounted for */}
-      <CatchUpCard />
+      {/* A gap in the record is worth knowing about and is not an emergency.
+          One quiet line with a way to close it. */}
+      <CatchUpCard quiet />
 
-      {/* window picker */}
+      {/* the page */}
+      <TenureTable onOpen={setDetailId} />
+
+      <button onClick={() => setSummaryOpen(true)} data-testid="open-summary"
+        className="btn-primary flex w-full items-center justify-center gap-2 rounded-full py-3 text-sm font-black">
+        <FileText size={16} /> Shareable summary
+      </button>
+      <p className="-mt-2 px-1 text-xs font-medium" style={{ color: 'var(--text-2)' }}>
+        Opens here, leading with time on compound and dose history. Print or save it as a PDF from inside.
+      </p>
+
+      {/* ------------------------------------------------ secondary, below */}
+
+      <p className="px-1 pt-2 t-caption" style={{ color: 'var(--text-2)' }}>The log</p>
+
       <div className="flex gap-2">
         {WINDOWS.map((w) => (
           <button key={w.id} onClick={() => setDays(w.id)}
-            className="flex-1 rounded-full py-2 text-xs font-black"
+            className="flex min-h-[40px] flex-1 items-center justify-center rounded-full text-xs font-black"
             style={days === w.id
               ? { background: 'var(--accent)', color: 'var(--accent-fg)' }
               : { background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
@@ -80,133 +94,6 @@ export default function HistoryTab() {
         ))}
       </div>
 
-      {/* adherence */}
-      <div className="card p-3">
-        <div className="flex items-center justify-between">
-          <p className="text-sm font-bold">Adherence</p>
-          <span className="text-2xl font-black tabular-nums"
-            style={{ color: pct == null ? 'var(--text-2)' : pct >= 80 ? 'var(--good)' : pct >= 50 ? 'var(--warn)' : 'var(--danger)' }}>
-            {pct == null ? '—' : `${pct}%`}
-          </span>
-        </div>
-        <p className="text-xs font-semibold tabular-nums" style={{ color: 'var(--text-2)' }}>
-          {summary.overall.taken} of {summary.overall.scheduled} scheduled doses · last {days} days
-        </p>
-        {/* the figure counts records, not history. Someone who has been on a
-            compound for a year and logging for a month should not read this as
-            a year of behaviour. */}
-        <p className="text-xs font-medium" style={{ color: 'var(--text-3)' }} data-testid="adherence-basis">
-          Since logging began — it counts what you recorded, not how long you have been on anything.
-        </p>
-        {split.skipped > 0 && (
-          <p className="mt-1 flex flex-wrap items-center gap-x-2 text-xs font-bold" data-testid="skip-summary">
-            <span className="flex items-center gap-1" style={{ color: 'var(--text)' }}>
-              <SkipForward size={11} /> {split.skipped} skipped
-            </span>
-            <span style={{ color: 'var(--text-2)' }}>·</span>
-            <span style={{ color: 'var(--text-2)' }}>{split.missed} missed</span>
-            {split.ofAttempted != null && (
-              <>
-                <span style={{ color: 'var(--text-2)' }}>·</span>
-                <span style={{ color: 'var(--good)' }}>{split.ofAttempted}% of what you attempted</span>
-              </>
-            )}
-          </p>
-        )}
-        {summary.rows.length > 0 ? (
-          <div className="mt-3 space-y-2">
-            {summary.rows.map((r) => (
-              <div key={r.peptideId}>
-                <div className="flex items-center justify-between text-xs font-bold">
-                  <span>{r.name}</span>
-                  <span className="tabular-nums" style={{ color: 'var(--text-2)' }}>
-                    {skippedPerPeptide[r.peptideId] > 0 && (
-                      <span style={{ color: 'var(--text)' }}>{skippedPerPeptide[r.peptideId]} skipped · </span>
-                    )}
-                    {r.taken}/{r.scheduled} · {r.pct}%
-                  </span>
-                </div>
-                <div className="mt-1 h-1.5 overflow-hidden rounded-full" style={{ background: 'var(--surface-sunk)' }}>
-                  <motion.div className="h-full rounded-full" initial={{ width: 0 }} animate={{ width: `${r.pct}%` }}
-                    style={{ background: r.pct >= 80 ? 'var(--good)' : r.pct >= 50 ? 'var(--warn)' : 'var(--danger)' }} />
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="mt-3 text-xs font-medium" style={{ color: 'var(--text-2)' }}>
-            Nothing scheduled in this window yet.
-          </p>
-        )}
-      </div>
-
-      {/* skipped — listed, not hidden: the record is the point */}
-      {skipRows.length > 0 && (
-        <div className="card p-3" data-testid="skip-list">
-          <p className="mb-2 flex items-center gap-2 text-sm font-bold">
-            <SkipForward size={14} style={{ color: 'var(--text)' }} /> Skipped · {skipRows.length}
-          </p>
-          <div className="space-y-2">
-            {skipRows.slice(0, 12).map((k) => (
-              <div key={k.id} className="flex items-center justify-between gap-2 text-xs font-bold">
-                <span className="min-w-0 flex-1 truncate leading-tight">{k.name || k.peptideId || k.supplementId}</span>
-                <span className="shrink-0 font-semibold" style={{ color: 'var(--text-2)' }}>
-                  {k.reason ? `${REASON_LABEL[k.reason] || k.reason} · ` : ''}{format(parseISO(k.date), 'd MMM')}
-                </span>
-              </div>
-            ))}
-          </div>
-          <p className="mt-2 text-xs font-medium" style={{ color: 'var(--text-2)' }}>
-            Recorded as a decision, not a lapse — and nothing came out of stock for these.
-          </p>
-        </div>
-      )}
-
-      {/* supplements — counted separately from injections, on purpose */}
-      {supps.rows.length > 0 && (
-        <div className="card p-3" data-testid="supplement-adherence">
-          <div className="flex items-center justify-between">
-            <p className="flex items-center gap-2 text-sm font-bold">
-              <Pill size={14} style={{ color: 'var(--warn)' }} /> Supplements
-            </p>
-            <span className="text-2xl font-black tabular-nums"
-              style={{ color: supps.overall.pct == null ? 'var(--text-2)' : supps.overall.pct >= 80 ? 'var(--good)' : supps.overall.pct >= 50 ? 'var(--warn)' : 'var(--danger)' }}>
-              {supps.overall.pct == null ? '—' : `${supps.overall.pct}%`}
-            </span>
-          </div>
-          <p className="text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
-            {supps.overall.taken} of {supps.overall.scheduled} daily doses · last {days} days
-          </p>
-          <div className="mt-3 space-y-2">
-            {supps.rows.map((r) => (
-              <div key={r.supplementId}>
-                <div className="flex items-center justify-between text-xs font-bold">
-                  <span className="min-w-0 flex-1 truncate leading-tight">{r.name}</span>
-                  <span className="shrink-0 tabular-nums" style={{ color: 'var(--text-2)' }}>{r.taken}/{r.scheduled} · {r.pct}%</span>
-                </div>
-                <div className="mt-1 h-1.5 overflow-hidden rounded-full" style={{ background: 'var(--surface-sunk)' }}>
-                  <motion.div className="h-full rounded-full" initial={{ width: 0 }} animate={{ width: `${r.pct}%` }}
-                    style={{ background: r.pct >= 80 ? 'var(--good)' : r.pct >= 50 ? 'var(--warn)' : 'var(--danger)' }} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* symptoms — the 14-day heatmap lives here, not on the logging screen */}
-      <SymptomHistory />
-
-      {/* shareable summary */}
-      <button
-        onClick={() => openSummaryDocument({ peptides, titration, doseLogs, measurements, summary, from, to, runs })}
-        className="btn-primary flex w-full items-center justify-center gap-2 rounded-full py-3 text-sm font-black">
-        <FileText size={16} /> Shareable summary
-      </button>
-      <p className="-mt-2 px-1 text-xs font-medium" style={{ color: 'var(--text-2)' }}>
-        Opens a clean printable page — save as PDF to hand to a doctor or coach.
-      </p>
-
       {/* peptide filter */}
       <div>
         <p className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-2)' }}>
@@ -214,7 +101,7 @@ export default function HistoryTab() {
         </p>
         <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
           <button onClick={() => setPeptideId(null)}
-            className="shrink-0 rounded-full px-3 py-2 text-xs font-bold"
+            className="flex min-h-[40px] shrink-0 items-center rounded-full px-3 text-xs font-bold"
             style={!peptideId
               ? { background: 'var(--accent)', color: 'var(--accent-fg)' }
               : { background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
@@ -222,26 +109,26 @@ export default function HistoryTab() {
           </button>
           {peptides.map((p) => (
             <button key={p.id} onClick={() => setPeptideId(p.id)}
-              className="shrink-0 rounded-full px-3 py-2 text-xs font-bold"
+              className="flex min-h-[40px] shrink-0 items-center rounded-full px-3 text-xs font-bold"
               style={peptideId === p.id
                 ? { background: 'var(--accent)', color: 'var(--accent-fg)' }
                 : { background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
-              {p.name}
+              {displayName(p)}
             </button>
           ))}
         </div>
       </div>
 
-      {/* the filtered compound, in its own terms: how long, and what the dose
-          has done, which the flat event list cannot show */}
+      {/* the filtered compound in its own terms, which a flat event list cannot show */}
       {picked && (
-        <div className="card p-3" data-testid="history-compound">
-          <div className="flex items-center gap-2">
-            <p className="min-w-0 flex-1 truncate text-sm font-bold">{picked.name}</p>
-            <DoseSparkline peptide={picked} width={72} height={18} />
-          </div>
-          <TenureLine peptide={picked} />
-        </div>
+        <button onClick={() => setDetailId(picked.id)} data-testid="history-compound"
+          className="card flex w-full items-center gap-2 p-3 text-left">
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-bold">{displayName(picked)}</span>
+            <TenureLine peptide={picked} />
+          </span>
+          <DoseSparkline peptide={picked} width={72} height={18} />
+        </button>
       )}
 
       {/* log */}
@@ -260,7 +147,7 @@ export default function HistoryTab() {
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-xs font-black">{format(parseISO(ev.date), 'EEE d MMM')}</span>
+                  <span className="text-xs font-black tabular-nums">{format(parseISO(ev.date), 'EEE d MMM')}</span>
                   {ev.coDraw && (
                     <span className="rounded-[10px] px-2 py-1 text-xs font-black"
                       style={{ background: 'var(--surface-sunk)', color: 'var(--text)' }}>
@@ -272,7 +159,7 @@ export default function HistoryTab() {
                   {ev.items.map((it) => (
                     <p key={it.logId} className="text-xs font-semibold">
                       {it.name}
-                      <span className="font-medium" style={{ color: 'var(--text-2)' }}>
+                      <span className="font-medium tabular-nums" style={{ color: 'var(--text-2)' }}>
                         {' '}· {formatDose(it.doseValue, it.unit)}{it.insulinUnits ? ` · ${it.insulinUnits} u` : ''}
                       </span>
                     </p>
@@ -283,6 +170,63 @@ export default function HistoryTab() {
           </motion.div>
         ))}
       </div>
+
+      {/* Adherence: a measure of whether you pressed a button, kept because it
+          is worth knowing and demoted because it is not what this page is for. */}
+      <div className="card p-3" data-testid="adherence-block">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-bold">Adherence</p>
+          <span className="text-2xl font-black tabular-nums"
+            style={{ color: pct == null ? 'var(--text-2)' : pct >= 80 ? 'var(--good)' : pct >= 50 ? 'var(--warn)' : 'var(--danger)' }}>
+            {pct == null ? '—' : `${pct}%`}
+          </span>
+        </div>
+        <p className="text-xs font-semibold tabular-nums" style={{ color: 'var(--text-2)' }}>
+          {summary.overall.taken} of {summary.overall.scheduled} scheduled doses · last {days} days
+        </p>
+        {/* the figure counts records, not history. Someone on a compound for a
+            year and logging for a month should not read this as a year. */}
+        <p className="text-xs font-medium" style={{ color: 'var(--text-3)' }} data-testid="adherence-basis">
+          Since logging began — it counts what you recorded, not how long you have been on anything.
+        </p>
+        {split.skipped > 0 && (
+          <p className="mt-1 flex flex-wrap items-center gap-x-2 text-xs font-bold tabular-nums" data-testid="skip-summary">
+            <span style={{ color: 'var(--text)' }}>{split.skipped} skipped</span>
+            <span style={{ color: 'var(--text-2)' }}>·</span>
+            <span style={{ color: 'var(--text-2)' }}>{split.missed} missed</span>
+            {split.ofAttempted != null && (
+              <>
+                <span style={{ color: 'var(--text-2)' }}>·</span>
+                <span style={{ color: 'var(--good)' }}>{split.ofAttempted}% of what you attempted</span>
+              </>
+            )}
+          </p>
+        )}
+        {summary.rows.length > 0 && (
+          <div className="mt-3 space-y-2">
+            {summary.rows.map((r) => (
+              <div key={r.peptideId}>
+                <div className="flex items-center justify-between text-xs font-bold">
+                  <span className="min-w-0 flex-1 truncate">{r.name}</span>
+                  <span className="shrink-0 tabular-nums" style={{ color: 'var(--text-2)' }}>
+                    {r.taken}/{r.scheduled} · {r.pct}%
+                  </span>
+                </div>
+                <div className="mt-1 h-1.5 overflow-hidden rounded-full" style={{ background: 'var(--surface-sunk)' }}>
+                  <motion.div className="h-full rounded-full" initial={{ width: 0 }} animate={{ width: `${r.pct}%` }}
+                    style={{ background: r.pct >= 80 ? 'var(--good)' : r.pct >= 50 ? 'var(--warn)' : 'var(--danger)' }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* symptoms — the 14-day heatmap lives here, not on the logging screen */}
+      <SymptomHistory />
+
+      <CompoundDetail peptideId={detailId} open={!!detailId} onClose={() => setDetailId(null)} />
+      <SummarySheet open={summaryOpen} onClose={() => setSummaryOpen(false)} from={from} to={to} summary={summary} />
     </div>
   )
 }

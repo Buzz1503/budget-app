@@ -27,7 +27,7 @@ const waitText = async (re, timeout = 12000) => {
 }
 const modal = () => page.locator('div.fixed.inset-0.z-50 > div.card')
 const openPicker = async () => {
-  await page.locator('button[aria-label^="Log "]').first().click()
+  await page.locator('[aria-label^="Log "]').first().click()
   await waitText(/INJECT HERE/)
 }
 // v15 hides the full written list behind a toggle to quieten the map; these

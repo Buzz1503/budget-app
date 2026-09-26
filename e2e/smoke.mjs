@@ -36,7 +36,7 @@ const MORE_LINK = {
   Protocol: 'text=Everything I’m on, at a glance',
   'Right Now': 'text=What my protocol is doing for me today',
   History: 'text=Every dose, rates',
-  Settings: 'text=Theme, lead time, backup and reset',
+  Settings: 'text=Lead time, currency, backup and reset',
     Wizard: 'text=Add, remove or edit anything I take',
 }
 const nav = async (label) => {
@@ -72,10 +72,10 @@ await step('Home: disclaimer + ring + 5-tab bar', async () => {
 // v30 removed injection-site rotation: tapping the row is the whole act, and
 // nothing in between asks where the dose went.
 await step('Home: tapping a row logs the dose outright', async () => {
-  await page.locator('[data-testid="log-row"]:not([disabled])').first().click()
+  await page.locator('[data-testid="log-row"]:not([data-done])').first().click()
   await page.waitForTimeout(900)
   if (await page.locator('[data-testid="sheet"]').count()) throw new Error('a sheet opened between tap and log')
-  const logged = await page.locator('button[aria-label$=" logged"]').count()
+  const logged = await page.locator('[aria-label$=" logged"]').count()
   if (!logged) throw new Error('no logged state after logging')
   const store = await page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state)
   if (!store.doseLogs.length) throw new Error('doseLog not persisted')

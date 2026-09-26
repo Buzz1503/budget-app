@@ -60,7 +60,7 @@ const logCheckin = async () => {
 // log the first due shot in the current slot, and clear the confirmation sheet
 // that otherwise covers the nav
 const logFirstShot = async () => {
-  await page.locator('button[aria-label^="Log "]').first().click()
+  await page.locator('[aria-label^="Log "]').first().click()
   await waitText(/INJECT HERE/, 10000)
   await page.locator('button:has-text("Log here")').first().click()
   await page.waitForTimeout(1000)

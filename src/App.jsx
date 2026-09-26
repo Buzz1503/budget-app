@@ -84,12 +84,7 @@ export default function App() {
     }
   }, [peptides.length, coachMarks, markCoachSeen])
   const [storageError, setStorageError] = useState(false)
-  const theme = useStore((s) => s.settings.theme)
   const haptics = useStore((s) => s.settings.haptics)
-
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme
-  }, [theme])
 
   useEffect(() => {
     onStorageError(() => setStorageError(true))

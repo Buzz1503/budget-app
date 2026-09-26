@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Check, Info, Clock, AlertTriangle, Sun, Moon, ChevronRight, Syringe, X, ShieldCheck, Layers, Wind, Bell, Zap, SkipForward, Undo2, PackageOpen, MoreHorizontal } from 'lucide-react'
+import { Check, Info, Clock, AlertTriangle, Sun, Moon, ChevronRight, Syringe, X, ShieldCheck, Layers, Wind, Bell, Zap, SkipForward, Undo2, PackageOpen, MoreHorizontal, RotateCw } from 'lucide-react'
 import useStore, { todayStr } from '../store/useStore'
 import { cyclePhase, currentRung, stepUpDue, addDaysStr, prettyDate } from '../lib/schedule'
 import { isDueToday, slotOf, isDueSlot, currentSlot, slotIsFlexible, needsProtocolSetup } from '../lib/daily'
 import { formatDose, formatUnitsLong, unitsFor, round, isNasal } from '../lib/calc'
 import { displayName } from '../lib/naming'
-import { tenureFor, milestonesFor } from '../lib/tenure'
+import { tenureFor, milestonesFor, cyclePosition } from '../lib/tenure'
 import { loadMatrix, LIB_TO_COMPOUND } from '../lib/mixMatrix'
 import { planShots, MAX_GROUP_ML } from '../lib/grouping'
 import { expiryInfo, runOutInfo } from '../lib/inventory'
@@ -1051,10 +1051,19 @@ function DueCard({ peptide: p, index, done, titration, onLog, selected, onToggle
         onDragEnd={(e, info) => { setDragging(false); if (info.offset.x < -70) onSkip() }}
         className="relative flex items-center">
 
-        {/* the row is the button */}
-        <motion.button whileTap={done ? undefined : { scale: 0.99 }} onClick={done ? undefined : onLog}
-          disabled={done} data-testid="log-row"
-          className={`flex min-w-0 flex-1 items-center gap-3 p-4 text-left ${beckon ? 'beckon' : ''}`}
+        {/* The row is the button. It is a div rather than a <button> because the
+            cycle line inside it is a control of its own, and a button inside a
+            button is not a thing the browser will render. Keyboard support is
+            wired by hand for the same reason. */}
+        <motion.div whileTap={done ? undefined : { scale: 0.99 }}
+          onClick={done ? undefined : onLog}
+          onKeyDown={done ? undefined : (e) => {
+            if (e.target !== e.currentTarget) return
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onLog() }
+          }}
+          role={done ? undefined : 'button'} tabIndex={done ? undefined : 0}
+          data-testid="log-row" data-done={done ? 'true' : undefined}
+          className={`flex min-w-0 flex-1 cursor-pointer items-center gap-3 p-4 text-left ${beckon ? 'beckon' : ''}`}
           aria-label={done ? `${p.name} logged` : `Log ${p.name}`}>
           <span className="min-w-0 flex-1">
             {/* wraps rather than truncates — a short name is short enough to fit */}
@@ -1066,6 +1075,7 @@ function DueCard({ peptide: p, index, done, titration, onLog, selected, onToggle
             <span className="mt-1 flex items-center gap-1 text-xs font-medium leading-tight" style={{ color: 'var(--text-3)' }}>
               <Clock size={12} /> {p.timing}
             </span>
+            <CycleLine peptide={p} onOpen={() => onOpenSheet?.(p.id)} />
           </span>
           <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] text-xs font-black ${done ? '' : 'btn-primary'}`}
             style={done ? { background: 'var(--surface-sunk)', color: 'var(--good)' } : undefined}>
@@ -1075,7 +1085,7 @@ function DueCard({ peptide: p, index, done, titration, onLog, selected, onToggle
               </motion.span>
             ) : 'Log'}
           </span>
-        </motion.button>
+        </motion.div>
 
         {/* everything occasional, out of the way of the thing done daily */}
         <button onClick={() => setMenu((v) => !v)} data-testid="row-overflow"
@@ -1108,6 +1118,34 @@ function DueCard({ peptide: p, index, done, titration, onLog, selected, onToggle
         )}
       </AnimatePresence>
     </motion.div>
+  )
+}
+
+/**
+ * Where this compound is in its cycle, in one line.
+ *
+ * Only compounds that actually cycle get one — for everything else there is no
+ * cycle to be a day of, and a line saying "ongoing" on every card would be a
+ * line nobody reads. It is a control of its own: the number raises the question
+ * "what has this been doing", and the compound page is the answer, so tapping
+ * it goes there rather than logging a dose you did not mean to log.
+ */
+function CycleLine({ peptide, onOpen }) {
+  const t = todayStr()
+  const cyc = cyclePosition(peptide, t)
+  if (!cyc?.cycled || !cyc.short) return null
+  // The only status worth a colour: tomorrow this compound changes state.
+  const tone = cyc.lastDay ? 'var(--warn)' : 'var(--text-3)'
+  return (
+    <button onClick={(e) => { e.stopPropagation(); onOpen?.() }} data-testid="cycle-line"
+      aria-label={`${peptide.name} — ${cyc.words}. Open its compound page.`}
+      className="mt-1 flex w-full min-w-0 items-center gap-1 text-left">
+      <RotateCw size={12} className="shrink-0" style={{ color: tone }} />
+      {/* one line, always: the Log action must not be pushed down by it */}
+      <span className="min-w-0 truncate text-xs font-medium leading-tight tabular-nums" style={{ color: tone }}>
+        {cyc.short}
+      </span>
+    </button>
   )
 }
 

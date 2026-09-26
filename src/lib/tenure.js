@@ -1,3 +1,4 @@
+import { format, parseISO } from 'date-fns'
 import { daysBetween, addDaysStr, cycleInfo, cyclePhase, currentRung, dosesPerWeek } from './schedule'
 import { toMg } from './calc'
 
@@ -129,12 +130,26 @@ export function onVsOff(peptide, { todayStr, weeks = 20 } = {}) {
   }
 }
 
-/** Where the cycle is now, and the date it next flips. */
+/** "14 Oct" — a date with no year, for a line that has no room for one. */
+function shortDate(dateStr) {
+  if (!dateStr) return ''
+  return format(parseISO(dateStr), 'd MMM')
+}
+
+/**
+ * Where the cycle is now, and the date it next flips.
+ *
+ * `short` is the one-line form for a dose card: "Day 11 of 28" while on, and
+ * where it goes next while off. `lastDay` is the only thing here worth a colour
+ * — tomorrow the compound changes state, and that is worth seeing today.
+ */
 export function cyclePosition(peptide, todayStr) {
   if (!peptide || !todayStr) return null
   const ph = cyclePhase(peptide, todayStr)
-  if (ph.phase === 'ongoing') return { cycled: false, words: 'not cycled', nextChange: null }
-  if (ph.phase === 'before') return { cycled: true, words: 'not started yet', nextChange: peptide.startDate }
+  if (ph.phase === 'ongoing') return { cycled: false, words: 'not cycled', short: null, nextChange: null }
+  if (ph.phase === 'before') {
+    return { cycled: true, words: 'not started yet', short: `Starts ${shortDate(peptide.startDate)}`, nextChange: peptide.startDate }
+  }
   const nextChange = ph.phase === 'on' ? ph.restsOn : ph.backOn
   return {
     cycled: true,
@@ -144,6 +159,14 @@ export function cyclePosition(peptide, todayStr) {
     phaseLength: ph.phaseLength,
     daysLeft: ph.daysLeft,
     nextChange,
+    lastDay: ph.daysLeft === 1,
+    short: ph.phase === 'on'
+      ? (ph.daysLeft === 1
+        ? `Day ${ph.dayOfPhase} of ${ph.phaseLength} · last day on`
+        : `Day ${ph.dayOfPhase} of ${ph.phaseLength}`)
+      : (ph.daysLeft === 1
+        ? `Off · back on tomorrow`
+        : `Off · resumes ${shortDate(ph.backOn)}`),
     words: ph.phase === 'on'
       ? `cycle ${ph.cycleNumber}, day ${ph.dayOfPhase} of ${ph.phaseLength} on`
       : `cycle ${ph.cycleNumber}, day ${ph.dayOfPhase} of ${ph.phaseLength} off`,
@@ -381,6 +404,67 @@ export function reassessPrompt(peptide, { tenure, titration = {}, todayStr } = {
     return { kind: 'long-run', text: `A year on this one. Time to reassess?` }
   }
   return null
+}
+
+/**
+ * How long the dose has been where it is, and how it got there.
+ *
+ * "3 weeks at 350 mcg" is the figure that decides whether a compound has had a
+ * fair run at its current dose, and it is not the same as time on the compound.
+ * It comes off the recorded dose events where there are any, and falls back to
+ * the ladder's own bookkeeping where there are none.
+ */
+export function doseTenure(peptide, { doseEvents = [], titration = {}, todayStr } = {}) {
+  if (!peptide || !todayStr) return null
+  const unit = peptide.ladder?.unit
+
+  const changes = doseEvents
+    .filter((e) => e.peptideId === peptide.id && e.to != null && !e.estimated)
+    .sort((a, b) => a.date.localeCompare(b.date))
+  const last = changes.at(-1)
+  // The last recorded change is the current dose where there is one. A hand-set
+  // dose does not move the ladder's rung, so asking the ladder would report a
+  // number the user overrode — and then draw a step up to it that never
+  // happened. The ladder is the fallback, for a protocol with no events yet.
+  const dose = last ? last.to : currentRung(peptide, titration[peptide.id]).dose
+  const since = last?.date || titration[peptide.id]?.levelStartDate || peptide.startedOn || peptide.startDate
+  const days = since ? span(since, todayStr) : null
+
+  // "0.5 → 1.0 → 1.5 mg": the whole climb in one string, with the unit said
+  // once at the end rather than after every number.
+  const steps = []
+  for (const c of changes) {
+    if (steps.at(-1) !== c.to) steps.push(c.to)
+  }
+  if (steps.at(-1) !== dose) steps.push(dose)
+  const prior = (peptide.priorDoseHistory || []).length
+
+  return {
+    dose,
+    unit,
+    since,
+    days,
+    // "today at 250 mcg" reads like a dose due rather than a dose held
+    words: days == null
+      ? null
+      : days === 0
+        ? `Set today at ${formatUnit(dose, unit)}`
+        : `${durationWords(days)} at ${formatUnit(dose, unit)}`,
+    steps,
+    // a single number is not a progression, and saying so beats drawing an arrow
+    progression: steps.length > 1
+      ? `${steps.join(' → ')} ${unit || ''}`.trim()
+      : `${formatUnit(dose, unit)} throughout`,
+    changed: steps.length > 1,
+    hasEstimatedBefore: prior > 0,
+    changes,
+  }
+}
+
+/** "350 mcg" without pulling in the formatting layer. */
+function formatUnit(value, unit) {
+  if (value == null) return '—'
+  return `${value} ${unit || ''}`.trim()
 }
 
 /** Everything a Protocol row needs in one call. */

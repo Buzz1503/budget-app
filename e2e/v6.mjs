@@ -59,7 +59,7 @@ await step('seed doses, a symptom check-in and a photo blob', async () => {
   await page.click('nav button:has-text("Home")')
   await page.click('button:has-text("AM")')
   await page.waitForTimeout(300)
-  await page.locator('button[aria-label^="Log "]').first().click()
+  await page.locator('[aria-label^="Log "]').first().click()
   await waitText(/Tap any spot to pick it|INJECT HERE|Next on your path/)
   await page.click('button:has-text("Log here")')
   await page.waitForTimeout(400)

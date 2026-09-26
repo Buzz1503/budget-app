@@ -305,7 +305,7 @@ await step('every due peptide has a Skip action', async () => {
   const cards = page.locator('[data-testid="shot-plan"], .card')
   const skips = await page.locator('[data-testid="skip-peptide"]').count()
   if (skips === 0) throw new Error('no Skip buttons on any due peptide')
-  const logs = await page.locator('button[aria-label^="Log "]').count()
+  const logs = await page.locator('[aria-label^="Log "]').count()
   if (skips < logs) throw new Error(`${logs} loggable doses but only ${skips} Skip actions`)
 })
 

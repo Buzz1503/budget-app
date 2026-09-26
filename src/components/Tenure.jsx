@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   CalendarClock, TrendingUp, Pencil, Plus, Trash2, Info, SkipForward,
-  ArrowUpRight, Minus, PauseCircle, Route, CircleDot, HelpCircle,
+  ArrowUpRight, Minus, PauseCircle, Route, CircleDot, HelpCircle, ChevronRight,
 } from 'lucide-react'
 import useStore, { todayStr } from '../store/useStore'
 import Modal from './ui/Modal'
@@ -12,8 +12,9 @@ import { formatDose, toMg, fromMg } from '../lib/calc'
 import { effectiveUsdPerVial, fxRate, money } from '../lib/cost'
 import {
   tenureFor, onVsOff, cyclePosition, doseTimeline, cumulativeExposure,
-  milestonesFor, reassessPrompt, durationWords,
+  milestonesFor, reassessPrompt, durationWords, doseTenure,
 } from '../lib/tenure'
+import { displayName } from '../lib/naming'
 
 /**
  * How long, on what, and what changed.
@@ -671,3 +672,231 @@ export function TenureLine({ peptide }) {
 }
 
 export { durationWords }
+
+// ---------------------------------------------------- the tenure table
+
+const TABLE_SORTS = [
+  { id: 'longest', label: 'Longest on' },
+  { id: 'newest', label: 'Recently started' },
+  { id: 'atdose', label: 'Longest at dose' },
+]
+
+/**
+ * What have I been on, for how long, at what dose, and how has it moved.
+ *
+ * Deliberately a table and not a stack of cards. Every row is the same height
+ * with the same fields in the same places, because the question this answers is
+ * a comparison between compounds, and a comparison needs a column to run down.
+ */
+export function TenureTable({ onOpen }) {
+  const peptides = useStore((s) => s.peptides)
+  const runs = useStore((s) => s.runs)
+  const titration = useStore((s) => s.titration)
+  const doseEvents = useStore((s) => s.doseEvents)
+  const t = todayStr()
+  const [sort, setSort] = useState('longest')
+
+  const rows = useMemo(() => {
+    const list = peptides.map((p) => ({
+      p,
+      tenure: tenureFor(p, { runs, todayStr: t }),
+      cycle: cyclePosition(p, t),
+      atDose: doseTenure(p, { doseEvents, titration, todayStr: t }),
+    })).filter((r) => r.tenure)
+    const on = (r) => r.tenure.currentDays ?? 0
+    const at = (r) => r.atDose?.days ?? 0
+    const byName = (a, b) => displayName(a.p).localeCompare(displayName(b.p))
+    if (sort === 'newest') return list.sort((a, b) => on(a) - on(b) || byName(a, b))
+    if (sort === 'atdose') return list.sort((a, b) => at(b) - at(a) || byName(a, b))
+    return list.sort((a, b) => on(b) - on(a) || byName(a, b))
+  }, [peptides, runs, titration, doseEvents, t, sort])
+
+  if (!rows.length) {
+    return (
+      <div className="card p-5 text-center" data-testid="tenure-table-empty">
+        <p className="text-sm font-bold">Nothing in my protocol yet.</p>
+        <p className="mt-1 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
+          Time on compound, current dose and dose history all appear here once there is something to
+          measure them against.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-2" data-testid="tenure-table">
+      <div className="flex items-center justify-between gap-2">
+        <p className="t-caption" style={{ color: 'var(--text-2)' }}>What I'm on</p>
+        <span className="text-xs font-bold tabular-nums" style={{ color: 'var(--text-3)' }}>
+          {rows.length} compound{rows.length === 1 ? '' : 's'}
+        </span>
+      </div>
+
+      <div className="flex gap-1.5 overflow-x-auto pb-0.5" data-testid="tenure-sort">
+        {TABLE_SORTS.map((s) => (
+          <button key={s.id} onClick={() => setSort(s.id)} data-testid={`tsort-${s.id}`}
+            className="flex min-h-[40px] shrink-0 items-center rounded-full px-3.5 text-xs font-black"
+            style={sort === s.id
+              ? { background: 'var(--accent)', color: 'var(--accent-fg)' }
+              : { background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
+            {s.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="card rows overflow-hidden">
+        {rows.map((r) => <TenureRow key={r.p.id} row={r} onOpen={() => onOpen?.(r.p.id)} />)}
+      </div>
+
+      <p className="px-1 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-3)' }}>
+        Time on compound is your own stated start date and may reach back before any of this was being
+        logged. Tap a row for its dose timeline and everything taken.
+      </p>
+    </div>
+  )
+}
+
+/** One field of a row: what it is on the left, what it says on the right. */
+function Field({ label, children, strong }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3">
+      <span className="t-caption shrink-0" style={{ color: 'var(--text-3)' }}>{label}</span>
+      <span className={`min-w-0 truncate text-right tabular-nums ${strong ? 't-metric-sm' : 'text-xs font-bold'}`}
+        style={{ color: strong ? 'var(--text)' : 'var(--text-2)' }}>
+        {children}
+      </span>
+    </div>
+  )
+}
+
+/**
+ * One compound, one row, the same fields in the same places every time.
+ *
+ * Every field is rendered whether or not it has something to say — a compound
+ * with no cycle still gets a Cycle line reading "not cycled" — so the rows line
+ * up and a column can be read straight down. That is the whole reason this is a
+ * table and not twelve little cards.
+ */
+function TenureRow({ row, onOpen }) {
+  const { p, tenure, cycle, atDose } = row
+  return (
+    <button onClick={onOpen} data-testid="tenure-row"
+      className="flex w-full items-start gap-3 p-3 text-left">
+      <div className="min-w-0 flex-1 space-y-1">
+        {/* a short name is short enough to print whole */}
+        <p className="text-sm font-bold leading-tight">{displayName(p)}</p>
+
+        <Field label="Time on" strong>
+          <span data-testid="row-time-on">
+            {tenure.running
+              ? (tenure.currentDays === 0 ? 'Started today' : tenure.currentWords)
+              : `Stopped · ${tenure.lifetimeWords}`}
+          </span>
+        </Field>
+
+        <Field label="Dose">{formatDose(atDose?.dose, atDose?.unit || p.ladder?.unit)}</Field>
+
+        <Field label="At this dose">
+          <span data-testid="row-at-dose">
+            {atDose?.days == null
+              ? '—'
+              : atDose.days === 0 ? 'set today' : durationWords(atDose.days)}
+          </span>
+        </Field>
+
+        <Field label="Dose history">
+          <span className="flex items-center justify-end gap-1.5" data-testid="row-progression">
+            <DoseSparkline peptide={p} width={44} height={13} />
+            <span className="min-w-0 truncate">{atDose?.progression}</span>
+          </span>
+        </Field>
+
+        <Field label="Cycle">{cycle?.cycled && cycle.short ? cycle.short : 'not cycled'}</Field>
+
+        <Field label="Started">
+          {prettyDate(tenure.startedOn)}
+          {tenure.runCount > 1 ? ` · ${tenure.runCount} runs` : ''}
+        </Field>
+      </div>
+      <ChevronRight size={16} className="mt-1 shrink-0" style={{ color: 'var(--text-2)' }} />
+    </button>
+  )
+}
+
+/**
+ * Everything about one compound's dose, opened from its row.
+ *
+ * The step-up list is spelled out in sentences rather than left as points on a
+ * chart, because "four weeks at 0.5 mg before this" is the part people actually
+ * want and it is not something a line can say.
+ */
+export function CompoundDetail({ peptideId, open, onClose }) {
+  const peptides = useStore((s) => s.peptides)
+  const doseEvents = useStore((s) => s.doseEvents)
+  const titration = useStore((s) => s.titration)
+  const skips = useStore((s) => s.skips)
+  const t = todayStr()
+  const peptide = peptides.find((p) => p.id === peptideId)
+  if (!open || !peptide) return null
+
+  const atDose = doseTenure(peptide, { doseEvents, titration, todayStr: t })
+  const mySkips = (skips || []).filter((s) => s.peptideId === peptide.id)
+
+  // Each step-up, with how long the dose before it had been held.
+  const stepUps = (atDose?.changes || [])
+    .filter((e) => e.kind === 'step-up' || e.kind === 'override')
+    .map((e, i, all) => {
+      const prev = i > 0 ? all[i - 1] : (atDose.changes.find((c) => c.kind === 'start') || null)
+      const held = prev ? daysBetween(prev.date, e.date) : null
+      return { ...e, heldWords: held != null && held > 0 ? durationWords(held) : null }
+    })
+    .reverse()
+
+  return (
+    <Modal open onClose={onClose} title={displayName(peptide)} wide>
+      <div className="space-y-3" data-testid="compound-detail">
+        <TenureBlock peptide={peptide} />
+        <DoseTimelineChart peptide={peptide} />
+        <ExposureBlock peptide={peptide} />
+
+        {stepUps.length > 0 && (
+          <div className="card p-3" data-testid="stepup-list">
+            <p className="t-caption" style={{ color: 'var(--text-2)' }}>Every dose change</p>
+            <div className="mt-2 space-y-2">
+              {stepUps.map((e) => (
+                <p key={e.id} className="text-xs font-medium leading-relaxed" data-testid="stepup-line"
+                  style={{ color: 'var(--text-2)' }}>
+                  <span className="font-black tabular-nums" style={{ color: 'var(--text)' }}>
+                    {prettyDate(e.date)}:
+                  </span>{' '}
+                  <span className="font-bold tabular-nums" style={{ color: 'var(--text)' }}>
+                    {e.from != null ? `${formatDose(e.from, e.unit)} → ` : ''}{formatDose(e.to, e.unit)}
+                  </span>
+                  {e.heldWords && ` · ${e.heldWords} at the dose before this`}
+                </p>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {mySkips.length > 0 && (
+          <div className="card p-3" data-testid="detail-skips">
+            <p className="t-caption" style={{ color: 'var(--text-2)' }}>Skipped · {mySkips.length}</p>
+            <div className="mt-2 space-y-1">
+              {mySkips.slice(-8).reverse().map((k) => (
+                <p key={`${k.date}-${k.peptideId}`} className="flex items-center gap-2 text-xs font-medium tabular-nums"
+                  style={{ color: 'var(--text-2)' }}>
+                  <SkipForward size={11} className="shrink-0" style={{ color: 'var(--warn)' }} />
+                  {prettyDate(k.date)}{k.reason ? ` · ${k.reason}` : ''}
+                </p>
+              ))}
+            </div>
+            <p className="mt-2 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-3)' }}>
+              A decision, not a lapse — nothing came out of stock for these.
+            </p>
+          </div>
+        )}
+      </div>
+    </Modal>
+  )
+}

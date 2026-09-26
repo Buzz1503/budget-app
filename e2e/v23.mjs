@@ -398,7 +398,7 @@ await step('the protocol overview lists everything and exports', async () => {
 
 await step('logging a dose offers an Undo that fully reverses it', async () => {
   await nav('Home')
-  const btn = page.locator('button[aria-label^="Log "]').first()
+  const btn = page.locator('[aria-label^="Log "]').first()
   if (!(await btn.count())) throw new Error('nothing left to log')
   const before = await state()
   await btn.click()

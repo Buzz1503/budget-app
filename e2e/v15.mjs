@@ -43,7 +43,7 @@ const nav = async (label) => {
   await page.waitForTimeout(250)
 }
 const openPicker = async () => {
-  await page.locator('button[aria-label^="Log "]').first().click()
+  await page.locator('[aria-label^="Log "]').first().click()
   await waitText(/INJECT HERE|Next on your path/, 12000)
 }
 const closeAny = async () => {
@@ -121,7 +121,7 @@ await step('the dose list leads the screen', async () => {
   // first unlogged Log button, which sits one card lower once one is logged.
   const y = await page.evaluate(() => {
     const list = document.querySelector('main .card.rows')
-    const card = document.querySelector('main button[aria-label^="Log "]')
+    const card = document.querySelector('main [aria-label^="Log "]')
     const tops = [list, card].filter(Boolean).map((el) => el.getBoundingClientRect().top + window.scrollY)
     return tops.length ? Math.min(...tops) : null
   })
@@ -363,7 +363,7 @@ await nav('Home')
 await page.screenshot({ path: `${SHOT}/v15-home.png`, fullPage: true })
 await page.click('button:has-text("AM")')
 await page.waitForTimeout(300)
-if (await page.locator('button[aria-label^="Log "]').count()) {
+if (await page.locator('[aria-label^="Log "]').count()) {
   await openPicker()
   await page.waitForTimeout(700)
   await page.screenshot({ path: `${SHOT}/v15-map.png`, fullPage: true })

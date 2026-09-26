@@ -6,7 +6,7 @@ import { currentRung } from './schedule'
 import { slotOf, scheduledWeekdaySet, needsProtocolSetup, WEEKDAYS } from './daily'
 import { formatDose } from './calc'
 import { metricSeries, rollingAverage, METRIC_BY_KEY } from './metrics'
-import { tenureFor, cumulativeExposure, cyclePosition } from './tenure'
+import { tenureFor, cumulativeExposure, cyclePosition, doseTenure } from './tenure'
 
 function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, (c) => (
@@ -20,7 +20,10 @@ function weekdayLabel(peptide) {
   return days.map((d) => WEEKDAYS[d]).join(', ')
 }
 
-export function buildSummaryHtml({ peptides, titration, doseLogs, measurements, summary, from, to, runs = {} }) {
+export function buildSummaryHtml({
+  peptides, titration, doseLogs, doseEvents = [], measurements, summary, from, to, runs = {},
+  framed = false,
+}) {
   const fmt = (d) => format(parseISO(d), 'd MMM yyyy')
   const active = peptides.filter((p) => !needsProtocolSetup(p))
   const today = format(new Date(), 'yyyy-MM-dd')
@@ -50,15 +53,29 @@ export function buildSummaryHtml({ peptides, titration, doseLogs, measurements, 
     if (exp?.hasEstimate) anyEstimate = true
     const unit = p.ladder?.unit === 'mcg' ? 'mcg' : 'mg'
     const show = (mg) => `${Math.round((unit === 'mcg' ? mg * 1000 : mg) * 100) / 100} ${unit}`
+    const at = doseTenure(p, { doseEvents, titration, todayStr: today })
     return `<tr>
       <td><strong>${esc(p.name)}</strong></td>
       <td>${esc(fmt(ten.startedOn))}</td>
       <td>${esc(ten.running ? ten.currentWords : 'not running')}${ten.runCount > 1 ? ` <span class="muted">(${ten.runCount} runs, ${esc(ten.lifetimeWords)} lifetime)</span>` : ''}</td>
+      <td>${esc(at?.progression || '—')}${at?.words ? `<br><span class="muted">${esc(at.words)}</span>` : ''}</td>
       <td>${esc(cyc?.cycled ? cyc.words : 'ongoing')}</td>
       <td class="num">${exp ? exp.doses : 0}</td>
       <td class="num">${exp ? show(exp.loggedMg) : '—'}</td>
       <td class="num">${exp?.hasEstimate ? show(exp.estimatedMg) + ' *' : '—'}</td>
     </tr>`
+  }).filter(Boolean).join('')
+
+  // Every recorded dose change, in order, per compound — the detail behind the
+  // progression column.
+  const changeRows = active.map((p) => {
+    const at = doseTenure(p, { doseEvents, titration, todayStr: today })
+    const steps = (at?.changes || []).filter((e) => e.kind === 'step-up' || e.kind === 'override')
+    if (!steps.length) return ''
+    const lines = steps.map((e) => (
+      `${fmt(e.date)}: ${e.from != null ? `${e.from} → ` : ''}${e.to} ${e.unit || ''}`.trim()
+    )).join(' &middot; ')
+    return `<tr><td><strong>${esc(p.name)}</strong></td><td>${esc(lines).replace(/&amp;middot;/g, '&middot;')}</td></tr>`
   }).filter(Boolean).join('')
 
   const adherenceRows = summary.rows.map((r) => `<tr>
@@ -122,7 +139,7 @@ export function buildSummaryHtml({ peptides, titration, doseLogs, measurements, 
            background: #fff; cursor: pointer; }
 </style></head>
 <body>
-  <div class="noprint" style="margin-bottom:18px"><button onclick="window.print()">Print / Save as PDF</button></div>
+  ${framed ? '' : '<div class="noprint" style="margin-bottom:18px"><button onclick="window.print()">Print / Save as PDF</button></div>'}
 
   <h1>Peptide protocol summary</h1>
   <p class="sub">${esc(fmt(from))} – ${esc(fmt(to))} · generated ${esc(format(new Date(), 'd MMM yyyy'))}</p>
@@ -134,18 +151,24 @@ export function buildSummaryHtml({ peptides, titration, doseLogs, measurements, 
     <div class="kpi"><div class="v">${esc(longestWords)}</div><div class="l">Longest running</div></div>
   </div>
 
-  <h2>Current protocol</h2>
-  ${active.length ? `<table>
-    <thead><tr><th>Peptide</th><th>Current dose</th><th>Schedule</th><th>Titration</th><th>Cycle</th><th>Time on</th></tr></thead>
-    <tbody>${protocolRows}</tbody></table>` : '<p class="empty">No peptides configured.</p>'}
-
-  <h2>Time on compound &amp; total exposure</h2>
+  <h2>Time on compound &amp; dose history</h2>
   ${tenureRows ? `<table>
-    <thead><tr><th>Peptide</th><th>Started</th><th>Time on</th><th>Cycle position</th>
+    <thead><tr><th>Peptide</th><th>Started</th><th>Time on</th><th>Dose history</th><th>Cycle position</th>
       <th class="num">Doses logged</th><th class="num">Total logged</th><th class="num">Estimated</th></tr></thead>
     <tbody>${tenureRows}</tbody></table>
     ${anyEstimate ? '<p class="empty">* Estimated: entered by hand for a period before logging began, multiplied out from a stated dose and frequency. Not a record made at the time, and not counted in adherence.</p>' : ''}`
     : '<p class="empty">No peptides configured.</p>'}
+
+  <h2>Every dose change</h2>
+  ${changeRows ? `<table>
+    <thead><tr><th>Peptide</th><th>Changes, oldest first</th></tr></thead>
+    <tbody>${changeRows}</tbody></table>`
+    : '<p class="empty">No dose changes recorded yet.</p>'}
+
+  <h2>Current protocol</h2>
+  ${active.length ? `<table>
+    <thead><tr><th>Peptide</th><th>Current dose</th><th>Schedule</th><th>Titration</th><th>Cycle</th><th>Time on</th></tr></thead>
+    <tbody>${protocolRows}</tbody></table>` : '<p class="empty">No peptides configured.</p>'}
 
   <h2>Adherence by peptide</h2>
   ${adherenceRows ? `<table>
@@ -167,21 +190,21 @@ export function buildSummaryHtml({ peptides, titration, doseLogs, measurements, 
 </body></html>`
 }
 
-export function openSummaryDocument(data) {
+/**
+ * Save the document as a file.
+ *
+ * It used to open in a new tab, which on a phone is a window with no chrome and
+ * no way back to the app — see SummarySheet, which frames it in place instead.
+ * Downloading is what is left of the old path, and it is the useful half.
+ */
+export function downloadSummaryDocument(data) {
   const html = buildSummaryHtml(data)
-  const win = window.open('', '_blank')
-  if (!win) {
-    // popup blocked — fall back to a download
-    const blob = new Blob([html], { type: 'text/html' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `peptide-summary-${format(new Date(), 'yyyy-MM-dd')}.html`
-    a.click()
-    URL.revokeObjectURL(url)
-    return false
-  }
-  win.document.write(html)
-  win.document.close()
+  const blob = new Blob([html], { type: 'text/html' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `peptide-summary-${format(new Date(), 'yyyy-MM-dd')}.html`
+  a.click()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
   return true
 }

@@ -28,10 +28,33 @@ export function useMissedRecently() {
  * to log is not the person who goes looking through a calendar for the day they
  * forgot. The badge is the entry point.
  */
-export default function CatchUpCard() {
+export default function CatchUpCard({ quiet = false }) {
   const { days, run, total } = useMissedRecently()
   const [sheet, setSheet] = useState(null)     // 'run' | 'add'
   const [day, setDay] = useState(null)
+
+  // On a page whose subject is months of dose history, a red block about last
+  // Tuesday is the wrong size. Same facts, same way in, one line.
+  if (quiet && total > 0) {
+    return (
+      <>
+        <div className="flex items-center gap-2 px-1" data-testid="catch-up-quiet">
+          <span className="min-w-0 flex-1 truncate text-xs font-medium tabular-nums" style={{ color: 'var(--text-2)' }}>
+            {total} dose{total === 1 ? '' : 's'} unrecorded over {days.length} day{days.length === 1 ? '' : 's'}
+          </span>
+          <button onClick={() => setSheet('run')} data-testid="catch-up-open"
+            className="shrink-0 rounded-full px-3 py-1.5 text-xs font-black"
+            style={{ background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
+            Catch up
+          </button>
+        </div>
+        <CatchUpSheet open={sheet === 'run'} days={days} run={run}
+          onClose={() => setSheet(null)} onPickDay={(d) => { setSheet(null); setDay(d) }} />
+        <BackfillSheet open={sheet === 'add' || !!day} date={day} onClose={() => { setSheet(null); setDay(null) }} />
+      </>
+    )
+  }
+  if (quiet) return null
 
   if (total === 0) {
     return (

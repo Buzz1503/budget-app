@@ -94,7 +94,7 @@ function initialState() {
     // it at render time — see lib/cost.js for why none of it is stored.
     settings: {
       currency: 'AUD', fx_usd_to_aud: DEFAULT_FX_USD_TO_AUD, restockLeadDays: 30,
-      theme: 'dark', disclaimerDismissed: false, haptics: true, sound: false,
+      disclaimerDismissed: false, haptics: true, sound: false,
     },
   }
 }
@@ -1189,7 +1189,7 @@ const useStore = create(
     }),
     {
       name: 'peptide-command-center', // storage key is history — renaming it would orphan existing data
-      version: 10,
+      version: 11,
       storage: createJSONStorage(() => safeStorage),
       // Saves written before a release can't pick new library entries up from
       // the seed, so each version bump backfills them here — once. Deleting one
@@ -1204,10 +1204,19 @@ const useStore = create(
       //   v8: gamification and the weekly recap removed
       //   v9: prices held in USD + one exchange rate, never in stored AUD
       //   v10: injection-site rotation removed
+      //   v11: light mode removed
       migrate: (persisted, from) => {
-        if (!persisted || from >= 10) return persisted
+        if (!persisted || from >= 11) return persisted
         const s = { ...persisted }
         const t = todayStr()
+        if (from < 11) {
+          // The app is dark only now. Nothing reads settings.theme any more, and
+          // a dead key would otherwise ride along in every backup from here on.
+          if (s.settings) {
+            const { theme, ...settings } = s.settings
+            s.settings = settings
+          }
+        }
         if (from < 10) {
           // Tenure needs a starting point and an open run for everything
           // already on the protocol. The honest one is the schedule's own

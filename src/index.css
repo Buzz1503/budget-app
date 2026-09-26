@@ -12,6 +12,11 @@
    still emit them. The names the later components were swept onto (--good,
    --text-2, --surface-sunk …) are aliases pointing at the same values, so the
    whole app renders one palette without a single component having to change.
+
+   There is one theme. A light palette lived here until v30.1 and was carried
+   by a toggle almost nobody moved, at the cost of every new surface having to
+   be checked twice; the tokens below are now simply the colours, and a
+   component reading one of them does not have to wonder which mode it is in.
    =========================================================================== */
 
 :root {
@@ -57,36 +62,10 @@
   --r-pill: 999px;
   --shadow-card: var(--shadow);
   --shadow-nav: 0 -8px 30px rgba(0, 0, 0, 0.45);
-}
 
-/* Light stays available through the Settings toggle, on v20's own light
-   palette rather than a separate design. */
-:root[data-theme="light"] {
-  --bg: #f2f3fb;
-  --bg-grad:
-    radial-gradient(900px 500px at 8% -8%, rgba(139, 92, 246, 0.14), transparent 55%),
-    radial-gradient(900px 500px at 100% 0%, rgba(101, 163, 13, 0.10), transparent 50%),
-    #f2f3fb;
-  --surface: rgba(255, 255, 255, 0.92);
-  --surface-solid: #ffffff;
-  --surface2: rgba(15, 23, 42, 0.055);
-  --border: rgba(15, 23, 42, 0.11);
-  --text: #10131f;
-  --muted: #565d72;
-  --lime: #4d9a0a;
-  --lime-deep: #3f7c08;
-  --amber: #c2740a;
-  --violet: #7c3aed;
-  --indigo: #4f46e5;
-  --coral: #e11d48;
-  --rose: #e11d48;
-  --gold: #b7860b;
-  --shadow: 0 10px 28px rgba(15, 23, 42, 0.10), 0 2px 6px rgba(15, 23, 42, 0.07);
-
-  --text-3: #7d8496;
-  --accent-fg: #0c1200;
-  --tint: 12%;
-  --shadow-nav: 0 -8px 30px rgba(15, 23, 42, 0.10);
+  /* the app is dark, full stop — this tells the browser so form controls,
+     scrollbars and the date picker come up dark too rather than white */
+  color-scheme: dark;
 }
 
 html, body {

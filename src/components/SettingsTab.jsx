@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import * as Icons from 'lucide-react'
 import {
-  Download, RotateCcw, Moon, Sun, Award, History, ShieldCheck, Upload, CalendarPlus, Check, AlertTriangle, Wand2,
+  Download, RotateCcw, Award, History, ShieldCheck, Upload, CalendarPlus, Check, AlertTriangle, Wand2,
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import useStore, { todayStr } from '../store/useStore'
@@ -55,18 +55,12 @@ export default function SettingsTab({ goTo }) {
       <div>
         <h1 className="text-2xl font-black tracking-tight">Settings</h1>
         <p className="text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
-          Theme, lead time, backup and reset
+          Lead time, currency, backup and reset
         </p>
       </div>
 
       {/* settings */}
       <div className="card space-y-3 p-3">
-        <Row label="Theme">
-          <button onClick={() => updateSettings({ theme: settings.theme === 'dark' ? 'light' : 'dark' })}
-            className="chip !py-2 font-bold">
-            {settings.theme === 'dark' ? <Moon size={13} /> : <Sun size={13} />} {settings.theme}
-          </button>
-        </Row>
         <Row label="Currency">
           <input className="input !w-20 text-center" value={settings.currency}
             onChange={(e) => updateSettings({ currency: e.target.value.toUpperCase().slice(0, 3) })} />

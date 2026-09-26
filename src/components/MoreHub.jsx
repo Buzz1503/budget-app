@@ -41,7 +41,7 @@ const SECTIONS = [
     id: 'data',
     title: 'Data',
     links: [
-      { id: 'settings', label: 'Settings, backup & export', desc: 'Theme, lead time, backup and reset', icon: Settings },
+      { id: 'settings', label: 'Settings, backup & export', desc: 'Lead time, currency, backup and reset', icon: Settings },
     ],
   },
 ]

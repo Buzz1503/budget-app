@@ -43,7 +43,7 @@ const more = async (id) => {
 const text = async (sel) => (await page.locator(sel).first().textContent()) || ''
 // A logged row's button is disabled, so "the first row" stops being clickable
 // as soon as a test logs it. Always reach for one that is still outstanding.
-const liveRow = () => page.locator('[data-testid="log-row"]:not([disabled])')
+const liveRow = () => page.locator('[data-testid="log-row"]:not([data-done])')
 const shutMenus = async () => {
   const open = page.locator('[data-testid="row-menu"]')
   while (await open.count()) {
@@ -332,13 +332,17 @@ await step('8 · history labels adherence and gives a per-compound view', async 
   if (!(await basis.count())) throw new Error('adherence is not labelled')
   const t = await basis.innerText()
   if (!/since logging began/i.test(t)) throw new Error(`adherence label: ${t}`)
+  // v30.1 put a tenure table above the log, so the compound filter is no longer
+  // the first scrolling row on the page — it is the one after the Filter label.
   const chip = page.locator('[data-testid="history-compound"]')
-  const filters = page.locator('.overflow-x-auto button')
+  const filters = page.locator('p:has-text("Filter") + div button')
   if (await filters.count() > 1) {
     await filters.nth(1).click()
     await page.waitForTimeout(700)
     if (!(await chip.count())) throw new Error('filtering by compound showed no tenure view')
     console.log(`  per-compound: ${(await chip.innerText()).replace(/\s+/g, ' ')}`)
+  } else {
+    throw new Error('the compound filter is gone')
   }
 })
 
@@ -375,34 +379,53 @@ await step('9 · every figure is tabular-nums', async () => {
   if (bad.length) throw new Error(`not tabular: ${bad.join(' | ')}`)
 })
 
-const shoot = async (theme) => {
-  await page.evaluate((th) => {
-    const s = JSON.parse(localStorage.getItem('peptide-command-center'))
-    s.state.settings.theme = th
-    localStorage.setItem('peptide-command-center', JSON.stringify(s))
-  }, theme)
-  await page.reload({ waitUntil: 'networkidle' })
-  await page.waitForTimeout(1500)
-  const got = await gotItIfAny()
-  if (got) await page.waitForTimeout(500)
-  await page.screenshot({ path: `${SHOT}/v32-home-${theme}.png` })
-  await more('protocol')
-  await page.screenshot({ path: `${SHOT}/v32-protocol-${theme}.png`, fullPage: true })
-  await page.locator('[data-testid="protocol-row"]').first().click()
-  await page.waitForTimeout(800)
-  await page.click('[data-testid="sheet-tab-timeline"]')
-  await page.waitForTimeout(700)
-  await page.screenshot({ path: `${SHOT}/v32-timeline-${theme}.png`, fullPage: true })
-  await closeAll()
-}
 const gotItIfAny = async () => {
   const b = page.locator('button:has-text("Got it")')
   if (await b.count()) { await b.click(); return true }
   return false
 }
 
-await step('9 · renders in dark at 390px', async () => { await shoot('dark') })
-await step('9 · renders in light at 390px', async () => { await shoot('light') })
+// v30.1 removed light mode, so there is one theme to shoot rather than two.
+const shoot = async () => {
+  await page.reload({ waitUntil: 'networkidle' })
+  await page.waitForTimeout(1500)
+  if (await gotItIfAny()) await page.waitForTimeout(500)
+  await page.screenshot({ path: `${SHOT}/v32-home.png` })
+  await more('protocol')
+  await page.screenshot({ path: `${SHOT}/v32-protocol.png`, fullPage: true })
+  await page.locator('[data-testid="protocol-row"]').first().click()
+  await page.waitForTimeout(800)
+  await page.click('[data-testid="sheet-tab-timeline"]')
+  await page.waitForTimeout(700)
+  await page.screenshot({ path: `${SHOT}/v32-timeline.png`, fullPage: true })
+  await closeAll()
+}
+
+await step('9 · renders at 390px', async () => { await shoot() })
+
+await step('9 · no light mode remains', async () => {
+  const hasLight = await page.evaluate(() => {
+    const sheets = [...document.styleSheets]
+    for (const sh of sheets) {
+      let rules
+      try { rules = [...sh.cssRules] } catch { continue }
+      for (const r of rules) {
+        if (r.selectorText && /data-theme=.?light/.test(r.selectorText)) return r.selectorText
+        if (r.conditionText && /prefers-color-scheme:\s*light/.test(r.conditionText)) return r.conditionText
+      }
+    }
+    return null
+  })
+  if (hasLight) throw new Error(`a light-mode rule survives: ${hasLight}`)
+  if (await page.evaluate(() => document.documentElement.dataset.theme)) {
+    throw new Error('the root still carries a theme attribute')
+  }
+  const stored = await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem('peptide-command-center')).state
+    return s.settings.theme ?? null
+  })
+  if (stored) throw new Error(`settings.theme survives as "${stored}"`)
+})
 
 await step('9 · nothing overflows the 390px viewport', async () => {
   const wide = await page.evaluate(() => document.documentElement.scrollWidth)
