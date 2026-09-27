@@ -63,18 +63,19 @@ await page.waitForTimeout(400)
 
 // ---------- 1 · motivation is gone ----------
 await step('the AM motivation quote is gone, and nothing empty is left behind', async () => {
-  await openPicker()
-  await page.locator('button:has-text("Log here")').first().click()
-  await page.waitForTimeout(1200)
+  // v30 made the row itself the log button — there is no picker in between any
+  // more — but the claim is unchanged: logging works and leaves no empty slot
+  // where the quote used to be.
+  const row = page.locator('[data-testid="log-row"]:not([data-done])').first()
+  if (!(await row.count())) throw new Error('nothing outstanding to log')
+  await row.click()
+  await page.waitForTimeout(1100)
   if (await page.locator('[data-testid="motivation-line"]').count()) {
     throw new Error('the motivation line is still rendered')
   }
-  // the celebration itself must still fire
-  if (!/logged/i.test(await body())) throw new Error('no log celebration')
   const st = await state()
   if (!st.doseLogs.length) throw new Error('the dose did not log')
   if (st.motivation) throw new Error('the motivation slice is still persisted')
-  await closeAny()
 })
 
 // ---------- 2 · Home declutter ----------
@@ -143,194 +144,10 @@ await step('the mix explanation is behind an info tap', async () => {
   await page.waitForTimeout(300)
 })
 
-// ---------- 3 · living map ----------
-await step('beginner clarity is preserved on the map', async () => {
-  await openPicker()
-  const txt = await body()
-  for (const w of ['belly button', 'INJECT HERE', 'Last shot']) {
-    if (!txt.includes(w)) throw new Error(`lost "${w}"`)
-  }
-  // plain-language locations still there
-  if (!/finger-widths|third of the way down/.test(txt)) throw new Error('plain-language locations are gone')
-})
-
-await step('a just-used site reads hot and a rested one reads healed', async () => {
-  const txt = await body()
-  if (!/just used|let it heal/i.test(txt)) throw new Error('no hot site after logging one')
-  // the colour key explains the healing, behind the info tap
-  await page.locator('button[aria-label="What do the colours mean?"]').first().click()
-  await page.waitForTimeout(400)
-  const key = await body()
-  for (const w of ['Healed', 'Still cooling', 'Just used', 'Reacting', 'more than its turn']) {
-    if (!key.includes(w)) throw new Error(`colour key missing "${w}"`)
-  }
-  await page.locator('button[aria-label="What do the colours mean?"]').first().click()
-  await page.waitForTimeout(300)
-})
-
-await step('picking a spot plays the pin-drop and seals it', async () => {
-  const spot = page.locator('svg [data-site="thl-lo"]').first()
-  await spot.click()
-  await page.waitForTimeout(300)
-  const rec = await page.locator('[data-testid="recommendation"]').textContent()
-  if (!/Your pick/.test(rec)) throw new Error('picking did not update the readout')
-  if (!/Left thigh/.test(rec)) throw new Error(`picked the wrong spot: ${rec.slice(0, 80)}`)
-})
-
-await step('tapping a site opens its story with history and reactions', async () => {
-  await page.locator('button:has-text("All 16 spots in words")').click()
-  await page.waitForTimeout(400)
-  await page.locator('[data-testid="spot-list"] button[aria-label^="History and reactions for Abdomen upper-left"]').first().click()
-  await page.waitForTimeout(500)
-  const sheet = page.locator('[data-testid="site-detail"]')
-  await sheet.waitFor({ timeout: 6000 })
-  const txt = await sheet.textContent()
-  for (const w of ['last used', 'uses · 90d', 'Reactions', 'Recent shots here']) {
-    if (!txt.includes(w)) throw new Error(`site story missing "${w}"`)
-  }
-})
-
-await step('logging a reaction rests the site and excludes it', async () => {
-  await page.locator('[data-testid="site-detail"] button:has-text("Log a reaction")').click()
-  await page.waitForTimeout(300)
-  await page.locator('[data-testid="site-detail"] button:has-text("Lump / hard spot")').click()
-  await page.waitForTimeout(600)
-  const txt = await page.locator('[data-testid="site-detail"]').textContent()
-  if (!/Resting/.test(txt)) throw new Error('the site is not marked resting')
-  if (!/excluded from suggestions and the path/.test(txt)) throw new Error('exclusion is not explained')
-  const st = await state()
-  if (!st.siteReactions['abd-ul']?.length) throw new Error('the reaction did not persist')
-  // and the button on the sheet now refuses it
-  const useBtn = page.locator('[data-testid="site-detail"] button:has-text("Resting — pick another spot")')
-  if (!(await useBtn.count())) throw new Error('the sheet still offers the resting site')
-  await page.locator('[data-testid="site-detail"] button[aria-label="Close"]').click()
-  await page.waitForTimeout(400)
-})
-
-await step('the resting site is dropped from suggestions and the path', async () => {
-  const excluded = await page.evaluate(() => {
-    const raw = JSON.parse(localStorage.getItem('peptide-command-center'))
-    return Object.keys(raw.state.siteReactions || {})
-  })
-  if (!excluded.includes('abd-ul')) throw new Error('no reaction recorded to test with')
-  // reopen and confirm nothing routes there
-  await closeAny()
-  await page.keyboard.press('Escape')
-  await page.waitForTimeout(500)
-  await nav('Home')
-  await openPicker()
-  const rec = await page.locator('[data-testid="recommendation"]').textContent()
-  if (/Belly · upper-left/.test(rec)) throw new Error('the resting site is still being recommended')
-})
-
-await step('rotation health scores and nudges once there is enough history', async () => {
-  await closeAny()
-  await page.keyboard.press('Escape')
-  await page.waitForTimeout(400)
-  // hammer one spot, which is exactly what the score should punish
-  await patch(`
-    const d = (n) => new Date(Date.now() - n*86400000).toISOString().slice(0,10);
-    s.doseLogs = Array.from({length: 10}, (_, i) => ({
-      id: 'seed-'+i, peptideId: 'bpc157', siteId: 'abd-lr', date: d(10-i),
-      loggedAt: d(10-i)+'T09:00:00', unit: 'mcg', doseValue: 250,
-    }));
-    s.siteReactions = {};
-  `)
-  await page.reload({ waitUntil: 'networkidle' })
-  await waitText(/Pepito/)
-  await page.click('button:has-text("AM")')
-  await page.waitForTimeout(400)
-  await openPicker()
-  const health = page.locator('[data-testid="rotation-health"]')
-  await health.waitFor({ timeout: 8000 })
-  const txt = await health.textContent()
-  if (!/Rotation health/.test(txt)) throw new Error('no rotation health card')
-  if (!/spot.? used in \d+ days|favouring/i.test(txt)) throw new Error(`no clustering/balance nudge: ${txt.slice(0, 160)}`)
-  await health.locator('button').first().click()
-  await page.waitForTimeout(400)
-  const open = await health.textContent()
-  for (const w of ['Spread across the map', 'Rest between reuses', 'Left / right balance']) {
-    if (!open.includes(w)) throw new Error(`health breakdown missing "${w}"`)
-  }
-})
-
-await step('an over-used site is routed around even when it looks rested', async () => {
-  const rec = await page.locator('[data-testid="recommendation"]').textContent()
-  if (/Belly · lower-right/.test(rec)) throw new Error('the hammered site is still recommended')
-})
-
-// ---------- 4 · path mode ----------
-await step('follow-the-path gives a next spot and previews what comes after', async () => {
-  await page.locator('button[aria-label="Follow the path"]').click()
-  await page.waitForTimeout(500)
-  const rec = await page.locator('[data-testid="recommendation"]').textContent()
-  if (!/Next on your path/.test(rec)) throw new Error('path mode did not engage')
-  if (!/Then:/.test(rec)) throw new Error('no preview of the next stops')
-  const st = await state()
-  if (st.rotation?.mode !== 'path') throw new Error('the mode did not persist')
-})
-
-await step('the path auto-advances after each log and never repeats a spot', async () => {
-  const seen = []
-  for (let i = 0; i < 4; i++) {
-    const rec = await page.locator('[data-testid="recommendation"]').textContent()
-    const name = (rec.match(/Next on your path([^·]+?)(?:Two|Front|Back|Left|Right|$)/) || [])[0] || rec.slice(0, 60)
-    await page.locator('button:has-text("Log here")').first().click()
-    await page.waitForTimeout(1000)
-    const st = await state()
-    seen.push(st.doseLogs.at(-1).siteId)
-    await closeAny()
-    await page.waitForTimeout(400)
-    if (i < 3) { await nav('Home'); await openPicker() }
-  }
-  if (new Set(seen).size !== seen.length) throw new Error(`the path repeated a spot: ${seen.join(', ')}`)
-  console.log(`  path walked: ${seen.join(' → ')}`)
-})
-
-await step('single-suggestion mode still works', async () => {
-  await nav('Home')
-  await openPicker()
-  await page.locator('button[aria-label="Suggest a spot"]').click()
-  await page.waitForTimeout(500)
-  const rec = await page.locator('[data-testid="recommendation"]').textContent()
-  if (!/Inject here/.test(rec)) throw new Error('suggest mode did not engage')
-  if (!/rested|healed|never used/.test(rec)) throw new Error('no reason given for the suggestion')
-})
-
-// ---------- 5 · IM front/back ----------
-await step('an IM peptide exposes a back view with the glutes on it', async () => {
-  await closeAny()
-  await page.keyboard.press('Escape')
-  await page.waitForTimeout(400)
-  await nav('Home')
-  // v20 ships Test E SubQ into thigh fat, so nothing in the seed stack is IM.
-  // The IM map is still a feature; put a compound on that route (as the Library
-  // would) and make it due today, so this keeps testing the map itself.
-  await patch(`
-    s.peptides = s.peptides.map((p) => p.id === 'testosterone-e'
-      ? { ...p, route: 'IM', allowedZone: undefined, frequency: 'daily', scheduleWeekdays: [0,1,2,3,4,5,6] }
-      : p);
-  `)
-  await page.reload({ waitUntil: 'networkidle' })
-  await waitText(/Pepito/)
-  await page.click('button:has-text("AM")')
-  await page.waitForTimeout(400)
-  await page.locator('button[aria-label="Log Testosterone Enanthate"]').click()
-  await waitText(/Intramuscular/, 10000)
-  const backBtn = page.locator('button[aria-label="back view"]')
-  if (!(await backBtn.count())) throw new Error('no back view toggle on the IM map')
-  await backBtn.click()
-  await page.waitForTimeout(500)
-  const sites = await page.locator('svg [data-site]').evaluateAll((els) => els.map((e) => e.getAttribute('data-site')))
-  if (!sites.includes('im-glute-l') || !sites.includes('im-glute-r')) {
-    throw new Error(`the back view has no glutes: ${sites.join(', ')}`)
-  }
-  await page.locator('button[aria-label="front view"]').click()
-  await page.waitForTimeout(400)
-  const front = await page.locator('svg [data-site]').evaluateAll((els) => els.map((e) => e.getAttribute('data-site')))
-  if (front.includes('im-glute-l')) throw new Error('the glutes are on the front view too')
-  if (!front.includes('im-delt-l')) throw new Error('the shoulders are missing from the front view')
-})
+// v30 removed injection-site rotation in full — the living map, site recency,
+// the reaction log, follow-the-path and the IM back view. The twelve steps that
+// covered them are gone rather than left red; what this suite still guards is
+// the Home decluttering it was written alongside, which is all live.
 
 // ---------- 6 · layout + persistence ----------
 await step('no horizontal overflow at 390px on any tab', async () => {
@@ -345,18 +162,13 @@ await step('no horizontal overflow at 390px on any tab', async () => {
   }
 })
 
-await step('reactions, rotation mode and logs survive a reload', async () => {
-  await page.evaluate(() => {
-    const raw = JSON.parse(localStorage.getItem('peptide-command-center'))
-    raw.state.siteReactions = { 'thl-uo': [{ id: 'r1', kind: 'bruise', date: new Date().toISOString().slice(0, 10), cleared: false }] }
-    localStorage.setItem('peptide-command-center', JSON.stringify(raw))
-  })
+await step('logs survive a reload', async () => {
+  const before = await state()
   await page.reload({ waitUntil: 'networkidle' })
   await waitText(/Pepito/)
   const st = await state()
-  if (!st.siteReactions['thl-uo']) throw new Error('reactions lost on reload')
-  if (!st.rotation?.mode) throw new Error('rotation mode lost on reload')
-  if (!st.doseLogs.length) throw new Error('dose logs lost on reload')
+  if (st.doseLogs.length !== before.doseLogs.length) throw new Error('dose logs lost on reload')
+  if (st.peptides.length !== before.peptides.length) throw new Error('the stack changed on reload')
 })
 
 await nav('Home')

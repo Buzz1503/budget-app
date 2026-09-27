@@ -1,7 +1,7 @@
 import { chromium } from 'playwright'
 import { mkdirSync } from 'fs'
 
-const BASE = process.env.BASE_URL || 'http://localhost:4173/pcc/'
+const BASE = process.env.BASE_URL || 'http://localhost:5174/budget-app/'
 const SHOT = new URL('./shots', import.meta.url).pathname
 mkdirSync(SHOT, { recursive: true })
 const EXE = process.env.CHROMIUM_PATH || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'

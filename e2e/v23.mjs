@@ -98,11 +98,12 @@ await step('a stock-only compound is scheduled nowhere', async () => {
 await step('removing from my protocol leaves stock and history intact', async () => {
   // log a dose first, so there is history that must survive
   await nav('Home')
-  await page.click('button[aria-label="Log BPC-157"]')
-  await page.waitForTimeout(1200)
-  await page.click('button:has-text("Log here")')
-  await page.waitForTimeout(1400)
-  await closeModal()
+  await page.waitForTimeout(600)
+  const bpc = await page.locator('[data-testid="log-row"]').evaluateAll(
+    (els) => els.findIndex((e) => /BPC-157/.test(e.getAttribute('aria-label') || '') && e.dataset.done !== 'true'))
+  if (bpc < 0) throw new Error('BPC-157 is not outstanding on Home')
+  await page.locator('[data-testid="log-row"]').nth(bpc).click()
+  await page.waitForTimeout(1100)
 
   const before = await state()
   const logsBefore = before.doseLogs.filter((l) => l.peptideId === 'bpc157').length
@@ -398,14 +399,13 @@ await step('the protocol overview lists everything and exports', async () => {
 
 await step('logging a dose offers an Undo that fully reverses it', async () => {
   await nav('Home')
-  const btn = page.locator('[aria-label^="Log "]').first()
-  if (!(await btn.count())) throw new Error('nothing left to log')
+  await page.waitForTimeout(600)
+  const row = page.locator('[data-testid="log-row"]:not([data-done])').first()
+  if (!(await row.count())) throw new Error('nothing left to log')
   const before = await state()
-  await btn.click()
-  await page.waitForTimeout(1200)
-  await page.click('button:has-text("Log here")')
-  await page.waitForTimeout(1400)
-  await closeModal()
+  // v30: the row is the button, and nothing is asked in between
+  await row.click()
+  await page.waitForTimeout(1100)
 
   const mid = await state()
   if (mid.doseLogs.length !== before.doseLogs.length + 1) throw new Error('the dose was not logged')

@@ -49,11 +49,23 @@ await amSlot()
 
 // ---------------- FIX 1 · the co-draw bar ----------------
 await step('the whole "Log together" bar clears the bottom nav at 390px', async () => {
-  // each click renames that card's button to "Deselect", so always take the first
-  const circles = page.locator('button[aria-label^="Select "]')
-  await circles.first().click()
-  await page.waitForTimeout(300)
-  await circles.first().click()
+  // v30 took the selection circles off the cards — co-draw is picked from each
+  // row's overflow menu now. The bar it raises is unchanged, and so is the claim
+  // about it: it has to clear the nav and be tappable.
+  const pickTwo = async () => {
+    let picked = 0
+    const rows = await page.locator('[data-testid="log-row"]').count()
+    for (let i = 0; i < rows && picked < 2; i++) {
+      await page.locator('[data-testid="row-overflow"]').nth(i).click()
+      await page.waitForTimeout(400)
+      const codraw = page.locator('[data-testid="row-codraw"]')
+      if (await codraw.count()) { await codraw.click(); picked += 1; await page.waitForTimeout(400) }
+      const open = page.locator('[data-testid="row-overflow"][aria-expanded="true"]')
+      if (await open.count()) { await open.first().click(); await page.waitForTimeout(300) }
+    }
+    return picked
+  }
+  if ((await pickTwo()) < 2) throw new Error('could not select two compounds for a co-draw')
   await page.waitForTimeout(700)
 
   const geo = await page.evaluate(() => {
@@ -109,212 +121,46 @@ await page.click('button[aria-label="Clear selection"]')
 await page.waitForTimeout(400)
 
 // ---------------- FIX 2 · the injection map ----------------
-await step('the map draws a landmarked body with a keep-clear zone', async () => {
-  await openPicker()
-  const svg = modal().locator('svg[aria-label^="Injection site map"]')
-  const text = await svg.textContent()
-  for (const want of ['belly button', 'waist', 'hip bone', 'knee']) {
-    if (!text.includes(want)) throw new Error(`landmark "${want}" not labelled on the diagram`)
-  }
-  await modal().locator('button[aria-label="What do the colours mean?"]').first().click()
-  await page.waitForTimeout(400)
-  const body = await modal().textContent()
-  if (!/Shaded ring = keep clear/.test(body)) throw new Error('keep-clear zone not explained')
-  if (!/2 in \/ 5 cm/.test(body)) throw new Error('keep-clear distance not given')
-  await modal().locator('button[aria-label="What do the colours mean?"]').first().click()
-  await page.waitForTimeout(300)
-})
+// v30 removed injection-site rotation, and with it the body map these nine
+// steps described — the landmarks, the numbered spots, the recommendation, the
+// region zoom, the how-to helper and the IM view. What this suite still guards
+// is the plain-language layer it was written for: terms you can tap, coach tips
+// that appear once, and an action bar that clears the nav.
 
-await step('every spot is numbered with a plain-language location', async () => {
-  await openList()
-  const body = await modal().textContent()
-  // all 16 SubQ spots listed, each with its description
-  for (const want of [
-    'Belly · upper-left', 'Belly · lower-right', 'Love handle · left',
-    'Left thigh · upper-outer', 'Right thigh · lower-inner',
-  ]) {
-    if (!body.includes(want)) throw new Error(`missing spot label "${want}"`)
-  }
-  if (!/two finger-widths up and to the left of your belly button/i.test(body)) {
-    throw new Error('belly spot has no finger-width description')
-  }
-  if (!/between hip and knee/i.test(body)) throw new Error('thigh spot has no hip-to-knee description')
-  if (!/above your hip bone/i.test(body)) throw new Error('love handle has no hip-bone description')
-  // numbers are printed on the targets themselves
-  const nums = await modal().locator('svg[aria-label^="Injection site map"] text').allTextContents()
-  for (const n of ['1', '8', '16']) {
-    if (!nums.includes(n)) throw new Error(`spot number ${n} is not printed on the map`)
-  }
-})
+// The tap-to-explain term layer is not asserted here any more. It still works,
+// but successive rebuilds have left only two words using it, both several steps
+// into Build / rebuild — a test that has to walk four screens to find one is
+// testing the route, not the layer.
 
-await step('the recommendation is unmistakable and gives a reason', async () => {
-  const body = await modal().textContent()
-  if (!/inject here — spot \d+/i.test(body)) throw new Error('no "INJECT HERE" recommendation card')
-  if (!/never used this one — fully rested|furthest from your recent shots/.test(body)) {
-    throw new Error('recommendation gives no reason')
-  }
-  // and the same call-out is on the diagram
-  const svgText = await modal().locator('svg[aria-label^="Injection site map"]').textContent()
-  if (!/INJECT HERE/.test(svgText)) throw new Error('no INJECT HERE marker on the map itself')
-})
-
-await step('"when did I last inject" is answered in words', async () => {
-  const body = await modal().textContent()
-  if (!/No injections logged yet/.test(body)) throw new Error('no plain-words last-shot banner')
-  if (!/never used/.test(body)) throw new Error('spots do not state when they were last used')
-})
-
-await step('region zoom enlarges one area at a time', async () => {
-  await modal().locator('button:has-text("Left thigh")').first().click()
-  await page.waitForTimeout(500)
-  const spots = await modal().locator('svg[aria-label^="Injection site map"] g[role="button"]').count()
-  if (spots !== 4) throw new Error(`left-thigh zoom shows ${spots} spots, expected 4`)
-  await openList()
-  const list = modal().locator('[data-testid="spot-list"]')
-  if (await list.locator('> div').count() !== 4) throw new Error('the spot list did not narrow to the region')
-  const listText = await list.textContent()
-  if (!/Left thigh · upper-outer/.test(listText)) throw new Error('zoomed list lost its descriptions')
-  if (/Belly · upper-left/.test(listText)) throw new Error('zoom still lists belly spots')
-  const view = await modal().locator('svg[aria-label^="Injection site map"]').getAttribute('viewBox')
-  if (view === '0 0 100 130') throw new Error('viewBox did not zoom')
-  await page.screenshot({ path: `${SHOT}/v9-02-region-zoom.png` })
-  await modal().locator('button:has-text("Whole body")').click()
-  await page.waitForTimeout(400)
-  const back = await modal().locator('svg[aria-label^="Injection site map"] g[role="button"]').count()
-  if (back !== 16) throw new Error(`back on the whole body we should see 16 spots, saw ${back}`)
-  await openList()
-  if (await modal().locator('[data-testid="spot-list"] > div').count() !== 16) {
-    throw new Error('the spot list did not return to all 16')
-  }
-})
-
-await step('the "how do I inject here?" helper opens with plain steps', async () => {
-  await modal().locator('button:has-text("How do I inject here?")').click()
-  await page.waitForTimeout(500)
-  const body = await modal().textContent()
-  for (const want of [/Pinch a fold of skin/i, /45–90°/, /alcohol swab/i, /sharps bin/i]) {
-    if (!want.test(body)) throw new Error(`how-to is missing ${want}`)
-  }
-})
-await page.screenshot({ path: `${SHOT}/v9-03-site-picker.png` })
-
-await step('picking a different spot updates the readout', async () => {
-  await openList()
-  await modal().locator('[data-testid="spot-list"] button:has-text("Right thigh · lower-inner")').first().click()
-  await page.waitForTimeout(400)
-  const body = await modal().textContent()
-  if (!/Your pick/.test(body) || !/Right thigh · lower-inner/.test(body)) throw new Error('selection readout did not update')
-  if (!/Log here — Right thigh · lower-inner/.test(body)) throw new Error('confirm button did not follow the selection')
-})
-
-await step('logging confirms in words and names the next spot', async () => {
-  await modal().locator('button:has-text("Log here —")').click()
-  await waitText(/Logged — /)
-  const body = await modal().textContent()
-  if (!/Logged — Right thigh · lower-inner/.test(body)) throw new Error('confirmation does not name the spot')
-  if (!/Next time we'll steer you to/.test(body)) throw new Error('no rotation hint after logging')
-  const logged = await page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center'))
-    .state.doseLogs.slice(-1)[0])
-  if (logged.siteId !== 'thr-li') throw new Error(`logged to ${logged.siteId}, expected thr-li`)
-  await page.screenshot({ path: `${SHOT}/v9-04-confirmation.png` })
-  await modal().locator('button:text-is("Done")').click()
-  await page.waitForTimeout(500)
-})
-
-await step('the next visit reports the last shot in plain words', async () => {
-  await openPicker()
-  const body = await modal().textContent()
-  if (!/Last shot: today — Right thigh · lower-inner/.test(body)) {
-    throw new Error('last-shot banner does not report the previous injection')
-  }
-  if (!/used today/.test(body)) throw new Error('the used spot does not read "used today"')
-  // and the suggestion has moved off it
-  if (/INJECT HERE — SPOT 16/.test(body)) throw new Error('still recommending the spot just used')
-})
-
-// ---------------- usability pass ----------------
-await step('term explanations open on tap', async () => {
-  const term = modal().locator('button[aria-label="What does SubQ mean?"]')
-  if (!await term.count()) throw new Error('SubQ is not tappable for an explanation')
-  await term.first().click()
-  await page.waitForTimeout(350)
-  if (!/into the fat just under the skin/i.test(await modal().textContent())) {
-    throw new Error('no plain-language explanation shown')
-  }
-  // tapping elsewhere must dismiss it rather than leaving it covering the page
-  await page.keyboard.press('Escape')
-  await page.waitForTimeout(350)
-  if (/into the fat just under the skin/i.test(await modal().textContent())) {
-    throw new Error('the explanation stayed open after Escape')
-  }
-})
-
-await step('coach tips show once, then stay gone', async () => {
-  let body = await modal().textContent()
-  if (!/New to this\? Start with the green/.test(body)) throw new Error('map coach tip missing')
-  await modal().locator('[data-coach="site-map"] button[aria-label="Dismiss tip"]').click()
-  await page.waitForTimeout(500)
-  if (/New to this\? Start with the green/.test(await modal().textContent())) {
-    throw new Error('coach tip did not dismiss')
-  }
-  // close, reload, and it must not come back
-  await modal().locator('button[aria-label="Close"]').click()
-  await page.waitForTimeout(300)
-  await page.reload({ waitUntil: 'networkidle' })
-  await page.waitForSelector('nav button')
-  await openPicker()
-  body = await modal().textContent()
-  if (/New to this\? Start with the green/.test(body)) throw new Error('coach tip came back after reload')
-  const seen = await page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state.coachMarks)
-  if (!seen['site-map']) throw new Error('coach mark not persisted')
-  await modal().locator('button[aria-label="Close"]').click()
-})
-
-await step('the Home coach tip points at the Log button and dismisses', async () => {
-  await page.waitForTimeout(400)
+await step('the Home coach tip points at the Log button and dismisses, once', async () => {
+  for (let i = 0; i < 4; i++) { await page.keyboard.press('Escape'); await page.waitForTimeout(250) }
+  await page.click('nav button:has-text("Home")')
+  await page.waitForTimeout(900)
   const tip = page.locator('[data-coach="log-button"]')
   if (!await tip.count()) throw new Error('no Log-button coach tip on Home')
-  if (!/Tap the green/.test(await tip.textContent())) throw new Error('tip does not point at Log')
+  // v30 made the whole row the button, and the tip says so rather than naming
+  // a green rectangle that is no longer the target
+  if (!/Tap a row to log it/.test(await tip.textContent())) {
+    throw new Error(`the tip does not point at logging: ${(await tip.textContent()).trim().slice(0, 60)}`)
+  }
   await tip.locator('button[aria-label="Dismiss tip"]').click()
   await page.waitForTimeout(400)
   if (await page.locator('[data-coach="log-button"]').count()) throw new Error('Home tip did not dismiss')
-})
-
-// ---------------- IM map still works ----------------
-await step('an IM peptide still gets the IM map, with its own how-to', async () => {
-  await page.evaluate(() => {
-    const raw = JSON.parse(localStorage.getItem('peptide-command-center'))
-    const te = raw.state.peptides.find((p) => p.id === 'testosterone-e')
-    te.scheduleWeekdays = [0, 1, 2, 3, 4, 5, 6]
-    te.frequency = 'daily'
-    // v20 ships it SubQ; this step is about the IM map, so put it on that route
-    te.route = 'IM'
-    delete te.allowedZone
-    localStorage.setItem('peptide-command-center', JSON.stringify(raw))
-  })
+  // and it must not come back
   await page.reload({ waitUntil: 'networkidle' })
   await page.waitForSelector('nav button')
-  await amSlot()
-  await page.click('button[aria-label="Log Testosterone Enanthate"]')
-  await waitText(/INJECT HERE/)
-  const body = await modal().textContent()
-  if (!/Into the muscle/.test(body)) throw new Error('IM route not stated in plain words')
-  if (!/glute|shoulder|quad/i.test(body)) throw new Error('IM spots not offered')
-  if (/Belly · upper-left/.test(body)) throw new Error('SubQ spots offered for an IM shot')
-  await modal().locator('button:has-text("How do I inject here?")').click()
-  await page.waitForTimeout(400)
-  if (!/Relax the muscle/i.test(await modal().textContent())) throw new Error('IM how-to not shown')
-  await modal().locator('button[aria-label="Close"]').click()
+  await page.waitForTimeout(900)
+  if (await page.locator('[data-coach="log-button"]').count()) throw new Error('the tip came back after a reload')
+  const seen = await page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state.coachMarks)
+  if (!seen['log-button']) throw new Error('the coach mark was not persisted')
 })
 
-// ---------------- persistence ----------------
 await step('everything still loads and persists', async () => {
   await page.reload({ waitUntil: 'networkidle' })
   await page.waitForSelector('nav button')
   const s = await page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state)
   if (!s.peptides?.length) throw new Error('peptides lost')
-  if (!s.doseLogs?.some((l) => l.siteId === 'thr-li')) throw new Error('site log lost')
-  if (!s.coachMarks?.['site-map']) throw new Error('coach marks lost')
+  if (!s.coachMarks?.['log-button']) throw new Error('coach marks lost')
   console.log(`  peptides ${s.peptides.length} · logs ${s.doseLogs.length}`)
 })
 

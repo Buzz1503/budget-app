@@ -52,6 +52,25 @@ const stock = async () => {
 }
 const groupFor = (name) =>
   page.locator('[data-testid="stock-group"]').filter({ hasText: name }).first()
+// v30 moved Vial done (and Skip, and Log together) behind a per-row overflow
+// control, so reaching any of them means opening that row's menu first.
+const rowIndex = (name) => page.locator('[data-testid="log-row"]').evaluateAll(
+  (els, n) => els.findIndex((e) => (e.getAttribute('aria-label') || '').includes(n)), name)
+const openRowMenu = async (name) => {
+  const i = await rowIndex(name)
+  if (i < 0) throw new Error(`${name} is not on today's list`)
+  await page.locator('[data-testid="row-overflow"]').nth(i).click()
+  await page.waitForTimeout(450)
+}
+const shutMenus = async () => {
+  for (let i = 0; i < 8; i++) {
+    const open = page.locator('[data-testid="row-overflow"][aria-expanded="true"]')
+    if (!(await open.count())) break
+    await open.first().click()
+    await page.waitForTimeout(300)
+  }
+  await page.waitForTimeout(300)
+}
 const closeSheet = async () => {
   for (let i = 0; i < 3; i++) {
     const x = page.locator('button[aria-label="Close"]').first()
@@ -233,65 +252,11 @@ await step('the backup sweeps COA files in with everything else', async () => {
 
 // ====================================================== 3 · auto-depletion
 
-await step('every due injection shows how many doses are left in its vial', async () => {
-  await nav('Home')
-  await page.waitForTimeout(700)
-  const readouts = page.locator('[data-testid="doses-left"]')
-  if ((await readouts.count()) === 0) throw new Error('no doses-left readout on any card')
-  const t = await readouts.first().textContent()
-  if (!/~\d+ dose/.test(t)) throw new Error(`unexpected wording: ${t}`)
-})
-
-await step('the count comes off logged doses, so it drops when one is logged', async () => {
-  await nav('Home')
-  await page.waitForTimeout(600)
-  const read = async (name) => {
-    const card = page.locator('main div.p-4').filter({ has: page.locator(`h3:text-is("${name}")`) }).first()
-    const t = await card.locator('[data-testid="doses-left"]').textContent()
-    return parseInt(t.match(/~(\d+)/)[1], 10)
-  }
-  const before = await read('SS-31')
-  await page.click('button[aria-label="Log SS-31"]')
-  await page.waitForTimeout(1200)
-  await page.click('button:has-text("Log here")')
-  await page.waitForTimeout(1400)
-  await closeSheet()
-  await nav('Home')
-  await page.waitForTimeout(800)
-  // the logged card no longer offers a count; read it from the engine instead
-  const st = await state()
-  const drawn = st.doseLogs.filter((l) => l.peptideId === 'ss31').reduce((n, l) => n + (l.insulinUnits || 0), 0)
-  if (!(drawn > 0)) throw new Error('the log recorded no units to draw down')
-  if (!(before > 0)) throw new Error('there was nothing to count down from')
-})
-
-await step('changing the dose changes the count with no recalibration', async () => {
-  const before = await page.evaluate(() => {
-    const raw = JSON.parse(localStorage.getItem('peptide-command-center'))
-    return raw.state.peptides.find((p) => p.id === 'bpc157').ladder.ceiling
-  })
-  await nav('Home')
-  await page.waitForTimeout(700)
-  const card = page.locator('main div.p-4').filter({ has: page.locator('h3:text-is("BPC-157")') }).first()
-  const first = parseInt((await card.locator('[data-testid="doses-left"]').textContent()).match(/~(\d+)/)[1], 10)
-
-  // double the dose straight in the store — the same edit the Library makes
-  await page.evaluate((b) => {
-    const K = 'peptide-command-center'
-    const raw = JSON.parse(localStorage.getItem(K))
-    raw.state.peptides = raw.state.peptides.map((p) => (
-      p.id === 'bpc157' ? { ...p, ladder: { ...p.ladder, floor: b * 2, ceiling: b * 2 } } : p
-    ))
-    localStorage.setItem(K, JSON.stringify(raw))
-  }, before)
-  await page.reload({ waitUntil: 'networkidle' })
-  await page.waitForTimeout(900)
-  await nav('Home')
-  await page.waitForTimeout(700)
-  const card2 = page.locator('main div.p-4').filter({ has: page.locator('h3:text-is("BPC-157")') }).first()
-  const second = parseInt((await card2.locator('[data-testid="doses-left"]').textContent()).match(/~(\d+)/)[1], 10)
-  if (!(second < first)) throw new Error(`doubling the dose did not reduce the count (${first} → ${second})`)
-})
+// v30 took the doses-left count off the dose card: the card is for the one
+// thing done daily, and a running figure nobody acts on daily belonged on the
+// compound page and in the alert row. The engine behind it is unchanged, so the
+// claim kept here is the one that still has a home — a shelf inside the lead
+// time raises an alert that names the runway.
 
 await step('a low shelf raises an alert on Home naming the runway', async () => {
   await page.evaluate(() => {
@@ -316,20 +281,30 @@ await step('a low shelf raises an alert on Home naming the runway', async () => 
   if (!/left across your vials — reorder|No sealed .* left across your vials/.test(body)) {
     throw new Error('no low-stock alert wording on Home')
   }
-  // shut it again — the dismiss backdrop would swallow the next tap
-  await bell.click()
-  await page.waitForTimeout(400)
+  // v30.2 made the panel a proper overlay, so the bell itself is behind the
+  // backdrop while it is open — it closes by its own ✕, not by tapping through
+  await page.click('[data-testid="alert-close"]')
+  await page.waitForTimeout(500)
 })
 
 // ================================================= 4 · the finished-vial flow
 
-await step('"Vial done" sits beside Log and Skip on every due injection', async () => {
+await step('"Vial done" sits alongside Skip in every injection\'s menu', async () => {
   await nav('Home')
   await page.waitForTimeout(700)
-  const fin = await page.locator('[data-testid="finish-vial"]').count()
-  const skip = await page.locator('[data-testid="skip-peptide"]').count()
-  if (fin === 0) throw new Error('no finished-vial action anywhere')
-  if (fin !== skip) throw new Error(`${skip} Skip actions but ${fin} Vial-done actions`)
+  await shutMenus()
+  const i = await page.locator('[data-testid="log-row"]').evaluateAll(
+    (els) => els.findIndex((e) => e.dataset.done !== 'true'))
+  if (i < 0) throw new Error('nothing outstanding to open')
+  await page.locator('[data-testid="row-overflow"]').nth(i).click()
+  await page.waitForTimeout(450)
+  if (!(await page.locator('[data-testid="finish-vial"]').count())) {
+    throw new Error('no finished-vial action in the row menu')
+  }
+  if (!(await page.locator('[data-testid="skip-peptide"]').count())) {
+    throw new Error('Skip is not there alongside it')
+  }
+  await shutMenus()
 })
 
 await step('finishing opens the replace page for that peptide', async () => {
@@ -347,7 +322,9 @@ await step('finishing opens the replace page for that peptide', async () => {
   await page.waitForTimeout(900)
   await nav('Home')
   await page.waitForTimeout(700)
-  await page.click('button[aria-label="Finished vial: BPC-157"]')
+  await shutMenus()
+  await openRowMenu('BPC-157')
+  await page.locator('[data-testid="finish-vial"]').click()
   await page.waitForTimeout(900)
   if (!(await page.locator('[data-testid="replace-view"]').count())) throw new Error('the replace page did not open')
   const opts = page.locator('[data-testid="replacement-option"]')
@@ -399,16 +376,20 @@ await step('picking a batch activates it, decrements it and recomputes the units
 await step('the new units show on the card straight away', async () => {
   await nav('Home')
   await page.waitForTimeout(800)
-  const card = page.locator('main div.p-4').filter({ has: page.locator('h3:text-is("BPC-157")') }).first()
-  const t = await card.textContent()
-  if (!/units/.test(t)) throw new Error('no unit figure on the card')
+  await shutMenus()
+  const i = await rowIndex('BPC-157')
+  if (i < 0) throw new Error('BPC-157 is not on the list to read')
+  const t = await page.locator('[data-testid="log-row"]').nth(i).innerText()
+  if (!/units/.test(t)) throw new Error(`no unit figure on the card: ${t.replace(/\s+/g, ' ')}`)
 })
 
 await step('declining a replacement takes the peptide out of the stack', async () => {
   await nav('Home')
   await page.waitForTimeout(700)
+  await shutMenus()
   const before = (await state()).peptides.length
-  await page.click('button[aria-label="Finished vial: Semax"]')
+  await openRowMenu('Semax')
+  await page.locator('[data-testid="finish-vial"]').click()
   await page.waitForTimeout(900)
   await page.click('[data-testid="dont-replace"]')
   await page.waitForTimeout(600)
@@ -435,7 +416,9 @@ await step('with nothing in stock it offers to add some, or to confirm removal',
   await page.waitForTimeout(900)
   await nav('Home')
   await page.waitForTimeout(700)
-  await page.click('button[aria-label="Finished vial: Selank"]')
+  await shutMenus()
+  await openRowMenu('Selank')
+  await page.locator('[data-testid="finish-vial"]').click()
   await page.waitForTimeout(900)
   if (!(await page.locator('[data-testid="no-stock"]').count())) throw new Error('no empty-shelf state')
   const t = await page.locator('[data-testid="no-stock"]').textContent()
@@ -485,16 +468,15 @@ await step('the stock room survives a reload', async () => {
 await step('logging still works after all of it', async () => {
   await nav('Home')
   await page.waitForTimeout(700)
+  await shutMenus()
   const before = (await state()).doseLogs.length
-  const btn = page.locator('[aria-label^="Log "]').first()
-  if (!(await btn.count())) throw new Error('nothing left to log')
-  await btn.click()
-  await page.waitForTimeout(1200)
-  await page.click('button:has-text("Log here")')
-  await page.waitForTimeout(1400)
+  const row = page.locator('[data-testid="log-row"]:not([data-done])').first()
+  if (!(await row.count())) throw new Error('nothing left to log')
+  // v30: the row is the button and nothing is asked in between
+  await row.click()
+  await page.waitForTimeout(1100)
   const after = (await state()).doseLogs.length
   if (after !== before + 1) throw new Error('the dose was not logged')
-  await closeSheet()
 })
 
 await step('no runtime errors anywhere in the run', async () => {

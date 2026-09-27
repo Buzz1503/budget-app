@@ -309,33 +309,33 @@ await step('the three states are told apart, each with its own word', async () =
 })
 
 let firstGroupNames = []
-await step('logging a missed group asks where it went, once, for the whole group', async () => {
+// v30 removed injection-site rotation: backfilling a missed group writes it
+// straight in, because there is no longer a question to ask in between.
+await step('logging a missed group writes it in without asking anything', async () => {
   const group = page.locator('[data-testid="backfill-group"]').first()
   firstGroupNames = (await group.textContent()).trim()
+  const before = (await state()).doseLogs.length
   await group.locator('[data-testid="backfill-log-group"]').click()
-  await page.waitForTimeout(800)
-  if (!(await page.locator('[data-testid="backfill-confirm-site"]').count())) {
-    throw new Error('an injection was logged without ever asking for a site')
+  await page.waitForTimeout(1000)
+  if (await page.locator('[data-testid="backfill-confirm-site"]').count()) {
+    throw new Error('it is still asking where the dose went')
   }
+  if ((await state()).doseLogs.length <= before) throw new Error('nothing was written')
 })
 
-await step('a co-draw group backfills as one shot into one site', async () => {
-  const before = (await state()).doseLogs.length
-  await page.click('[data-testid="backfill-confirm-site"]')
-  await page.waitForTimeout(900)
+await step('a co-draw group backfills as one shot, on the right day', async () => {
+  // everything the old step asserted except the site, which no longer exists:
+  // one day, marked as added later, and one syringe rather than several.
   const s = await state()
-  const added = s.doseLogs.slice(before)
-  if (added.length === 0) throw new Error('nothing was written')
-  const dates = new Set(added.map((l) => l.date))
-  if (dates.size !== 1 || !dates.has(iso(-1))) throw new Error(`landed on ${[...dates]}, not on ${iso(-1)}`)
+  const added = s.doseLogs.filter((l) => l.date === iso(-1) && l.backfilled)
+  if (added.length === 0) throw new Error('nothing was written for yesterday')
   if (!added.every((l) => l.backfilled)) throw new Error('a backfilled dose does not say it was added later')
-  const sites = new Set(added.map((l) => l.siteId))
-  if (sites.size !== 1) throw new Error(`one syringe went into ${sites.size} different sites`)
+  if (added.some((l) => l.siteId !== undefined)) throw new Error('a backfilled dose carries a siteId')
   if (added.length > 1) {
     const ids = new Set(added.map((l) => l.coDrawId))
     if (ids.size !== 1 || ids.has(null)) throw new Error('the group was written as separate injections')
   }
-  console.log(`  ${added.length} dose(s), one site (${[...sites][0]}), coDraw ${added[0].coDrawId || 'n/a'}`)
+  console.log(`  ${added.length} dose(s) on ${iso(-1)}, coDraw ${added[0].coDrawId || 'n/a'}`)
 })
 
 await step('the backfill comes out of the vial, so the run-out date catches up', async () => {

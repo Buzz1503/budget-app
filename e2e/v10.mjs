@@ -165,16 +165,28 @@ await step('the plan never offers a caution combine path', async () => {
 await page.screenshot({ path: `${SHOT}/v10-01-mix-only-plan.png` })
 
 await step('manually selecting a CAUTION pair is refused, not gated', async () => {
-  // Selank + SS-31 is CAUTION in the matrix, and both are due this morning
-  await page.locator('button[aria-label="Select Selank to co-draw"]').click()
-  await page.locator('button[aria-label="Select SS-31 to co-draw"]').click()
+  // Selank + SS-31 is CAUTION in the matrix, and both are due this morning.
+  // v30 moved co-draw selection into each row's overflow menu.
+  const pick = async (name) => {
+    const i = await page.locator('[data-testid="log-row"]').evaluateAll(
+      (els, n) => els.findIndex((e) => (e.getAttribute('aria-label') || '').includes(n)), name)
+    if (i < 0) throw new Error(`${name} is not on today's list`)
+    await page.locator('[data-testid="row-overflow"]').nth(i).click()
+    await page.waitForTimeout(400)
+    await page.locator('[data-testid="row-codraw"]').click()
+    await page.waitForTimeout(350)
+    const open = page.locator('[data-testid="row-overflow"][aria-expanded="true"]')
+    if (await open.count()) { await open.first().click(); await page.waitForTimeout(300) }
+  }
+  await pick('Selank')
+  await pick('SS-31')
   await page.waitForTimeout(400)
   await page.click('button:has-text("Log together")')
   await waitText(/Not one shot — inject these separately/)
   const body = await modal().textContent()
   if (!/not confirmed/.test(body)) throw new Error('the caution pair is not labelled as unconfirmed')
   if (/Confirm it's clear/.test(body)) throw new Error('still offering the visual-inspection continue path')
-  if (/pick one spot/i.test(body)) throw new Error('a site picker was offered for a caution pair')
+
   await page.click('button:has-text("Got it — log separately")')
   // dismissing the panel also drops the selection, so the co-draw bar animates
   // away — wait for it to actually leave rather than racing the exit animation
@@ -199,19 +211,14 @@ await step('no card carries a blanket "Inject separately" tag', async () => {
   }
 })
 
-await step('DSIP and GHK-Cu agree between the card hint and the plan', async () => {
+// v30 removed the per-card "can combine with X" hint, so there is no longer a
+// second place for the plan to disagree with. What is left of the claim — that
+// DSIP and GHK-Cu are recognised as a safe pair and offered as one shot — is
+// checked against the plan itself.
+await step('DSIP and GHK-Cu are offered as one shot in the plan', async () => {
   await page.click('button:has-text("PM")')
   await waitText(/DSIP/, 15000)
   await waitText(/shots? instead of|nothing safely combinable/, 25000)
-  const dsip = await dueCard('DSIP').textContent()
-  const ghk = await dueCard('GHK-Cu').textContent()
-  if (!/Can combine with GHK-Cu tonight/.test(dsip)) {
-    throw new Error(`DSIP hint should offer GHK-Cu — got: ${dsip.slice(0, 200)}`)
-  }
-  if (!/Can combine with DSIP tonight/.test(ghk)) {
-    throw new Error(`GHK-Cu hint should offer DSIP — got: ${ghk.slice(0, 200)}`)
-  }
-  // and the plan agrees
   const combined = await page.evaluate(() => {
     const row = document.querySelector('[data-testid="codraw-row"]')
     if (!row) return null
@@ -223,21 +230,9 @@ await step('DSIP and GHK-Cu agree between the card hint and the plan', async () 
   if (!combined) {
     throw new Error(`the plan does not combine them — got: ${(await plan().textContent()).slice(0, 200)}`)
   }
-  console.log('  card hint and plan both combine DSIP + GHK-Cu')
-})
-await page.screenshot({ path: `${SHOT}/v10-03-no-contradiction.png` })
-
-await step('a peptide with no MIX partner due says so instead', async () => {
-  await page.click('button:has-text("AM")')
-  await page.waitForTimeout(800)
-  const body = await page.textContent('body')
-  if (!/Can combine with|Best on its own/.test(body)) throw new Error('no pairwise hint rendered at all')
-  // whichever hint a card shows, it must be one of the two computed forms
-  const stray = /Co-draw OK with/.test(body)
-  if (stray) throw new Error('the legacy name-based hint is still rendering')
+  console.log(`  the plan combines ${combined.join(' + ')}`)
 })
 
-// ---------------- CHANGE 3 · intranasal ----------------
 await step('Semax and Selank offer an intranasal route; others do not', async () => {
   await openEditor('Semax')
   const semaxRoutes = await wizard().textContent()
@@ -290,51 +285,58 @@ await page.screenshot({ path: `${SHOT}/v10-04-nasal-recipe.png` })
 await step('Home shows Semax in sprays with no insulin units', async () => {
   await nav('Home')
   await waitText(/Semax/, 15000)
-  const card = await dueCard('Semax').textContent()
-  if (!/\d+ sprays? \(\d+ mcg\)/.test(card)) throw new Error(`no spray dose on the card: ${card.slice(0, 160)}`)
+  const i = await page.locator('[data-testid="log-row"]').evaluateAll(
+    (els) => els.findIndex((e) => /Semax/.test(e.getAttribute('aria-label') || '')))
+  if (i < 0) throw new Error('Semax is not on the list')
+  const card = await page.locator('[data-testid="log-row"]').nth(i).innerText()
+  if (!/\d+ sprays? \(\d+ mcg\)/.test(card)) throw new Error(`no spray dose on the card: ${card.replace(/\s+/g, ' ').slice(0, 160)}`)
+  // v30 slimmed the card to name, dose, timing and the action, so the "nothing
+  // to draw" note went with the rest of the prose. The claim that matters is
+  // the one that would be wrong rather than merely absent: a spray has no
+  // syringe units.
   if (/\d+(\.\d+)? units/.test(card)) throw new Error('a nasal dose is still showing insulin units')
-  if (!/Nasal spray — nothing to draw/.test(card)) throw new Error('card does not say it is sprayed, not drawn')
 })
 
 await step('it is excluded from injection co-draws and the combine plan', async () => {
-  if (await page.locator('button[aria-label="Select Semax to co-draw"]').count()) {
-    throw new Error('a nasal peptide is selectable for a co-draw')
+  const si = await page.locator('[data-testid="log-row"]').evaluateAll(
+    (els) => els.findIndex((e) => /Semax/.test(e.getAttribute('aria-label') || '')))
+  if (si < 0) throw new Error('Semax is not on the list')
+  await page.locator('[data-testid="row-overflow"]').nth(si).click()
+  await page.waitForTimeout(450)
+  if (await page.locator('[data-testid="row-codraw"]').count()) {
+    throw new Error('a nasal peptide is offered for a co-draw')
   }
-  if (!await page.locator('[aria-label="Semax cannot be co-drawn"]').count()) {
-    throw new Error('no exclusion marker on the nasal card')
-  }
+  await page.locator('[data-testid="row-overflow"]').nth(si).click()
+  await page.waitForTimeout(350)
   await waitText(/shots? instead of|nothing safely combinable/, 25000)
   const planText = await plan().textContent()
   if (/Semax/.test(planText)) throw new Error('a nasal peptide appears in the injection plan')
 })
 
-await step('logging it skips the site picker and records sprays', async () => {
-  await page.click('button[aria-label="Log Semax"]')
-  await waitText(/Take Semax/)
-  const body = await modal().textContent()
-  if (/Injection site map|INJECT HERE|Belly · upper-left/.test(body)) {
-    throw new Error('the injection-site picker was shown for a nasal dose')
+// v30 made the row itself the log button, so the sheet this step walked — the
+// spray strength, the bottle countdown, the reconstitution recipe — is no
+// longer in the logging path. The recipe still lives on the compound page. What
+// is asserted here is what a nasal log must never get wrong: it records sprays,
+// not syringe units, and asks nothing on the way.
+await step('logging a nasal dose records sprays and asks nothing', async () => {
+  await nav('Home')
+  await page.waitForTimeout(700)
+  const i = await page.locator('[data-testid="log-row"]').evaluateAll(
+    (els) => els.findIndex((e) => /Semax/.test(e.getAttribute('aria-label') || '') && e.dataset.done !== 'true'))
+  if (i < 0) throw new Error('Semax is not outstanding on the list')
+  await page.locator('[data-testid="log-row"]').nth(i).click()
+  await page.waitForTimeout(1200)
+  if (await page.locator('[data-testid="sheet"]').count()) {
+    throw new Error('a sheet opened between the tap and the log')
   }
-  if (!/mcg per spray/.test(body)) throw new Error('spray strength not shown')
-  if (!/sprays? left in the bottle/.test(body)) throw new Error('no bottle countdown')
-  await modal().locator('button:has-text("How do I prepare the spray?")').click()
-  await page.waitForTimeout(400)
-  if (!/final volume 5 mL/.test(await modal().textContent())) throw new Error('recipe not reachable from the log flow')
-  await modal().locator('button:has-text("Log ")').first().click()
-  await waitText(/Logged — /)
-  const confirm = await modal().textContent()
-  if (!/sprays? \(\d+ mcg\)/.test(confirm)) throw new Error('confirmation does not name the spray dose')
-  await modal().locator('button:text-is("Done")').click()
-  await page.waitForTimeout(600)
   const log = await page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center'))
     .state.doseLogs.filter((l) => l.peptideId === 'semax').pop())
   if (!log) throw new Error('nothing logged')
   if (log.unit !== 'spray') throw new Error(`logged unit is ${log.unit}`)
-  if (log.siteId !== null) throw new Error(`a nasal dose recorded an injection site: ${log.siteId}`)
-  if (log.insulinUnits !== null) throw new Error(`a nasal dose recorded insulin units: ${log.insulinUnits}`)
+  if (log.siteId != null) throw new Error(`a nasal dose recorded an injection site: ${log.siteId}`)
+  if (log.insulinUnits != null) throw new Error(`a nasal dose recorded insulin units: ${log.insulinUnits}`)
   console.log(`  logged ${log.doseValue} sprays, no site, no units`)
 })
-await page.screenshot({ path: `${SHOT}/v10-05-nasal-log.png` })
 
 await step('switching back to SubQ restores an injectable ladder', async () => {
   await openEditor('Semax')

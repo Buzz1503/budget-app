@@ -132,8 +132,10 @@ await step('standing nudges are one small alert row, not cards', async () => {
   if (!/Back up now|expires|runs out/i.test(await page.locator('[data-testid="alert-panel"]').textContent())) {
     throw new Error('the row does not expand to the nudges')
   }
-  await bell.click()
-  await page.waitForTimeout(300)
+  // v30.2 made the panel a proper overlay — the bell is behind its backdrop
+  // while it is open, so it closes by its own ✕
+  await page.click('[data-testid="alert-close"]')
+  await page.waitForTimeout(400)
 })
 
 // ---------- 5 · space, not boxes ----------
@@ -228,16 +230,31 @@ await step('Testosterone E carries no red text or icon', async () => {
 })
 
 await step('and it still cannot be co-drawn', async () => {
-  const card = page.locator('main div.p-4', { hasText: 'Testosterone En' })
-    .filter({ has: page.locator('[aria-label^="Log Testosterone"]') }).first()
-  if (await card.locator('button[aria-label^="Select "]').count()) {
-    throw new Error('Test E is offered for co-draw selection')
+  // v30 moved co-draw selection off the card and into the row menu, so a
+  // compound that must go on its own is one whose menu does not offer it —
+  // the offer is the badge now.
+  const i = await page.locator('[data-testid="log-row"]').evaluateAll(
+    (els) => els.findIndex((e) => /Testosterone/.test(e.getAttribute('aria-label') || '')))
+  if (i < 0) throw new Error('Testosterone E is not on the list')
+  await page.locator('[data-testid="row-overflow"]').nth(i).click()
+  await page.waitForTimeout(450)
+  if (await page.locator('[data-testid="row-codraw"]').count()) {
+    throw new Error('Test E is offered for co-draw')
   }
-  if (!(await card.locator('[aria-label*="cannot be co-drawn"]').count())) {
-    throw new Error('nothing marks Test E as un-co-drawable')
+  // and the other rows do get the offer, so the absence means something
+  const j = await page.locator('[data-testid="log-row"]').evaluateAll(
+    (els) => els.findIndex((e) => !/Testosterone/.test(e.getAttribute('aria-label') || '') && e.dataset.done !== 'true'))
+  await page.locator('[data-testid="row-overflow"]').nth(i).click()
+  await page.waitForTimeout(350)
+  if (j >= 0) {
+    await page.locator('[data-testid="row-overflow"]').nth(j).click()
+    await page.waitForTimeout(450)
+    if (!(await page.locator('[data-testid="row-codraw"]').count())) {
+      throw new Error('no row offers co-draw, so the absence on Test E proves nothing')
+    }
+    await page.locator('[data-testid="row-overflow"]').nth(j).click()
+    await page.waitForTimeout(300)
   }
-  const txt = await card.textContent()
-  if (!/its own shot/i.test(txt)) throw new Error('the card no longer says it goes on its own')
 })
 
 // ---------- 8 · layout + persistence ----------

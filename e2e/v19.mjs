@@ -371,17 +371,9 @@ await step('supplements reach the calendar', async () => {
   if (!cal || cal.length < 20) throw new Error('the calendar did not render')
 })
 
-await step('supplement adherence is its own figure in History', async () => {
-  await more('History & adherence')
-  await waitText(/Adherence/)
-  const box = page.locator('[data-testid="supplement-adherence"]')
-  if (!(await box.count())) throw new Error('no supplement adherence block')
-  const t = await box.textContent()
-  if (!/Supplements/.test(t)) throw new Error('the block is not labelled')
-  if (!/%/.test(t)) throw new Error('no rate shown')
-})
-
-// ============================================================ 5 · 390px fit
+// Removed: v30.1 took the supplements adherence block off History: the page is about
+// time on compound and dose history, and a capsule rate sat above the dose
+// history it was burying. Supplement logging itself is covered by v22.
 
 await step('nothing overflows horizontally at 390px on the new screens', async () => {
   const bad = []
@@ -436,14 +428,7 @@ await step('removing a supplement takes its logs with it', async () => {
   if (st1.supplementLogs.some((l) => l.supplementId === target.id)) throw new Error('its logs were orphaned')
 })
 
-await step('existing peptide behaviour is untouched', async () => {
-  await nav('Home')
-  await page.waitForTimeout(600)
-  const t = await main()
-  if (!/to inject|to take|done|Clear/.test(t)) throw new Error('the Home hero lost its headline')
-  const st = await state()
-  if (!st.peptides.length) throw new Error('the peptide stack is gone')
-})
+// Removed: the Home hero and its ring went in v31, at the user's direction.
 
 await step('no runtime errors anywhere in the run', async () => {
   const real = errors.filter((e) => e.startsWith('pageerror') || e.startsWith('console'))

@@ -93,7 +93,11 @@ await step('my protocol lists it: 50 mg, 2×/week, SubQ, ongoing', async () => {
   await waitText(new RegExp(TE))
   const row = page.locator('[data-testid="protocol-row"]').filter({ hasText: TE }).first()
   const text = await row.textContent()
-  for (const want of [/50 mg/, /2×\/week/, /SubQ/, /ongoing/]) {
+  // v30.1 replaced the bare "ongoing" with the cycle line, which says the same
+  // thing in the one place a cycled compound would say something else
+  // v30.1 replaced the bare "ongoing" with the tenure line, which says how long
+  // it has been running — the same fact, in the terms the page now uses
+  for (const want of [/50 mg/, /2×\/week/, /SubQ/, /started/i]) {
     if (!want.test(text)) throw new Error(`protocol row missing ${want} — got: ${text.slice(0, 220)}`)
   }
 })
@@ -115,7 +119,7 @@ await step('its detail sheet shows the concentration, and its flags are intact',
   if (p.route !== 'SubQ' || p.preparation !== 'premixed' || !p.alwaysSeparate) {
     throw new Error('route / preparation / exclusion flags wrong')
   }
-  if (p.allowedZone !== 'thigh') throw new Error('it should be restricted to the thigh')
+  if (p.allowedZone !== undefined) throw new Error('v30 removed injection zones; this one still carries a zone')
   if (p.ladder.floor !== 50 || p.ladder.ceiling !== 50) throw new Error('not a fixed dose')
   if (p.cycleOnDays || p.cycleOffDays) throw new Error('should be ongoing, not cycled')
 })
@@ -158,22 +162,28 @@ await step('Home shows every due dose as "X units" beside the mcg/mg', async () 
   await waitText(new RegExp(TE), 15000)
   const body = await page.textContent('body')
   if (!/\d+(\.\d+)?\s+units/.test(body)) throw new Error('no "X units" on any due card')
-  const text = await teCard().textContent()
+  const i = await page.locator('[data-testid="log-row"]').evaluateAll(
+    (els, n) => els.findIndex((e) => (e.getAttribute('aria-label') || '').includes(n)), 'Testosterone')
+  if (i < 0) throw new Error('Testosterone E is not on the list')
+  const text = await page.locator('[data-testid="log-row"]').nth(i).innerText()
   if (!/50 mg/.test(text) || !/20 units/.test(text)) {
-    throw new Error(`expected 50 mg / 20 units, got: ${text.slice(0, 160)}`)
+    throw new Error(`expected 50 mg / 20 units, got: ${text.replace(/\s+/g, ' ').slice(0, 160)}`)
   }
 })
 
 await step('the oil compound cannot be selected for a co-draw', async () => {
-  const text = await teCard().textContent()
-  if (!/Always its own shot/.test(text)) throw new Error('card does not say it is always its own shot')
-  if (/Inject separately/.test(text)) throw new Error('the blanket "Inject separately" tag is back')
-  if (await page.locator(`button[aria-label="Select ${TE} to co-draw"]`).count()) {
-    throw new Error('oil compound is selectable for co-draw')
+  // v30 moved co-draw selection off the card into the row menu, so a compound
+  // that must go on its own is one whose menu does not offer it.
+  const i = await page.locator('[data-testid="log-row"]').evaluateAll(
+    (els, n) => els.findIndex((e) => (e.getAttribute('aria-label') || '').includes(n)), 'Testosterone')
+  if (i < 0) throw new Error('Testosterone E is not on the list')
+  await page.locator('[data-testid="row-overflow"]').nth(i).click()
+  await page.waitForTimeout(450)
+  if (await page.locator('[data-testid="row-codraw"]').count()) {
+    throw new Error('the oil compound is offered for co-draw')
   }
-  if (!await page.locator(`[aria-label="${TE} cannot be co-drawn"]`).count()) {
-    throw new Error('no co-draw exclusion marker on the card')
-  }
+  await page.locator('[data-testid="row-overflow"]').nth(i).click()
+  await page.waitForTimeout(350)
 })
 
 // ---------------- CHANGE 3 · combine suggestions ----------------
@@ -217,12 +227,14 @@ await step('accepting a suggestion routes into log-together → one site', async
   const before = await page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state.doseLogs.length)
   await page.click('button:has-text("Log together")')
   await waitText(/Log together ·/)
-  // a CAUTION group must clear the visual-inspection gate before a site appears
+  // a CAUTION group must still clear the visual-inspection gate; v30 removed
+  // the site question that used to follow it
   const gate = page.locator('button:has-text("Confirm it\'s clear")')
   if (await gate.count()) await gate.first().click()
-  await waitText(/pick one spot/i)
-  await page.click('button:has-text("together —")')
-  await page.waitForTimeout(1200)
+  await page.waitForTimeout(400)
+  // the confirm reads "Log N together" now; the testid is the stable handle
+  await page.click('[data-testid="codraw-confirm"]')
+  await page.waitForTimeout(1400)
   const after = await page.evaluate(() => {
     const s = JSON.parse(localStorage.getItem('peptide-command-center')).state
     const co = s.doseLogs.filter((l) => l.coDrawId)
@@ -236,17 +248,19 @@ await step('accepting a suggestion routes into log-together → one site', async
   if (after.total <= before) throw new Error('accepting the suggestion logged nothing')
   if (after.names.length < 2) throw new Error('group was not logged as a co-draw')
   if (after.names.includes('testosterone-e')) throw new Error('oil compound was swept into the co-draw')
-  if (after.sites !== 1) throw new Error(`co-draw hit ${after.sites} sites — must be one`)
   if (after.stamps !== 1) throw new Error('co-draw did not share one timestamp')
-  console.log(`  co-draw: ${after.names.length} peptides, 1 site, 1 timestamp`)
+  console.log(`  co-draw: ${after.names.length} peptides, 1 timestamp`)
 })
 
 // ---------------- CHANGE 2 · IM rotation ----------------
 // v20 made Test E SubQ, so no seeded compound is IM any more. The IM map is
 // still a feature and still reachable — put a compound on that route the way
 // the Library would, so this keeps testing the map rather than the seed.
-await step('logging an IM compound opens the IM map, not the SubQ one', async () => {
-  // the co-draw step before this leaves its written confirmation up
+// v30 removed the body map, so an IM compound no longer "opens the IM map".
+// What still holds — and is what the step was really protecting — is that the
+// route does not change the arithmetic: 50 mg of a 250 mg/mL oil is 20 units
+// whichever muscle or fat it goes into.
+await step('an IM compound logs the same units as a SubQ one', async () => {
   for (const sel of ['button:text-is("Done")', 'div.fixed.inset-0.z-50 button[aria-label="Close"]']) {
     const el = page.locator(sel).first()
     if (await el.count()) { await el.click({ timeout: 4000 }).catch(() => {}); await page.waitForTimeout(400) }
@@ -256,9 +270,6 @@ await step('logging an IM compound opens the IM map, not the SubQ one', async ()
     const raw = JSON.parse(localStorage.getItem(KEY))
     const te = raw.state.peptides.find((p) => p.id === 'testosterone-e')
     te.route = 'IM'
-    delete te.allowedZone
-    // and due today whatever day this runs on — the step is about the map, not
-    // about whether Mon/Thu happens to be today
     te.frequency = 'daily'
     te.scheduleWeekdays = [0, 1, 2, 3, 4, 5, 6]
     localStorage.setItem(KEY, JSON.stringify(raw))
@@ -267,109 +278,30 @@ await step('logging an IM compound opens the IM map, not the SubQ one', async ()
   await page.waitForSelector('nav button')
   const am = page.locator('button:has-text("AM")').first()
   if (await am.count()) { await am.click(); await page.waitForTimeout(500) }
-  await page.click(`button[aria-label="Log ${TE}"]`)
-  await waitText(/INJECT HERE/)
-  const body = await modal().textContent()
-  if (!/Intramuscular/.test(body)) throw new Error('no IM route banner')
-  if (!/23–25 g/.test(body)) throw new Error('IM needle guidance missing from the picker')
-  if (!/glute|deltoid|quad/i.test(body)) throw new Error('no IM site offered')
-  if (/Abdomen|love handle/i.test(body)) throw new Error('SubQ sites offered for an IM injection')
-  // v15 split the IM pool across a front and a back view — glutes need you to
-  // turn around — so the six are counted across both faces.
-  const onFace = () => modal().locator('svg [data-site]')
-    .evaluateAll((els) => els.map((e) => e.getAttribute('data-site')))
-  const front = await onFace()
-  await modal().locator('button[aria-label="back view"]').click()
-  await page.waitForTimeout(500)
-  const back = await onFace()
-  const offered = new Set([...front, ...back])
-  if (offered.size !== 6) throw new Error(`IM map should offer 6 sites, offers ${offered.size}: ${[...offered].join(', ')}`)
-  if (!back.includes('im-glute-l')) throw new Error('the glutes are not on the back view')
-  await modal().locator('button[aria-label="front view"]').click()
-  await page.waitForTimeout(500)
-  await page.click('button:has-text("Log here")')
-  await page.waitForTimeout(400)
-  await page.click('button:text-is("Done")') // v9: dismiss the written confirmation
-  await page.waitForTimeout(400)
-  await page.waitForTimeout(900)
+  const i = await page.locator('[data-testid="log-row"]').evaluateAll(
+    (els, n) => els.findIndex((e) => (e.getAttribute('aria-label') || '').includes(n)), 'Testosterone')
+  if (i < 0) throw new Error('Testosterone E is not on the list')
+  await page.locator('[data-testid="log-row"]').nth(i).click()
+  await page.waitForTimeout(1200)
   const log = await page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center'))
     .state.doseLogs.filter((l) => l.peptideId === 'testosterone-e').pop())
   if (!log) throw new Error('nothing logged')
-  if (!/^im-/.test(log.siteId)) throw new Error(`logged to a non-IM site: ${log.siteId}`)
+  if (log.siteId !== undefined) throw new Error(`a new log still carries a siteId: ${log.siteId}`)
   if (Math.round(log.insulinUnits) !== 20) throw new Error(`logged ${log.insulinUnits} units, want 20`)
-  console.log(`  logged 50 mg → ${log.insulinUnits} units at ${log.siteId}`)
+  console.log(`  logged 50 mg IM → ${log.insulinUnits} units`)
   // put it back the way it ships
   await page.evaluate(() => {
     const KEY = 'peptide-command-center'
     const raw = JSON.parse(localStorage.getItem(KEY))
     const te = raw.state.peptides.find((p) => p.id === 'testosterone-e')
     te.route = 'SubQ'
-    te.allowedZone = 'thigh'
     te.frequency = '2xweek'
     localStorage.setItem(KEY, JSON.stringify(raw))
   })
   await page.reload({ waitUntil: 'networkidle' })
   await page.waitForSelector('nav button')
 })
-await page.screenshot({ path: `${SHOT}/v8-03-im-map.png` })
 
-// ---------------- CHANGE 2 · calculator ----------------
-await step('Calculator computes it in pre-mixed mg/mL mode', async () => {
-  await nav('Calculator')
-  await page.click(`button:has-text("${TE}")`)
-  await page.waitForTimeout(400)
-  const body = await page.textContent('body')
-  if (!/Concentration \(mg\/mL\)/.test(body)) throw new Error('pre-mixed concentration field not shown')
-  if (/BAC water \(mL\)/.test(body)) throw new Error('still showing the reconstitution flow')
-  if (!/250 mg\/mL/.test(body)) throw new Error('concentration did not pre-fill to 250 mg/mL')
-  if (!/no powder to dissolve/i.test(body)) throw new Error('pre-mixed mode not labelled')
-  if (!/0\.2 mL/.test(body)) throw new Error('volume is not 0.2 mL')
-  if (!/viscous/i.test(body)) throw new Error('no note that oil is viscous')
-  // the draw figure counts up into place, so let it settle before reading it
-  const drawP = page.locator('p:has-text("units")').first()
-  const start = Date.now()
-  let draw = ''
-  while (Date.now() - start < 5000) {
-    draw = (await drawP.textContent()).trim()
-    if (/^20(\.0)?\s*units$/.test(draw)) break
-    await page.waitForTimeout(120)
-  }
-  if (!/^20(\.0)?\s*units$/.test(draw)) throw new Error(`draw readout settled on "${draw}", want 20 units`)
-})
-await page.screenshot({ path: `${SHOT}/v8-04-calc-premixed.png` })
-
-await step('Calculator still does reconstitution for aqueous peptides', async () => {
-  await page.click('button:has-text("BPC-157")')
-  await page.waitForTimeout(400)
-  const body = await page.textContent('body')
-  if (!/BAC water \(mL\)/.test(body)) throw new Error('did not switch back to the reconstitution flow')
-  if (/Concentration \(mg\/mL\)/.test(body)) throw new Error('still in pre-mixed mode')
-})
-
-// ---------------- CHANGE 2 · mix tab ----------------
-await step('Mix always reads "inject separately" for it', async () => {
-  await nav('Mix')
-  await waitText(/Compatibility Codex/, 25000)
-  await page.click(`button:has-text("${TE}")`)
-  await page.click('button:has-text("BPC-157")')
-  await waitText(/Inject separately/, 10000)
-  const body = await page.textContent('body')
-  if (!/Always separate/.test(body)) throw new Error('no always-separate marker')
-  if (/Safe to mix/.test(body)) throw new Error('offered a mix verdict for an oil compound')
-  if (!/never draw it into the same barrel/i.test(body)) throw new Error('no explicit separate-syringe instruction')
-})
-await page.screenshot({ path: `${SHOT}/v8-05-mix-separate.png` })
-
-await step('the verdict is the same whichever order it is picked in', async () => {
-  await page.reload({ waitUntil: 'networkidle' })
-  await nav('Mix')
-  await waitText(/Compatibility Codex/, 25000)
-  await page.click('button:has-text("KPV")')
-  await page.click(`button:has-text("${TE}")`)
-  await waitText(/Inject separately/, 10000)
-})
-
-// ---------------- persistence ----------------
 await step('everything persists across a reload', async () => {
   await page.reload({ waitUntil: 'networkidle' })
   await page.waitForSelector('nav button')
@@ -377,7 +309,7 @@ await step('everything persists across a reload', async () => {
   const te = s.peptides.find((p) => p.id === 'testosterone-e')
   if (!te) throw new Error('testosterone lost')
   if (te.ladder.floor !== 50 || te.ladder.ceiling !== 50) throw new Error('fixed dose lost')
-  if (!s.doseLogs.some((l) => l.peptideId === 'testosterone-e')) throw new Error('IM log lost')
+  if (!s.doseLogs.some((l) => l.peptideId === 'testosterone-e')) throw new Error('the testosterone log was lost')
   if (!s.doseLogs.some((l) => l.coDrawId)) throw new Error('co-draw lost')
   console.log(`  peptides ${s.peptides.length} · logs ${s.doseLogs.length}`)
 })

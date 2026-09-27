@@ -1,4 +1,8 @@
-// v20 — thigh-only zones for reaction-prone compounds, and skipping a dose.
+// v20 — skipping a dose.
+//
+// This suite also covered thigh-only injection zones, which v30 removed along
+// with the rest of site rotation. Those steps are gone rather than left failing:
+// a red board nobody believes is worse than a smaller one that means something.
 // Runs at 390×844 against a build (or the dev server) on BASE_URL.
 import { chromium } from 'playwright'
 import { mkdirSync } from 'fs'
@@ -28,6 +32,25 @@ const waitText = async (re, timeout = 20000) => {
   throw new Error('timeout waiting for ' + re)
 }
 const main = () => page.locator('main').textContent()
+// v30 moved Skip (and Vial done, and Log together) behind a per-row overflow
+// control, so reaching it means opening that row's menu first.
+const rowIndex = (name) => page.locator('[data-testid="log-row"]').evaluateAll(
+  (els, n) => els.findIndex((e) => (e.getAttribute('aria-label') || '').includes(n)), name)
+const openRowMenu = async (i) => {
+  await page.locator('[data-testid="row-overflow"]').nth(i).click()
+  await page.waitForTimeout(450)
+}
+const shutMenus = async () => {
+  for (let i = 0; i < 8; i++) {
+    const open = page.locator('[data-testid="row-overflow"][aria-expanded="true"]')
+    if (!(await open.count())) break
+    await open.first().click()
+    await page.waitForTimeout(300)
+  }
+  await page.waitForTimeout(300)
+}
+const nameOfRow = async (i) => (await page.locator('[data-testid="log-row"]').nth(i)
+  .getAttribute('aria-label')).replace(/^Log /, '').replace(/ logged$/, '')
 const state = () => page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state)
 const modal = () => page.locator('div.fixed.inset-0.z-50 > div.card')
 const nav = async (label) => { await page.click(`nav button:has-text("${label}")`); await page.waitForTimeout(500) }
@@ -36,277 +59,27 @@ const more = async (label) => {
   await page.click(`button:has-text("${label}")`)
   await page.waitForTimeout(700)
 }
-// The picker has two exits: an X while choosing, and a Done button on the
-// post-log confirmation. Either can be on screen, and whichever is left open
-// swallows the next click.
-const closeSheet = async () => {
-  for (let i = 0; i < 3; i++) {
-    const done = page.locator('button:text-is("Done")').first()
-    if (await done.count()) { await done.click({ timeout: 4000 }).catch(() => {}); await page.waitForTimeout(400); continue }
-    const x = page.locator('button[aria-label="Close"]').first()
-    if (await x.count()) { await x.click({ timeout: 4000 }).catch(() => {}); await page.waitForTimeout(400); continue }
-    break
-  }
-  await page.keyboard.press('Escape')
-  await page.waitForTimeout(300)
-}
-const THIGH_ONLY = ['ss31', 'nad', 'testosterone-e', 'tesamorelin', 'ghkcu']
-
-// v23 moved every protocol setting into Build / rebuild, so the zone is set
-// there rather than on the old Library card.
-const wizard = () => page.locator('div.fixed.inset-0.z-50 > div.card')
-const editInWizard = async (name, fn) => {
-  await nav('More')
-  await page.click('text=Build / rebuild my protocol')
-  await page.waitForTimeout(700)
-  await wizard().locator('[data-testid="manage-row"]').filter({ hasText: name }).first()
-    .locator('[data-testid="manage-edit"]').click()
-  await page.waitForTimeout(600)
-  await fn()
-  await wizard().locator('button:has-text("Done editing")').click()
-  await page.waitForTimeout(400)
-  await wizard().locator('[data-testid="manage-save"]').click()
-  await page.waitForTimeout(400)
-  await wizard().locator('button:has-text("Save my protocol")').click()
-  await page.waitForTimeout(600)
-  await wizard().locator('button:text-is("Done")').click()
-  await page.waitForTimeout(700)
-}
-
 await page.goto(BASE, { waitUntil: 'networkidle' })
 await page.evaluate(() => localStorage.clear())
 await page.reload({ waitUntil: 'networkidle' })
 await waitText(/not medical advice/)
 if (await modal().count()) { await page.click('button:has-text("Got it")'); await page.waitForTimeout(500) }
 
-// ========================================================= 1 · zone defaults
-
-await step('the five reaction-prone compounds ship thigh-only', async () => {
-  const st = await state()
-  for (const id of THIGH_ONLY) {
-    const p = st.peptides.find((x) => x.id === id)
-    if (!p) throw new Error(`${id} is not in the seed stack`)
-    if (p.allowedZone !== 'thigh') throw new Error(`${id} is "${p.allowedZone}", expected thigh`)
-  }
-})
-
-await step('Testosterone E is SubQ into thigh fat, not IM', async () => {
-  const st = await state()
-  const te = st.peptides.find((x) => x.id === 'testosterone-e')
-  if (te.route !== 'SubQ') throw new Error(`Test E route is ${te.route}`)
-  if (te.allowedZone !== 'thigh') throw new Error('Test E is not thigh-only')
-  if (!te.alwaysSeparate) throw new Error('Test E lost its never-co-draw rule')
-})
-
-await step('MOTS-c and the rest stay flexible', async () => {
-  const st = await state()
-  for (const id of ['motsc', 'bpc157', 'retatrutide', 'selank']) {
-    const p = st.peptides.find((x) => x.id === id)
-    if (p && p.allowedZone === 'thigh') throw new Error(`${id} was restricted but should be flexible`)
-  }
-})
-
-// ==================================================== 2 · the picker narrows
-
-// Target the exact card by its Log button's aria-label. A plain text filter
-// matches every OTHER card too, because the co-draw hints name their partners.
-const openPickerFor = async (name) => {
-  await nav('Home')
-  await page.waitForTimeout(500)
-  // Home opens on the current wall-clock slot, so which one that is depends on
-  // when the suite runs. Try both rather than assuming the morning.
-  let btn = page.locator(`button[aria-label="Log ${name}"]`)
-  for (const slot of ['AM', 'PM']) {
-    if (await btn.count()) break
-    await page.click(`button:has-text("${slot}")`).catch(() => {})
-    await page.waitForTimeout(600)
-    btn = page.locator(`button[aria-label="Log ${name}"]`)
-  }
-  if (!(await btn.count())) throw new Error(`${name} is not due in either slot`)
-  await btn.first().click()
-  await page.waitForTimeout(1100)
-}
-const selectForCoDraw = async (name) => {
-  const btn = page.locator(`button[aria-label="Select ${name} to co-draw"]`)
-  if (await btn.count()) await btn.first().click()
-  await page.waitForTimeout(300)
-}
-
-await step('a thigh-only compound offers only the thigh regions', async () => {
-  await openPickerFor('SS-31')
-  const t = await page.locator('div.fixed').last().textContent()
-  if (!/Left thigh/.test(t) || !/Right thigh/.test(t)) throw new Error('the thigh regions are missing')
-  if (/Belly/.test(t) || /Love handle/.test(t)) throw new Error('belly or love-handle spots are still offered')
-  await closeSheet()
-})
-
-await step('and says why the map is smaller', async () => {
-  await openPickerFor('SS-31')
-  const note = page.locator('[data-testid="zone-note"]')
-  if (!(await note.count())) throw new Error('no thigh-only note')
-  const t = await note.textContent()
-  if (!/thigh only/i.test(t)) throw new Error('the note does not say thigh only')
-  if (!/reaction/i.test(t)) throw new Error('the note does not give the reason')
-  if (!/stomach/i.test(t)) throw new Error('the note does not mention the stomach')
-  await closeSheet()
-})
-
-await step('the suggestion lands on a thigh spot', async () => {
-  await openPickerFor('SS-31')
-  const rec = await page.locator('[data-testid="recommendation"]').textContent()
-  if (!/thigh/i.test(rec)) throw new Error(`the suggestion is not a thigh spot: ${rec.slice(0, 80)}`)
-  await closeSheet()
-})
-
-await step('follow-the-path only walks thigh spots', async () => {
-  await openPickerFor('SS-31')
-  await page.click('button:has-text("Follow the path")')
-  await page.waitForTimeout(700)
-  const rec = await page.locator('[data-testid="recommendation"]').textContent()
-  if (!/thigh/i.test(rec)) throw new Error(`the path suggested a non-thigh spot: ${rec.slice(0, 80)}`)
-  const sheet = await page.locator('div.fixed').last().textContent()
-  if (/Belly · /.test(sheet)) throw new Error('the path preview includes a belly spot')
-  await closeSheet()
-})
-
-await step('a flexible compound still gets the whole map', async () => {
-  await openPickerFor('BPC-157')
-  const t = await page.locator('div.fixed').last().textContent()
-  if (!/Belly/.test(t)) throw new Error('the belly is missing for a flexible compound')
-  if (await page.locator('[data-testid="zone-note"]').count()) {
-    throw new Error('the thigh-only note is showing for an unrestricted compound')
-  }
-  await closeSheet()
-})
-
-// ================================================ 3 · the per-compound toggle
-
-await step('every peptide exposes an allowed-zone setting', async () => {
-  await nav('More')
-  await page.click('text=Build / rebuild my protocol')
-  await page.waitForTimeout(700)
-  await wizard().locator('[data-testid="manage-row"]').filter({ hasText: 'BPC-157' }).first()
-    .locator('[data-testid="manage-edit"]').click()
-  await page.waitForTimeout(600)
-  const sel = wizard().locator('select[aria-label="Allowed injection zone"]').first()
-  if (!(await sel.count())) throw new Error('no allowed-zone control')
-  const opts = await sel.locator('option').allTextContents()
-  for (const want of ['All SubQ sites', 'Thigh only']) {
-    if (!opts.includes(want)) throw new Error(`the zone list is missing "${want}" — got [${opts.join(', ')}]`)
-  }
-  await wizard().locator('button[aria-label="Close"]').click()
-  await page.waitForTimeout(500)
-})
-
-await step('setting a compound to thigh-only takes effect', async () => {
-  await editInWizard('BPC-157', async () => {
-    await wizard().locator('select[aria-label="Allowed injection zone"]').first().selectOption('thigh')
-    await page.waitForTimeout(300)
-  })
-  const st = await state()
-  if (st.peptides.find((x) => x.id === 'bpc157').allowedZone !== 'thigh') {
-    throw new Error('the setting did not save')
-  }
-  await openPickerFor('BPC-157')
-  const t = await page.locator('div.fixed').last().textContent()
-  if (/Belly/.test(t)) throw new Error('the belly is still offered after restricting it')
-  await closeSheet()
-  // put it back
-  await editInWizard('BPC-157', async () => {
-    await wizard().locator('select[aria-label="Allowed injection zone"]').first().selectOption('all')
-    await page.waitForTimeout(300)
-  })
-})
-
-await step('a co-draw containing a thigh-only compound is thigh-only', async () => {
-  await nav('Home')
-  await page.waitForTimeout(600)
-  // both are AM compounds; Home may have opened on the evening slot
-  if (!(await page.locator('button[aria-label="Select BPC-157 to co-draw"]').count())) {
-    await page.click('button:has-text("AM")').catch(() => {})
-    await page.waitForTimeout(600)
-  }
-  // select a flexible compound and a thigh-only one
-  await selectForCoDraw('BPC-157')
-  await selectForCoDraw('Tesamorelin')
-  const bar = page.locator('[data-testid="codraw-bar"]')
-  if (!(await bar.count())) throw new Error('no co-draw bar after selecting two')
-  await page.click('button:has-text("Log together")')
-  await page.waitForTimeout(1400)
-  const sheet = await page.locator('div.fixed').last().textContent()
-  if (/Belly/.test(sheet)) throw new Error('the co-draw still offers belly spots')
-  if (!/thigh/i.test(sheet)) throw new Error('the co-draw is not on the thigh map')
-  await closeSheet()
-  await nav('Home')
-  await page.waitForTimeout(400)
-})
-
-// ================================================= 4 · thigh wear + routing
-
-await step('an over-used thigh spot is parked and routed around', async () => {
-  await page.evaluate(() => {
-    const KEY = 'peptide-command-center'
-    const raw = JSON.parse(localStorage.getItem(KEY))
-    const iso = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10) }
-    // hammer one thigh spot, spread a few elsewhere
-    const logs = []
-    // start yesterday — a dose logged today would mark the compound done and
-    // take its Log button (and this whole step's entry point) off the screen
-    for (let i = 0; i < 10; i++) {
-      const d = iso(i * 2 + 1)
-      logs.push({ id: `h${i}`, peptideId: 'ss31', siteId: 'thl-uo', date: d, loggedAt: `${d}T09:00:00` })
-    }
-    for (let i = 0; i < 3; i++) {
-      const d = iso(i * 3 + 2)
-      logs.push({ id: `o${i}`, peptideId: 'ss31', siteId: 'thr-uo', date: d, loggedAt: `${d}T09:00:00` })
-    }
-    raw.state.doseLogs = logs
-    localStorage.setItem(KEY, JSON.stringify(raw))
-  })
-  await page.reload({ waitUntil: 'networkidle' })
-  await page.waitForTimeout(900)
-  await openPickerFor('SS-31')
-  const rec = await page.locator('[data-testid="recommendation"]').textContent()
-  if (/upper-outer/i.test(rec) && /left thigh/i.test(rec)) {
-    throw new Error('the hammered spot is still being recommended')
-  }
-  await closeSheet()
-})
-
-await step('the pool is flagged while spots are still usable', async () => {
-  await openPickerFor('SS-31')
-  const load = page.locator('[data-testid="zone-load"]')
-  if (!(await load.count())) throw new Error('no warning about the thigh pool under load')
-  const t = await load.textContent()
-  if (!/thigh|spot/i.test(t)) throw new Error(`the warning does not name the problem: ${t}`)
-  await closeSheet()
-})
-
-await step('rotation health is scored against the thigh pool', async () => {
-  await openPickerFor('SS-31')
-  const h = page.locator('[data-testid="rotation-health"]')
-  if (!(await h.count())) throw new Error('no rotation health block')
-  await closeSheet()
-  await page.evaluate(() => {
-    const KEY = 'peptide-command-center'
-    const raw = JSON.parse(localStorage.getItem(KEY))
-    raw.state.doseLogs = []
-    localStorage.setItem(KEY, JSON.stringify(raw))
-  })
-  await page.reload({ waitUntil: 'networkidle' })
-  await page.waitForTimeout(800)
-})
-
 // ============================================================== 5 · skipping
 
-await step('every due peptide has a Skip action', async () => {
+await step('every outstanding dose can be skipped from its row', async () => {
   await nav('Home')
   await page.waitForTimeout(700)
-  const cards = page.locator('[data-testid="shot-plan"], .card')
-  const skips = await page.locator('[data-testid="skip-peptide"]').count()
-  if (skips === 0) throw new Error('no Skip buttons on any due peptide')
-  const logs = await page.locator('[aria-label^="Log "]').count()
-  if (skips < logs) throw new Error(`${logs} loggable doses but only ${skips} Skip actions`)
+  const rows = await page.locator('[data-testid="log-row"]:not([data-done])').count()
+  if (!rows) throw new Error('nothing outstanding on Home to skip')
+  const overflows = await page.locator('[data-testid="row-overflow"]').count()
+  if (overflows < rows) throw new Error(`${rows} outstanding doses but only ${overflows} menus`)
+  // and the menu on one of them actually holds Skip
+  await openRowMenu(0)
+  if (!(await page.locator('[data-testid="skip-peptide"]').count())) {
+    throw new Error('the row menu has no Skip')
+  }
+  await shutMenus()
 })
 
 // Whichever peptide happens to be due first — the suite must not depend on a
@@ -315,10 +88,13 @@ let skipTarget = null
 await step('skipping records it with an optional reason', async () => {
   await nav('Home')
   await page.waitForTimeout(600)
-  const btn = page.locator('[data-testid="skip-peptide"]').first()
-  if (!(await btn.count())) throw new Error('nothing skippable on Home')
-  skipTarget = (await btn.getAttribute('aria-label')).replace(/^Skip /, '')
-  await btn.click()
+  await shutMenus()
+  const i = await page.locator('[data-testid="log-row"]').evaluateAll(
+    (els) => els.findIndex((e) => e.dataset.done !== 'true'))
+  if (i < 0) throw new Error('nothing skippable on Home')
+  skipTarget = await nameOfRow(i)
+  await openRowMenu(i)
+  await page.locator('[data-testid="skip-peptide"]').click()
   await page.waitForTimeout(600)
   if (!(await page.locator('[data-testid="skip-sheet"]').count())) throw new Error('no skip sheet')
   await page.click('button:has-text("Travelling")')
@@ -370,9 +146,7 @@ await step('a skip can be undone', async () => {
   if (st.skips.some((k) => k.kind === 'peptide' && k.name === skipTarget)) {
     throw new Error('the skip survived the undo')
   }
-  if (!(await page.locator(`button[aria-label="Skip ${skipTarget}"]`).count())) {
-    throw new Error('the dose did not come back onto the list')
-  }
+  if ((await rowIndex(skipTarget)) < 0) throw new Error('the dose did not come back onto the list')
 })
 
 await step('supplements can be skipped too', async () => {
@@ -404,23 +178,29 @@ await step('supplements can be skipped too', async () => {
   if (!/Skipped today/.test(row)) throw new Error('the row does not read as skipped')
 })
 
-await step('several doses can be skipped at once', async () => {
+// v30 replaced the multi-select bar with per-row actions, so two doses are
+// skipped by skipping two doses. The claim being kept is that skipping one
+// leaves the others alone and each is recorded in its own right.
+await step('doses are skipped one at a time, each recorded separately', async () => {
   await nav('Home')
   await page.waitForTimeout(700)
-  const selectable = page.locator('button[aria-label^="Select "]')
-  if ((await selectable.count()) < 2) throw new Error('fewer than two selectable doses on screen')
-  await selectable.nth(0).click(); await page.waitForTimeout(250)
-  await selectable.nth(1).click(); await page.waitForTimeout(250)
+  await shutMenus()
   const before = (await state()).skips.length
-  await page.click('[data-testid="skip-selected"]')
-  await page.waitForTimeout(600)
-  await page.click('[data-testid="skip-confirm"]')
-  await page.waitForTimeout(1000)
+  for (let n = 0; n < 2; n++) {
+    const i = await page.locator('[data-testid="log-row"]').evaluateAll(
+      (els) => els.findIndex((e) => e.dataset.done !== 'true' && !/Undo skip/.test(e.getAttribute('aria-label') || '')))
+    if (i < 0) throw new Error(`ran out of outstanding doses after ${n}`)
+    await openRowMenu(i)
+    await page.locator('[data-testid="skip-peptide"]').click()
+    await page.waitForTimeout(500)
+    await page.click('[data-testid="skip-confirm"]')
+    await page.waitForTimeout(900)
+  }
   const after = (await state()).skips.length
   if (after !== before + 2) throw new Error(`expected 2 more skips, got ${after - before}`)
 })
 
-await step('History shows skipped apart from missed', async () => {
+await step('History counts skipped apart from missed', async () => {
   await more('History & adherence')
   await waitText(/Adherence/)
   const box = page.locator('[data-testid="skip-summary"]')
@@ -428,10 +208,25 @@ await step('History shows skipped apart from missed', async () => {
   const t = await box.textContent()
   if (!/skipped/i.test(t)) throw new Error('the figure is not labelled skipped')
   if (!/missed/i.test(t)) throw new Error('missed is not shown alongside it')
-  const list = page.locator('[data-testid="skip-list"]')
-  if (!(await list.count())) throw new Error('no skipped list')
-  const lt = await list.textContent()
-  if (!/not a lapse/i.test(lt)) throw new Error('the list does not frame a skip as a decision')
+})
+
+// v30.1 took the flat skipped list off History — on a page about months of
+// dose history it was a list of days, belonging to no compound in particular.
+// The days themselves moved to the compound they happened to, which is where
+// somebody asking "why is there a gap here" is already looking.
+await step('and lists the days themselves on the compound they belong to', async () => {
+  const skipped = (await state()).skips.find((k) => k.kind === 'peptide')
+  if (!skipped) throw new Error('nothing was skipped to go looking for')
+  const row = page.locator('[data-testid="tenure-row"]').filter({ hasText: skipped.name.split(' ')[0] }).first()
+  if (!(await row.count())) throw new Error(`${skipped.name} has no row in the tenure table`)
+  await row.click()
+  await page.waitForTimeout(900)
+  const block = page.locator('[data-testid="detail-skips"]')
+  if (!(await block.count())) throw new Error('the compound detail does not list its skipped days')
+  const lt = await block.textContent()
+  if (!/not a lapse/i.test(lt)) throw new Error('it does not frame a skip as a decision')
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(500)
 })
 
 // ============================================================ 6 · 390px fit
@@ -449,32 +244,27 @@ await step('nothing overflows horizontally at 390px', async () => {
 
 // ============================================================= 7 · survival
 
-await step('zones and skips survive a reload', async () => {
+await step('skips survive a reload', async () => {
   const before = await state()
   await page.reload({ waitUntil: 'networkidle' })
   await page.waitForTimeout(900)
   const after = await state()
   if (after.skips.length !== before.skips.length) throw new Error('skips lost')
-  for (const id of THIGH_ONLY) {
-    if (after.peptides.find((p) => p.id === id)?.allowedZone !== 'thigh') {
-      throw new Error(`${id} lost its zone`)
-    }
-  }
   if (after.peptides.length !== before.peptides.length) throw new Error('the stack changed')
 })
 
 await step('logging still works normally after all this', async () => {
   await nav('Home')
   await page.waitForTimeout(700)
+  await shutMenus()
   const before = (await state()).doseLogs.length
-  await openPickerFor('SS-31')
-  await page.click('button:has-text("Log here")')
-  await page.waitForTimeout(1300)
+  const row = page.locator('[data-testid="log-row"]:not([data-done])').first()
+  if (!(await row.count())) throw new Error('nothing left to log')
+  await row.click()
+  await page.waitForTimeout(1000)
   const st = await state()
   if (st.doseLogs.length !== before + 1) throw new Error('the dose was not logged')
-  const last = st.doseLogs.at(-1)
-  if (!/^th/.test(last.siteId || '')) throw new Error(`logged to ${last.siteId}, not a thigh site`)
-  await closeSheet()
+  if (st.doseLogs.at(-1).siteId !== undefined) throw new Error('a new log carries a siteId')
 })
 
 await step('no runtime errors anywhere in the run', async () => {

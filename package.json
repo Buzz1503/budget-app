@@ -8,8 +8,9 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "e2e": "node e2e/smoke.mjs",
-    "build:artifact": "VITE_NO_PWA=1 vite build --config vite.artifact.config.js && node scripts/build-artifact.mjs"
+    "e2e": "node e2e/run-all.mjs",
+    "build:artifact": "VITE_NO_PWA=1 vite build --config vite.artifact.config.js && node scripts/build-artifact.mjs",
+    "e2e:one": "node e2e/run-all.mjs"
   },
   "dependencies": {
     "canvas-confetti": "^1.9.3",
