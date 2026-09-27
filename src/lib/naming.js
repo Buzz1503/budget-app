@@ -19,7 +19,13 @@ export function autoShortName(name) {
   const withoutParens = full.replace(/\s*\([^)]*\)\s*$/, '').trim()
   // "Selank + Semax blend" says something a single word would lose, so a name
   // that is only a composition keeps it.
-  const head = withoutParens.split(/\s+\+\s+/)[0].trim()
+  let head = withoutParens.split(/\s+\+\s+/)[0].trim()
+  // Splitting inside a parenthetical leaves the bracket hanging — "KLOW (BPC-157
+  // + GHK-Cu)" would shorten to "KLOW (BPC-157", which reads like a typo. When
+  // the head opens a bracket it never closes, cut back to before it.
+  if ((head.match(/\(/g) || []).length > (head.match(/\)/g) || []).length) {
+    head = head.slice(0, head.lastIndexOf('(')).trim()
+  }
   const candidate = head.length >= 3 ? head : withoutParens
   return candidate || full
 }

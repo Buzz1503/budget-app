@@ -260,9 +260,11 @@ await step('6 · tenure reads in natural units', async () => {
 
 // ============================ 7 · the timeline and exposure actually render
 
-await step('7 · the dose timeline draws, and a point opens its detail', async () => {
-  const chart = page.locator('[data-testid="dose-timeline"]')
-  if (!(await chart.count())) throw new Error('no timeline rendered')
+await step('7 · the dose history renders, and a point opens its detail', async () => {
+  // v30.2: a dose that has never moved gets a statement rather than a flat
+  // chart, so either is a pass here — what matters is that the history is shown.
+  const shown = await page.locator('[data-testid="dose-timeline"], [data-testid="dose-steady"], [data-testid="dose-timeline-empty"]').count()
+  if (!shown) throw new Error('no dose history rendered at all')
   const pts = page.locator('[data-testid="timeline-point"]')
   const n = await pts.count()
   if (n === 0) throw new Error('the timeline has no points')

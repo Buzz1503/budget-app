@@ -183,6 +183,7 @@ const EVENT_LABEL = {
   route: 'Route changed',
   stop: 'Stopped',
   restart: 'Restarted',
+  push: 'Pushed',
 }
 
 /**
@@ -192,7 +193,7 @@ const EVENT_LABEL = {
  * typed in from memory rather than recorded at the time. Nothing downstream is
  * allowed to forget that distinction.
  */
-export function doseTimeline(peptide, { doseEvents = [], doseLogs = [], skips = [], runs = {}, titration = {}, todayStr } = {}) {
+export function doseTimeline(peptide, { doseEvents = [], doseLogs = [], skips = [], pushes = [], runs = {}, titration = {}, todayStr } = {}) {
   if (!peptide) return { points: [], bands: [], segments: [] }
 
   const points = []
@@ -259,6 +260,15 @@ export function doseTimeline(peptide, { doseEvents = [], doseLogs = [], skips = 
     points.push({
       id: k.id, date: k.date, kind: 'skip', label: 'Skipped',
       estimated: false, detail: k.reason || null,
+    })
+  }
+
+  // A push is its own outcome, neither taken nor skipped, and the timeline is
+  // the only place the distinction is visible after the day has passed.
+  for (const x of pushes.filter((y) => y.peptideId === peptide.id)) {
+    points.push({
+      id: x.id, date: x.from, kind: 'push', label: 'Pushed to the next day',
+      estimated: false, detail: `Moved to ${x.to} — not taken, not skipped`,
     })
   }
 

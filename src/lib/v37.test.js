@@ -6,6 +6,7 @@
 // compound, because the whole point of it is that the two disagree.
 import { describe, it, expect } from 'vitest'
 import { cyclePosition, doseTenure } from './tenure'
+import { autoShortName } from './naming'
 import { buildSummaryHtml } from './summaryDoc'
 import { adherenceSummary } from './adherence'
 import { addDaysStr } from './schedule'
@@ -196,5 +197,28 @@ describe('buildSummaryHtml after the reorder', () => {
     const html = buildSummaryHtml(args({ doseEvents: [] }))
     expect(html).not.toContain('undefined')
     expect(html).toContain('No dose changes recorded yet')
+  })
+})
+
+// ====================================================== 4 · short names
+
+describe('autoShortName', () => {
+  it('drops a trailing parenthetical', () => {
+    expect(autoShortName('KLOW (BPC-157 + GHK-Cu + TB-500 + KPV)')).toBe('KLOW')
+  })
+
+  it('never leaves a bracket hanging open', () => {
+    // splitting on " + " inside the brackets used to yield "KLOW (BPC-157"
+    expect(autoShortName('KLOW (BPC-157 + GHK-Cu + TB-500 + KPV) long blend')).toBe('KLOW')
+    expect(autoShortName('Glow (BPC + TB500')).toBe('Glow')
+  })
+
+  it('leaves an ordinary name alone', () => {
+    expect(autoShortName('CJC-1295 with DAC')).toBe('CJC-1295 with DAC')
+    expect(autoShortName('BPC-157')).toBe('BPC-157')
+  })
+
+  it('keeps a name that is only a composition', () => {
+    expect(autoShortName('A + B')).toBe('A + B')
   })
 })

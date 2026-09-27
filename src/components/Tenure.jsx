@@ -3,10 +3,12 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   CalendarClock, TrendingUp, Pencil, Plus, Trash2, Info, SkipForward,
   ArrowUpRight, Minus, PauseCircle, Route, CircleDot, HelpCircle, ChevronRight,
+  CalendarArrowDown,
 } from 'lucide-react'
 import useStore, { todayStr } from '../store/useStore'
 import Modal from './ui/Modal'
 import NumberField from './ui/NumberField'
+import { format, parseISO } from 'date-fns'
 import { prettyDate, daysBetween, addDaysStr, currentRung } from '../lib/schedule'
 import { formatDose, toMg, fromMg } from '../lib/calc'
 import { effectiveUsdPerVial, fxRate, money } from '../lib/cost'
@@ -41,6 +43,7 @@ const POINT_ICON = {
   stop: Minus,
   gap: CalendarClock,
   skip: SkipForward,
+  push: CalendarArrowDown,
 }
 
 // Only status carries colour. Everything else is chrome.
@@ -49,6 +52,7 @@ const POINT_TONE = {
   stop: 'var(--danger)',
   gap: 'var(--warn)',
   skip: 'var(--warn)',
+  push: 'var(--text-2)',
 }
 
 function toneFor(kind) {
@@ -154,120 +158,181 @@ export function TenureBlock({ peptide, onEdit }) {
 
 // ---------------------------------------------------------------- timeline
 
-const CH = { w: 320, h: 104, padL: 6, padR: 6, padT: 12, padB: 18 }
+// Taller and wider-padded than it was: the dose labels sit on the steps and the
+// dates sit under them, and both need room to be read rather than squinted at.
+const CH = { w: 320, h: 168, padL: 8, padR: 8, padT: 26, padB: 30 }
 
 /**
  * The dose, over the whole time you have been on it.
  *
- * A step line, because a dose does not drift — it sits at one number until the
- * day it is changed. Estimated segments are dashed and off-cycle stretches are
- * shaded behind, so the two things the eye needs to discount are the two things
- * drawn most faintly.
+ * Only drawn when there is something to draw. A compound whose dose has never
+ * moved produces a perfectly flat line, which is a chart in the sense that it
+ * has axes and no other sense — it takes a third of the screen to say one
+ * sentence. So that case says the sentence instead, and the plot is kept for
+ * the compounds where the shape is the point.
+ *
+ * Where it does draw: a step line, because a dose does not drift, it sits at
+ * one number until the day it is changed. Each step carries its own dose and
+ * the date it started. Estimated segments are dashed and off-cycle stretches
+ * shaded behind, so the two things the eye should discount are the two drawn
+ * most faintly. Skips are not on it — they are events in the log below, not
+ * levels of a dose, and scattering them along the baseline made the one line
+ * that matters harder to follow.
  */
 export function DoseTimelineChart({ peptide }) {
   const doseEvents = useStore((s) => s.doseEvents)
   const doseLogs = useStore((s) => s.doseLogs)
   const skips = useStore((s) => s.skips)
+  const pushes = useStore((s) => s.pushes)
   const runs = useStore((s) => s.runs)
   const titration = useStore((s) => s.titration)
   const t = todayStr()
   const [picked, setPicked] = useState(null)
 
   const tl = useMemo(
-    () => doseTimeline(peptide, { doseEvents, doseLogs, skips, runs, titration, todayStr: t }),
-    [peptide, doseEvents, doseLogs, skips, runs, titration, t]
+    () => doseTimeline(peptide, { doseEvents, doseLogs, skips, pushes, runs, titration, todayStr: t }),
+    [peptide, doseEvents, doseLogs, skips, pushes, runs, titration, t]
+  )
+  const atDose = useMemo(
+    () => doseTenure(peptide, { doseEvents, titration, todayStr: t }),
+    [peptide, doseEvents, titration, t]
   )
 
+  // Distinct dose levels, in the unit the compound is dosed in. One level means
+  // one sentence; two or more mean a chart.
+  const levels = useMemo(() => {
+    const seen = []
+    for (const seg of tl.segments) {
+      const mg = toMg(seg.dose, seg.unit)
+      if (!seen.some((v) => Math.abs(v - mg) < 1e-9)) seen.push(mg)
+    }
+    return seen
+  }, [tl])
+
   const geom = useMemo(() => {
-    const dates = [
-      ...tl.points.map((p) => p.date),
-      ...tl.segments.map((s) => s.from),
-      peptide?.startedOn,
-    ].filter(Boolean)
-    if (!dates.length) return null
+    if (levels.length < 2) return null
+    const dates = [...tl.segments.map((s) => s.from), peptide?.startedOn].filter(Boolean)
     const from = dates.reduce((a, b) => (a < b ? a : b))
     const totalDays = Math.max(1, daysBetween(from, t))
-    const doses = tl.segments.map((s) => toMg(s.dose, s.unit)).filter((n) => n > 0)
-    const maxMg = doses.length ? Math.max(...doses) : 1
-    const minMg = doses.length ? Math.min(...doses) : 0
+    const maxMg = Math.max(...levels)
     const plot = CH.h - CH.padT - CH.padB
     const x = (d) => CH.padL + (Math.min(Math.max(daysBetween(from, d), 0), totalDays) / totalDays) * (CH.w - CH.padL - CH.padR)
-    // A dose that has never moved is a flat line, and pinning it to the ceiling
-    // makes the chart look broken rather than steady. One level sits mid-height;
-    // two or more span the box with a little air above the top one.
-    const flat = maxMg === minMg
-    const y = flat
-      ? () => CH.padT + plot * 0.45
-      : (mg) => CH.h - CH.padB - Math.min(mg / (maxMg * 1.12), 1) * plot
-    return { from, totalDays, maxMg, flat, x, y, base: CH.h - CH.padB }
-  }, [tl, peptide, t])
+    const y = (mg) => CH.h - CH.padB - Math.min(mg / (maxMg * 1.1), 1) * plot
+    return { from, totalDays, maxMg, x, y, base: CH.h - CH.padB }
+  }, [levels, tl, peptide, t])
 
   if (!peptide) return null
 
-  if (!geom || !tl.segments.length) {
+  // Nothing recorded at all — not even a starting dose.
+  if (!tl.segments.length) {
     return (
-      <div className="card p-4 text-center" data-testid="dose-timeline-empty">
-        <p className="text-xs font-bold">No dose changes recorded yet.</p>
+      <div className="card p-4" data-testid="dose-timeline-empty">
+        <p className="t-caption" style={{ color: 'var(--text-2)' }}>Dose history</p>
         <p className="mt-1 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
-          The timeline fills in as the dose moves — every step-up, hold and hand-set dose lands here with
-          its date. You can also type in what you were on before you started logging.
+          Nothing recorded yet. Every step-up, hold and hand-set dose lands here with its date, and you can
+          type in what you were on before you started logging.
+        </p>
+      </div>
+    )
+  }
+
+  // One dose, throughout. A sentence, not a plot.
+  if (!geom) {
+    const only = tl.segments[0]
+    return (
+      <div className="card p-4" data-testid="dose-steady">
+        <p className="t-caption" style={{ color: 'var(--text-2)' }}>Dose history</p>
+        <p className="t-metric mt-1 tabular-nums">{formatDose(only.dose, only.unit || peptide.ladder?.unit)}</p>
+        <p className="mt-1 text-sm font-bold tabular-nums" style={{ color: 'var(--text-2)' }}>
+          {atDose?.days ? `${durationWords(atDose.days)} at this dose` : 'set today'}
+        </p>
+        <p className="mt-0.5 text-xs font-medium tabular-nums" style={{ color: 'var(--text-3)' }}>
+          Since {prettyDate(only.from)} · no dose changes
+          {only.estimated ? ' · entered by hand' : ''}
         </p>
       </div>
     )
   }
 
   const { x, y, base } = geom
+  const unit = peptide.ladder?.unit
 
   return (
     <div className="card p-3" data-testid="dose-timeline">
       <p className="t-caption" style={{ color: 'var(--text-2)' }}>Dose over time</p>
 
       <svg viewBox={`0 0 ${CH.w} ${CH.h}`} className="mt-2 w-full" role="img"
-        aria-label={`Dose history for ${peptide.name}`} style={{ overflow: 'visible' }}>
+        aria-label={`Dose history for ${peptide.name}: ${tl.segments.map((sg) => `${sg.dose} ${sg.unit || unit || ''} from ${sg.from}`).join(', ')}`}
+        style={{ overflow: 'visible' }}>
         {/* off-cycle stretches, behind everything */}
         {tl.bands.filter((b) => !b.on).map((b) => (
           <rect key={`${b.from}-${b.to}`} x={x(b.from)} y={CH.padT} width={Math.max(1, x(b.to) - x(b.from))}
             height={base - CH.padT} fill="var(--text-3)" opacity="0.12" />
         ))}
 
+        {/* one gridline per dose level, labelled with the dose itself — the
+            axis values are the doses, which are the only numbers anyone is
+            reading off this */}
+        {levels.map((mg) => (
+          <g key={mg}>
+            <line x1={CH.padL} y1={y(mg)} x2={CH.w - CH.padR} y2={y(mg)}
+              stroke="var(--border)" strokeWidth="1" strokeDasharray="2 4" />
+            <text x={CH.padL} y={y(mg) - 5} fontSize="10" fontWeight="800"
+              fill="var(--text-3)" className="tabular-nums">
+              {formatDose(fromMg(mg, unit === 'spray' ? 'mg' : unit), unit === 'spray' ? 'mg' : unit)}
+            </text>
+          </g>
+        ))}
+
         <line x1={CH.padL} y1={base} x2={CH.w - CH.padR} y2={base} stroke="var(--border)" strokeWidth="1" />
 
         {/* the step line: one flat run per dose, with a riser between */}
-        {tl.segments.map((s, i) => {
+        {tl.segments.map((sg, i) => {
           const prev = tl.segments[i - 1]
-          const yy = y(toMg(s.dose, s.unit))
+          const yy = y(toMg(sg.dose, sg.unit))
           return (
-            <g key={`${s.from}-${i}`}>
+            <g key={`${sg.from}-${i}`}>
               {prev && (
-                <line x1={x(s.from)} y1={y(toMg(prev.dose, prev.unit))} x2={x(s.from)} y2={yy}
-                  stroke="var(--text-2)" strokeWidth="1.5" strokeDasharray={s.estimated ? '3 3' : undefined} />
+                <line x1={x(sg.from)} y1={y(toMg(prev.dose, prev.unit))} x2={x(sg.from)} y2={yy}
+                  stroke="var(--text-2)" strokeWidth="1.5" strokeDasharray={sg.estimated ? '3 3' : undefined} />
               )}
-              <line x1={x(s.from)} y1={yy} x2={x(s.to)} y2={yy}
-                stroke={s.estimated ? 'var(--text-3)' : 'var(--good)'} strokeWidth="2.5"
-                strokeLinecap="round" strokeDasharray={s.estimated ? '4 3' : undefined} />
+              <line x1={x(sg.from)} y1={yy} x2={x(sg.to)} y2={yy}
+                stroke={sg.estimated ? 'var(--text-3)' : 'var(--good)'} strokeWidth="3"
+                strokeLinecap="round" strokeDasharray={sg.estimated ? '4 3' : undefined} />
             </g>
           )
         })}
 
-        {/* every point is a tap target; dateless kinds sit on the baseline */}
-        {tl.points.map((pt) => {
-          const seg = [...tl.segments].reverse().find((s) => s.from <= pt.date)
-          const cy = pt.to != null ? y(toMg(pt.to, pt.unit)) : (seg ? y(toMg(seg.dose, seg.unit)) : base)
+        {/* the date each step started, under the step it belongs to */}
+        {tl.segments.map((sg, i) => {
+          if (i === 0 && tl.segments.length > 3) return null
+          const px = x(sg.from)
+          const anchor = px < 30 ? 'start' : px > CH.w - 34 ? 'end' : 'middle'
+          return (
+            <text key={`d-${sg.from}-${i}`} x={px} y={CH.h - 14} fontSize="9" fontWeight="700"
+              textAnchor={anchor} fill="var(--text-3)" className="tabular-nums">
+              {format(parseISO(sg.from), 'd MMM')}
+            </text>
+          )
+        })}
+
+        {/* Only dose changes are marked. A skip is not a dose level, and
+            dotting them along the baseline buried the line that is. */}
+        {tl.points.filter((pt) => pt.to != null).map((pt) => {
           const on = picked?.id === pt.id
+          const cy = y(toMg(pt.to, pt.unit))
           return (
             <g key={pt.id} onClick={() => setPicked(on ? null : pt)} style={{ cursor: 'pointer' }}>
-              <circle cx={x(pt.date)} cy={pt.kind === 'skip' || pt.kind === 'gap' ? base : cy} r="11" fill="transparent" />
-              <circle cx={x(pt.date)} cy={pt.kind === 'skip' || pt.kind === 'gap' ? base : cy}
-                r={on ? 5 : 3.5} fill={pt.estimated ? 'var(--bg)' : toneFor(pt.kind)}
-                stroke={pt.estimated ? 'var(--text-3)' : 'var(--bg)'} strokeWidth="1.5" />
+              <circle cx={x(pt.date)} cy={cy} r="12" fill="transparent" />
+              <circle cx={x(pt.date)} cy={cy} r={on ? 5.5 : 4}
+                fill={pt.estimated ? 'var(--surface-solid)' : toneFor(pt.kind)}
+                stroke={pt.estimated ? 'var(--text-3)' : 'var(--surface-solid)'} strokeWidth="1.5" />
             </g>
           )
         })}
 
-        <text x={CH.padL} y={CH.h - 4} fontSize="9" fontWeight="700" fill="var(--text-3)">
-          {prettyDate(geom.from)}
-        </text>
-        <text x={CH.w - CH.padR} y={CH.h - 4} fontSize="9" fontWeight="700" fill="var(--text-3)" textAnchor="end">
+        <text x={CH.w - CH.padR} y={CH.h - 2} fontSize="9" fontWeight="700"
+          fill="var(--text-3)" textAnchor="end" className="tabular-nums">
           today
         </text>
       </svg>
@@ -281,44 +346,83 @@ export function DoseTimelineChart({ peptide }) {
         )}
       </AnimatePresence>
 
-      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
-        <Legend swatch="var(--good)" label="logged" />
-        {tl.segments.some((s) => s.estimated) && <Legend swatch="var(--text-3)" dashed label="estimated" />}
-        {tl.bands.some((b) => !b.on) && <Legend swatch="var(--text-3)" faded label="off-cycle" />}
-      </div>
+      {/* One series needs no legend saying which one it is. What is left is the
+          two things drawn differently on purpose. */}
+      {(tl.segments.some((sg) => sg.estimated) || tl.bands.some((b) => !b.on)) && (
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+          {tl.segments.some((sg) => sg.estimated) && <Legend swatch="var(--text-3)" dashed label="estimated" />}
+          {tl.bands.some((b) => !b.on) && <Legend swatch="var(--text-3)" faded label="off-cycle" />}
+        </div>
+      )}
 
-      <div className="mt-2 space-y-1" data-testid="timeline-points">
-        {[...tl.points].reverse().slice(0, 12).map((pt) => {
-          const Icon = POINT_ICON[pt.kind] || CircleDot
-          return (
-            <button key={pt.id} onClick={() => setPicked(picked?.id === pt.id ? null : pt)}
-              data-testid="timeline-point"
-              className="flex w-full items-center gap-2 rounded-[12px] px-2 py-1.5 text-left"
-              style={{ background: picked?.id === pt.id ? 'var(--surface-sunk)' : 'transparent' }}>
-              <Icon size={12} className="shrink-0" style={{ color: toneFor(pt.kind) }} />
-              <span className="min-w-0 flex-1 truncate text-xs font-bold">
-                {pt.label}
-                {pt.to != null && (
-                  <span className="ml-1.5 font-black tabular-nums" style={{ color: 'var(--text-2)' }}>
-                    {formatDose(pt.to, pt.unit || peptide.ladder?.unit)}
-                  </span>
-                )}
-                {pt.estimated && (
-                  <span className="ml-1.5 text-xs font-bold" style={{ color: 'var(--text-3)' }}>estimated</span>
-                )}
-              </span>
-              <span className="shrink-0 text-xs font-semibold tabular-nums" style={{ color: 'var(--text-3)' }}>
-                {prettyDate(pt.date)}
-              </span>
-            </button>
-          )
-        })}
-        {tl.points.length > 12 && (
-          <p className="px-2 text-xs font-medium" style={{ color: 'var(--text-3)' }}>
-            {tl.points.length - 12} earlier event{tl.points.length - 12 === 1 ? '' : 's'} above the chart.
-          </p>
+    </div>
+  )
+}
+
+/**
+ * Every recorded event for one compound, newest first.
+ *
+ * Lives beside the chart rather than inside it, because a compound whose dose
+ * has never moved gets no chart and still has step-ups it held, days it was
+ * skipped and doses it was pushed — all of which are the record, and none of
+ * which stop mattering because the line would have been flat.
+ */
+export function TimelineEvents({ peptide, onPick, picked }) {
+  const doseEvents = useStore((s) => s.doseEvents)
+  const doseLogs = useStore((s) => s.doseLogs)
+  const skips = useStore((s) => s.skips)
+  const pushes = useStore((s) => s.pushes)
+  const runs = useStore((s) => s.runs)
+  const titration = useStore((s) => s.titration)
+  const t = todayStr()
+  const tl = useMemo(
+    () => doseTimeline(peptide, { doseEvents, doseLogs, skips, pushes, runs, titration, todayStr: t }),
+    [peptide, doseEvents, doseLogs, skips, pushes, runs, titration, t]
+  )
+  if (!peptide || !tl.points.length) return null
+  return (
+    <div className="card p-3" data-testid="timeline-points">
+      {[...tl.points].reverse().slice(0, 12).map((pt) => {
+        const Icon = POINT_ICON[pt.kind] || CircleDot
+        return (
+          <button key={pt.id} onClick={() => onPick?.(picked?.id === pt.id ? null : pt)}
+            data-testid="timeline-point"
+            className="flex w-full items-center gap-2 rounded-[12px] px-2 py-1.5 text-left"
+            style={{ background: picked?.id === pt.id ? 'var(--surface-sunk)' : 'transparent' }}>
+            <Icon size={12} className="shrink-0" style={{ color: toneFor(pt.kind) }} />
+            <span className="min-w-0 flex-1 truncate text-xs font-bold">
+              {pt.label}
+              {pt.to != null && (
+                <span className="ml-1.5 font-black tabular-nums" style={{ color: 'var(--text-2)' }}>
+                  {formatDose(pt.to, pt.unit || peptide.ladder?.unit)}
+                </span>
+              )}
+              {pt.estimated && (
+                <span className="ml-1.5 text-xs font-bold" style={{ color: 'var(--text-3)' }}>estimated</span>
+              )}
+            </span>
+            <span className="shrink-0 text-xs font-semibold tabular-nums" style={{ color: 'var(--text-3)' }}>
+              {prettyDate(pt.date)}
+            </span>
+          </button>
+        )
+      })}
+      {tl.points.length > 12 && (
+        <p className="px-2 text-xs font-medium" style={{ color: 'var(--text-3)' }}>
+          {tl.points.length - 12} earlier event{tl.points.length - 12 === 1 ? '' : 's'} before these.
+        </p>
+      )}
+
+      {/* what changed, when, and why where it was recorded — under the row it
+          belongs to rather than up at the chart, which may not be drawn */}
+      <AnimatePresence initial={false}>
+        {picked && (
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }} className="overflow-hidden" data-testid="timeline-detail">
+            <PointDetail pt={picked} unit={peptide.ladder?.unit} />
+          </motion.div>
         )}
-      </div>
+      </AnimatePresence>
     </div>
   )
 }
@@ -836,6 +940,7 @@ export function CompoundDetail({ peptideId, open, onClose }) {
   const titration = useStore((s) => s.titration)
   const skips = useStore((s) => s.skips)
   const t = todayStr()
+  const [picked, setPicked] = useState(null)
   const peptide = peptides.find((p) => p.id === peptideId)
   if (!open || !peptide) return null
 
@@ -857,6 +962,8 @@ export function CompoundDetail({ peptideId, open, onClose }) {
       <div className="space-y-3" data-testid="compound-detail">
         <TenureBlock peptide={peptide} />
         <DoseTimelineChart peptide={peptide} />
+        {/* the record stands whether or not the dose ever moved enough to plot */}
+        <TimelineEvents peptide={peptide} picked={picked} onPick={setPicked} />
         <ExposureBlock peptide={peptide} />
 
         {stepUps.length > 0 && (

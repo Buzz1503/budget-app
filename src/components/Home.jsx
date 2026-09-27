@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Check, Info, Clock, AlertTriangle, Sun, Moon, ChevronRight, Syringe, X, ShieldCheck, Layers, Wind, Bell, Zap, SkipForward, Undo2, PackageOpen, MoreHorizontal, RotateCw } from 'lucide-react'
+import { Check, Info, Clock, AlertTriangle, Sun, Moon, ChevronRight, Syringe, X, ShieldCheck, Layers, Wind, Bell, Zap, SkipForward, Undo2, PackageOpen, MoreHorizontal, RotateCw, CalendarArrowDown } from 'lucide-react'
 import useStore, { todayStr } from '../store/useStore'
 import { cyclePhase, currentRung, stepUpDue, addDaysStr, prettyDate } from '../lib/schedule'
 import { isDueToday, slotOf, isDueSlot, currentSlot, slotIsFlexible, needsProtocolSetup } from '../lib/daily'
@@ -18,6 +18,7 @@ import Term from './ui/Term'
 import CoDrawModal from './CoDrawModal'
 import { dueInSlot, takenOn, FORM_LABEL } from '../lib/supplements'
 import { skippedOn, supplementsSkippedOn, skipFor, SKIP_REASONS, REASON_LABEL } from '../lib/skips'
+import { dueWithPushes, canPushOn, pushedLabel } from '../lib/pushes'
 import { activeVialStatus, coverageFor, coverageWords } from '../lib/stock'
 import ReplaceVial from './ReplaceVial'
 import CompoundSheet from './CompoundSheet'
@@ -48,7 +49,22 @@ export default function Home({ goTo }) {
     return next
   })
 
-  const scheduledToday = useMemo(() => peptides.filter((p) => isDueToday(p, t)), [peptides, t])
+  // read before scheduledToday, which is derived from it
+  const pushes = useStore((st) => st.pushes)
+  const showToast = useStore((st) => st.showToast)
+
+  /**
+   * What is owed today.
+   *
+   * The schedule says when a dose is due; pushes say where the occurrence
+   * actually sits. A dose pushed off today drops out, and one pushed onto today
+   * from an earlier day joins the list carrying a marker saying where it came
+   * from — it is the same dose, just later.
+   */
+  const scheduledToday = useMemo(
+    () => peptides.filter((p) => dueWithPushes(p, pushes, t)),
+    [peptides, pushes, t]
+  )
   /**
    * Cycled compounds sitting out their off-weeks.
    *
@@ -98,6 +114,8 @@ export default function Home({ goTo }) {
 
   const logDose = useStore((st) => st.logDose)
   const logMany = useStore((st) => st.logMany)
+  const pushDose = useStore((st) => st.pushDose)
+  const unpushFrom = useStore((st) => st.unpushFrom)
 
   // Everything in this slot still waiting on a tap — injections and orals
   // together, because "log all" has to mean all of it.
@@ -393,6 +411,12 @@ export default function Home({ goTo }) {
             onSkip={() => setSkipping({ kind: 'peptide', ids: [p.id], name: p.name })}
             onUnskip={() => unskipToday(p.id)}
             onFinishVial={() => { finishVial(p.id); setReplacing(p.id) }}
+            canPush={canPushOn(p, { pushes, loggedIds: loggedToday, skippedIds, dateStr: t })}
+            pushedFrom={pushedLabel(pushes, p.id, t)}
+            onPush={() => {
+              if (!pushDose(p.id)) return
+              showToast(`${displayName(p)} moved to tomorrow`, () => unpushFrom(p.id))
+            }}
             onOpenSheet={setSheetId}
             beckon={firstRun && i === slotDue.findIndex((x) => !loggedToday.has(x.id))} />
         ))}
@@ -638,14 +662,11 @@ function AlertBell({ alerts, nudge, goTo, onDismissNudge, stepUps = [], overdue 
   if (count === 0) return null
 
   return (
-    // The dismiss backdrop is a child of this wrapper, so lifting the wrapper
-    // lifts both. The button needs its own z-index *inside* that context to
-    // stay tappable — otherwise the second tap (to close) hits the overlay.
-    <div className={`relative ${open ? 'z-[46]' : ''}`}>
-      <motion.button whileTap={{ scale: 0.9 }} onClick={() => setOpen((v) => !v)}
+    <>
+      <motion.button whileTap={{ scale: 0.9 }} onClick={() => setOpen(true)}
         aria-label={`${count} thing${count === 1 ? '' : 's'} to look at`}
-        data-testid="alert-bell"
-        className="relative z-[47] flex h-10 w-10 items-center justify-center rounded-full"
+        aria-expanded={open} data-testid="alert-bell"
+        className="relative flex h-10 w-10 items-center justify-center rounded-full"
         style={{ background: 'var(--surface-sunk)', color: urgent ? 'var(--warn)' : 'var(--text-2)' }}>
         <Bell size={18} />
         <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-xs font-black"
@@ -654,115 +675,146 @@ function AlertBell({ alerts, nudge, goTo, onDismissNudge, stepUps = [], overdue 
         </span>
       </motion.button>
 
+      {/* A full overlay rather than a popover hung off the bell.
+          The panel used to be painted in `--surface`, which is a five-percent
+          white — glass, by design, for a card sitting on the page. Floated over
+          the page as a panel it let the header and the cards read straight
+          through it, so the screen showed both at once and neither legibly.
+          The ground under it is dimmed and the panel itself is solid. */}
       <AnimatePresence>
         {open && (
-          <>
-            <div className="fixed inset-0 z-[44]" onClick={() => setOpen(false)} />
+          <motion.div className="fixed inset-0 z-[60] flex items-start justify-center p-3"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}>
+            <div className="absolute inset-0" data-testid="alert-backdrop"
+              onClick={() => setOpen(false)} aria-hidden
+              style={{ background: 'rgba(4, 6, 12, 0.72)', backdropFilter: 'blur(3px)' }} />
+
             <motion.div
-              initial={{ opacity: 0, y: -6, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -6, scale: 0.97 }}
+              initial={{ opacity: 0, y: -8, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -8, scale: 0.98 }}
               transition={{ type: 'spring', stiffness: 340, damping: 26 }}
+              role="dialog" aria-modal="true" aria-label="Things to look at"
               data-testid="alert-panel"
-              // Anchored to the viewport, not the bell: the bell sits mid-header,
-              // so a panel hung off its right edge ran off the left of a 390px
-              // screen and cut the warning in half.
-              className="fixed inset-x-3 top-16 z-[45] rounded-[14px] p-4"
-              style={{ background: 'var(--surface)', boxShadow: 'var(--shadow-nav)' }}>
-              <div className="space-y-3">
-                {/* Anything still owed today, logged from here rather than by
-                    going and finding it. */}
+              className="relative mt-12 flex max-h-[76vh] w-full flex-col overflow-hidden rounded-[18px]"
+              style={{
+                background: 'var(--surface-solid)',
+                border: '1px solid var(--border)',
+                boxShadow: 'var(--shadow)',
+              }}>
+              <div className="flex shrink-0 items-center gap-2 px-4 py-3"
+                style={{ borderBottom: '1px solid var(--border)' }}>
+                <p className="min-w-0 flex-1 text-sm font-black">
+                  {count} to look at
+                </p>
+                <button onClick={() => setOpen(false)} data-testid="alert-close" aria-label="Close"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
+                  style={{ background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
+                  <X size={16} />
+                </button>
+              </div>
+
+              {/* one item per row, each carrying its own actions */}
+              <div className="rows min-h-0 flex-1 overflow-y-auto">
                 {overdue.length > 0 && (
-                  <div className="flex items-start gap-2" data-testid="bell-overdue">
-                    <Clock size={13} className="mt-1 shrink-0" style={{ color: 'var(--warn)' }} />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-semibold">
-                        {overdue.length} still due today — {overdue.map((x) => x.name).join(', ')}
-                      </p>
-                      <button onClick={() => { onLogOverdue?.(); setOpen(false) }} data-testid="bell-log-overdue"
-                        className="mt-2 rounded-full px-3 py-1 text-xs font-black"
-                        style={{ background: 'var(--accent)', color: 'var(--accent-fg)' }}>
-                        Log {overdue.length}
-                      </button>
-                    </div>
-                  </div>
+                  <BellItem icon={Clock} tone="var(--warn)" testid="bell-overdue"
+                    title={`${overdue.length} still due today`}
+                    body={overdue.map((x) => x.name).join(', ')}>
+                    <BellAction primary onClick={() => { onLogOverdue?.(); setOpen(false) }}
+                      testid="bell-log-overdue">Log {overdue.length}</BellAction>
+                  </BellItem>
                 )}
 
                 {/* The titration question, asked here instead of interrupting
                     the list of things to do. It is a decision, not a dose. */}
                 {stepUps.map((st) => (
-                  <div key={st.id} className="flex items-start gap-2" data-testid="bell-stepup">
-                    <Zap size={13} className="mt-1 shrink-0" style={{ color: 'var(--text-2)' }} />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-semibold">
-                        {st.name} — {st.weeks} week{st.weeks === 1 ? '' : 's'} at {st.doseText}. Tolerating well?
-                      </p>
-                      <p className="mt-0.5 text-xs font-medium" style={{ color: 'var(--text-2)' }}>
-                        Advancing moves to the next rung; holding keeps this dose and asks again next interval.
-                      </p>
-                      <div className="mt-2 flex gap-2">
-                        <button onClick={() => confirmStepUp(st.id)} data-testid="stepup-advance"
-                          className="rounded-full px-3 py-1 text-xs font-black"
-                          style={{ background: 'var(--accent)', color: 'var(--accent-fg)' }}>
-                          Advance
-                        </button>
-                        <button onClick={() => holdStepUp(st.id)} data-testid="stepup-hold"
-                          className="rounded-full px-3 py-1 text-xs font-bold" style={{ background: 'var(--surface-sunk)' }}>
-                          Hold here
-                        </button>
-                      </div>
-                    </div>
-                  </div>
+                  <BellItem key={st.id} icon={Zap} testid="bell-stepup"
+                    title={`${st.name} — ${st.weeks} week${st.weeks === 1 ? '' : 's'} at ${st.doseText}. Tolerating well?`}
+                    body="Advancing moves to the next rung; holding keeps this dose and asks again next interval.">
+                    <BellAction primary onClick={() => confirmStepUp(st.id)} testid="stepup-advance">
+                      Advance
+                    </BellAction>
+                    <BellAction onClick={() => holdStepUp(st.id)} testid="stepup-hold">Hold here</BellAction>
+                  </BellItem>
                 ))}
 
                 {/* A marker passed, stated once and never dressed up as an
                     achievement. It is a fact about elapsed time. */}
                 {milestones.map((m) => (
-                  <button key={m.id} onClick={() => { setOpen(false); goTo('protocol') }}
-                    data-testid="bell-milestone"
-                    className="flex w-full items-start gap-2 text-left">
-                    <Clock size={13} className="mt-1 shrink-0" style={{ color: 'var(--text-2)' }} />
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-xs font-semibold">{m.text}</span>
-                      <span className="block text-xs font-medium" style={{ color: 'var(--text-2)' }}>
-                        Its timeline and everything taken so far are on its compound page.
-                      </span>
-                    </span>
-                  </button>
+                  <BellItem key={m.id} icon={Clock} testid="bell-milestone"
+                    title={m.text}
+                    body="Its timeline and everything taken so far are on its compound page."
+                    onClick={() => { setOpen(false); goTo('protocol') }} />
                 ))}
 
                 {alerts.map((a) => (
-                  <button key={a.id} onClick={() => { setOpen(false); goTo('supplies') }}
-                    className="flex w-full items-start gap-2 text-left text-xs font-semibold">
-                    <AlertTriangle size={13} className="mt-1 shrink-0"
-                      style={{ color: a.kind === 'expired' ? 'var(--danger)' : a.kind === 'ordered' ? 'var(--info)' : 'var(--warn)' }} />
-                    <span style={{ color: a.kind === 'expired' ? 'var(--danger)' : 'var(--text)' }}>{a.text}</span>
-                  </button>
+                  <BellItem key={a.id} icon={AlertTriangle} testid="bell-alert"
+                    tone={a.kind === 'expired' ? 'var(--danger)' : a.kind === 'ordered' ? 'var(--info)' : 'var(--warn)'}
+                    title={a.text}
+                    onClick={() => { setOpen(false); goTo('supplies') }} />
                 ))}
+
                 {nudge && (
-                  <div className="flex items-start gap-2">
-                    <ShieldCheck size={13} className="mt-1 shrink-0" style={{ color: 'var(--text-2)' }} />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-semibold">{nudge.text}</p>
-                      <div className="mt-2 flex gap-2">
-                        <button onClick={() => { setOpen(false); goTo('settings') }}
-                          className="rounded-full px-3 py-1 text-xs font-black"
-                          style={{ background: 'var(--accent)', color: 'var(--accent-fg)' }}>
-                          Back up now
-                        </button>
-                        <button onClick={() => { onDismissNudge(); setOpen(false) }}
-                          className="rounded-full px-3 py-1 text-xs font-bold" style={{ background: 'var(--surface-sunk)' }}>
-                          Later
-                        </button>
-                      </div>
-                    </div>
-                  </div>
+                  <BellItem icon={ShieldCheck} testid="bell-nudge" title={nudge.text}>
+                    <BellAction primary onClick={() => { setOpen(false); goTo('settings') }}>
+                      Back up now
+                    </BellAction>
+                    <BellAction onClick={() => { onDismissNudge(); setOpen(false) }}>Later</BellAction>
+                  </BellItem>
                 )}
               </div>
             </motion.div>
-          </>
+          </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </>
+  )
+}
+
+/**
+ * One notification.
+ *
+ * Its actions live inside it rather than floating at the foot of the panel,
+ * because with four notices open it stops being obvious which one a button at
+ * the bottom belongs to. A long compound name wraps here; nothing truncates,
+ * since the whole point of the row is to be read.
+ */
+function BellItem({ icon: Icon, tone, title, body, children, onClick, testid }) {
+  const inner = (
+    <>
+      <Icon size={14} className="mt-0.5 shrink-0" style={{ color: tone || 'var(--text-2)' }} />
+      <div className="min-w-0 flex-1">
+        <p className="text-xs font-bold leading-relaxed" style={{ color: tone === 'var(--danger)' ? tone : 'var(--text)' }}>
+          {title}
+        </p>
+        {body && (
+          <p className="mt-0.5 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>{body}</p>
+        )}
+        {children && <div className="mt-2 flex flex-wrap gap-2">{children}</div>}
+      </div>
+      {onClick && <ChevronRight size={15} className="mt-0.5 shrink-0" style={{ color: 'var(--text-3)' }} />}
+    </>
+  )
+  if (onClick) {
+    return (
+      <button onClick={onClick} data-testid={testid}
+        className="flex w-full items-start gap-2.5 px-4 py-3 text-left">
+        {inner}
+      </button>
+    )
+  }
+  return <div className="flex items-start gap-2.5 px-4 py-3" data-testid={testid}>{inner}</div>
+}
+
+function BellAction({ children, onClick, primary, testid }) {
+  return (
+    <button onClick={onClick} data-testid={testid}
+      className="flex min-h-[36px] items-center rounded-full px-3 text-xs font-black"
+      style={primary
+        ? { background: 'var(--accent)', color: 'var(--accent-fg)' }
+        : { background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
+      {children}
+    </button>
   )
 }
 
@@ -995,7 +1047,7 @@ function Tomorrow() {
  * all belong somewhere you go to read rather than somewhere you go to tap —
  * they are on the compound page and in the bell now.
  */
-function DueCard({ peptide: p, index, done, titration, onLog, selected, onToggleSelect, skipped, skipReason, onSkip, onUnskip, onFinishVial, onOpenSheet, beckon }) {
+function DueCard({ peptide: p, index, done, titration, onLog, selected, onToggleSelect, skipped, skipReason, onSkip, onUnskip, onFinishVial, onOpenSheet, beckon, canPush, pushedFrom, onPush }) {
   const tState = titration[p.id]
   const { dose } = currentRung(p, tState)
   const nasal = isNasal(p)
@@ -1075,6 +1127,17 @@ function DueCard({ peptide: p, index, done, titration, onLog, selected, onToggle
             <span className="mt-1 flex items-center gap-1 text-xs font-medium leading-tight" style={{ color: 'var(--text-3)' }}>
               <Clock size={12} /> {p.timing}
             </span>
+            {/* The same dose, arriving later — quiet, because it is not a
+                problem, just the reason this is here on a day it isn't due.
+                On its own line: appended to the timing note it wrapped that
+                note onto two lines and took the Log button down with it. */}
+            {pushedFrom && (
+              <span className="mt-1 flex min-w-0 items-center gap-1 text-xs font-medium leading-tight"
+                data-testid="pushed-marker" style={{ color: 'var(--text-3)' }}>
+                <CalendarArrowDown size={12} className="shrink-0" />
+                <span className="min-w-0 truncate">{pushedFrom}</span>
+              </span>
+            )}
             <CycleLine peptide={p} onOpen={() => onOpenSheet?.(p.id)} />
           </span>
           <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] text-xs font-black ${done ? '' : 'btn-primary'}`}
@@ -1103,6 +1166,12 @@ function DueCard({ peptide: p, index, done, titration, onLog, selected, onToggle
             <div className="flex flex-wrap gap-2 px-4 pb-3">
               <MenuAction icon={SkipForward} label="Skip" testid="skip-peptide"
                 onClick={() => { setMenu(false); onSkip() }} />
+              {/* Only for compounds taken several days a week: a daily dose has
+                  nowhere to go, since tomorrow already has one of its own. */}
+              {canPush && (
+                <MenuAction icon={CalendarArrowDown} label="Push to tomorrow" testid="push-peptide"
+                  onClick={() => { setMenu(false); onPush?.() }} />
+              )}
               {!nasal && onFinishVial && (
                 <MenuAction icon={PackageOpen} label="Vial done" testid="finish-vial"
                   onClick={() => { setMenu(false); onFinishVial() }} />

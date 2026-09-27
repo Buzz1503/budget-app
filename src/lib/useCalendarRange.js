@@ -37,12 +37,13 @@ export function useCalendarRange(from, to) {
   const supplementLogs = useStore((s) => s.supplementLogs)
   const skips = useStore((s) => s.skips)
   const runs = useStore((s) => s.runs)
+  const pushes = useStore((s) => s.pushes)
   const leadDays = useStore((s) => s.settings.restockLeadDays)
   const verdictOf = useVerdictOf()
   const t = todayStr()
 
   return useMemo(
-    () => buildCalendar({ peptides, titration, doseLogs, openVials, vials, supplements, supplementLogs, skips, restock, runs, todayStr: t, from, to, verdictOf, leadDays }),
-    [peptides, titration, doseLogs, openVials, vials, supplements, supplementLogs, skips, restock, runs, t, from, to, verdictOf, leadDays]
+    () => buildCalendar({ peptides, titration, doseLogs, openVials, vials, supplements, supplementLogs, skips, restock, runs, pushes, todayStr: t, from, to, verdictOf, leadDays }),
+    [peptides, titration, doseLogs, openVials, vials, supplements, supplementLogs, skips, restock, runs, pushes, t, from, to, verdictOf, leadDays]
   )
 }

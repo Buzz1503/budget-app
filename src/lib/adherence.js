@@ -1,6 +1,6 @@
 // History + adherence: doses actually taken vs. doses scheduled over a window.
 import { addDaysStr, daysBetween } from './schedule'
-import { isDueToday } from './daily'
+import { dueWithPushes } from './pushes'
 
 export function dateRange(fromStr, toStr) {
   const n = daysBetween(fromStr, toStr)
@@ -8,24 +8,30 @@ export function dateRange(fromStr, toStr) {
   return Array.from({ length: n + 1 }, (_, i) => addDaysStr(fromStr, i))
 }
 
-// Scheduled doses for one peptide across a window. Days before its startDate
-// and days needing protocol setup are never counted as "missed".
-export function scheduledCount(peptide, fromStr, toStr) {
-  return dateRange(fromStr, toStr).filter((d) => isDueToday(peptide, d)).length
+/**
+ * Scheduled doses for one peptide across a window.
+ *
+ * Days before its startDate and days needing protocol setup are never counted
+ * as "missed". Neither is a day the dose was pushed off: the occurrence moved,
+ * it did not go unrecorded, and counting it here would report a decision the
+ * user made as a failure to act.
+ */
+export function scheduledCount(peptide, fromStr, toStr, pushes = []) {
+  return dateRange(fromStr, toStr).filter((d) => dueWithPushes(peptide, pushes, d)).length
 }
 
-export function takenCount(peptide, doseLogs, fromStr, toStr) {
+export function takenCount(peptide, doseLogs, fromStr, toStr, pushes = []) {
   const days = new Set(
     doseLogs.filter((l) => l.peptideId === peptide.id && l.date >= fromStr && l.date <= toStr)
       .map((l) => l.date)
   )
-  // only count a log on a day the dose was actually scheduled
-  return [...days].filter((d) => isDueToday(peptide, d)).length
+  // only count a log on a day the dose was actually owed
+  return [...days].filter((d) => dueWithPushes(peptide, pushes, d)).length
 }
 
-export function adherenceFor(peptide, doseLogs, fromStr, toStr) {
-  const scheduled = scheduledCount(peptide, fromStr, toStr)
-  const taken = takenCount(peptide, doseLogs, fromStr, toStr)
+export function adherenceFor(peptide, doseLogs, fromStr, toStr, pushes = []) {
+  const scheduled = scheduledCount(peptide, fromStr, toStr, pushes)
+  const taken = takenCount(peptide, doseLogs, fromStr, toStr, pushes)
   return {
     peptideId: peptide.id, name: peptide.name, scheduled, taken,
     missed: Math.max(0, scheduled - taken),
@@ -33,8 +39,8 @@ export function adherenceFor(peptide, doseLogs, fromStr, toStr) {
   }
 }
 
-export function adherenceSummary(peptides, doseLogs, fromStr, toStr) {
-  const rows = peptides.map((p) => adherenceFor(p, doseLogs, fromStr, toStr))
+export function adherenceSummary(peptides, doseLogs, fromStr, toStr, pushes = []) {
+  const rows = peptides.map((p) => adherenceFor(p, doseLogs, fromStr, toStr, pushes))
   const scheduled = rows.reduce((s, r) => s + r.scheduled, 0)
   const taken = rows.reduce((s, r) => s + r.taken, 0)
   return {

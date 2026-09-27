@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { History, Syringe, FileText, Filter } from 'lucide-react'
+import { History, Syringe, FileText, Filter, CalendarArrowDown } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import useStore, { todayStr } from '../store/useStore'
 import { adherenceSummary, historyEvents, WINDOWS, windowRange } from '../lib/adherence'
 import { formatDose } from '../lib/calc'
 import { SymptomHistory } from './SymptomsTab'
 import { skipsInRange, splitAdherence } from '../lib/skips'
+import { pushesInRange } from '../lib/pushes'
 import CatchUpCard from './CatchUp'
 import SummarySheet from './SummarySheet'
 import { TenureTable, CompoundDetail, DoseSparkline, TenureLine } from './Tenure'
@@ -25,6 +26,7 @@ export default function HistoryTab() {
   const peptides = useStore((s) => s.peptides)
   const doseLogs = useStore((s) => s.doseLogs)
   const skips = useStore((s) => s.skips)
+  const pushes = useStore((s) => s.pushes)
   const t = todayStr()
 
   const [days, setDays] = useState(30)
@@ -33,9 +35,10 @@ export default function HistoryTab() {
   const [summaryOpen, setSummaryOpen] = useState(false)
   const { from, to } = useMemo(() => windowRange(days, t), [days, t])
 
+  // pushes are handed in so a moved dose is not reported as a missed one
   const summary = useMemo(
-    () => adherenceSummary(peptides, doseLogs, from, to),
-    [peptides, doseLogs, from, to]
+    () => adherenceSummary(peptides, doseLogs, from, to, pushes),
+    [peptides, doseLogs, from, to, pushes]
   )
   const events = useMemo(
     () => historyEvents(doseLogs, peptides, { peptideId, from, to }),
@@ -50,6 +53,14 @@ export default function HistoryTab() {
     taken: summary.overall.taken,
     skipped: skipRows.filter((k) => k.kind === 'peptide').length,
   }), [summary, skipRows])
+
+  // Doses moved rather than taken or skipped. Listed in their own right,
+  // because after the week has passed "I put that one off three times" is a
+  // thing the log should be able to say.
+  const pushRows = useMemo(() => {
+    const rows = pushesInRange(pushes, from, to)
+    return peptideId ? rows.filter((x) => x.peptideId === peptideId) : rows
+  }, [pushes, from, to, peptideId])
 
   const pct = summary.overall.pct
   const picked = peptideId ? peptides.find((p) => p.id === peptideId) : null
@@ -129,6 +140,30 @@ export default function HistoryTab() {
           </span>
           <DoseSparkline peptide={picked} width={72} height={18} />
         </button>
+      )}
+
+      {pushRows.length > 0 && (
+        <div className="card p-3" data-testid="push-list">
+          <p className="t-caption" style={{ color: 'var(--text-2)' }}>
+            Pushed to the next day · {pushRows.length}
+          </p>
+          <div className="mt-2 space-y-1">
+            {pushRows.slice(0, 12).map((x) => (
+              <p key={x.id} className="flex items-center gap-2 text-xs font-medium tabular-nums leading-tight"
+                data-testid="push-row" style={{ color: 'var(--text-2)' }}>
+                <CalendarArrowDown size={11} className="shrink-0" style={{ color: 'var(--text-3)' }} />
+                <span className="min-w-0 flex-1 truncate">
+                  <span className="font-bold" style={{ color: 'var(--text)' }}>{x.name || x.peptideId}</span>
+                  {' · '}{format(parseISO(x.from), 'EEE d MMM')} → {format(parseISO(x.to), 'EEE d MMM')}
+                </span>
+              </p>
+            ))}
+          </div>
+          <p className="mt-2 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-3)' }}>
+            Moved, not missed and not skipped — nothing came out of stock, and adherence counts the day the
+            dose landed on rather than the one it left.
+          </p>
+        </div>
       )}
 
       {/* log */}

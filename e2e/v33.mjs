@@ -213,8 +213,9 @@ await step('3 · tapping a row opens the timeline, exposure and step-up list', a
   for (const id of ['tenure-block', 'exposure-block']) {
     if (!(await page.locator(`[data-testid="${id}"]`).count())) throw new Error(`detail is missing ${id}`)
   }
-  const timeline = await page.locator('[data-testid="dose-timeline"], [data-testid="dose-timeline-empty"]').count()
-  if (!timeline) throw new Error('detail has no dose timeline at all')
+  // v30.2: a steady dose is stated rather than plotted, and either counts
+  const timeline = await page.locator('[data-testid="dose-timeline"], [data-testid="dose-steady"], [data-testid="dose-timeline-empty"]').count()
+  if (!timeline) throw new Error('detail has no dose history at all')
   const steps = await page.locator('[data-testid="stepup-line"]').count()
   console.log(`  detail opens · ${steps} dose change line(s)`)
   await closeAll()

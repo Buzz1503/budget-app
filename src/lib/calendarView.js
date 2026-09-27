@@ -3,16 +3,17 @@
 // will be by then, what lands on the day, and whether it was actually taken.
 //
 // Nothing here re-derives scheduling: whether a dose is due comes from
-// isDueToday (the same call Home makes), and only the *dose value* on a future
+// dueWithPushes (the same call Home makes), and only the *dose value* on a future
 // date comes from the titration projection. That split is deliberate — it's
 // what stops the Calendar drifting a day away from the Home list.
 import { addDaysStr, daysBetween, projectSchedule, cycleInfo, currentRung } from './schedule'
-import { isDueToday, slotOf, needsProtocolSetup, SLOTS } from './daily'
+import { slotOf, needsProtocolSetup, SLOTS } from './daily'
 import { unitsFor, isNasal } from './calc'
 import { planShots } from './grouping'
 import { LIB_TO_COMPOUND } from './mixMatrix'
 import { expiryInfo, runOutInfo } from './inventory'
 import { runsFor, MILESTONES } from './tenure'
+import { dueWithPushes } from './pushes'
 
 export const WEEK_STARTS_ON = 1 // Monday
 
@@ -108,7 +109,7 @@ export function datesBetween(fromStr, toStr) {
 export function buildCalendar({
   peptides = [], titration = {}, doseLogs = [], openVials = {}, vials = [],
   supplements = [], supplementLogs = [], skips = [],
-  restock = {}, runs = {}, todayStr, from, to, verdictOf = null, leadDays = 30,
+  restock = {}, runs = {}, pushes = [], todayStr, from, to, verdictOf = null, leadDays = 30,
 }) {
   const dates = datesBetween(from, to)
   if (dates.length === 0) return { days: [], byDate: {}, from, to, grouped: !!verdictOf }
@@ -238,7 +239,10 @@ export function buildCalendar({
     const orals = { AM: [], PM: [] }
 
     for (const p of active) {
-      if (!isDueToday(p, date)) continue
+      // Pushes move the occurrence, so the calendar has to ask the same
+      // question Home does — otherwise a day someone deliberately moved a dose
+      // off still reads here as a day they missed one.
+      if (!dueWithPushes(p, pushes, date)) continue
       const row = projection[p.id]?.[date]
       const dose = row ? row.dose : currentRung(p, titration[p.id]).dose
       const nasal = isNasal(p)

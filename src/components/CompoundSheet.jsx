@@ -13,7 +13,7 @@ import { formatDose, concentration, isNasal } from '../lib/calc'
 import { scheduledWeekdaySet, WEEKDAYS } from '../lib/daily'
 import { batchesFor, sealedCount } from '../lib/stock'
 import { stockRunway } from '../lib/runway'
-import { TenureBlock, DoseTimelineChart, ExposureBlock, TenureEditor } from './Tenure'
+import { TenureBlock, DoseTimelineChart, TimelineEvents, ExposureBlock, TenureEditor } from './Tenure'
 
 const FREQ_LABELS = {
   daily: 'Daily', nightly: 'Nightly', weekly: 'Weekly',
@@ -47,6 +47,7 @@ export default function CompoundSheet({ open, compoundId, onClose, goTo }) {
   const [editing, setEditing] = useState(null)
   const [adding, setAdding] = useState(false)
   const [tenureOpen, setTenureOpen] = useState(false)
+  const [picked, setPicked] = useState(null)
 
   const peptide = peptides.find((p) => p.id === compoundId)
   const batches = batchesFor(vials, compoundId)
@@ -124,6 +125,8 @@ export default function CompoundSheet({ open, compoundId, onClose, goTo }) {
             <div className="space-y-3" data-testid="timeline-pane">
               <TenureBlock peptide={peptide} onEdit={() => setTenureOpen(true)} />
               <DoseTimelineChart peptide={peptide} />
+              {/* the events stand whether or not the dose moved enough to plot */}
+              <TimelineEvents peptide={peptide} picked={picked} onPick={setPicked} />
               <ExposureBlock peptide={peptide} />
               <p className="px-1 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
                 A record of what you did, not a judgement of it. Anything you typed in from memory is drawn

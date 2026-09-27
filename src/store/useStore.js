@@ -6,6 +6,7 @@ import {
   testosteroneEnanthate, TEST_E_ID, DEFAULT_BAC_ML, LEGACY_BAC_ML,
 } from '../data/seed'
 import { SEED_KNOWN_GOOD } from '../lib/mixing'
+import { canPush } from '../lib/pushes'
 import { currentRung, cycleInfo, addDaysStr } from '../lib/schedule'
 import { isDueToday } from '../lib/daily'
 import { enrichPeptide } from '../lib/reference'
@@ -62,6 +63,15 @@ function initialState() {
     // not a dose: nothing was drawn, nothing left the vial, and adherence has
     // to be able to tell the two apart from a plain miss.
     skips: [],
+    /**
+     * Doses moved to the next day.
+     *
+     * { id, peptideId, from, to, at } — a third outcome alongside logged and
+     * skipped, and deliberately neither. "Not today, but I still mean to" is
+     * what people actually do with a Mon/Thu compound, and recording it as a
+     * skip would misreport a decision they did not make.
+     */
+    pushes: [],
     // Vials that have been used up. Kept as a record rather than deleted: it is
     // the only trace of how long a vial actually lasted.
     finishedVials: [],
@@ -871,6 +881,45 @@ const useStore = create(
           }],
         })
       },
+      /**
+       * Move today's occurrence to tomorrow.
+       *
+       * Repeatable with no limit — each call records another hop, so a dose can
+       * follow you down the week until you log it or skip it. Nothing is drawn
+       * and nothing is written to the log, so stock does not move and adherence
+       * does not see a miss; the schedule is untouched, so the following doses
+       * stay on their own days.
+       */
+      pushDose(peptideId, dateStr = null) {
+        const from = dateStr || todayStr()
+        const s = get()
+        const p = s.peptides.find((x) => x.id === peptideId)
+        if (!p || !canPush(p)) return null
+        // a settled dose has no occurrence left to move
+        if (s.doseLogs.some((l) => l.peptideId === peptideId && l.date === from)) return null
+        if (s.skips.some((k) => k.kind === 'peptide' && k.peptideId === peptideId && k.date === from)) return null
+        if (s.pushes.some((x) => x.peptideId === peptideId && x.from === from)) return null
+        const to = addDaysStr(from, 1)
+        const id = `pu-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`
+        set({
+          pushes: [...s.pushes, {
+            id, peptideId, from, to, at: new Date().toISOString(), name: p.name || '',
+          }],
+        })
+        return id
+      },
+      /** Undo a push, putting the occurrence back on the day it came from. */
+      unpush(id) {
+        set((s) => ({ pushes: s.pushes.filter((x) => x.id !== id) }))
+      },
+      /** Undo the push that moved this compound off `dateStr`. */
+      unpushFrom(peptideId, dateStr = null) {
+        const from = dateStr || todayStr()
+        set((s) => ({
+          pushes: s.pushes.filter((x) => !(x.peptideId === peptideId && x.from === from)),
+        }))
+      },
+
       skipSupplement(supplementId, reason = '') {
         const t = todayStr()
         const s = get()
@@ -1189,7 +1238,7 @@ const useStore = create(
     }),
     {
       name: 'peptide-command-center', // storage key is history — renaming it would orphan existing data
-      version: 11,
+      version: 12,
       storage: createJSONStorage(() => safeStorage),
       // Saves written before a release can't pick new library entries up from
       // the seed, so each version bump backfills them here — once. Deleting one
@@ -1205,10 +1254,16 @@ const useStore = create(
       //   v9: prices held in USD + one exchange rate, never in stored AUD
       //   v10: injection-site rotation removed
       //   v11: light mode removed
+      //   v12: doses can be pushed to the next day
       migrate: (persisted, from) => {
-        if (!persisted || from >= 11) return persisted
+        if (!persisted || from >= 12) return persisted
         const s = { ...persisted }
         const t = todayStr()
+        if (from < 12) {
+          // Nothing to backfill — a save written before pushes existed simply
+          // has none. The key is created so nothing downstream has to guard.
+          s.pushes = s.pushes || []
+        }
         if (from < 11) {
           // The app is dark only now. Nothing reads settings.theme any more, and
           // a dead key would otherwise ride along in every backup from here on.
@@ -1376,6 +1431,7 @@ const useStore = create(
         finishedVials: persisted?.finishedVials || current.finishedVials,
         sharedDraws: persisted?.sharedDraws || current.sharedDraws,
         doseEvents: persisted?.doseEvents || current.doseEvents,
+        pushes: persisted?.pushes || current.pushes,
         runs: { ...current.runs, ...(persisted?.runs || {}) },
         // merged rather than replaced, so a setting added in a later release
         // arrives with its default instead of being undefined on every existing
