@@ -42,10 +42,6 @@ const nav = async (label) => {
   await waitText(TAB_MARK[label])
   await page.waitForTimeout(250)
 }
-const openPicker = async () => {
-  await page.locator('[aria-label^="Log "]').first().click()
-  await waitText(/INJECT HERE|Next on your path/, 12000)
-}
 const closeAny = async () => {
   for (const sel of ['[data-testid="site-detail"] button[aria-label="Close"]', 'button:text-is("Done")', 'div.fixed.inset-0.z-50 button[aria-label="Close"]']) {
     const b = page.locator(sel).first()
@@ -175,11 +171,6 @@ await nav('Home')
 await page.screenshot({ path: `${SHOT}/v15-home.png`, fullPage: true })
 await page.click('button:has-text("AM")')
 await page.waitForTimeout(300)
-if (await page.locator('[aria-label^="Log "]').count()) {
-  await openPicker()
-  await page.waitForTimeout(700)
-  await page.screenshot({ path: `${SHOT}/v15-map.png`, fullPage: true })
-}
 
 await browser.close()
 if (errors.length) {
