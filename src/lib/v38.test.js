@@ -53,8 +53,9 @@ describe('canPush', () => {
     expect(canPush(pep({ frequency: 'nightly', scheduleWeekdays: undefined }))).toBe(false)
   })
 
-  it('refuses a once-weekly compound — moving its day is the right fix there', () => {
-    expect(canPush(pep({ frequency: 'weekly', scheduleWeekdays: [1] }))).toBe(false)
+  it('allows a once-weekly compound', () => {
+    // changing its day moves every week from here on; a one-off slip should not
+    expect(canPush(pep({ frequency: 'weekly', scheduleWeekdays: [1] }))).toBe(true)
   })
 
   it('has nothing to say about nothing', () => {
@@ -253,6 +254,20 @@ describe('pushes in the record', () => {
     })
     expect(segments).toHaveLength(1)
     expect(segments[0].dose).toBe(50)
+  })
+})
+
+describe('pushing a weekly dose', () => {
+  const p = pep({ frequency: 'weekly', scheduleWeekdays: [1] })
+  const mon = (() => { let d = T; while (weekdayOf(d) !== 1) d = addDaysStr(d, 1); return d })()
+  const tue = addDaysStr(mon, 1)
+
+  it('moves this week only — next week stays on its own day', () => {
+    const pushes = [push({ from: mon, to: tue })]
+    expect(dueWithPushes(p, pushes, mon)).toBe(false)
+    expect(dueWithPushes(p, pushes, tue)).toBe(true)
+    expect(dueWithPushes(p, pushes, addDaysStr(mon, 7))).toBe(true)
+    expect(dueWithPushes(p, pushes, addDaysStr(tue, 7))).toBe(false)
   })
 })
 

@@ -24,17 +24,21 @@ import { format, parseISO } from 'date-fns'
 /**
  * Can this compound's doses be pushed?
  *
- * Only compounds taken several days a week. A daily dose has nowhere to be
- * pushed to — tomorrow already has one — and a once-weekly dose that slips a
- * day is better handled by moving its day. Between those, "not today, tomorrow"
- * is exactly the thing that happens.
+ * Anything not taken every day. A daily dose is the one case with nowhere to go
+ * — tomorrow already owes one, so pushing today's onto it merges the two, which
+ * is the same outcome as skipping today and a worse way to say it.
+ *
+ * Weekly is included. It was left out at first on the reasoning that a compound
+ * whose day has moved should have its day changed, but that is a different
+ * thing: changing the day moves every week from here on, and a one-off "not
+ * today, tomorrow" should not. Pushing leaves the schedule alone, so next week
+ * stays on its own day.
  */
 export function canPush(peptide) {
   if (!peptide) return false
   const freq = peptide.frequency
   if (freq === 'daily' || freq === 'nightly') return false
-  const days = scheduledWeekdaySet(peptide).size
-  return days > 1 && days < 7
+  return scheduledWeekdaySet(peptide).size < 7
 }
 
 /** The push record that moved this peptide off `dateStr`, if there is one. */

@@ -114,6 +114,7 @@ export default function Home({ goTo }) {
 
   const logDose = useStore((st) => st.logDose)
   const logMany = useStore((st) => st.logMany)
+  const unlogToday = useStore((st) => st.unlogToday)
   const pushDose = useStore((st) => st.pushDose)
   const unpushFrom = useStore((st) => st.unpushFrom)
 
@@ -405,6 +406,9 @@ export default function Home({ goTo }) {
           <DueCard key={p.id} peptide={p} index={i} done={loggedToday.has(p.id)}
             titration={titration}
             onLog={() => logDose(p.id)}
+            onUnlog={() => {
+              if (unlogToday(p.id)) showToast(`${displayName(p)} un-logged — back on the list`)
+            }}
             selected={selected.has(p.id)} onToggleSelect={() => toggleSelect(p.id)}
             skipped={skippedIds.has(p.id)}
             skipReason={skipFor(skips, p.id, t)?.reason}
@@ -1047,7 +1051,7 @@ function Tomorrow() {
  * all belong somewhere you go to read rather than somewhere you go to tap —
  * they are on the compound page and in the bell now.
  */
-function DueCard({ peptide: p, index, done, titration, onLog, selected, onToggleSelect, skipped, skipReason, onSkip, onUnskip, onFinishVial, onOpenSheet, beckon, canPush, pushedFrom, onPush }) {
+function DueCard({ peptide: p, index, done, titration, onLog, onUnlog, selected, onToggleSelect, skipped, skipReason, onSkip, onUnskip, onFinishVial, onOpenSheet, beckon, canPush, pushedFrom, onPush }) {
   const tState = titration[p.id]
   const { dose } = currentRung(p, tState)
   const nasal = isNasal(p)
@@ -1140,14 +1144,25 @@ function DueCard({ peptide: p, index, done, titration, onLog, selected, onToggle
             )}
             <CycleLine peptide={p} onOpen={() => onOpenSheet?.(p.id)} />
           </span>
-          <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] text-xs font-black ${done ? '' : 'btn-primary'}`}
-            style={done ? { background: 'var(--surface-sunk)', color: 'var(--good)' } : undefined}>
-            {done ? (
+          {/* Logged, and tappable again to take it back. The tick used to be a
+              dead mark: once a row was logged the only way out was the toast,
+              which is six seconds long — right for a mis-tap, useless for
+              noticing at bedtime that you ticked the wrong row this morning. */}
+          {done ? (
+            <motion.button whileTap={{ scale: 0.92 }}
+              onClick={(e) => { e.stopPropagation(); onUnlog?.() }}
+              data-testid="unlog-row" aria-label={`Undo log: ${p.name}`}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] text-xs font-black"
+              style={{ background: 'var(--surface-sunk)', color: 'var(--good)' }}>
               <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 400, damping: 15 }}>
                 <Check size={24} strokeWidth={3} />
               </motion.span>
-            ) : 'Log'}
-          </span>
+            </motion.button>
+          ) : (
+            <span className="btn-primary flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] text-xs font-black">
+              Log
+            </span>
+          )}
         </motion.div>
 
         {/* everything occasional, out of the way of the thing done daily */}
@@ -1164,8 +1179,13 @@ function DueCard({ peptide: p, index, done, titration, onLog, selected, onToggle
           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }} className="overflow-hidden" data-testid="row-menu">
             <div className="flex flex-wrap gap-2 px-4 pb-3">
-              <MenuAction icon={SkipForward} label="Skip" testid="skip-peptide"
-                onClick={() => { setMenu(false); onSkip() }} />
+              {done ? (
+                <MenuAction icon={Undo2} label="Undo log" testid="unlog-peptide"
+                  onClick={() => { setMenu(false); onUnlog?.() }} />
+              ) : (
+                <MenuAction icon={SkipForward} label="Skip" testid="skip-peptide"
+                  onClick={() => { setMenu(false); onSkip() }} />
+              )}
               {/* Only for compounds taken several days a week: a daily dose has
                   nowhere to go, since tomorrow already has one of its own. */}
               {canPush && (

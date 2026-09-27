@@ -603,6 +603,25 @@ const useStore = create(
         })
       },
 
+      /**
+       * Take back today's log for one compound.
+       *
+       * The toast's Undo is six seconds long, which is the right length for a
+       * mis-tap and the wrong length for noticing at bedtime that you ticked
+       * the wrong row this morning. This is the same reversal, reachable for
+       * as long as the day lasts: the log goes, and what it drew goes back in
+       * the vial.
+       */
+      unlogToday(peptideId, dateStr = null) {
+        const t = dateStr || todayStr()
+        const mine = get().doseLogs.filter((l) => l.peptideId === peptideId && l.date === t)
+        if (!mine.length) return null
+        // the most recent one, so a double-tap undoes what it just did
+        const last = mine[mine.length - 1]
+        get().undoLog(last.id)
+        return last
+      },
+
       // My own observations about a compound, kept apart from symptom check-ins:
       // a symptom is a data point the attribution engine reads, a note is a
       // sentence to my future self, and merging them would corrupt both.

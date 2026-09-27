@@ -156,7 +156,12 @@ await step('3 · Skip and Vial done live behind the overflow, not on the card', 
   const cardText = await page.locator('[data-testid="log-row"]').first().innerText()
   if (/skip/i.test(cardText)) throw new Error('Skip is on the card face')
   if (/vial done/i.test(cardText)) throw new Error('Vial done is on the card face')
-  await page.locator('[data-testid="row-overflow"]').first().click()
+  // A logged row offers Undo rather than Skip — two answers to the same
+  // question at once would be the bug — so open one still outstanding.
+  const i = await page.locator('[data-testid="log-row"]').evaluateAll(
+    (els) => els.findIndex((e) => e.dataset.done !== 'true'))
+  if (i < 0) throw new Error('nothing left outstanding to open')
+  await page.locator('[data-testid="row-overflow"]').nth(i).click()
   await page.waitForTimeout(500)
   if (!(await page.locator('[data-testid="skip-peptide"]').count())) throw new Error('Skip missing from the menu')
   await shutMenus()

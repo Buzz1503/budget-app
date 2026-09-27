@@ -136,6 +136,26 @@ await step('1 · pushing moves it off today and touches nothing else', async () 
   console.log(`  ${rec.from} → ${rec.to}, stock and logs untouched`)
 })
 
+await step('1 · a weekly compound can be pushed too', async () => {
+  await shutMenus()
+  const weekly = await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem('peptide-command-center')).state
+    const p = s.peptides.find((x) => x.frequency === 'weekly')
+    return p ? p.name : null
+  })
+  if (!weekly) { console.log('  (nothing weekly in the protocol)'); return }
+  const i = await page.locator('[data-testid="log-row"]').evaluateAll(
+    (els, n) => els.findIndex((e) => (e.getAttribute('aria-label') || '').includes(n)), weekly.split(' ')[0])
+  if (i < 0) { console.log(`  (${weekly} is not due today)`); return }
+  await page.locator('[data-testid="row-overflow"]').nth(i).click()
+  await page.waitForTimeout(450)
+  if (!(await page.locator('[data-testid="push-peptide"]').count())) {
+    throw new Error(`${weekly} is weekly and offers no push`)
+  }
+  await shutMenus()
+  console.log(`  ${weekly} offers it`)
+})
+
 await step('1 · a daily compound has no push action', async () => {
   await shutMenus()
   const daily = await page.evaluate(() => {
@@ -227,6 +247,48 @@ await step('1 · the schedule itself never moved', async () => {
   const p = s.peptides.find((x) => x.id === 'testosterone-e')
   if (!p.scheduleWeekdays || p.scheduleWeekdays.length !== 2) throw new Error('the scheduled days changed')
   if (s.titration['testosterone-e']?.level == null) throw new Error('titration was disturbed')
+})
+
+// ================================================= 1b · taking a log back
+
+await step('1b · a logged dose can be un-ticked from the row', async () => {
+  await nav('Home')
+  await shutMenus()
+  const before = await state()
+  await page.locator('[data-testid="log-row"]:not([data-done])').first().click()
+  await page.waitForTimeout(900)
+  const mid = await state()
+  if (mid.doseLogs.length !== before.doseLogs.length + 1) throw new Error('nothing was logged to undo')
+  const tick = page.locator('[data-testid="unlog-row"]').first()
+  if (!(await tick.count())) throw new Error('the tick is not a control')
+  await tick.click()
+  await page.waitForTimeout(900)
+  const after = await state()
+  if (after.doseLogs.length !== before.doseLogs.length) throw new Error('the tick did not take the log back')
+  // and the drug went back in the vial
+  if (JSON.stringify(after.openVials) !== JSON.stringify(before.openVials)) {
+    throw new Error('un-ticking did not return the dose to the vial')
+  }
+  console.log('  logged, un-ticked, vial restored')
+})
+
+await step('1b · and from the overflow menu, which offers Undo instead of Skip', async () => {
+  await page.locator('[data-testid="log-row"]:not([data-done])').first().click()
+  await page.waitForTimeout(900)
+  const i = await page.locator('[data-testid="log-row"]').evaluateAll(
+    (els) => els.findIndex((e) => e.dataset.done === 'true'))
+  if (i < 0) throw new Error('no logged row to open')
+  await page.locator('[data-testid="row-overflow"]').nth(i).click()
+  await page.waitForTimeout(500)
+  if (!(await page.locator('[data-testid="unlog-peptide"]').count())) throw new Error('no Undo log in the menu')
+  if (await page.locator('[data-testid="skip-peptide"]').count()) {
+    throw new Error('a logged row still offers Skip, which would mean two answers at once')
+  }
+  const before = (await state()).doseLogs.length
+  await page.locator('[data-testid="unlog-peptide"]').click()
+  await page.waitForTimeout(800)
+  if ((await state()).doseLogs.length !== before - 1) throw new Error('the menu undo did nothing')
+  await shutMenus()
 })
 
 // ============================ 2 · pushes are their own thing in the record
