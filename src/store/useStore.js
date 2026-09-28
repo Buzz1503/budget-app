@@ -7,7 +7,8 @@ import {
 } from '../data/seed'
 import { SEED_KNOWN_GOOD } from '../lib/mixing'
 import { canPush } from '../lib/pushes'
-import { currentRung, cycleInfo, addDaysStr } from '../lib/schedule'
+import { seedTests as seedBloodTests, seedMarkers as seedBloodMarkers } from '../lib/bloods'
+import { currentRung, cycleInfo, addDaysStr, resolveDoseChange } from '../lib/schedule'
 import { isDueToday } from '../lib/daily'
 import { enrichPeptide } from '../lib/reference'
 import { toPeptide } from '../lib/wizardDefaults'
@@ -95,6 +96,22 @@ function initialState() {
      * overrides, route changes and the run boundaries. Append-only.
      */
     doseEvents: seedDoseEvents(peptides, t),
+    /**
+     * Blood results.
+     *
+     * tests are the record, oldest first. Everything else is what the person
+     * has said about it: markers the catalogue does not carry, intervals a
+     * different lab printed, notes to themselves, and how often they mean to
+     * retest a panel. The seed data is imported as ordinary tests rather than
+     * held apart, because a result from 2014 is a result.
+     */
+    bloods: {
+      tests: seedBloodTests(),
+      customMarkers: [],
+      rangeOverrides: {},   // { [markerName]: { refLow, refHigh } }
+      markerNotes: {},      // { [markerName]: 'my own words' }
+      retestIntervals: {},  // { [panel]: days }
+    },
     coachMarks: {}, // one-time beginner tips already seen, by id
     // restock list: horizon, per-line quantity overrides, what's been ordered,
     // expected delivery dates, and editable consumable unit costs
@@ -388,6 +405,54 @@ const useStore = create(
         }
       },
 
+      /**
+       * Set the dose by hand, right now.
+       *
+       * Changing a dose used to mean walking back through Build / rebuild, which
+       * is the wrong amount of ceremony for the most ordinary edit there is.
+       *
+       * The number is never refused: `resolveDoseChange` reshapes the ladder
+       * around it instead, because refusing would leave the app disagreeing with
+       * what is already in the syringe.
+       *
+       * Everything downstream — units per shot, vial draw-down, run-out dates,
+       * time at this dose — is derived from the ladder and the rung, so all of
+       * it follows without being told.
+       */
+      setDose(id, newDose, reason = '') {
+        const s = get()
+        const p = s.peptides.find((x) => x.id === id)
+        if (!p) return null
+        const dose = Number(newDose)
+        if (!isFinite(dose) || dose <= 0) return null
+        const { dose: fromDose } = currentRung(p, s.titration[id])
+        if (Math.abs(dose - fromDose) < 1e-9) return null
+
+        const snapshot = { ladder: { ...p.ladder }, titration: { ...(s.titration[id] || {}) } }
+
+        const { ladder, level } = resolveDoseChange(p.ladder, dose)
+
+        const t = todayStr()
+        set((st) => ({
+          peptides: st.peptides.map((x) => (x.id === id ? { ...x, ladder } : x)),
+          titration: { ...st.titration, [id]: { ...(st.titration[id] || {}), level, levelStartDate: t } },
+        }))
+        const eventId = get()._recordDoseEvent(id, 'override', {
+          from: fromDose, to: dose, unit: p.ladder?.unit, note: reason || null, date: t,
+        })
+        return { eventId, snapshot, from: fromDose, to: dose, unit: p.ladder?.unit }
+      },
+
+      /** Put a hand-set dose back the way it was, ladder and all. */
+      revertDose(id, change) {
+        if (!change?.snapshot) return
+        set((s) => ({
+          peptides: s.peptides.map((x) => (x.id === id ? { ...x, ladder: change.snapshot.ladder } : x)),
+          titration: { ...s.titration, [id]: change.snapshot.titration },
+          doseEvents: (s.doseEvents || []).filter((e) => e.id !== change.eventId),
+        }))
+      },
+
       // ---------- logging ----------
       // Append one dose log + decrement its inventory. No toast here so a
       // co-draw can record several doses then award once. Returns the peptide.
@@ -620,6 +685,144 @@ const useStore = create(
         const last = mine[mine.length - 1]
         get().undoLog(last.id)
         return last
+      },
+
+      // ---------- blood results ----------
+
+      /**
+       * Record a test.
+       *
+       * `values` carries only the markers that were actually measured. A marker
+       * left blank is absent, not zero — a panel that did not include a marker
+       * and a marker that came back at zero are different facts, and collapsing
+       * them would put a false point on every graph.
+       */
+      addBloodTest({ date, lab = '', ref = '', notes = '', values = {} } = {}) {
+        if (!date) return null
+        const clean = {}
+        for (const [k, v] of Object.entries(values)) {
+          if (v === '' || v == null) continue
+          const n = Number(v)
+          if (isFinite(n)) clean[k] = n
+        }
+        const id = `bt-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`
+        set((s) => ({
+          bloods: {
+            ...s.bloods,
+            tests: [...s.bloods.tests, { id, date, lab, ref, notes, values: clean, attachment: null }]
+              .sort((a, b) => a.date.localeCompare(b.date)),
+          },
+        }))
+        return id
+      },
+
+      updateBloodTest(id, patch = {}) {
+        set((s) => ({
+          bloods: {
+            ...s.bloods,
+            tests: s.bloods.tests
+              .map((t) => (t.id === id ? { ...t, ...patch } : t))
+              .sort((a, b) => a.date.localeCompare(b.date)),
+          },
+        }))
+      },
+
+      /** Set or clear one marker on one test. Clearing removes it entirely. */
+      setBloodValue(id, marker, value) {
+        set((s) => ({
+          bloods: {
+            ...s.bloods,
+            tests: s.bloods.tests.map((t) => {
+              if (t.id !== id) return t
+              const values = { ...t.values }
+              const n = Number(value)
+              if (value === '' || value == null || !isFinite(n)) delete values[marker]
+              else values[marker] = n
+              return { ...t, values }
+            }),
+          },
+        }))
+      },
+
+      removeBloodTest(id) {
+        set((s) => ({ bloods: { ...s.bloods, tests: s.bloods.tests.filter((t) => t.id !== id) } }))
+      },
+
+      /** A marker the catalogue does not carry. */
+      addCustomMarker({ name, panel = 'Chemistry', unit = '', refLow = null, refHigh = null } = {}) {
+        const clean = String(name || '').trim()
+        if (!clean) return null
+        const s = get()
+        const exists = [...seedBloodMarkers(), ...s.bloods.customMarkers].some((m) => m.name === clean)
+        if (exists) return null
+        set((st) => ({
+          bloods: {
+            ...st.bloods,
+            customMarkers: [...st.bloods.customMarkers, { name: clean, panel, unit, refLow, refHigh, custom: true }],
+          },
+        }))
+        return clean
+      },
+
+      removeCustomMarker(name) {
+        set((s) => ({
+          bloods: {
+            ...s.bloods,
+            customMarkers: s.bloods.customMarkers.filter((m) => m.name !== name),
+            // and the values recorded against it, which now belong to nothing
+            tests: s.bloods.tests.map((t) => {
+              if (t.values?.[name] == null) return t
+              const values = { ...t.values }
+              delete values[name]
+              return { ...t, values }
+            }),
+          },
+        }))
+      },
+
+      /**
+       * Move a reference interval.
+       *
+       * Two labs running the same assay publish different intervals, and the
+       * one that matters is the one printed on the report in front of you. The
+       * seed value is a default, never a fact.
+       */
+      setRangeOverride(marker, { refLow, refHigh } = {}) {
+        set((s) => {
+          const next = { ...s.bloods.rangeOverrides }
+          if (refLow === undefined && refHigh === undefined) delete next[marker]
+          else next[marker] = { ...(next[marker] || {}), ...(refLow !== undefined ? { refLow } : {}), ...(refHigh !== undefined ? { refHigh } : {}) }
+          return { bloods: { ...s.bloods, rangeOverrides: next } }
+        })
+      },
+      clearRangeOverride(marker) {
+        set((s) => {
+          const next = { ...s.bloods.rangeOverrides }
+          delete next[marker]
+          return { bloods: { ...s.bloods, rangeOverrides: next } }
+        })
+      },
+
+      setMarkerNote(marker, note) {
+        set((s) => ({
+          bloods: { ...s.bloods, markerNotes: { ...s.bloods.markerNotes, [marker]: note } },
+        }))
+      },
+
+      setRetestInterval(panel, days) {
+        set((s) => ({
+          bloods: {
+            ...s.bloods,
+            retestIntervals: { ...s.bloods.retestIntervals, [panel]: days == null ? undefined : Number(days) },
+          },
+        }))
+      },
+
+      /** The report itself — a PDF or a photo — kept in IndexedDB, not here. */
+      setBloodAttachment(id, attachment) {
+        set((s) => ({
+          bloods: { ...s.bloods, tests: s.bloods.tests.map((t) => (t.id === id ? { ...t, attachment } : t)) },
+        }))
       },
 
       // My own observations about a compound, kept apart from symptom check-ins:
@@ -1257,7 +1460,7 @@ const useStore = create(
     }),
     {
       name: 'peptide-command-center', // storage key is history — renaming it would orphan existing data
-      version: 12,
+      version: 13,
       storage: createJSONStorage(() => safeStorage),
       // Saves written before a release can't pick new library entries up from
       // the seed, so each version bump backfills them here — once. Deleting one
@@ -1274,10 +1477,26 @@ const useStore = create(
       //   v10: injection-site rotation removed
       //   v11: light mode removed
       //   v12: doses can be pushed to the next day
+      //   v13: blood results
       migrate: (persisted, from) => {
-        if (!persisted || from >= 12) return persisted
+        if (!persisted || from >= 13) return persisted
         const s = { ...persisted }
         const t = todayStr()
+        if (from < 13) {
+          // A save written before the Bloods tab existed has no results at all,
+          // so it gets the seed — the same import a fresh install gets. A save
+          // that somehow already has some keeps them untouched.
+          // Anything the save already said about markers is kept; only the
+          // results themselves are seeded, and only when there are none.
+          s.bloods = {
+            customMarkers: [],
+            rangeOverrides: {},
+            markerNotes: {},
+            retestIntervals: {},
+            ...(s.bloods || {}),
+            tests: s.bloods?.tests?.length ? s.bloods.tests : seedBloodTests(),
+          }
+        }
         if (from < 12) {
           // Nothing to backfill — a save written before pushes existed simply
           // has none. The key is created so nothing downstream has to guard.
@@ -1451,6 +1670,7 @@ const useStore = create(
         sharedDraws: persisted?.sharedDraws || current.sharedDraws,
         doseEvents: persisted?.doseEvents || current.doseEvents,
         pushes: persisted?.pushes || current.pushes,
+        bloods: { ...current.bloods, ...(persisted?.bloods || {}) },
         runs: { ...current.runs, ...(persisted?.runs || {}) },
         // merged rather than replaced, so a setting added in a later release
         // arrives with its default instead of being undefined on every existing

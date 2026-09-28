@@ -90,6 +90,21 @@ const iso = (d) => {
   return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`
 }
 
+// The calendar opens on the week containing today. When today is the first day
+// of that week — a Monday — the view holds no past day at all, so anything the
+// suite wants to say about a day that has been and gone has to step back to
+// find one first. Without this the assertions below pass or fail by weekday.
+const calendarShowing = async (date) => {
+  await nav('Calendar')
+  await page.waitForTimeout(600)
+  for (let i = 0; i < 6; i++) {
+    if (await page.locator(`[data-testid="cal-day-${date}"]`).count()) return
+    await page.click('button[aria-label="Previous period"]')
+    await page.waitForTimeout(450)
+  }
+  throw new Error(`the calendar never showed ${date}`)
+}
+
 await page.goto(BASE, { waitUntil: 'networkidle' })
 await page.waitForSelector('nav button')
 
@@ -246,8 +261,7 @@ await step('the bottom nav gets out of the way while typing', async () => {
 // ---------------------------------------------------------------- FIX 2
 
 await step('a past day with nothing logged reads as missed, not as blank', async () => {
-  await nav('Calendar')
-  await page.waitForTimeout(600)
+  await calendarShowing(iso(-1))
   const body = await page.textContent('body')
   if (!/missed/i.test(body)) throw new Error('the calendar never says "missed"')
 })
@@ -287,8 +301,7 @@ await step('More → My protocol has "Add a past dose"', async () => {
 })
 
 await step('a missed day opens from the calendar and lists what was owed', async () => {
-  await nav('Calendar')
-  await page.waitForTimeout(500)
+  await calendarShowing(iso(-1))
   await page.click(`[data-testid="cal-day-${iso(-1)}"]`)
   await page.waitForTimeout(600)
   const missed = page.locator('[data-testid="day-missed"]')
@@ -353,8 +366,7 @@ await step('the backfill comes out of the vial, so the run-out date catches up',
 })
 
 await step('that day now reads as logged rather than missed', async () => {
-  await nav('Calendar')
-  await page.waitForTimeout(600)
+  await calendarShowing(iso(-1))
   await page.click(`[data-testid="cal-day-${iso(-1)}"]`)
   await page.waitForTimeout(600)
   const txt = await page.textContent('body')

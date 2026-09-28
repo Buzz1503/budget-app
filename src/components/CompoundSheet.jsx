@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import {
   Syringe, Wind, Calendar, Package, Pencil, Trash2, Plus, StickyNote,
-  SkipForward, AlertTriangle, Clock, Check,
+  SkipForward, AlertTriangle, Clock, Check, SlidersHorizontal,
 } from 'lucide-react'
 import useStore, { todayStr } from '../store/useStore'
 import Modal from './ui/Modal'
@@ -14,6 +14,7 @@ import { scheduledWeekdaySet, WEEKDAYS } from '../lib/daily'
 import { batchesFor, sealedCount } from '../lib/stock'
 import { stockRunway } from '../lib/runway'
 import { TenureBlock, DoseTimelineChart, TimelineEvents, ExposureBlock, TenureEditor } from './Tenure'
+import DoseChangeSheet from './DoseChangeSheet'
 
 const FREQ_LABELS = {
   daily: 'Daily', nightly: 'Nightly', weekly: 'Weekly',
@@ -47,6 +48,7 @@ export default function CompoundSheet({ open, compoundId, onClose, goTo }) {
   const [editing, setEditing] = useState(null)
   const [adding, setAdding] = useState(false)
   const [tenureOpen, setTenureOpen] = useState(false)
+  const [dosing, setDosing] = useState(false)
   const [picked, setPicked] = useState(null)
 
   const peptide = peptides.find((p) => p.id === compoundId)
@@ -116,6 +118,7 @@ export default function CompoundSheet({ open, compoundId, onClose, goTo }) {
             batches={batches} note={peptide?.note || ''}
             onNote={(v) => peptide && setPeptideNote(peptide.id, v)}
             onEdit={() => { onClose(); goTo?.('wizard') }}
+            onChangeDose={() => setDosing(true)}
           />
         )}
 
@@ -151,6 +154,7 @@ export default function CompoundSheet({ open, compoundId, onClose, goTo }) {
       {editing && <EditLogModal log={editing} onClose={() => setEditing(null)} />}
       {adding && peptide && <BackfillModal peptide={peptide} onClose={() => setAdding(false)} />}
       <TenureEditor peptide={peptide} open={tenureOpen} onClose={() => setTenureOpen(false)} />
+      <DoseChangeSheet peptideId={peptide?.id} open={dosing} onClose={() => setDosing(false)} />
     </Modal>
   )
 }
@@ -222,7 +226,7 @@ function Row({ label, value, tone }) {
   )
 }
 
-function MineTab({ peptide, rung, cyc, runway, unlinked, batches, note, onNote, onEdit }) {
+function MineTab({ peptide, rung, cyc, runway, unlinked, batches, note, onNote, onEdit, onChangeDose }) {
   if (!peptide) {
     return (
       <div className="space-y-3">
@@ -296,10 +300,16 @@ function MineTab({ peptide, rung, cyc, runway, unlinked, batches, note, onNote, 
           onChange={(e) => onNote(e.target.value)} />
       </div>
 
+      {/* the one field that changes often enough to deserve its own door */}
+      <button onClick={onChangeDose} data-testid="compound-change-dose"
+        className="btn-primary flex w-full items-center justify-center gap-2 rounded-full py-3 text-xs font-black">
+        <SlidersHorizontal size={14} /> Change dose
+      </button>
+
       <button onClick={onEdit} data-testid="edit-in-wizard"
         className="flex w-full items-center justify-center gap-2 rounded-full py-3 text-xs font-black"
         style={{ background: 'var(--surface-sunk)', color: 'var(--text)' }}>
-        <Pencil size={13} /> Edit dose &amp; schedule in Build / rebuild
+        <Pencil size={13} /> Edit schedule in Build / rebuild
       </button>
       <p className="text-center text-xs font-medium" style={{ color: 'var(--text-2)' }}>
         Everything above is set in one place, so no two screens can disagree about it.

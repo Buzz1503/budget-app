@@ -1,0 +1,1041 @@
+{
+ "schema": "pepito-bloods/v1",
+ "patient_note": "Blood group O Rh(D) positive.",
+ "panels": [
+  "Hormones",
+  "Metabolic",
+  "Lipids",
+  "Haematology",
+  "Liver",
+  "Kidney",
+  "Chemistry",
+  "Iron studies",
+  "Inflammation"
+ ],
+ "markers": [
+  {
+   "name": "Haemoglobin",
+   "panel": "Haematology",
+   "unit": "g/L",
+   "ref_low": 135,
+   "ref_high": 175,
+   "watch_for": [
+    "Testosterone Enanthate"
+   ]
+  },
+  {
+   "name": "Haematocrit",
+   "panel": "Haematology",
+   "unit": "",
+   "ref_low": 0.4,
+   "ref_high": 0.54,
+   "note": "Key marker on TRT - testosterone can thicken blood.",
+   "watch_for": [
+    "Testosterone Enanthate"
+   ]
+  },
+  {
+   "name": "Red cell count",
+   "panel": "Haematology",
+   "unit": "10^12/L",
+   "ref_low": 4.5,
+   "ref_high": 6.5,
+   "watch_for": [
+    "Testosterone Enanthate"
+   ]
+  },
+  {
+   "name": "MCV",
+   "panel": "Haematology",
+   "unit": "fL",
+   "ref_low": 80,
+   "ref_high": 100
+  },
+  {
+   "name": "White cell count",
+   "panel": "Haematology",
+   "unit": "10^9/L",
+   "ref_low": 3.5,
+   "ref_high": 10.0
+  },
+  {
+   "name": "Neutrophils",
+   "panel": "Haematology",
+   "unit": "10^9/L",
+   "ref_low": 1.5,
+   "ref_high": 6.5
+  },
+  {
+   "name": "Lymphocytes",
+   "panel": "Haematology",
+   "unit": "10^9/L",
+   "ref_low": 1.0,
+   "ref_high": 4.0
+  },
+  {
+   "name": "Monocytes",
+   "panel": "Haematology",
+   "unit": "10^9/L",
+   "ref_low": 0,
+   "ref_high": 0.9
+  },
+  {
+   "name": "Eosinophils",
+   "panel": "Haematology",
+   "unit": "10^9/L",
+   "ref_low": 0,
+   "ref_high": 0.6
+  },
+  {
+   "name": "Basophils",
+   "panel": "Haematology",
+   "unit": "10^9/L",
+   "ref_low": 0,
+   "ref_high": 0.15
+  },
+  {
+   "name": "Platelets",
+   "panel": "Haematology",
+   "unit": "10^9/L",
+   "ref_low": 150,
+   "ref_high": 400
+  },
+  {
+   "name": "ESR",
+   "panel": "Haematology",
+   "unit": "mm/h",
+   "ref_low": 1,
+   "ref_high": 12
+  },
+  {
+   "name": "Sodium",
+   "panel": "Chemistry",
+   "unit": "mmol/L",
+   "ref_low": 135,
+   "ref_high": 145
+  },
+  {
+   "name": "Potassium",
+   "panel": "Chemistry",
+   "unit": "mmol/L",
+   "ref_low": 3.5,
+   "ref_high": 5.5
+  },
+  {
+   "name": "Chloride",
+   "panel": "Chemistry",
+   "unit": "mmol/L",
+   "ref_low": 95,
+   "ref_high": 110
+  },
+  {
+   "name": "Bicarbonate",
+   "panel": "Chemistry",
+   "unit": "mmol/L",
+   "ref_low": 20,
+   "ref_high": 32
+  },
+  {
+   "name": "Anion Gap",
+   "panel": "Chemistry",
+   "unit": "mmol/L",
+   "ref_high": 16
+  },
+  {
+   "name": "Calcium (corrected)",
+   "panel": "Chemistry",
+   "unit": "mmol/L",
+   "ref_low": 2.1,
+   "ref_high": 2.6
+  },
+  {
+   "name": "Phosphate",
+   "panel": "Chemistry",
+   "unit": "mmol/L",
+   "ref_low": 0.8,
+   "ref_high": 1.5
+  },
+  {
+   "name": "Magnesium",
+   "panel": "Chemistry",
+   "unit": "mmol/L",
+   "ref_low": 0.7,
+   "ref_high": 1.1
+  },
+  {
+   "name": "Urea",
+   "panel": "Kidney",
+   "unit": "mmol/L",
+   "ref_low": 3.0,
+   "ref_high": 8.0
+  },
+  {
+   "name": "Urate",
+   "panel": "Kidney",
+   "unit": "mmol/L",
+   "ref_low": 0.2,
+   "ref_high": 0.5
+  },
+  {
+   "name": "Creatinine",
+   "panel": "Kidney",
+   "unit": "umol/L",
+   "ref_low": 60,
+   "ref_high": 110
+  },
+  {
+   "name": "eGFR",
+   "panel": "Kidney",
+   "unit": "",
+   "ref_low": 59
+  },
+  {
+   "name": "Total Protein",
+   "panel": "Liver",
+   "unit": "g/L",
+   "ref_low": 66,
+   "ref_high": 83
+  },
+  {
+   "name": "Albumin",
+   "panel": "Liver",
+   "unit": "g/L",
+   "ref_low": 35,
+   "ref_high": 48
+  },
+  {
+   "name": "Globulin",
+   "panel": "Liver",
+   "unit": "g/L",
+   "ref_low": 23,
+   "ref_high": 43
+  },
+  {
+   "name": "Bilirubin",
+   "panel": "Liver",
+   "unit": "umol/L",
+   "ref_high": 21
+  },
+  {
+   "name": "ALP",
+   "panel": "Liver",
+   "unit": "U/L",
+   "ref_low": 35,
+   "ref_high": 110
+  },
+  {
+   "name": "AST",
+   "panel": "Liver",
+   "unit": "U/L",
+   "ref_low": 10,
+   "ref_high": 40
+  },
+  {
+   "name": "ALT",
+   "panel": "Liver",
+   "unit": "U/L",
+   "ref_low": 5,
+   "ref_high": 40
+  },
+  {
+   "name": "GGT",
+   "panel": "Liver",
+   "unit": "U/L",
+   "ref_low": 5,
+   "ref_high": 50
+  },
+  {
+   "name": "LD",
+   "panel": "Liver",
+   "unit": "U/L",
+   "ref_high": 250
+  },
+  {
+   "name": "Glucose (fasting)",
+   "panel": "Metabolic",
+   "unit": "mmol/L",
+   "ref_low": 3.6,
+   "ref_high": 6.0,
+   "note": "Several compounds in the protocol affect glucose.",
+   "watch_for": [
+    "Retatrutide",
+    "Tesamorelin",
+    "MOTS-c",
+    "Cagrilintide"
+   ]
+  },
+  {
+   "name": "HbA1c (NGSP)",
+   "panel": "Metabolic",
+   "unit": "%",
+   "ref_high": 6.5,
+   "watch_for": [
+    "Retatrutide",
+    "Tesamorelin"
+   ]
+  },
+  {
+   "name": "HbA1c (IFCC)",
+   "panel": "Metabolic",
+   "unit": "mmol/mol",
+   "ref_high": 48,
+   "watch_for": [
+    "Retatrutide",
+    "Tesamorelin"
+   ]
+  },
+  {
+   "name": "Cholesterol",
+   "panel": "Lipids",
+   "unit": "mmol/L",
+   "ref_high": 5.6,
+   "watch_for": [
+    "Testosterone Enanthate"
+   ]
+  },
+  {
+   "name": "Triglyceride",
+   "panel": "Lipids",
+   "unit": "mmol/L",
+   "ref_high": 2.1
+  },
+  {
+   "name": "HDL",
+   "panel": "Lipids",
+   "unit": "mmol/L",
+   "ref_low": 0.89,
+   "watch_for": [
+    "Testosterone Enanthate"
+   ]
+  },
+  {
+   "name": "LDL",
+   "panel": "Lipids",
+   "unit": "mmol/L",
+   "ref_high": 4.1,
+   "watch_for": [
+    "Testosterone Enanthate"
+   ]
+  },
+  {
+   "name": "Total Chol / HDL ratio",
+   "panel": "Lipids",
+   "unit": "",
+   "ref_high": 4.6
+  },
+  {
+   "name": "Non-HDL Cholesterol",
+   "panel": "Lipids",
+   "unit": "mmol/L",
+   "ref_high": 3.81
+  },
+  {
+   "name": "Testosterone",
+   "panel": "Hormones",
+   "unit": "nmol/L",
+   "ref_low": 11.0,
+   "ref_high": 40.0,
+   "note": "8 Jun 2026 result is a pre-TRT baseline.",
+   "watch_for": [
+    "Testosterone Enanthate",
+    "HCG"
+   ]
+  },
+  {
+   "name": "SHBG",
+   "panel": "Hormones",
+   "unit": "nmol/L",
+   "ref_low": 10.0,
+   "ref_high": 70.0,
+   "watch_for": [
+    "Testosterone Enanthate"
+   ]
+  },
+  {
+   "name": "Calculated Free Testosterone",
+   "panel": "Hormones",
+   "unit": "pmol/L",
+   "ref_low": 260,
+   "ref_high": 740,
+   "watch_for": [
+    "Testosterone Enanthate"
+   ]
+  },
+  {
+   "name": "FSH",
+   "panel": "Hormones",
+   "unit": "IU/L",
+   "ref_high": 10,
+   "note": "Suppressed by exogenous testosterone.",
+   "watch_for": [
+    "Testosterone Enanthate",
+    "HCG"
+   ]
+  },
+  {
+   "name": "LH",
+   "panel": "Hormones",
+   "unit": "IU/L",
+   "ref_high": 9,
+   "note": "Suppressed by exogenous testosterone.",
+   "watch_for": [
+    "Testosterone Enanthate",
+    "HCG"
+   ]
+  },
+  {
+   "name": "TSH",
+   "panel": "Hormones",
+   "unit": "mIU/L",
+   "ref_low": 0.3,
+   "ref_high": 3.5
+  },
+  {
+   "name": "CRP",
+   "panel": "Inflammation",
+   "unit": "mg/L",
+   "ref_high": 5
+  },
+  {
+   "name": "Iron",
+   "panel": "Iron studies",
+   "unit": "umol/L",
+   "ref_low": 5,
+   "ref_high": 30
+  },
+  {
+   "name": "Transferrin",
+   "panel": "Iron studies",
+   "unit": "g/L",
+   "ref_low": 1.9,
+   "ref_high": 3.1
+  },
+  {
+   "name": "TIBC",
+   "panel": "Iron studies",
+   "unit": "umol/L",
+   "ref_low": 47,
+   "ref_high": 77
+  },
+  {
+   "name": "Transferrin Saturation",
+   "panel": "Iron studies",
+   "unit": "%",
+   "ref_low": 20,
+   "ref_high": 45
+  },
+  {
+   "name": "Ferritin",
+   "panel": "Iron studies",
+   "unit": "ug/L",
+   "ref_low": 30,
+   "ref_high": 300
+  },
+  {
+   "name": "Vitamin B12",
+   "panel": "Iron studies",
+   "unit": "pmol/L",
+   "ref_low": 150
+  },
+  {
+   "name": "Folate (serum)",
+   "panel": "Iron studies",
+   "unit": "nmol/L",
+   "ref_low": 7.0
+  },
+  {
+   "name": "Total PSA",
+   "panel": "Hormones",
+   "unit": "ug/L",
+   "ref_high": 3.0,
+   "note": "Prostate marker. Testosterone therapy can raise PSA.",
+   "watch_for": [
+    "Testosterone Enanthate"
+   ]
+  },
+  {
+   "name": "Free T4",
+   "panel": "Hormones",
+   "unit": "pmol/L",
+   "ref_low": 9.0,
+   "ref_high": 19.0
+  },
+  {
+   "name": "Random Glucose",
+   "panel": "Metabolic",
+   "unit": "mmol/L",
+   "ref_low": 3.6,
+   "ref_high": 7.7
+  },
+  {
+   "name": "Oestradiol",
+   "panel": "Hormones",
+   "unit": "pmol/L",
+   "ref_high": 150,
+   "note": "Rises with testosterone aromatisation.",
+   "watch_for": [
+    "Testosterone Enanthate",
+    "HCG"
+   ]
+  },
+  {
+   "name": "Prolactin",
+   "panel": "Hormones",
+   "unit": "mIU/L",
+   "ref_high": 300
+  },
+  {
+   "name": "Progesterone",
+   "panel": "Hormones",
+   "unit": "nmol/L",
+   "ref_high": 3
+  },
+  {
+   "name": "DHEA-Sulphate",
+   "panel": "Hormones",
+   "unit": "umol/L",
+   "ref_low": 1.5,
+   "ref_high": 12.8
+  },
+  {
+   "name": "Serum Cortisol (AM)",
+   "panel": "Hormones",
+   "unit": "nmol/L",
+   "ref_low": 145,
+   "ref_high": 619,
+   "note": "AM collection. Diurnal variation is large."
+  },
+  {
+   "name": "Growth Hormone",
+   "panel": "Hormones",
+   "unit": "mIU/L",
+   "ref_high": 19.0,
+   "watch_for": [
+    "HGH / Somatropin",
+    "Tesamorelin",
+    "CJC-1295 no-DAC",
+    "Ipamorelin"
+   ]
+  },
+  {
+   "name": "IGF-1",
+   "panel": "Hormones",
+   "unit": "nmol/L",
+   "ref_low": 14,
+   "ref_high": 42,
+   "note": "Key marker for GH-axis compounds.",
+   "watch_for": [
+    "HGH / Somatropin",
+    "Tesamorelin",
+    "CJC-1295 no-DAC",
+    "Ipamorelin"
+   ]
+  },
+  {
+   "name": "Intact Parathyroid Hormone",
+   "panel": "Chemistry",
+   "unit": "pmol/L",
+   "ref_low": 1.5,
+   "ref_high": 7.6
+  },
+  {
+   "name": "Vitamin D3",
+   "panel": "Chemistry",
+   "unit": "nmol/L",
+   "ref_low": 49,
+   "note": "Supplementing D3+K2 spray."
+  },
+  {
+   "name": "Insulin (fasting)",
+   "panel": "Metabolic",
+   "unit": "mU/L",
+   "ref_high": 25,
+   "watch_for": [
+    "Retatrutide",
+    "Cagrilintide",
+    "Tesamorelin"
+   ]
+  },
+  {
+   "name": "C-Peptide (fasting)",
+   "panel": "Metabolic",
+   "unit": "nmol/L",
+   "ref_low": 0.2,
+   "ref_high": 1.2,
+   "watch_for": [
+    "Retatrutide",
+    "Cagrilintide"
+   ]
+  },
+  {
+   "name": "Lipase",
+   "panel": "Liver",
+   "unit": "U/L",
+   "ref_high": 64,
+   "note": "Pancreatic marker. Relevant on GLP-1 class compounds.",
+   "watch_for": [
+    "Retatrutide",
+    "Cagrilintide"
+   ]
+  }
+ ],
+ "results": [
+  {
+   "date": "2014-03-25",
+   "lab": "SNP",
+   "ref": "595565852",
+   "Cholesterol": 5.8
+  },
+  {
+   "date": "2022-03-16",
+   "lab": "SNP",
+   "ref": "666769355",
+   "notes": "Fasting.",
+   "Cholesterol": 6.4,
+   "Triglyceride": 2.2,
+   "HDL": 1.32,
+   "LDL": 4.1,
+   "Total Chol / HDL ratio": 4.8,
+   "Non-HDL Cholesterol": 5.08,
+   "TSH": 1.2
+  },
+  {
+   "date": "2022-09-29",
+   "lab": "SNP",
+   "ref": "669028111",
+   "Cholesterol": 5.8,
+   "Haemoglobin": 154,
+   "Haematocrit": 0.43,
+   "Red cell count": 5.3,
+   "MCV": 82,
+   "White cell count": 6.7,
+   "Neutrophils": 3.43,
+   "Lymphocytes": 2.77,
+   "Monocytes": 0.43,
+   "Eosinophils": 0.07,
+   "Basophils": 0.03,
+   "Platelets": 313
+  },
+  {
+   "date": "2023-06-10",
+   "lab": "SNP",
+   "ref": "682323812",
+   "notes": "Fasting.",
+   "Total Protein": 79,
+   "Albumin": 44,
+   "Globulin": 35,
+   "Bilirubin": 16,
+   "ALP": 45,
+   "AST": 38,
+   "ALT": 59,
+   "GGT": 42,
+   "Iron": 20,
+   "Transferrin": 2.8,
+   "TIBC": 70,
+   "Transferrin Saturation": 29,
+   "Ferritin": 172,
+   "CRP": 1.0
+  },
+  {
+   "date": "2023-07-19",
+   "lab": "SNP",
+   "ref": "681843126",
+   "Sodium": 139,
+   "Potassium": 3.9,
+   "Chloride": 105,
+   "Bicarbonate": 25,
+   "Anion Gap": 9,
+   "Urea": 2.7,
+   "Creatinine": 73,
+   "eGFR": 90,
+   "Random Glucose": 5.1,
+   "Total Protein": 74,
+   "Albumin": 45,
+   "Globulin": 29,
+   "Bilirubin": 13,
+   "ALP": 50,
+   "AST": 24,
+   "ALT": 46,
+   "GGT": 27,
+   "CRP": 0.6,
+   "Haemoglobin": 158,
+   "Haematocrit": 0.45,
+   "Red cell count": 5.5,
+   "MCV": 81,
+   "White cell count": 6.8,
+   "Neutrophils": 3.59,
+   "Lymphocytes": 2.57,
+   "Monocytes": 0.5,
+   "Eosinophils": 0.09,
+   "Basophils": 0.02,
+   "Platelets": 355
+  },
+  {
+   "date": "2024-06-20",
+   "lab": "SNP",
+   "ref": "526025748",
+   "notes": "Fasting.",
+   "Sodium": 138,
+   "Potassium": 4.3,
+   "Chloride": 103,
+   "Bicarbonate": 28,
+   "Anion Gap": 7,
+   "Calcium (corrected)": 2.33,
+   "Phosphate": 1.22,
+   "Urea": 5.7,
+   "Creatinine": 75,
+   "eGFR": 90,
+   "Glucose (fasting)": 5.5,
+   "Total Protein": 82,
+   "Albumin": 47,
+   "Globulin": 35,
+   "Bilirubin": 13,
+   "ALP": 49,
+   "AST": 30,
+   "ALT": 51,
+   "GGT": 43,
+   "Magnesium": 0.77,
+   "Iron": 23,
+   "Transferrin": 3.1,
+   "TIBC": 77,
+   "Transferrin Saturation": 30,
+   "Ferritin": 158,
+   "Free T4": 12.9,
+   "TSH": 1.3,
+   "Haemoglobin": 162,
+   "Haematocrit": 0.47,
+   "Red cell count": 5.6,
+   "MCV": 84,
+   "White cell count": 7.0,
+   "Neutrophils": 3.63,
+   "Lymphocytes": 2.8,
+   "Monocytes": 0.5,
+   "Eosinophils": 0.05,
+   "Basophils": 0.04,
+   "Platelets": 337
+  },
+  {
+   "date": "2024-10-02",
+   "lab": "SNP",
+   "ref": "509284651",
+   "notes": "Clinical notes: dysuria, fatigue, urine negative, ?prostatitis. Fasting.",
+   "Sodium": 141,
+   "Potassium": 4.1,
+   "Chloride": 108,
+   "Bicarbonate": 26,
+   "Anion Gap": 7,
+   "Calcium (corrected)": 2.32,
+   "Phosphate": 1.17,
+   "Urea": 5.1,
+   "Urate": 0.388,
+   "Creatinine": 77,
+   "eGFR": 90,
+   "Glucose (fasting)": 6.0,
+   "Total Protein": 73,
+   "Albumin": 42,
+   "Globulin": 31,
+   "Bilirubin": 11,
+   "ALP": 40,
+   "AST": 21,
+   "ALT": 41,
+   "GGT": 37,
+   "LD": 175,
+   "Magnesium": 0.78,
+   "Cholesterol": 6.3,
+   "Triglyceride": 1.5,
+   "HDL": 1.23,
+   "LDL": 4.4,
+   "Total Chol / HDL ratio": 5.1,
+   "Non-HDL Cholesterol": 5.07,
+   "HbA1c (NGSP)": 5.3,
+   "HbA1c (IFCC)": 34,
+   "Ferritin": 134,
+   "Vitamin B12": 433,
+   "Folate (serum)": 32,
+   "TSH": 1.5,
+   "Total PSA": 0.47,
+   "Haemoglobin": 154,
+   "Haematocrit": 0.44,
+   "Red cell count": 5.3,
+   "MCV": 83,
+   "White cell count": 5.7,
+   "Neutrophils": 2.48,
+   "Lymphocytes": 2.66,
+   "Monocytes": 0.43,
+   "Eosinophils": 0.09,
+   "Basophils": 0.05,
+   "Platelets": 312
+  },
+  {
+   "date": "2025-02-07",
+   "lab": "SNP",
+   "ref": "526332773",
+   "Sodium": 138,
+   "Potassium": 4.1,
+   "Chloride": 107,
+   "Bicarbonate": 25,
+   "Anion Gap": 6,
+   "Urea": 4.3,
+   "Creatinine": 66,
+   "eGFR": 90,
+   "Glucose (fasting)": 5.7,
+   "Total Protein": 70,
+   "Albumin": 42,
+   "Globulin": 28,
+   "Bilirubin": 11,
+   "ALP": 47,
+   "AST": 23,
+   "ALT": 34,
+   "GGT": 26,
+   "Cholesterol": 4.9,
+   "Haemoglobin": 153,
+   "Haematocrit": 0.45,
+   "Red cell count": 5.3,
+   "MCV": 85,
+   "White cell count": 5.3,
+   "Neutrophils": 2.48,
+   "Lymphocytes": 2.2,
+   "Monocytes": 0.49,
+   "Eosinophils": 0.06,
+   "Basophils": 0.04,
+   "Platelets": 311
+  },
+  {
+   "date": "2025-04-14",
+   "lab": "SNP",
+   "ref": "530289856",
+   "Sodium": 138,
+   "Potassium": 4.0,
+   "Chloride": 108,
+   "Bicarbonate": 22,
+   "Anion Gap": 8,
+   "Calcium (corrected)": 2.29,
+   "Phosphate": 1.0,
+   "Urea": 5.7,
+   "Urate": 0.274,
+   "Creatinine": 77,
+   "eGFR": 90,
+   "Glucose (fasting)": 5.6,
+   "Total Protein": 70,
+   "Albumin": 42,
+   "Globulin": 28,
+   "Bilirubin": 10,
+   "ALP": 46,
+   "AST": 22,
+   "ALT": 28,
+   "GGT": 26,
+   "LD": 172,
+   "Haemoglobin": 154,
+   "Haematocrit": 0.44,
+   "Red cell count": 5.3,
+   "MCV": 84,
+   "White cell count": 5.7,
+   "Neutrophils": 2.72,
+   "Lymphocytes": 2.29,
+   "Monocytes": 0.51,
+   "Eosinophils": 0.1,
+   "Basophils": 0.04,
+   "Platelets": 317
+  },
+  {
+   "date": "2025-07-17",
+   "lab": "SNP",
+   "ref": "530291195",
+   "notes": "Clinical notes: sudden onset stress and anxiety",
+   "Sodium": 141,
+   "Potassium": 4.1,
+   "Chloride": 105,
+   "Bicarbonate": 31,
+   "Anion Gap": 5,
+   "Calcium (corrected)": 2.33,
+   "Phosphate": 1.25,
+   "Urea": 6.4,
+   "Urate": 0.29,
+   "Creatinine": 74,
+   "eGFR": 90,
+   "Glucose (fasting)": 5.9,
+   "Total Protein": 77,
+   "Albumin": 45,
+   "Globulin": 32,
+   "Bilirubin": 8,
+   "ALP": 47,
+   "AST": 23,
+   "ALT": 34,
+   "GGT": 26,
+   "LD": 189,
+   "Cholesterol": 5.6,
+   "Triglyceride": 1.2,
+   "Magnesium": 0.87,
+   "HDL": 1.1,
+   "LDL": 4.0,
+   "Total Chol / HDL ratio": 5.1,
+   "Non-HDL Cholesterol": 4.5,
+   "HbA1c (NGSP)": 5.3,
+   "HbA1c (IFCC)": 35,
+   "CRP": 0.7,
+   "ESR": 2,
+   "Iron": 15,
+   "Transferrin": 2.9,
+   "TIBC": 72,
+   "Transferrin Saturation": 21,
+   "Ferritin": 186,
+   "Vitamin B12": 450,
+   "Folate (serum)": 28,
+   "TSH": 1.5,
+   "Haemoglobin": 158,
+   "Haematocrit": 0.47,
+   "Red cell count": 5.6,
+   "MCV": 84,
+   "White cell count": 5.9,
+   "Neutrophils": 2.45,
+   "Lymphocytes": 2.73,
+   "Monocytes": 0.53,
+   "Eosinophils": 0.1,
+   "Basophils": 0.05,
+   "Platelets": 349
+  },
+  {
+   "date": "2026-02-06",
+   "lab": "SNP",
+   "ref": "519767978",
+   "notes": "Telehealth consultation. LFT monitoring. Mild haemolysis - LD and AST may be falsely elevated.",
+   "Sodium": 140,
+   "Potassium": 4.4,
+   "Chloride": 105,
+   "Bicarbonate": 27,
+   "Anion Gap": 8,
+   "Calcium (corrected)": 2.34,
+   "Phosphate": 1.38,
+   "Urea": 6.7,
+   "Urate": 0.361,
+   "Creatinine": 76,
+   "eGFR": 90,
+   "Glucose (fasting)": 5.8,
+   "Total Protein": 72,
+   "Albumin": 41,
+   "Globulin": 31,
+   "Bilirubin": 9,
+   "ALP": 43,
+   "AST": 21,
+   "ALT": 32,
+   "GGT": 26,
+   "LD": 171,
+   "Cholesterol": 6.3,
+   "Haemoglobin": 157,
+   "Haematocrit": 0.46,
+   "Red cell count": 5.5,
+   "MCV": 84,
+   "White cell count": 5.7,
+   "Neutrophils": 2.41,
+   "Lymphocytes": 2.63,
+   "Monocytes": 0.51,
+   "Eosinophils": 0.13,
+   "Basophils": 0.04,
+   "Platelets": 301
+  },
+  {
+   "date": "2026-05-06",
+   "lab": "SNP via Vital Trend Health",
+   "ref": "543293628",
+   "notes": "Men's Hormone Check panel.",
+   "Albumin": 39,
+   "FSH": 3,
+   "LH": 3,
+   "DHEA-Sulphate": 4.7,
+   "Serum Cortisol (AM)": 314,
+   "Testosterone": 13.7,
+   "SHBG": 26,
+   "Calculated Free Testosterone": 336
+  },
+  {
+   "date": "2026-06-08",
+   "lab": "SNP",
+   "ref": "543714175",
+   "notes": "Testosterone screen. Pre-TRT baseline.",
+   "Testosterone": 16.1,
+   "SHBG": 28,
+   "Calculated Free Testosterone": 352,
+   "FSH": 4,
+   "LH": 2,
+   "Albumin": 46
+  },
+  {
+   "date": "2026-07-22",
+   "lab": "SNP",
+   "ref": "544362822",
+   "notes": "Telehealth consultation. AST and ALT both flagged high.",
+   "Sodium": 139,
+   "Potassium": 3.9,
+   "Chloride": 105,
+   "Bicarbonate": 26,
+   "Anion Gap": 8,
+   "Calcium (corrected)": 2.25,
+   "Phosphate": 1.19,
+   "Urea": 4.1,
+   "Urate": 0.28,
+   "Creatinine": 68,
+   "eGFR": 90,
+   "Glucose (fasting)": 4.8,
+   "Total Protein": 71,
+   "Albumin": 41,
+   "Globulin": 30,
+   "Bilirubin": 11,
+   "ALP": 48,
+   "AST": 42,
+   "ALT": 62,
+   "GGT": 40,
+   "LD": 208,
+   "Lipase": 21,
+   "Cholesterol": 4.8,
+   "Triglyceride": 1.4,
+   "HDL": 1.09,
+   "LDL": 3.1,
+   "Total Chol / HDL ratio": 4.4,
+   "Non-HDL Cholesterol": 3.71,
+   "CRP": 3.4,
+   "Haemoglobin": 151,
+   "Haematocrit": 0.43,
+   "Red cell count": 5.3,
+   "MCV": 82,
+   "White cell count": 5.2,
+   "Neutrophils": 2.35,
+   "Lymphocytes": 2.1,
+   "Monocytes": 0.64,
+   "Eosinophils": 0.1,
+   "Basophils": 0.05,
+   "Platelets": 299
+  },
+  {
+   "date": "2026-08-10",
+   "lab": "Imedical",
+   "ref": "404358",
+   "notes": "Collected 07:12 AM. Full hormone and metabolic panel.",
+   "Prolactin": 276,
+   "LH": 3,
+   "FSH": 5,
+   "Oestradiol": 82,
+   "Progesterone": 1,
+   "Testosterone": 18,
+   "Calculated Free Testosterone": 436,
+   "SHBG": 25,
+   "Insulin (fasting)": 13,
+   "C-Peptide (fasting)": 0.72,
+   "Glucose (fasting)": 5.9,
+   "Serum Cortisol (AM)": 350,
+   "Growth Hormone": 0.2,
+   "IGF-1": 21,
+   "Intact Parathyroid Hormone": 5.5,
+   "Calcium (corrected)": 2.31,
+   "Albumin": 43,
+   "Phosphate": 1.2,
+   "DHEA-Sulphate": 3.0,
+   "Total PSA": 0.45,
+   "Vitamin D3": 64,
+   "Iron": 15,
+   "TIBC": 57,
+   "Transferrin Saturation": 26,
+   "Ferritin": 107
+  }
+ ],
+ "disclaimer": "Imported from Sullivan Nicolaides Pathology reports. Reference intervals are the lab's. Not medical advice - interpretation belongs to a doctor."
+}

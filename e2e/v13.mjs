@@ -66,10 +66,10 @@ if (await modal().count()) {
 }
 
 // ---------- 1. five-tab nav ----------
-await step('bottom nav shows exactly Home · Calendar · Symptoms · Body · More', async () => {
+await step('bottom nav shows exactly Home · Calendar · Symptoms · Body · Bloods · More', async () => {
   const labels = await page.locator('nav button span:not(:has(svg))').allTextContents()
   const got = labels.map((s) => s.trim())
-  if (got.join('|') !== 'Home|Calendar|Symptoms|Body|More') {
+  if (got.join('|') !== 'Home|Calendar|Symptoms|Body|Bloods|More') {
     throw new Error(`nav is [${got.join(', ')}]`)
   }
 })

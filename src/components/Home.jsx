@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Check, Info, Clock, AlertTriangle, Sun, Moon, ChevronRight, Syringe, X, ShieldCheck, Layers, Wind, Bell, Zap, SkipForward, Undo2, PackageOpen, MoreHorizontal, RotateCw, CalendarArrowDown } from 'lucide-react'
+import { Check, Info, Clock, AlertTriangle, Sun, Moon, ChevronRight, Syringe, X, ShieldCheck, Layers, Wind, Bell, Zap, SkipForward, Undo2, PackageOpen, MoreHorizontal, RotateCw, CalendarArrowDown, SlidersHorizontal } from 'lucide-react'
 import useStore, { todayStr } from '../store/useStore'
 import { cyclePhase, currentRung, stepUpDue, addDaysStr, prettyDate } from '../lib/schedule'
 import { isDueToday, slotOf, isDueSlot, currentSlot, slotIsFlexible, needsProtocolSetup } from '../lib/daily'
@@ -22,6 +22,7 @@ import { dueWithPushes, canPushOn, pushedLabel } from '../lib/pushes'
 import { activeVialStatus, coverageFor, coverageWords } from '../lib/stock'
 import ReplaceVial from './ReplaceVial'
 import CompoundSheet from './CompoundSheet'
+import DoseChangeSheet from './DoseChangeSheet'
 import { FormIcon } from './SupplementsTab'
 
 const spring = { type: 'spring', stiffness: 260, damping: 22 }
@@ -103,6 +104,7 @@ export default function Home({ goTo }) {
   const finishVial = useStore((s) => s.finishVial)
   const [replacing, setReplacing] = useState(null)
   const [sheetId, setSheetId] = useState(null)
+  const [dosing, setDosing] = useState(null)
   const slotSupps = useMemo(() => dueInSlot(supplements, slot), [supplements, slot])
   const takenIds = useMemo(() => takenOn(supplementLogs, t), [supplementLogs, t])
   const suppDone = slotSupps.filter((x) => takenIds.has(x.id)).length
@@ -415,6 +417,7 @@ export default function Home({ goTo }) {
             onSkip={() => setSkipping({ kind: 'peptide', ids: [p.id], name: p.name })}
             onUnskip={() => unskipToday(p.id)}
             onFinishVial={() => { finishVial(p.id); setReplacing(p.id) }}
+            onChangeDose={() => setDosing(p.id)}
             canPush={canPushOn(p, { pushes, loggedIds: loggedToday, skippedIds, dateStr: t })}
             pushedFrom={pushedLabel(pushes, p.id, t)}
             onPush={() => {
@@ -468,6 +471,8 @@ export default function Home({ goTo }) {
 
       <CompoundSheet open={!!sheetId} compoundId={sheetId}
         onClose={() => setSheetId(null)} goTo={goTo} />
+
+      <DoseChangeSheet peptideId={dosing} open={!!dosing} onClose={() => setDosing(null)} />
 
       <SkipSheet
         target={skipping}
@@ -1051,7 +1056,7 @@ function Tomorrow() {
  * all belong somewhere you go to read rather than somewhere you go to tap —
  * they are on the compound page and in the bell now.
  */
-function DueCard({ peptide: p, index, done, titration, onLog, onUnlog, selected, onToggleSelect, skipped, skipReason, onSkip, onUnskip, onFinishVial, onOpenSheet, beckon, canPush, pushedFrom, onPush }) {
+function DueCard({ peptide: p, index, done, titration, onLog, onUnlog, onChangeDose, selected, onToggleSelect, skipped, skipReason, onSkip, onUnskip, onFinishVial, onOpenSheet, beckon, canPush, pushedFrom, onPush }) {
   const tState = titration[p.id]
   const { dose } = currentRung(p, tState)
   const nasal = isNasal(p)
@@ -1200,6 +1205,8 @@ function DueCard({ peptide: p, index, done, titration, onLog, onUnlog, selected,
                 <MenuAction icon={Layers} label={selected ? 'In co-draw' : 'Log together'} testid="row-codraw"
                   active={selected} onClick={() => { setMenu(false); onToggleSelect() }} />
               )}
+              <MenuAction icon={SlidersHorizontal} label="Change dose" testid="change-dose"
+                onClick={() => { setMenu(false); onChangeDose?.() }} />
               <MenuAction icon={Info} label="About" testid="open-compound-sheet"
                 onClick={() => { setMenu(false); onOpenSheet?.(p.id) }} />
             </div>

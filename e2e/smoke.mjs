@@ -62,10 +62,10 @@ await page.goto(BASE, { waitUntil: 'networkidle' })
 await page.evaluate(() => localStorage.clear())
 await page.reload({ waitUntil: 'networkidle' })
 
-await step('Home: disclaimer + ring + 5-tab bar', async () => {
+await step('Home: disclaimer + ring + 6-tab bar', async () => {
   await waitText(/not medical advice/)
   const tabs = await page.locator('nav button').count()
-  if (tabs !== 5) throw new Error(`expected 5 primary tabs, got ${tabs}`)
+  if (tabs !== 6) throw new Error(`expected 6 primary tabs, got ${tabs}`)
   await page.click('text=Got it')
 })
 

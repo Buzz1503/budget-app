@@ -200,3 +200,42 @@ export function projectSchedule(peptide, tState, fromStr, days, todayStr) {
   }
   return out
 }
+
+/**
+ * Where a hand-set dose lands on the ladder.
+ *
+ * The rule is that the number wins. A dose the schedule did not plan for is
+ * still the dose in the syringe, so the ladder is reshaped to accommodate it
+ * rather than the change being refused — refusing would leave the app
+ * disagreeing with what actually happened, which is the one outcome worth
+ * avoiding.
+ *
+ * Four cases, in order:
+ *  - it is already a rung → step to it, leave the plan alone
+ *  - there is a climb and it is above the top → raise the ceiling, stand on the new top rung
+ *  - there is a climb and it is below the top → the ladder starts here, so the climb above survives
+ *  - there is no climb → floor and ceiling both become the dose
+ *
+ * The first thing every branch but the first checks is `step > 0`, because a
+ * flat ladder has no rungs to move between: raising the ceiling of a
+ * floor-50/step-0/ceiling-50 ladder to 62.5 leaves `buildRungs` returning [50]
+ * and the change quietly not happening. A steady dose has to be moved by moving
+ * both ends.
+ *
+ * Pure, so the arithmetic can be tested without a store behind it.
+ */
+export function resolveDoseChange(ladder, dose) {
+  const rungs = buildRungs(ladder)
+  const at = rungs.findIndex((r) => Math.abs(r - dose) < 1e-9)
+  if (at >= 0) return { ladder: { ...ladder }, level: at, onLadder: true }
+
+  const climbs = ladder?.step > 0 && ladder?.ceiling > ladder?.floor
+  if (climbs && dose > ladder.ceiling) {
+    const raised = { ...ladder, ceiling: dose }
+    return { ladder: raised, level: buildRungs(raised).length - 1, onLadder: false, raisedCeiling: true }
+  }
+  if (climbs && dose < ladder.ceiling) {
+    return { ladder: { ...ladder, floor: dose }, level: 0, onLadder: false, movedFloor: true }
+  }
+  return { ladder: { ...ladder, floor: dose, ceiling: dose }, level: 0, onLadder: false, flattened: true }
+}

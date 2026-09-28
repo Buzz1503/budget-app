@@ -294,6 +294,13 @@ await step('missed doses are absent from Home, and present in the Calendar', asy
   await page.waitForTimeout(1000)
   const yest = new Date(); yest.setDate(yest.getDate() - 1)
   const iso = `${yest.getFullYear()}-${String(yest.getMonth() + 1).padStart(2, '0')}-${String(yest.getDate()).padStart(2, '0')}`
+  // The calendar opens on the week holding today, which on a Monday contains
+  // no past day at all — step back until yesterday is actually on screen,
+  // rather than letting the assertion pass or fail by weekday.
+  for (let i = 0; i < 6 && !(await page.locator(`[data-testid="cal-day-${iso}"]`).count()); i++) {
+    await page.click('button[aria-label="Previous period"]')
+    await page.waitForTimeout(450)
+  }
   await page.click(`[data-testid="cal-day-${iso}"]`)
   await page.waitForTimeout(800)
   const detail = await page.textContent('[data-testid="sheet"]')

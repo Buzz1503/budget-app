@@ -1,7 +1,7 @@
 import { useState, useEffect, useLayoutEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Sun, CalendarDays, HeartPulse, LayoutGrid, ChevronLeft, PersonStanding,
+  Sun, CalendarDays, HeartPulse, LayoutGrid, ChevronLeft, PersonStanding, Droplet,
 } from 'lucide-react'
 
 import useStore, { onStorageError } from './store/useStore'
@@ -19,6 +19,7 @@ import SymptomsTab from './components/SymptomsTab'
 import BodyTab from './components/BodyTab'
 import HistoryTab from './components/HistoryTab'
 import SupplementsTab from './components/SupplementsTab'
+import BloodsTab from './components/BloodsTab'
 import ScheduleWizard from './components/ScheduleWizard'
 import MoreHub from './components/MoreHub'
 import Toast from './components/Toast'
@@ -32,6 +33,7 @@ const SCREENS = {
   mix: MixTab,
   symptoms: SymptomsTab,
   body: BodyTab,
+  bloods: BloodsTab,
   more: MoreHub,
   protocol: ProtocolTab,
   calc: CalcTab,
@@ -41,12 +43,13 @@ const SCREENS = {
   supplements: SupplementsTab,
 }
 
-// Five primary tabs in the bottom bar; everything else lives under More.
+// Six primary tabs in the bottom bar; everything else lives under More.
 const PRIMARY = [
   { id: 'today', label: 'Home', icon: Sun },
   { id: 'calendar', label: 'Calendar', icon: CalendarDays },
   { id: 'symptoms', label: 'Symptoms', icon: HeartPulse },
   { id: 'body', label: 'Body', icon: PersonStanding },
+  { id: 'bloods', label: 'Bloods', icon: Droplet },
   { id: 'more', label: 'More', icon: LayoutGrid },
 ]
 const PRIMARY_IDS = new Set(PRIMARY.map((t) => t.id))
@@ -169,7 +172,7 @@ export default function App() {
           pointerEvents: vp.keyboardOpen ? 'none' : undefined,
         }}
       >
-        <div className="mx-auto grid max-w-3xl grid-cols-5 px-1 pb-[max(env(safe-area-inset-bottom),6px)] pt-2">
+        <div className="mx-auto grid max-w-3xl grid-cols-6 px-1 pb-[max(env(safe-area-inset-bottom),6px)] pt-2">
           {PRIMARY.map(({ id, label, icon: Icon }) => {
             const active = tab === id || (id === 'more' && isSub)
             return (
@@ -177,12 +180,14 @@ export default function App() {
                 key={id}
                 whileTap={{ scale: 0.86 }}
                 onClick={() => { if (haptics) { try { haptic(6) } catch { /* optional */ } } setTab(id) }}
-                className="flex flex-col items-center gap-1 rounded-xl py-1.5"
+                className="flex min-w-0 flex-col items-center gap-1 rounded-xl py-1.5"
                 style={{ color: active ? 'var(--lime)' : 'var(--muted)' }}
                 aria-label={label}
               >
-                <Icon size={30} strokeWidth={active ? 2.5 : 2} />
-                <span className="text-[11px] font-bold leading-none">{label}</span>
+                {/* six across a 390px phone leaves ~63px a column, so the icon
+                    comes down a notch and the label is sized never to wrap */}
+                <Icon size={28} strokeWidth={active ? 2.5 : 2} />
+                <span className="max-w-full truncate text-[10px] font-bold leading-none">{label}</span>
                 {active && <motion.div layoutId="tab-dot" className="mt-0.5 h-1 w-1 rounded-full" style={{ background: 'var(--lime)' }} />}
               </motion.button>
             )

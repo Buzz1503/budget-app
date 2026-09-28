@@ -24,7 +24,7 @@ const BASE_PATH = new URL(BASE).pathname
 
 await step(`app boots at the ${new URL(BASE).pathname} base path`, async () => {
   await page.waitForSelector('nav button', { timeout: 10000 })
-  if ((await page.locator('nav button').count()) !== 5) throw new Error('nav did not render')
+  if ((await page.locator('nav button').count()) !== 6) throw new Error('nav did not render')
 })
 
 await step('manifest is linked, valid, and standalone/portrait', async () => {
