@@ -72,6 +72,7 @@ export default function ProtocolTab({ goTo }) {
   const doseLogs = useStore((s) => s.doseLogs)
   const runs = useStore((s) => s.runs)
   const leadDays = useStore((s) => s.settings.restockLeadDays)
+  const pauses = useStore((s) => s.pauses)
   const t = todayStr()
   const [sheetId, setSheetId] = useState(null)
   const [sort, setSort] = useState('name')
@@ -88,7 +89,7 @@ export default function ProtocolTab({ goTo }) {
         cyc,
         runway,
         // how long, where in the cycle, and whether it is worth a second look
-        ten: protocolTenure(p, { runs, titration, todayStr: t }),
+        ten: protocolTenure(p, { runs, titration, pauses, todayStr: t }),
         atCeiling: rung.maxLevel > 0 && rung.level >= rung.maxLevel,
         unlinked: !!openVials[p.id]?.unlinked,
         sealed: sealedCount(vials, p.id),
@@ -103,7 +104,7 @@ export default function ProtocolTab({ goTo }) {
       return list.sort((a, b) => (Number(b.atCeiling) - Number(a.atCeiling)) || days(b) - days(a) || byName(a, b))
     }
     return list.sort(byName)
-  }, [peptides, titration, openVials, vials, doseLogs, runs, t, leadDays, sort])
+  }, [peptides, titration, openVials, vials, doseLogs, runs, t, leadDays, sort, pauses])
 
   // compounds that have quietly been running a long time, surfaced rather than
   // left for someone to notice on their own

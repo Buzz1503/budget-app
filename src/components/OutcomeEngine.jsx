@@ -24,6 +24,7 @@ export default function OutcomeEngine() {
   const symptomLogs = useStore((s) => s.symptomLogs)
   const doseEvents = useStore((s) => s.doseEvents)
   const runs = useStore((s) => s.runs)
+  const pauses = useStore((s) => s.pauses)
   const t = todayStr()
 
   // An outcome read against "weeks on compound" is a different question from
@@ -39,7 +40,7 @@ export default function OutcomeEngine() {
     if (!peptide) return { data: [], events: [], hasOutcome: false, tenure: null, since: null }
     // range: as far back as the compound goes (capped to 120d) → today. Tenure,
     // not the schedule anchor, so a backdated start widens the window.
-    const ten = tenureFor(peptide, { runs, todayStr: t })
+    const ten = tenureFor(peptide, { runs, pauses, todayStr: t })
     const since = peptide.startedOn || peptide.startDate
     const span = Math.min(120, Math.max(28, daysBetween(since, t)))
     const from = addDaysStr(t, -span)
@@ -69,7 +70,7 @@ export default function OutcomeEngine() {
     })
     const events = peptideEvents(peptide, titration[peptide.id], from, t, { doseEvents })
     return { data, events, hasOutcome: Object.keys(outByDate).length > 0, tenure: ten, since }
-  }, [peptide, titration, measurements, symptomLogs, doseEvents, runs, metricKey, t])
+  }, [peptide, titration, measurements, symptomLogs, doseEvents, runs, metricKey, t, pauses])
 
   if (!peptide) return null
 

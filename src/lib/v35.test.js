@@ -292,7 +292,7 @@ describe('doseTimeline', () => {
   })
 
   it('has nothing to draw for no compound', () => {
-    expect(doseTimeline(null, {})).toEqual({ points: [], bands: [], segments: [] })
+    expect(doseTimeline(null, {})).toEqual({ points: [], bands: [], segments: [], pauses: [] })
   })
 })
 

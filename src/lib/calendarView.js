@@ -13,7 +13,8 @@ import { planShots } from './grouping'
 import { LIB_TO_COMPOUND } from './mixMatrix'
 import { expiryInfo, runOutInfo } from './inventory'
 import { runsFor, MILESTONES } from './tenure'
-import { dueWithPushes } from './pushes'
+import { dueWithPushes, pushedAway } from './pushes'
+import { isPausedOn, pauseOn, pausesOn, reasonWords } from './pauses'
 
 export const WEEK_STARTS_ON = 1 // Monday
 
@@ -37,6 +38,7 @@ export const ADHERENCE_TONE = {
   missed: 'var(--coral)',
   pending: 'var(--indigo)', // today, still to do — never counted as missed
   skipped: 'var(--violet)', // deliberately cleared — a decision, not a lapse
+  paused: 'var(--text-3)',  // the protocol was not running — not a lapse either
   future: 'var(--surface2)',
   none: 'transparent',
 }
@@ -47,6 +49,7 @@ export const ADHERENCE_WORDS = {
   missed: 'missed',
   pending: 'still to do',
   skipped: 'skipped',
+  paused: 'paused',
   future: 'scheduled',
   none: 'nothing scheduled',
 }
@@ -109,7 +112,8 @@ export function datesBetween(fromStr, toStr) {
 export function buildCalendar({
   peptides = [], titration = {}, doseLogs = [], openVials = {}, vials = [],
   supplements = [], supplementLogs = [], skips = [],
-  restock = {}, runs = {}, pushes = [], todayStr, from, to, verdictOf = null, leadDays = 30,
+  restock = {}, runs = {}, pushes = [], pauses = [], symptomLogs = [], bloodTests = [],
+  todayStr, from, to, verdictOf = null, leadDays = 30,
 }) {
   const dates = datesBetween(from, to)
   if (dates.length === 0) return { days: [], byDate: {}, from, to, grouped: !!verdictOf }
@@ -140,6 +144,13 @@ export function buildCalendar({
     if (!k.date) continue
     ;(skippedByDate[k.date] ||= new Set()).add(k.peptideId || k.supplementId)
   }
+
+  // Other things that landed on a day. Indexed rather than scanned so a month
+  // grid does not walk both lists once per cell.
+  const symptomByDate = {}
+  for (const l of symptomLogs) if (l.date) symptomByDate[l.date] = l
+  const bloodByDate = {}
+  for (const b of bloodTests) if (b.date) (bloodByDate[b.date] ||= []).push(b)
 
   const dayEvents = {}
   const pushEvent = (date, ev) => {
@@ -173,7 +184,7 @@ export function buildCalendar({
     if (exp?.expiresAt) {
       pushEvent(exp.expiresAt, { kind: 'vial-expiry', peptideId: p.id, text: `${p.name} — open vial expires` })
     }
-    const ro = runOutInfo(p, titration[p.id], vials, openVials[p.id], todayStr)
+    const ro = runOutInfo(p, titration[p.id], vials, openVials[p.id], todayStr, pauses)
     if (ro.runOutDate && isFinite(ro.daysLeft)) {
       pushEvent(ro.runOutDate, {
         kind: 'restock-by', peptideId: p.id,
@@ -246,6 +257,7 @@ export function buildCalendar({
       const row = projection[p.id]?.[date]
       const dose = row ? row.dose : currentRung(p, titration[p.id]).dose
       const nasal = isNasal(p)
+      const pause = pauseOn(pauses, p.id, date)
       slots[slotOf(p)].push({
         peptideId: p.id,
         name: p.name,
@@ -256,6 +268,11 @@ export function buildCalendar({
         projected: rel > 0,
         taken: taken.has(p.id),
         skipped: skippedIds.has(p.id),
+        // A dose owed by the schedule on a day the protocol was not running.
+        // Neither taken nor missed — see entryState in lib/backfill.js.
+        paused: !!pause,
+        pauseReason: pause ? reasonWords(pause) : null,
+        pushedOff: !!pushedAway(pushes, p.id, date),
         alwaysSeparate: !!p.alwaysSeparate,
         separateReason: p.separateReason || null,
         route: p.route,
@@ -274,6 +291,8 @@ export function buildCalendar({
         projected: rel > 0,
         taken: tookOral.has(sup.id),
         skipped: skippedIds.has(sup.id),
+        // supplements ride on a whole-protocol pause, not a per-compound one
+        paused: isPausedOn(pauses.filter((x) => !x.peptideIds), sup.id, date),
       })
     }
 
@@ -284,15 +303,33 @@ export function buildCalendar({
       + entries.filter((e) => e.nasal).length
 
     const all = [...entries, ...oralEntries]
+    // Doses that left this day for the next one. They are not in `entries` —
+    // dueWithPushes already moved them — so the count comes off the push list,
+    // which is the only place the day they left is still written down.
+    const pushedOffCount = active.filter((p) => pushedAway(pushes, p.id, date)).length
+    const dayPause = pausesOn(pauses, date)[0] || null
+    const dayPauseReason = dayPause ? reasonWords(dayPause) : null
     const scheduled = all.length
     const done = all.filter((e) => e.taken).length
     const skippedCount = all.filter((e) => e.skipped && !e.taken).length
+    const pausedCount = all.filter((e) => e.paused && !e.taken && !e.skipped).length
+    // Doses the protocol actually owed you that day: a paused dose was owed by
+    // the schedule but not by the protocol, so it is the denominator everything
+    // below divides by and never part of what was missed.
+    const owed = scheduled - pausedCount
+    // Only a day that has been and gone can have missed anything. Today's
+    // outstanding doses are still to do, and counting them as missed would have
+    // every morning open on a failure.
+    const missedCount = rel < 0 ? Math.max(0, owed - done - skippedCount) : 0
     // A day you deliberately cleared is not a lapse, so it never reads as
-    // missed — see dayOutcome in lib/skips.js for the same rule.
+    // missed — see dayOutcome in lib/skips.js for the same rule. A day the
+    // whole thing was paused is not a lapse either, and outranks the rest:
+    // there was nothing to be adherent to.
     let adherence = 'none'
     if (scheduled > 0) {
-      if (done === scheduled) adherence = 'all'
-      else if (skippedCount > 0 && done + skippedCount === scheduled) adherence = done > 0 ? 'partial' : 'skipped'
+      if (owed === 0) adherence = done > 0 ? 'all' : 'paused'
+      else if (done === owed) adherence = 'all'
+      else if (skippedCount > 0 && done + skippedCount === owed) adherence = done > 0 ? 'partial' : 'skipped'
       else if (rel > 0) adherence = 'future'
       else if (rel === 0) adherence = done === 0 ? 'pending' : 'partial'
       else adherence = done === 0 ? 'missed' : 'partial'
@@ -311,8 +348,17 @@ export function buildCalendar({
       oralEntries,
       shots,
       scheduled,
+      owed,
       done,
       skipped: skippedCount,
+      paused: pausedCount,
+      missed: missedCount,
+      // the whole day, not just some of its doses — what mutes the month cell
+      wholeDayPaused: scheduled > 0 && pausedCount === scheduled,
+      pauseReason: dayPauseReason,
+      pushedOff: pushedOffCount,
+      symptom: symptomByDate[date] || null,
+      bloodTests: bloodByDate[date] || [],
       adherence,
       events: dayEvents[date] || [],
     }
@@ -369,8 +415,36 @@ export function weekSummary(days) {
 
 /** Adherence tallies over an arbitrary set of days — drives the heatmap legend. */
 export function adherenceTally(days) {
-  const out = { all: 0, partial: 0, missed: 0, pending: 0, future: 0, none: 0 }
-  for (const d of days) out[d.adherence] += 1
+  const out = { all: 0, partial: 0, missed: 0, pending: 0, skipped: 0, paused: 0, future: 0, none: 0 }
+  for (const d of days) out[d.adherence] = (out[d.adherence] || 0) + 1
   const rated = out.all + out.partial + out.missed
   return { ...out, rated, pct: rated === 0 ? null : Math.round((out.all / rated) * 100) }
+}
+
+/**
+ * The month in numbers, for the line above the grid.
+ *
+ * Counted over days that have actually happened. A month you are three days
+ * into should not read as 10% done because the other twenty-eight days have not
+ * arrived yet — that is a forecast dressed up as a record.
+ */
+export function monthSummary(days, todayStr) {
+  const past = days.filter((d) => !d.isFuture)
+  const owed = past.reduce((n, d) => n + (d.owed ?? d.scheduled), 0)
+  const logged = past.reduce((n, d) => n + d.done, 0)
+  const complete = past.filter((d) => d.adherence === 'all').length
+  return {
+    scheduled: owed,
+    logged,
+    pct: owed === 0 ? null : Math.round((logged / owed) * 100),
+    complete,
+    skipped: past.reduce((n, d) => n + (d.skipped || 0), 0),
+    pushed: past.reduce((n, d) => n + (d.pushedOff || 0), 0),
+    pausedDays: days.filter((d) => d.wholeDayPaused).length,
+    missed: past.reduce((n, d) => n + (d.missed || 0), 0),
+    symptomDays: days.filter((d) => d.symptom).length,
+    bloodDays: days.filter((d) => d.bloodTests?.length).length,
+    days: past.length,
+    todayStr,
+  }
 }

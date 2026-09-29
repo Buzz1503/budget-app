@@ -15,6 +15,7 @@ import { batchesFor, sealedCount } from '../lib/stock'
 import { stockRunway } from '../lib/runway'
 import { TenureBlock, DoseTimelineChart, TimelineEvents, ExposureBlock, TenureEditor } from './Tenure'
 import DoseChangeSheet from './DoseChangeSheet'
+import PauseHistory from './PauseHistory'
 
 const FREQ_LABELS = {
   daily: 'Daily', nightly: 'Nightly', weekly: 'Weekly',
@@ -130,6 +131,7 @@ export default function CompoundSheet({ open, compoundId, onClose, goTo }) {
               <DoseTimelineChart peptide={peptide} />
               {/* the events stand whether or not the dose moved enough to plot */}
               <TimelineEvents peptide={peptide} picked={picked} onPick={setPicked} />
+              <PauseBlock peptideId={peptide.id} />
               <ExposureBlock peptide={peptide} />
               <p className="px-1 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
                 A record of what you did, not a judgement of it. Anything you typed in from memory is drawn
@@ -222,6 +224,19 @@ function Row({ label, value, tone }) {
     <div className="flex items-baseline justify-between gap-3 py-2">
       <span className="text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-2)' }}>{label}</span>
       <span className="text-right text-xs font-black" style={{ color: tone || 'var(--text)' }}>{value}</span>
+    </div>
+  )
+}
+
+/** Every break that touched this compound, on its own timeline tab. */
+function PauseBlock({ peptideId }) {
+  const pauses = useStore((s) => s.pauses)
+  const mine = pauses.filter((p) => !p.peptideIds || p.peptideIds.includes(peptideId))
+  if (!mine.length) return null
+  return (
+    <div className="space-y-2" data-testid="compound-pauses">
+      <p className="px-1 t-caption" style={{ color: 'var(--text-2)' }}>Breaks</p>
+      <PauseHistory peptideId={peptideId} compact />
     </div>
   )
 }

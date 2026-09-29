@@ -1,6 +1,7 @@
 // History + adherence: doses actually taken vs. doses scheduled over a window.
 import { addDaysStr, daysBetween } from './schedule'
 import { dueWithPushes } from './pushes'
+import { isPausedOn } from './pauses'
 
 export function dateRange(fromStr, toStr) {
   const n = daysBetween(fromStr, toStr)
@@ -15,38 +16,69 @@ export function dateRange(fromStr, toStr) {
  * as "missed". Neither is a day the dose was pushed off: the occurrence moved,
  * it did not go unrecorded, and counting it here would report a decision the
  * user made as a failure to act.
+ *
+ * Nor is a day inside a pause. The dose was owed by the schedule, but the
+ * protocol was not running — counting a fortnight's holiday as fourteen misses
+ * would describe a break as a failure, which is the whole reason pauses exist.
  */
-export function scheduledCount(peptide, fromStr, toStr, pushes = []) {
-  return dateRange(fromStr, toStr).filter((d) => dueWithPushes(peptide, pushes, d)).length
+export function scheduledCount(peptide, fromStr, toStr, pushes = [], pauses = []) {
+  return dateRange(fromStr, toStr)
+    .filter((d) => dueWithPushes(peptide, pushes, d) && !isPausedOn(pauses, peptide.id, d))
+    .length
 }
 
-export function takenCount(peptide, doseLogs, fromStr, toStr, pushes = []) {
+/**
+ * Doses inside a pause that were taken anyway.
+ *
+ * Counted separately rather than folded into `taken`: a dose you took on
+ * holiday is real and belongs in the record, but dividing it by a denominator
+ * that excludes paused days would put adherence above 100%.
+ */
+export function pausedTakenCount(peptide, doseLogs, fromStr, toStr, pauses = []) {
   const days = new Set(
     doseLogs.filter((l) => l.peptideId === peptide.id && l.date >= fromStr && l.date <= toStr)
       .map((l) => l.date)
   )
-  // only count a log on a day the dose was actually owed
-  return [...days].filter((d) => dueWithPushes(peptide, pushes, d)).length
+  return [...days].filter((d) => isPausedOn(pauses, peptide.id, d)).length
 }
 
-export function adherenceFor(peptide, doseLogs, fromStr, toStr, pushes = []) {
-  const scheduled = scheduledCount(peptide, fromStr, toStr, pushes)
-  const taken = takenCount(peptide, doseLogs, fromStr, toStr, pushes)
+export function takenCount(peptide, doseLogs, fromStr, toStr, pushes = [], pauses = []) {
+  const days = new Set(
+    doseLogs.filter((l) => l.peptideId === peptide.id && l.date >= fromStr && l.date <= toStr)
+      .map((l) => l.date)
+  )
+  // only count a log on a day the dose was actually owed and the protocol running
+  return [...days].filter((d) => dueWithPushes(peptide, pushes, d) && !isPausedOn(pauses, peptide.id, d)).length
+}
+
+/** Days in the window this compound spent paused — reported, never counted. */
+export function pausedCount(peptide, fromStr, toStr, pushes = [], pauses = []) {
+  return dateRange(fromStr, toStr)
+    .filter((d) => dueWithPushes(peptide, pushes, d) && isPausedOn(pauses, peptide.id, d))
+    .length
+}
+
+export function adherenceFor(peptide, doseLogs, fromStr, toStr, pushes = [], pauses = []) {
+  const scheduled = scheduledCount(peptide, fromStr, toStr, pushes, pauses)
+  const taken = takenCount(peptide, doseLogs, fromStr, toStr, pushes, pauses)
   return {
     peptideId: peptide.id, name: peptide.name, scheduled, taken,
     missed: Math.max(0, scheduled - taken),
+    paused: pausedCount(peptide, fromStr, toStr, pushes, pauses),
+    pausedTaken: pausedTakenCount(peptide, doseLogs, fromStr, toStr, pauses),
     pct: scheduled === 0 ? null : Math.round((taken / scheduled) * 100),
   }
 }
 
-export function adherenceSummary(peptides, doseLogs, fromStr, toStr, pushes = []) {
-  const rows = peptides.map((p) => adherenceFor(p, doseLogs, fromStr, toStr, pushes))
+export function adherenceSummary(peptides, doseLogs, fromStr, toStr, pushes = [], pauses = []) {
+  const rows = peptides.map((p) => adherenceFor(p, doseLogs, fromStr, toStr, pushes, pauses))
   const scheduled = rows.reduce((s, r) => s + r.scheduled, 0)
   const taken = rows.reduce((s, r) => s + r.taken, 0)
+  const paused = rows.reduce((s, r) => s + r.paused, 0)
   return {
-    rows: rows.filter((r) => r.scheduled > 0).sort((a, b) => (a.pct ?? 0) - (b.pct ?? 0)),
+    rows: rows.filter((r) => r.scheduled > 0 || r.paused > 0).sort((a, b) => (a.pct ?? 0) - (b.pct ?? 0)),
     overall: {
-      scheduled, taken, missed: Math.max(0, scheduled - taken),
+      scheduled, taken, missed: Math.max(0, scheduled - taken), paused,
       pct: scheduled === 0 ? null : Math.round((taken / scheduled) * 100),
     },
   }

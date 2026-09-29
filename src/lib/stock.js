@@ -18,6 +18,7 @@ import { currentRung, dosesPerWeek, addDaysStr, prettyDate } from './schedule'
 import { toMg } from './calc'
 import { referenceUsdPerVial } from './cost'
 import { drawsPerWeek } from './drawdown'
+import { advanceOverPauses } from './pauses'
 
 export const VIAL_STATES = ['sealed', 'active', 'finished']
 
@@ -289,7 +290,7 @@ export function durationWords(days) {
  * which neither the open vial's countdown nor the sealed shelf's coverage
  * answers alone.
  */
-export function runwayFor(peptide, tState, openVial, vials = [], doseLogs = [], todayStr, leadDays = 30) {
+export function runwayFor(peptide, tState, openVial, vials = [], doseLogs = [], todayStr, leadDays = 30, pauses = []) {
   // A nasal bottle used to be excluded here, which left the one compound whose
   // stock is hardest to eyeball — sprays, not vials — as the only one with no
   // answer. Milligrams are milligrams: toMg converts a spray like any other
@@ -308,14 +309,35 @@ export function runwayFor(peptide, tState, openVial, vials = [], doseLogs = [], 
     }
   }
 
-  const days = Math.floor((totalMg / perWeekMg) * 7)
-  const runOutDate = todayStr ? addDaysStr(todayStr, days) : null
+  // Days of actual dosing the stock covers. A pause draws nothing, so those
+  // days buy no supply — they just move the date the supply runs out further
+  // into the calendar.
+  const consumingDays = Math.floor((totalMg / perWeekMg) * 7)
+  const walk = (todayStr && pauses.length)
+    ? advanceOverPauses(todayStr, consumingDays, peptide.id, pauses)
+    : { date: todayStr ? addDaysStr(todayStr, consumingDays) : null, pausedDays: 0, open: false }
+
+  if (walk.open) {
+    // paused with no end set: there is no date on which this runs out, and
+    // inventing one would be worse than saying so
+    return {
+      totalMg: Math.round(totalMg * 100) / 100,
+      perWeekMg, days: Infinity, consumingDays, pausedDays: walk.pausedDays,
+      runOutDate: null, restockByDate: null, pausedIndefinitely: true,
+      low: false, out: totalMg <= 1e-9, vials: sealedCount(vials, peptide.id),
+    }
+  }
+
+  const days = consumingDays + walk.pausedDays
+  const runOutDate = walk.date
   const restockByDate = runOutDate ? addDaysStr(runOutDate, -leadDays) : null
 
   return {
     totalMg: Math.round(totalMg * 100) / 100,
     perWeekMg,
     days,
+    consumingDays,
+    pausedDays: walk.pausedDays,
     runOutDate,
     restockByDate,
     low: days <= leadDays,
@@ -333,11 +355,11 @@ export function runwayFor(peptide, tState, openVial, vials = [], doseLogs = [], 
  * the sealed shelf, so a peptide with nothing sealed but a nearly-full vial in
  * use doesn't read as urgent when it isn't.
  */
-export function lowStockAlerts({ peptides = [], titration = {}, vials = [], openVials = {}, doseLogs = [], todayStr, leadDays = 30 }) {
+export function lowStockAlerts({ peptides = [], titration = {}, vials = [], openVials = {}, doseLogs = [], todayStr, leadDays = 30, pauses = [] }) {
   const out = []
   for (const p of peptides) {
     if (isNasal(p)) continue
-    const r = runwayFor(p, titration[p.id], openVials[p.id], vials, doseLogs, todayStr, leadDays)
+    const r = runwayFor(p, titration[p.id], openVials[p.id], vials, doseLogs, todayStr, leadDays, pauses)
     if (!r || !isFinite(r.days) || !r.low) continue
     out.push({
       peptideId: p.id,

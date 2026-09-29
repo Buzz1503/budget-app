@@ -7,6 +7,7 @@ import {
 } from '../data/seed'
 import { SEED_KNOWN_GOOD } from '../lib/mixing'
 import { canPush } from '../lib/pushes'
+import { pauseEnd } from '../lib/pauses'
 import { seedTests as seedBloodTests, seedMarkers as seedBloodMarkers } from '../lib/bloods'
 import { currentRung, cycleInfo, addDaysStr, resolveDoseChange } from '../lib/schedule'
 import { isDueToday } from '../lib/daily'
@@ -73,6 +74,16 @@ function initialState() {
      * skip would misreport a decision they did not make.
      */
     pushes: [],
+    /**
+     * Breaks from the protocol.
+     *
+     * { id, startedOn, endedOn, endsOn, reason, reasonText, note, peptideIds, at }
+     * — the fourth outcome, and the only one that covers a stretch rather than a
+     * single dose. `peptideIds: null` means the whole protocol. A pause draws
+     * nothing, so stock is untouched and the days inside it are neither taken
+     * nor missed; they are days the protocol was not running.
+     */
+    pauses: [],
     // Vials that have been used up. Kept as a record rather than deleted: it is
     // the only trace of how long a vial actually lasted.
     finishedVials: [],
@@ -1142,6 +1153,109 @@ const useStore = create(
         }))
       },
 
+      // ---------- pauses ----------
+
+      /**
+       * Stop the protocol, or part of it, for a while.
+       *
+       * `peptideIds: null` pauses everything. An `endsOn` ends it on its own
+       * when the day comes; without one it runs until Resume is pressed. The
+       * schedule is not touched and nothing is written to the log — the days
+       * inside a pause are days the protocol was not running, which is a
+       * different fact from a dose going unrecorded.
+       */
+      startPause({ reason = 'break', reasonText = '', note = '', endsOn = null, peptideIds = null, startedOn = null } = {}) {
+        const t = startedOn || todayStr()
+        const s = get()
+        const ids = peptideIds && peptideIds.length ? [...peptideIds] : null
+        // a second pause over the same compounds would double-count every day
+        // inside the overlap, so the one already running is the one that stands
+        const clash = s.pauses.some((p) => !pauseEnd(p)
+          && (!p.peptideIds || !ids || p.peptideIds.some((x) => ids.includes(x))))
+        if (clash) return null
+        if (endsOn && endsOn < t) return null
+        const id = `pa-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`
+        set({
+          pauses: [...s.pauses, {
+            id, startedOn: t, endedOn: null, endsOn: endsOn || null,
+            reason, reasonText: reason === 'other' ? reasonText.trim() : '',
+            note: note.trim(), peptideIds: ids, at: new Date().toISOString(),
+          }],
+        })
+        return id
+      },
+
+      /**
+       * Come back.
+       *
+       * The pause keeps its dates rather than being deleted, because "we were
+       * away for a fortnight in October" stays true afterwards and the calendar
+       * has to keep saying so. Ending today means today is back on the protocol,
+       * so the pause's last day is yesterday — unless it only started today, in
+       * which case it covered nothing and goes.
+       */
+      endPause(id = null, onDate = null) {
+        const t = onDate || todayStr()
+        const s = get()
+        const target = id
+          ? s.pauses.find((p) => p.id === id)
+          : s.pauses.find((p) => !pauseEnd(p))
+        if (!target) return null
+        if (target.startedOn >= t) {
+          set({ pauses: s.pauses.filter((p) => p.id !== target.id) })
+          return { removed: true, pause: target }
+        }
+        const endedOn = addDaysStr(t, -1)
+        set({
+          pauses: s.pauses.map((p) => (p.id === target.id ? { ...p, endedOn } : p)),
+        })
+        return { removed: false, pause: { ...target, endedOn } }
+      },
+
+      /** Put a pause back the way it was — the undo behind Resume. */
+      restorePause(snapshot) {
+        if (!snapshot) return
+        set((s) => (s.pauses.some((p) => p.id === snapshot.id)
+          ? { pauses: s.pauses.map((p) => (p.id === snapshot.id ? snapshot : p)) }
+          : { pauses: [...s.pauses, snapshot] }))
+      },
+
+      updatePause(id, patch = {}) {
+        set((s) => ({ pauses: s.pauses.map((p) => (p.id === id ? { ...p, ...patch } : p)) }))
+      },
+
+      removePause(id) {
+        set((s) => ({ pauses: s.pauses.filter((p) => p.id !== id) }))
+      },
+
+      /**
+       * Take the step-up that was held while everything was paused.
+       *
+       * Answered on the way back in rather than applied on the way out, because
+       * the interval between rungs is meant to be time at a dose and a fortnight
+       * not taking it is not time at it. Declining restarts the clock from today
+       * instead, so the question is not asked again tomorrow.
+       */
+      resolveHeldStepUp(peptideId, take) {
+        const s = get()
+        const p = s.peptides.find((x) => x.id === peptideId)
+        if (!p) return null
+        const t = todayStr()
+        if (!take) {
+          set({ titration: { ...s.titration, [peptideId]: { ...(s.titration[peptideId] || {}), levelStartDate: t } } })
+          return { advanced: false }
+        }
+        const { level, maxLevel, rungs } = currentRung(p, s.titration[peptideId])
+        if (level >= maxLevel) return { advanced: false }
+        const next = level + 1
+        set({ titration: { ...s.titration, [peptideId]: { ...(s.titration[peptideId] || {}), level: next, levelStartDate: t } } })
+        get()._recordDoseEvent(peptideId, 'step-up', {
+          from: rungs[level], to: rungs[next], unit: p.ladder?.unit, date: t,
+          note: 'taken on resume',
+        })
+        return { advanced: true, from: rungs[level], to: rungs[next] }
+      },
+
       skipSupplement(supplementId, reason = '') {
         const t = todayStr()
         const s = get()
@@ -1223,9 +1337,18 @@ const useStore = create(
       },
 
       // ---------- symptoms ----------
-      logSymptomCheckin({ tags, note, site }) {
+      /**
+       * A check-in, for today or for a day that has already been.
+       *
+       * `dateStr` is what makes this backdatable from the calendar. Everything
+       * else is unchanged, including the attribution snapshot — which is taken
+       * against the protocol as it stands now rather than as it stood that day,
+       * because the app has no record of the latter and guessing would be worse
+       * than the small inaccuracy of the former.
+       */
+      logSymptomCheckin({ tags, note, site, dateStr = null }) {
         const s = get()
-        const t = todayStr()
+        const t = dateStr || todayStr()
         // active peptides on this date, captured for later pattern overlay
         const active = s.peptides
           .filter((p) => cycleInfo(p, t).isOn)
@@ -1255,7 +1378,11 @@ const useStore = create(
         const hasNegative = tags.some((tg) => tg.polarity === 'neg')
         const clearDay = tags.length > 0 && !hasNegative
 
-        get().showToast(clearDay ? 'Clear day logged' : 'Check-in logged')
+        get().showToast(
+          dateStr && dateStr !== todayStr()
+            ? `Check-in saved for ${dateStr}`
+            : clearDay ? 'Clear day logged' : 'Check-in logged'
+        )
       },
       deleteSymptomLog(id) {
         set((s) => ({ symptomLogs: s.symptomLogs.filter((l) => l.id !== id) }))
@@ -1460,7 +1587,7 @@ const useStore = create(
     }),
     {
       name: 'peptide-command-center', // storage key is history — renaming it would orphan existing data
-      version: 13,
+      version: 14,
       storage: createJSONStorage(() => safeStorage),
       // Saves written before a release can't pick new library entries up from
       // the seed, so each version bump backfills them here — once. Deleting one
@@ -1482,6 +1609,11 @@ const useStore = create(
         if (!persisted || from >= 13) return persisted
         const s = { ...persisted }
         const t = todayStr()
+        if (from < 14) {
+          // A save written before pauses existed has none. The key is created
+          // so nothing downstream has to guard for it.
+          s.pauses = s.pauses || []
+        }
         if (from < 13) {
           // A save written before the Bloods tab existed has no results at all,
           // so it gets the seed — the same import a fresh install gets. A save
@@ -1670,6 +1802,7 @@ const useStore = create(
         sharedDraws: persisted?.sharedDraws || current.sharedDraws,
         doseEvents: persisted?.doseEvents || current.doseEvents,
         pushes: persisted?.pushes || current.pushes,
+        pauses: persisted?.pauses || current.pauses,
         bloods: { ...current.bloods, ...(persisted?.bloods || {}) },
         runs: { ...current.runs, ...(persisted?.runs || {}) },
         // merged rather than replaced, so a setting added in a later release

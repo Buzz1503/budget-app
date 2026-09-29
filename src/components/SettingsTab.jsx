@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import * as Icons from 'lucide-react'
 import {
   Download, RotateCcw, Award, History, ShieldCheck, Upload, CalendarPlus, Check, AlertTriangle, Wand2,
+  Pause,
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import useStore, { todayStr } from '../store/useStore'
@@ -13,6 +14,9 @@ import { buildIcs } from '../lib/calendar'
 import { deliveryEvents } from '../lib/restock'
 import { addDaysStr } from '../lib/schedule'
 import { DEFAULT_FX_USD_TO_AUD } from '../lib/cost'
+import { activePause } from '../lib/pauses'
+import PauseSheet from './PauseSheet'
+import PauseHistory from './PauseHistory'
 
 export default function SettingsTab({ goTo }) {
   const settings = useStore((s) => s.settings)
@@ -22,6 +26,9 @@ export default function SettingsTab({ goTo }) {
   const resetAll = useStore((s) => s.resetAll)
   const undoLog = useStore((s) => s.undoLog)
   const [confirmReset, setConfirmReset] = useState(false)
+  const [pausing, setPausing] = useState(false)
+  const pauses = useStore((s) => s.pauses)
+  const live = activePause(pauses, todayStr())
 
 
   const exportJson = () => {
@@ -57,6 +64,18 @@ export default function SettingsTab({ goTo }) {
         <p className="text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
           Lead time, currency, backup and reset
         </p>
+      </div>
+
+      {/* Breaks. Above the rest because it is the one thing here you press
+          rather than configure, and the day you want it you want it now. */}
+      <div className="space-y-2">
+        <button onClick={() => setPausing(true)} disabled={!!live} data-testid="settings-pause"
+          className="flex w-full items-center justify-center gap-2 rounded-full py-3 text-sm font-black disabled:opacity-40"
+          style={{ background: 'var(--surface-sunk)', color: 'var(--text)' }}>
+          <Pause size={15} /> {live ? 'Already paused' : 'Pause the protocol'}
+        </button>
+        <p className="px-1 t-caption" style={{ color: 'var(--text-2)' }}>Breaks</p>
+        <PauseHistory max={6} />
       </div>
 
       {/* settings */}
@@ -161,6 +180,7 @@ export default function SettingsTab({ goTo }) {
       <p className="pb-2 text-center text-xs font-medium" style={{ color: 'var(--text-2)' }}>
         Pepito + · data lives in your browser only
       </p>
+      <PauseSheet open={pausing} onClose={() => setPausing(false)} />
     </div>
   )
 }

@@ -6,6 +6,7 @@ import {
   CalendarArrowDown,
 } from 'lucide-react'
 import useStore, { todayStr } from '../store/useStore'
+import PauseHistory from './PauseHistory'
 import Modal from './ui/Modal'
 import NumberField from './ui/NumberField'
 import { format, parseISO } from 'date-fns'
@@ -85,9 +86,10 @@ function Stat({ label, value, sub, tone }) {
 export function TenureBlock({ peptide, onEdit }) {
   const runs = useStore((s) => s.runs)
   const titration = useStore((s) => s.titration)
+  const pauses = useStore((s) => s.pauses)
   const t = todayStr()
 
-  const tenure = useMemo(() => tenureFor(peptide, { runs, todayStr: t }), [peptide, runs, t])
+  const tenure = useMemo(() => tenureFor(peptide, { runs, pauses, todayStr: t }), [peptide, runs, t, pauses])
   if (!peptide || !tenure) return null
 
   const cycle = cyclePosition(peptide, t)
@@ -118,6 +120,15 @@ export function TenureBlock({ peptide, onEdit }) {
           Since {prettyDate(tenure.startedOn)}
           {multi && ` · ${tenure.runCount} separate runs`}
         </p>
+        {/* The run kept running through the break — you did not come off it —
+            so the days off are said beside the figure rather than taken out of
+            it, and the reader can decide which number they wanted. */}
+        {tenure.pausedWords && (
+          <p className="mt-0.5 text-xs font-semibold tabular-nums" data-testid="tenure-paused"
+            style={{ color: 'var(--text-3)' }}>
+            {tenure.pausedWords} in that time
+          </p>
+        )}
 
         <div className="mt-3 flex gap-3">
           {multi && <Stat label="Lifetime" value={tenure.lifetimeWords} sub={`longest ${tenure.longestRunWords}`} />}
@@ -186,16 +197,17 @@ export function DoseTimelineChart({ peptide }) {
   const pushes = useStore((s) => s.pushes)
   const runs = useStore((s) => s.runs)
   const titration = useStore((s) => s.titration)
+  const pauses = useStore((s) => s.pauses)
   const t = todayStr()
   const [picked, setPicked] = useState(null)
 
   const tl = useMemo(
-    () => doseTimeline(peptide, { doseEvents, doseLogs, skips, pushes, runs, titration, todayStr: t }),
-    [peptide, doseEvents, doseLogs, skips, pushes, runs, titration, t]
+    () => doseTimeline(peptide, { doseEvents, doseLogs, skips, pushes, pauses, runs, titration, todayStr: t }),
+    [peptide, doseEvents, doseLogs, skips, pushes, runs, titration, t, pauses]
   )
   const atDose = useMemo(
-    () => doseTenure(peptide, { doseEvents, titration, todayStr: t }),
-    [peptide, doseEvents, titration, t]
+    () => doseTenure(peptide, { doseEvents, titration, pauses, todayStr: t }),
+    [peptide, doseEvents, titration, t, pauses]
   )
 
   // Distinct dose levels, in the unit the compound is dosed in. One level means
@@ -268,6 +280,26 @@ export function DoseTimelineChart({ peptide }) {
         {tl.bands.filter((b) => !b.on).map((b) => (
           <rect key={`${b.from}-${b.to}`} x={x(b.from)} y={CH.padT} width={Math.max(1, x(b.to) - x(b.from))}
             height={base - CH.padT} fill="var(--text-3)" opacity="0.12" />
+        ))}
+
+        {/* Stretches the protocol was stopped, with the reason on them. Hatched
+            rather than merely shaded so they cannot be mistaken for an off-cycle
+            band, which is the one thing next to them that looks similar and
+            means something else entirely. */}
+        <defs>
+          <pattern id="pause-hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+            <rect width="6" height="6" fill="var(--warn)" opacity="0.10" />
+            <line x1="0" y1="0" x2="0" y2="6" stroke="var(--warn)" strokeWidth="1.5" opacity="0.30" />
+          </pattern>
+        </defs>
+        {tl.pauses.map((b) => (
+          <g key={`pause-${b.from}-${b.to}`} data-testid="timeline-pause" data-reason={b.reason}>
+            <rect x={x(b.from)} y={CH.padT} width={Math.max(2, x(b.to) - x(b.from))}
+              height={base - CH.padT} fill="url(#pause-hatch)" />
+            <text x={x(b.from) + 2} y={CH.padT + 9} fontSize="8" fontWeight="800" fill="var(--warn)">
+              {b.reason}
+            </text>
+          </g>
         ))}
 
         {/* one gridline per dose level, labelled with the dose itself — the
@@ -374,10 +406,11 @@ export function TimelineEvents({ peptide, onPick, picked }) {
   const pushes = useStore((s) => s.pushes)
   const runs = useStore((s) => s.runs)
   const titration = useStore((s) => s.titration)
+  const pauses = useStore((s) => s.pauses)
   const t = todayStr()
   const tl = useMemo(
-    () => doseTimeline(peptide, { doseEvents, doseLogs, skips, pushes, runs, titration, todayStr: t }),
-    [peptide, doseEvents, doseLogs, skips, pushes, runs, titration, t]
+    () => doseTimeline(peptide, { doseEvents, doseLogs, skips, pushes, pauses, runs, titration, todayStr: t }),
+    [peptide, doseEvents, doseLogs, skips, pushes, runs, titration, t, pauses]
   )
   if (!peptide || !tl.points.length) return null
   return (
@@ -488,10 +521,11 @@ function PointDetail({ pt, unit }) {
 export function DoseSparkline({ peptide, width = 56, height = 16 }) {
   const doseEvents = useStore((s) => s.doseEvents)
   const runs = useStore((s) => s.runs)
+  const pauses = useStore((s) => s.pauses)
   const t = todayStr()
   const tl = useMemo(
-    () => doseTimeline(peptide, { doseEvents, runs, todayStr: t }),
-    [peptide, doseEvents, runs, t]
+    () => doseTimeline(peptide, { doseEvents, runs, pauses, todayStr: t }),
+    [peptide, doseEvents, runs, t, pauses]
   )
   if (!tl.segments.length) return null
 
@@ -541,13 +575,14 @@ export function ExposureBlock({ peptide }) {
   const vials = useStore((s) => s.vials)
   const settings = useStore((s) => s.settings)
   const runs = useStore((s) => s.runs)
+  const pauses = useStore((s) => s.pauses)
   const t = todayStr()
 
   const e = useMemo(() => cumulativeExposure(peptide, {
     doseLogs, todayStr: t,
     usdPerVial: effectiveUsdPerVial(peptide, vials), fx: fxRate(settings),
   }), [peptide, doseLogs, vials, settings, t])
-  const tenure = useMemo(() => tenureFor(peptide, { runs, todayStr: t }), [peptide, runs, t])
+  const tenure = useMemo(() => tenureFor(peptide, { runs, pauses, todayStr: t }), [peptide, runs, t, pauses])
 
   if (!peptide || !e) return null
   // totals are carried in mg; a compound dosed in mcg should read in mcg
@@ -755,8 +790,9 @@ export function TenureEditor({ peptide, open, onClose }) {
 export function TenureLine({ peptide }) {
   const runs = useStore((s) => s.runs)
   const titration = useStore((s) => s.titration)
+  const pauses = useStore((s) => s.pauses)
   const t = todayStr()
-  const tenure = tenureFor(peptide, { runs, todayStr: t })
+  const tenure = tenureFor(peptide, { runs, pauses, todayStr: t })
   if (!tenure) return null
   const cycle = cyclePosition(peptide, t)
   const rung = currentRung(peptide, titration[peptide.id])
@@ -797,15 +833,16 @@ export function TenureTable({ onOpen }) {
   const runs = useStore((s) => s.runs)
   const titration = useStore((s) => s.titration)
   const doseEvents = useStore((s) => s.doseEvents)
+  const pauses = useStore((s) => s.pauses)
   const t = todayStr()
   const [sort, setSort] = useState('longest')
 
   const rows = useMemo(() => {
     const list = peptides.map((p) => ({
       p,
-      tenure: tenureFor(p, { runs, todayStr: t }),
+      tenure: tenureFor(p, { runs, pauses, todayStr: t }),
       cycle: cyclePosition(p, t),
-      atDose: doseTenure(p, { doseEvents, titration, todayStr: t }),
+      atDose: doseTenure(p, { doseEvents, titration, pauses, todayStr: t }),
     })).filter((r) => r.tenure)
     const on = (r) => r.tenure.currentDays ?? 0
     const at = (r) => r.atDose?.days ?? 0
@@ -813,7 +850,7 @@ export function TenureTable({ onOpen }) {
     if (sort === 'newest') return list.sort((a, b) => on(a) - on(b) || byName(a, b))
     if (sort === 'atdose') return list.sort((a, b) => at(b) - at(a) || byName(a, b))
     return list.sort((a, b) => on(b) - on(a) || byName(a, b))
-  }, [peptides, runs, titration, doseEvents, t, sort])
+  }, [peptides, runs, titration, doseEvents, t, sort, pauses])
 
   if (!rows.length) {
     return (
@@ -934,17 +971,31 @@ function TenureRow({ row, onOpen }) {
  * chart, because "four weeks at 0.5 mg before this" is the part people actually
  * want and it is not something a line can say.
  */
+/** Every break that touched this compound, wherever its history is read. */
+function CompoundPauses({ peptideId }) {
+  const pauses = useStore((s) => s.pauses)
+  const mine = pauses.filter((p) => !p.peptideIds || p.peptideIds.includes(peptideId))
+  if (!mine.length) return null
+  return (
+    <div className="space-y-2" data-testid="compound-pauses">
+      <p className="px-1 t-caption" style={{ color: 'var(--text-2)' }}>Breaks</p>
+      <PauseHistory peptideId={peptideId} compact />
+    </div>
+  )
+}
+
 export function CompoundDetail({ peptideId, open, onClose }) {
   const peptides = useStore((s) => s.peptides)
   const doseEvents = useStore((s) => s.doseEvents)
   const titration = useStore((s) => s.titration)
   const skips = useStore((s) => s.skips)
+  const pauses = useStore((s) => s.pauses)
   const t = todayStr()
   const [picked, setPicked] = useState(null)
   const peptide = peptides.find((p) => p.id === peptideId)
   if (!open || !peptide) return null
 
-  const atDose = doseTenure(peptide, { doseEvents, titration, todayStr: t })
+  const atDose = doseTenure(peptide, { doseEvents, titration, pauses, todayStr: t })
   const mySkips = (skips || []).filter((s) => s.peptideId === peptide.id)
 
   // Each step-up, with how long the dose before it had been held.
@@ -964,6 +1015,10 @@ export function CompoundDetail({ peptideId, open, onClose }) {
         <DoseTimelineChart peptide={peptide} />
         {/* the record stands whether or not the dose ever moved enough to plot */}
         <TimelineEvents peptide={peptide} picked={picked} onPick={setPicked} />
+        {/* Breaks, here as well as on the compound sheet: History is the other
+            way into this compound, and a stretch it was not being taken belongs
+            wherever its dose history is read. */}
+        <CompoundPauses peptideId={peptide.id} />
         <ExposureBlock peptide={peptide} />
 
         {stepUps.length > 0 && (

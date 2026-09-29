@@ -8,17 +8,18 @@ import { format, parseISO } from 'date-fns'
 import useStore, { todayStr } from '../store/useStore'
 import { addDaysStr } from '../lib/schedule'
 import {
-  weekSummary, adherenceTally, groupEvents, weekStart, monthStart,
+  weekSummary, groupEvents, weekStart, monthStart,
   monthGridRange, addMonths, EVENT_META, ADHERENCE_TONE, ADHERENCE_WORDS,
 } from '../lib/calendarView'
 import { useCalendarRange } from '../lib/useCalendarRange'
-import { missedOn, missedOralsOn, entryState } from '../lib/backfill'
+import { entryState } from '../lib/backfill'
 import { formatDose, formatUnitsLong } from '../lib/calc'
 import { buildIcs } from '../lib/calendar'
 import { deliveryEvents } from '../lib/restock'
-import Modal from './ui/Modal'
 import CoachTip from './ui/CoachTip'
 import BackfillSheet from './BackfillSheet'
+import MonthGrid from './MonthGrid'
+import DaySheet from './DaySheet'
 
 const DOW = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
@@ -85,14 +86,27 @@ export default function CalendarTab({ goTo }) {
         )}
       </div>
 
-      {view === 'week'
-        ? <WeekView cal={cal} onOpenDay={setDetail} />
-        : <MonthView cal={cal} anchor={anchor} onOpenDay={setDetail} />}
+      {/* Swipe as well as the arrows — a month grid on a phone is a thing you
+          flick through, and reaching for a 36px chevron each time is not. */}
+      <motion.div
+        key={view === 'week' ? weekStart(anchor) : monthStart(anchor)}
+        drag="x"
+        dragConstraints={{ left: 0, right: 0 }}
+        dragElastic={0.12}
+        onDragEnd={(e, info) => {
+          if (info.offset.x < -60) step(1)
+          else if (info.offset.x > 60) step(-1)
+        }}
+        initial={{ opacity: 0.6 }} animate={{ opacity: 1 }}
+        data-testid="calendar-pane">
+        {view === 'week'
+          ? <WeekView cal={cal} onOpenDay={setDetail} />
+          : <MonthGrid cal={cal} anchor={anchor} todayStr={t} onOpenDay={setDetail} />}
+      </motion.div>
 
       <IcsButton />
 
-      <DayDetail date={detail} day={detail ? cal.byDate[detail] : null} grouped={cal.grouped}
-        onClose={() => setDetail(null)} goTo={goTo}
+      <DaySheet open={!!detail} date={detail} onClose={() => setDetail(null)} goTo={goTo}
         onBackfill={(d) => { setDetail(null); setBackfill(d) }} />
 
       <BackfillSheet open={!!backfill} date={backfill} onClose={() => setBackfill(null)} />
@@ -270,153 +284,6 @@ function SlotLines({ day: d, slot }) {
         )
       })}
     </div>
-  )
-}
-
-// ---------- month ----------
-function MonthView({ cal, anchor, onOpenDay }) {
-  const inMonth = (date) => date.slice(0, 7) === anchor.slice(0, 7)
-  const monthDays = cal.days.filter((d) => inMonth(d.date))
-  const tally = useMemo(() => adherenceTally(monthDays), [monthDays])
-
-  return (
-    <div className="space-y-3">
-      <div className="card p-2">
-        <div className="grid grid-cols-7 gap-1">
-          {DOW.map((w) => (
-            <p key={w} className="text-center text-xs font-black uppercase" style={{ color: 'var(--text-2)' }}>{w[0]}</p>
-          ))}
-          {cal.days.map((d) => (
-            <MonthCell key={d.date} day={d} muted={!inMonth(d.date)} onOpen={() => onOpenDay(d.date)} />
-          ))}
-        </div>
-      </div>
-
-      {/* heatmap legend — colours are labelled, never colour alone */}
-      <div className="card p-3">
-        <p className="mb-2 text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text)' }}>
-          Adherence this month{tally.pct != null ? ` · ${tally.pct}% fully done` : ''}
-        </p>
-        <div className="flex flex-wrap gap-x-3 gap-y-2">
-          {['all', 'partial', 'missed', 'pending', 'future'].map((k) => (
-            <span key={k} className="flex items-center gap-2 text-xs font-bold">
-              <span className="h-3 w-3 rounded" style={{ background: ADHERENCE_TONE[k] }} />
-              {ADHERENCE_WORDS[k]}{k !== 'future' && k !== 'pending' ? ` · ${tally[k]}` : ''}
-            </span>
-          ))}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function MonthCell({ day: d, muted, onOpen }) {
-  const tone = ADHERENCE_TONE[d.adherence]
-  const hasEvent = d.events.length > 0
-  return (
-    <button onClick={onOpen} data-testid={`cal-cell-${d.date}`}
-      className="relative flex aspect-square flex-col items-center justify-center rounded-full"
-      aria-label={`${format(parseISO(d.date), 'd MMMM')} — ${d.scheduled} scheduled, ${ADHERENCE_WORDS[d.adherence]}`}
-      style={{
-        background: d.adherence === 'none' ? 'transparent' : `color-mix(in srgb, ${tone} ${d.adherence === 'future' ? 60 : 26}%, transparent)`,
-        opacity: muted ? 0.32 : 1,
-        border: d.isToday ? '1.5px solid var(--good)' : '1px solid transparent',
-      }}>
-      <span className="text-xs font-black leading-none">{format(parseISO(d.date), 'd')}</span>
-      {d.scheduled > 0 && (
-        <span className="mt-1 text-[8px] font-black leading-none" style={{ color: tone }}>
-          {d.shots}
-        </span>
-      )}
-      {hasEvent && (
-        <span className="absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full"
-          style={{ background: EVENT_META[d.events[0].kind].tone }} />
-      )}
-    </button>
-  )
-}
-
-// ---------- day detail ----------
-function DayDetail({ date, day, grouped, onClose, goTo, onBackfill }) {
-  if (!date) return null
-  const missed = day ? missedOn(day).length + missedOralsOn(day).length : 0
-  return (
-    <Modal open={!!date} onClose={onClose} title={format(parseISO(date), 'EEEE d MMMM')} wide>
-      <div className="space-y-3">
-        {day && day.scheduled === 0 && day.events.length === 0 && (
-          <p className="py-4 text-center text-sm font-bold" style={{ color: 'var(--text-2)' }}>
-            Nothing scheduled — a clear day.
-          </p>
-        )}
-
-        {day && day.scheduled > 0 && (
-          <p className="text-xs font-bold" style={{ color: 'var(--text-2)' }}>
-            {day.shots} shot{day.shots === 1 ? '' : 's'} · {day.scheduled} dose{day.scheduled === 1 ? '' : 's'}
-            {(day.isPast || day.isToday) && ` · ${day.done} logged`}
-            {day.isFuture && ' · projected'}
-          </p>
-        )}
-
-        {['AM', 'PM'].map((slot) => (
-          day?.slots[slot].length > 0 && (
-            <div key={slot} className="rounded-[14px] p-3" style={{ background: 'var(--surface-sunk)' }}>
-              <p className="mb-2 flex items-center gap-1 text-xs font-black uppercase tracking-wide"
-                style={{ color: 'var(--text-2)' }}>
-                {slot === 'AM' ? <Sun size={11} /> : <Moon size={11} />} {slot}
-              </p>
-              <SlotLines day={day} slot={slot} />
-            </div>
-          )
-        ))}
-
-        {day?.events.length > 0 && (
-          <div className="space-y-1">
-            <p className="text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-2)' }}>On this day</p>
-            {day.events.map((e, i) => (
-              <p key={i} className="flex items-start gap-2 text-xs font-bold" style={{ color: EVENT_META[e.kind].tone }}>
-                <span className="shrink-0">{EVENT_META[e.kind].glyph}</span>
-                <span>{e.text}{e.dose ? ` — ${formatDose(e.dose, e.unit)}` : ''}</span>
-              </p>
-            ))}
-          </div>
-        )}
-
-        {/* the way into a correction is the day that needs one */}
-        {missed > 0 && (
-          <div className="rounded-[14px] p-3" data-testid="day-missed"
-            style={{ background: 'color-mix(in srgb, var(--danger) 14%, transparent)' }}>
-            <p className="flex items-center gap-1.5 text-xs font-black" style={{ color: 'var(--danger)' }}>
-              <AlertCircle size={13} strokeWidth={3} />
-              {missed} missed — nothing recorded either way
-            </p>
-            <button onClick={() => onBackfill?.(date)} data-testid="day-catch-up"
-              className="btn-primary mt-2 w-full rounded-full py-3 text-xs font-black">
-              Add what I took that day
-            </button>
-          </div>
-        )}
-
-        {day?.isPast && missed === 0 && day.scheduled > 0 && (
-          <button onClick={() => onBackfill?.(date)} data-testid="day-open-backfill"
-            className="w-full rounded-full py-3 text-xs font-black"
-            style={{ background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
-            Correct this day
-          </button>
-        )}
-
-        {day?.isToday && (
-          <button onClick={() => { onClose(); goTo?.('today') }}
-            className="btn-primary w-full rounded-full py-3 text-sm font-black">
-            Go to today's list to log
-          </button>
-        )}
-        {!grouped && day?.scheduled > 1 && (
-          <p className="text-xs font-medium" style={{ color: 'var(--text-2)' }}>
-            Co-draw grouping is still loading, so each dose is counted as its own syringe here.
-          </p>
-        )}
-      </div>
-    </Modal>
   )
 }
 

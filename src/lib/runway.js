@@ -68,7 +68,7 @@ export function anecdotalWeeklyMg(compoundId, vials = []) {
  * claiming to know three different things equally well.
  */
 export function stockRunway({
-  peptideId, peptide, tState, openVial, vials = [], doseLogs = [], todayStr, leadDays = 30,
+  peptideId, peptide, tState, openVial, vials = [], doseLogs = [], todayStr, leadDays = 30, pauses = [],
 }) {
   const id = peptideId || peptide?.id
   const shelfMg = sealedMg(vials, id)
@@ -77,12 +77,12 @@ export function stockRunway({
   const vialCount = sealedCount(vials, id)
 
   // Your own protocol, whenever there is one with a dose in it.
-  const own = peptide ? runwayFor(peptide, tState, openVial, vials, doseLogs, todayStr, leadDays) : null
+  const own = peptide ? runwayFor(peptide, tState, openVial, vials, doseLogs, todayStr, leadDays, pauses) : null
   if (own && own.perWeekMg > 0) {
     return {
       ...own,
       basis: 'protocol',
-      words: durationWords(own.days),
+      words: own.pausedIndefinitely ? 'paused' : durationWords(own.days),
       freqWords: FREQ_WORDS[peptide.frequency] || peptide.frequency,
       note: 'From your protocol',
     }

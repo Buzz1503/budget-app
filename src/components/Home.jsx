@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Check, Info, Clock, AlertTriangle, Sun, Moon, ChevronRight, Syringe, X, ShieldCheck, Layers, Wind, Bell, Zap, SkipForward, Undo2, PackageOpen, MoreHorizontal, RotateCw, CalendarArrowDown, SlidersHorizontal } from 'lucide-react'
+import { Check, Info, Clock, AlertTriangle, Sun, Moon, ChevronRight, Syringe, X, ShieldCheck, Layers, Wind, Bell, Zap, SkipForward, Undo2, PackageOpen, MoreHorizontal, RotateCw, CalendarArrowDown, SlidersHorizontal, Pause, Play } from 'lucide-react'
 import useStore, { todayStr } from '../store/useStore'
 import { cyclePhase, currentRung, stepUpDue, addDaysStr, prettyDate } from '../lib/schedule'
 import { isDueToday, slotOf, isDueSlot, currentSlot, slotIsFlexible, needsProtocolSetup } from '../lib/daily'
@@ -19,10 +19,14 @@ import CoDrawModal from './CoDrawModal'
 import { dueInSlot, takenOn, FORM_LABEL } from '../lib/supplements'
 import { skippedOn, supplementsSkippedOn, skipFor, SKIP_REASONS, REASON_LABEL } from '../lib/skips'
 import { dueWithPushes, canPushOn, pushedLabel } from '../lib/pushes'
+import {
+  activePause, pausedDays, reasonWords, scopeWords, pauseEnd, isPausedOn, pauseDates,
+} from '../lib/pauses'
 import { activeVialStatus, coverageFor, coverageWords } from '../lib/stock'
 import ReplaceVial from './ReplaceVial'
 import CompoundSheet from './CompoundSheet'
 import DoseChangeSheet from './DoseChangeSheet'
+import PauseSheet, { HeldStepUpSheet } from './PauseSheet'
 import { FormIcon } from './SupplementsTab'
 
 const spring = { type: 'spring', stiffness: 260, damping: 22 }
@@ -37,6 +41,7 @@ export default function Home({ goTo }) {
   const settings = useStore((s) => s.settings)
   const restock = useStore((s) => s.restock)
   const updateSettings = useStore((s) => s.updateSettings)
+  const pauses = useStore((s) => s.pauses)
 
   const t = todayStr()
   const [slot, setSlot] = useState(() => currentSlot())
@@ -105,6 +110,8 @@ export default function Home({ goTo }) {
   const [replacing, setReplacing] = useState(null)
   const [sheetId, setSheetId] = useState(null)
   const [dosing, setDosing] = useState(null)
+  const [pausing, setPausing] = useState(false)
+  const [heldFor, setHeldFor] = useState(null)
   const slotSupps = useMemo(() => dueInSlot(supplements, slot), [supplements, slot])
   const takenIds = useMemo(() => takenOn(supplementLogs, t), [supplementLogs, t])
   const suppDone = slotSupps.filter((x) => takenIds.has(x.id)).length
@@ -296,10 +303,10 @@ export default function Home({ goTo }) {
    * to say about it. Off the cards and into the bell, once, on the day.
    */
   const milestones = useMemo(() => peptides.map((p) => {
-    const ten = tenureFor(p, { runs, todayStr: t })
+    const ten = tenureFor(p, { runs, pauses, todayStr: t })
     const hit = ten?.running ? milestonesFor(ten.currentDays).today : null
     return hit ? { id: p.id, text: `${displayName(p)} — ${hit.label} on it today.` } : null
-  }).filter(Boolean), [peptides, runs, t])
+  }).filter(Boolean), [peptides, runs, t, pauses])
 
   // Everything still owed today across both slots, so the bell can clear it.
   const overdueToday = useMemo(() => [
@@ -360,6 +367,8 @@ export default function Home({ goTo }) {
           </div>
         </div>
       </div>
+
+      <PausedBanner onPause={() => setPausing(true)} onAskStepUp={setHeldFor} />
 
       {/* first-run pointer at the row */}
       <CoachTip id="log-button" when={slotDue.length > 0}>
@@ -473,6 +482,9 @@ export default function Home({ goTo }) {
         onClose={() => setSheetId(null)} goTo={goTo} />
 
       <DoseChangeSheet peptideId={dosing} open={!!dosing} onClose={() => setDosing(null)} />
+
+      <PauseSheet open={pausing} onClose={() => setPausing(false)} />
+      <HeldStepUpSheet peptideId={heldFor} open={!!heldFor} onClose={() => setHeldFor(null)} />
 
       <SkipSheet
         target={skipping}
@@ -833,6 +845,100 @@ function BellAction({ children, onClick, primary, testid }) {
  * user had already read. Dismissal is persisted in settings, so it never comes
  * back; the ⓘ in the header reopens it on demand.
  */
+/**
+ * The protocol is stopped, and this says so before anything else does.
+ *
+ * Without it the screen below reads as an ordinary day with nothing logged,
+ * which is exactly the ambiguity a pause exists to remove. The reason is on it
+ * because "paused" on its own is the thing you will not remember in March.
+ *
+ * Resume is here rather than buried in Settings: the day you want it is the day
+ * you open the app meaning to take something, and that is this screen.
+ */
+function PausedBanner({ onPause, onAskStepUp }) {
+  const pauses = useStore((s) => s.pauses)
+  const peptides = useStore((s) => s.peptides)
+  const titration = useStore((s) => s.titration)
+  const endPause = useStore((s) => s.endPause)
+  const restorePause = useStore((s) => s.restorePause)
+  const showToast = useStore((s) => s.showToast)
+  const t = todayStr()
+  const live = activePause(pauses, t)
+
+  // A step-up whose interval ran out while nothing was being taken. Asked about
+  // on the way back in, one compound at a time, rather than applied silently.
+  const held = useMemo(() => {
+    if (live) return []
+    return peptides.filter((p) => {
+      const ts = titration[p.id]
+      if (!ts?.levelStartDate) return false
+      const { level, maxLevel } = currentRung(p, ts)
+      if (level >= maxLevel) return false
+      const wasPaused = pauses.some((x) => (!x.peptideIds || x.peptideIds.includes(p.id))
+        && pauseEnd(x) && pauseEnd(x) >= ts.levelStartDate)
+      if (!wasPaused) return false
+      return stepUpDue(p, ts, t)
+    })
+  }, [live, peptides, titration, pauses, t])
+
+  if (!live) {
+    if (!held.length) return null
+    return (
+      <div className="card p-3" data-testid="held-step-ups"
+        style={{ background: 'color-mix(in srgb, var(--info) 12%, transparent)' }}>
+        <p className="t-caption" style={{ color: 'var(--info)' }}>Held while you were paused</p>
+        <div className="mt-1.5 flex flex-wrap gap-1.5">
+          {held.map((p) => (
+            <button key={p.id} onClick={() => onAskStepUp?.(p.id)} data-testid="held-step-up-open"
+              className="rounded-full px-2.5 py-1.5 text-xs font-black"
+              style={{ background: 'var(--surface-sunk)', color: 'var(--text)' }}>
+              {displayName(p)} — step up?
+            </button>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  const days = pausedDays(live, t)
+  const end = pauseEnd(live)
+
+  return (
+    <div className="card p-3" data-testid="paused-banner" data-reason={live.reason}
+      style={{ background: 'var(--surface-sunk)' }}>
+      <div className="flex items-start gap-2.5">
+        <Pause size={15} className="mt-0.5 shrink-0" style={{ color: 'var(--text-2)' }} />
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-black">
+            Paused · <span style={{ color: 'var(--text-2)' }}>{reasonWords(live)}</span>
+          </p>
+          <p className="text-xs font-semibold tabular-nums" style={{ color: 'var(--text-2)' }}>
+            {days} day{days === 1 ? '' : 's'} · {scopeWords(live, peptides)} · {pauseDates(live)}
+          </p>
+          {live.note && (
+            <p className="mt-1 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-3)' }}>
+              {live.note}
+            </p>
+          )}
+          <p className="mt-1 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-3)' }}>
+            {end
+              ? `Back on its own on ${prettyDate(addDaysStr(end, 1))}.`
+              : 'Nothing here counts as missed. Log a dose anyway if you take one.'}
+          </p>
+        </div>
+      </div>
+      <button onClick={() => {
+        const r = endPause(live.id)
+        if (!r) return
+        showToast('Back on the protocol', () => restorePause(r.removed ? r.pause : { ...r.pause, endedOn: null }))
+      }} data-testid="resume-protocol"
+        className="btn-primary mt-2.5 flex w-full items-center justify-center gap-2 rounded-full py-2.5 text-xs font-black">
+        <Play size={13} /> Resume
+      </button>
+    </div>
+  )
+}
+
 function Disclaimer({ open, firstRun, onClose }) {
   return (
     <Modal open={open} onClose={firstRun ? undefined : onClose} title="Pepito +">

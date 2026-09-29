@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { History, Syringe, FileText, Filter, CalendarArrowDown } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import useStore, { todayStr } from '../store/useStore'
+import PauseHistory from './PauseHistory'
 import { adherenceSummary, historyEvents, WINDOWS, windowRange } from '../lib/adherence'
 import { formatDose } from '../lib/calc'
 import { SymptomHistory } from './SymptomsTab'
@@ -27,6 +28,7 @@ export default function HistoryTab() {
   const doseLogs = useStore((s) => s.doseLogs)
   const skips = useStore((s) => s.skips)
   const pushes = useStore((s) => s.pushes)
+  const pauses = useStore((s) => s.pauses)
   const t = todayStr()
 
   const [days, setDays] = useState(30)
@@ -37,8 +39,8 @@ export default function HistoryTab() {
 
   // pushes are handed in so a moved dose is not reported as a missed one
   const summary = useMemo(
-    () => adherenceSummary(peptides, doseLogs, from, to, pushes),
-    [peptides, doseLogs, from, to, pushes]
+    () => adherenceSummary(peptides, doseLogs, from, to, pushes, pauses),
+    [peptides, doseLogs, from, to, pushes, pauses]
   )
   const events = useMemo(
     () => historyEvents(doseLogs, peptides, { peptideId, from, to }),
@@ -90,6 +92,10 @@ export default function HistoryTab() {
       </p>
 
       {/* ------------------------------------------------ secondary, below */}
+
+      {/* Breaks, where the adherence figure below is read — a thin month makes
+          a different kind of sense once you can see a fortnight was paused. */}
+      <PauseHistory max={4} compact />
 
       <p className="px-1 pt-2 t-caption" style={{ color: 'var(--text-2)' }}>The log</p>
 

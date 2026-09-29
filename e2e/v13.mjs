@@ -32,7 +32,7 @@ const state = () => page.evaluate(() => JSON.parse(localStorage.getItem('peptide
 // body read sees the *outgoing* screen. Wait for something only the incoming
 // screen renders before asserting anything.
 const TAB_MARK = {
-  Home: /Pepito \+/, Calendar: /This week|Adherence this month/, Symptoms: /Symptom|How are you/i,
+  Home: /Pepito \+/, Calendar: /This week|doses logged/, Symptoms: /Symptom|How are you/i,
   Body: /How to measure/, More: /Build \/ rebuild my protocol/,
 }
 const nav = async (label) => {
@@ -166,18 +166,30 @@ await step('tapping a day opens its detail', async () => {
   await closeModal()
 })
 
+// v32 rebuilt the month as a grid of rings and dots. The heatmap's standing
+// legend went with it — the same words now live behind a fold, because they are
+// read once and then occupy the screen forever after.
 await step('month view renders a whole-week grid with per-day indicators', async () => {
   await page.click('button:has-text("Month")')
-  await waitText(/Adherence this month/)
+  await page.waitForSelector('[data-testid="month-grid"]', { timeout: 10000 })
   const cells = await page.locator('[data-testid^="cal-cell-"]').count()
   if (cells % 7 !== 0 || cells < 28) throw new Error(`month grid has ${cells} cells`)
+  // every cell says its own state in words, for anyone not reading the colours
+  const labels = await page.locator('[data-testid^="cal-cell-"]').evaluateAll(
+    (els) => els.map((e) => e.getAttribute('aria-label')))
+  if (labels.some((l) => !l || !/\d/.test(l))) throw new Error('a cell has no spoken label')
 })
 
-await step('the adherence heatmap legend names every colour in words', async () => {
-  const txt = await body()
-  for (const w of ['all taken', 'some taken', 'missed', 'still to do', 'scheduled']) {
+await step('the legend names every mark in words, once asked for', async () => {
+  if (await page.locator('[data-testid="legend"]').count()) throw new Error('the legend occupies the screen by default')
+  await page.click('[data-testid="legend-toggle"]')
+  await page.waitForTimeout(500)
+  const txt = await page.locator('[data-testid="legend"]').innerText()
+  for (const w of ['Logged', 'Missed', 'Skipped', 'Pushed', 'Paused']) {
     if (!txt.includes(w)) throw new Error(`legend is missing "${w}"`)
   }
+  await page.click('[data-testid="legend-toggle"]')
+  await page.waitForTimeout(400)
 })
 
 await step('event markers appear on the calendar', async () => {
@@ -206,7 +218,7 @@ await step('event markers appear on the calendar', async () => {
 
 await step('.ics export downloads from the Calendar', async () => {
   await nav('Calendar')
-  await page.waitForTimeout(300)
+  await page.waitForSelector('button:has-text("Add to phone calendar")', { timeout: 10000 })
   const [dl] = await Promise.all([
     page.waitForEvent('download', { timeout: 12000 }),
     page.click('button:has-text("Add to phone calendar")'),

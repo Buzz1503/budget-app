@@ -3,25 +3,34 @@ import { addDaysStr, daysBetween } from './schedule'
 /**
  * Working out what a day that has already been and gone still owes you.
  *
- * A scheduled dose on a past day is in exactly one of three states, and they
- * are not interchangeable: it was taken (a log exists), it was deliberately
- * skipped (a skip exists — a decision, not a lapse), or it was missed (neither,
- * so the day passed and nothing was recorded either way). Only the third is
- * something to catch up on.
+ * A scheduled dose on a past day is in exactly one of four states, and they are
+ * not interchangeable: it was taken (a log exists), it was deliberately skipped
+ * (a skip exists — a decision, not a lapse), it fell inside a pause (the
+ * protocol was not running, which is neither of the first two), or it was missed
+ * (none of those, so the day passed and nothing was recorded either way). Only
+ * the last is something to catch up on.
  */
 
 export const DOSE_STATES = {
   logged: { id: 'logged', label: 'Logged', words: 'taken and recorded' },
   skipped: { id: 'skipped', label: 'Skipped', words: 'deliberately not taken' },
+  paused: { id: 'paused', label: 'Paused', words: 'the protocol was on a break' },
   missed: { id: 'missed', label: 'Missed', words: 'nothing recorded either way' },
   due: { id: 'due', label: 'Due', words: 'still to do today' },
   scheduled: { id: 'scheduled', label: 'Scheduled', words: 'coming up' },
 }
 
-/** Which of the three states one calendar entry is in. */
+/**
+ * Which state one calendar entry is in.
+ *
+ * A dose taken during a pause still reads as logged: you took it, and the break
+ * does not unmake that. Everything else inside a pause reads as paused, which is
+ * what stops a fortnight away being drawn as a fortnight of misses.
+ */
 export function entryState(entry, day) {
   if (entry.taken) return 'logged'
   if (entry.skipped) return 'skipped'
+  if (entry.paused) return 'paused'
   if (day.isFuture) return 'scheduled'
   if (day.isToday) return 'due'
   return 'missed'

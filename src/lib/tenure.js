@@ -1,6 +1,7 @@
 import { format, parseISO } from 'date-fns'
 import { daysBetween, addDaysStr, cycleInfo, cyclePhase, currentRung, dosesPerWeek } from './schedule'
 import { toMg } from './calc'
+import { pausedDaysBetween, pauseBands } from './pauses'
 
 /**
  * How long you have been on something, and what the dose has done meanwhile.
@@ -59,7 +60,7 @@ export function runsFor(peptide, runs = {}) {
  * my life has this compound been part of" — and a single number would be the
  * wrong answer to one of them.
  */
-export function tenureFor(peptide, { runs = {}, todayStr } = {}) {
+export function tenureFor(peptide, { runs = {}, pauses = [], todayStr } = {}) {
   const list = runsFor(peptide, runs)
   if (!list.length || !todayStr) return null
 
@@ -70,6 +71,10 @@ export function tenureFor(peptide, { runs = {}, todayStr } = {}) {
   const lifetimeDays = list.reduce((n, r) => n + runDays(r), 0)
   const currentDays = open ? runDays(open) : 0
   const longestRunDays = list.reduce((n, r) => Math.max(n, runDays(r)), 0)
+  // A pause does not end a run — you have not come off the compound, you have
+  // stopped for a fortnight — so the run keeps running and the days off are
+  // reported beside it rather than subtracted from it.
+  const pausedDays = open ? pausedDaysBetween(pauses, peptide.id, open.startedOn, todayStr) : 0
 
   return {
     startedOn: list[0].startedOn,
@@ -79,6 +84,8 @@ export function tenureFor(peptide, { runs = {}, todayStr } = {}) {
     closedCount: closed.length,
     currentDays,
     currentWords: open ? durationWords(currentDays) : null,
+    pausedDays,
+    pausedWords: pausedDays > 0 ? `${pausedDays} day${pausedDays === 1 ? '' : 's'} paused` : null,
     lifetimeDays,
     lifetimeWords: durationWords(lifetimeDays),
     longestRunDays,
@@ -193,8 +200,8 @@ const EVENT_LABEL = {
  * typed in from memory rather than recorded at the time. Nothing downstream is
  * allowed to forget that distinction.
  */
-export function doseTimeline(peptide, { doseEvents = [], doseLogs = [], skips = [], pushes = [], runs = {}, titration = {}, todayStr } = {}) {
-  if (!peptide) return { points: [], bands: [], segments: [] }
+export function doseTimeline(peptide, { doseEvents = [], doseLogs = [], skips = [], pushes = [], pauses = [], runs = {}, titration = {}, todayStr } = {}) {
+  if (!peptide) return { points: [], bands: [], segments: [], pauses: [] }
 
   const points = []
 
@@ -294,6 +301,12 @@ export function doseTimeline(peptide, { doseEvents = [], doseLogs = [], skips = 
     }
   }
 
+  // Stretches the protocol was not running, shaded behind the line with the
+  // reason on them. Drawn as bands rather than points because a break has a
+  // length, and a marker on the day it started would say nothing about how long
+  // the line went quiet for.
+  const paused = (from && todayStr) ? pauseBands(pauses, peptide.id, from, todayStr) : []
+
   // Flat dose segments, for drawing the line itself.
   const segments = []
   let current = null
@@ -304,7 +317,7 @@ export function doseTimeline(peptide, { doseEvents = [], doseLogs = [], skips = 
     segments.push(current)
   }
 
-  return { points, bands, segments }
+  return { points, bands, segments, pauses: paused }
 }
 
 // ---------------------------------------------------------------- exposure
@@ -424,7 +437,7 @@ export function reassessPrompt(peptide, { tenure, titration = {}, todayStr } = {
  * It comes off the recorded dose events where there are any, and falls back to
  * the ladder's own bookkeeping where there are none.
  */
-export function doseTenure(peptide, { doseEvents = [], titration = {}, todayStr } = {}) {
+export function doseTenure(peptide, { doseEvents = [], titration = {}, pauses = [], todayStr } = {}) {
   if (!peptide || !todayStr) return null
   const unit = peptide.ladder?.unit
 
@@ -438,7 +451,13 @@ export function doseTenure(peptide, { doseEvents = [], titration = {}, todayStr 
   // happened. The ladder is the fallback, for a protocol with no events yet.
   const dose = last ? last.to : currentRung(peptide, titration[peptide.id]).dose
   const since = last?.date || titration[peptide.id]?.levelStartDate || peptide.startedOn || peptide.startDate
-  const days = since ? span(since, todayStr) : null
+  const elapsed = since ? span(since, todayStr) : null
+  // A fortnight paused is not a fortnight at this dose — you were not on it.
+  // Subtracting the break is what keeps "time at current dose" answering the
+  // question it claims to, and what stops a titration interval elapsing while
+  // nothing was being taken.
+  const pausedOut = since ? pausedDaysBetween(pauses, peptide.id, since, todayStr) : 0
+  const days = elapsed == null ? null : Math.max(0, elapsed - pausedOut)
 
   // "0.5 → 1.0 → 1.5 mg": the whole climb in one string, with the unit said
   // once at the end rather than after every number.
@@ -454,12 +473,14 @@ export function doseTenure(peptide, { doseEvents = [], titration = {}, todayStr 
     unit,
     since,
     days,
+    elapsed,
+    pausedDays: pausedOut,
     // "today at 250 mcg" reads like a dose due rather than a dose held
     words: days == null
       ? null
       : days === 0
         ? `Set today at ${formatUnit(dose, unit)}`
-        : `${durationWords(days)} at ${formatUnit(dose, unit)}`,
+        : `${durationWords(days)} at ${formatUnit(dose, unit)}${pausedOut > 0 ? ` · ${pausedOut} day${pausedOut === 1 ? '' : 's'} paused` : ''}`,
     steps,
     // a single number is not a progression, and saying so beats drawing an arrow
     progression: steps.length > 1
@@ -478,8 +499,8 @@ function formatUnit(value, unit) {
 }
 
 /** Everything a Protocol row needs in one call. */
-export function protocolTenure(peptide, { runs, titration, todayStr } = {}) {
-  const tenure = tenureFor(peptide, { runs, todayStr })
+export function protocolTenure(peptide, { runs, titration, pauses = [], todayStr } = {}) {
+  const tenure = tenureFor(peptide, { runs, pauses, todayStr })
   return {
     tenure,
     cycle: cyclePosition(peptide, todayStr),
