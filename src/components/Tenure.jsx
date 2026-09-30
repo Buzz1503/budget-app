@@ -6,6 +6,7 @@ import {
   CalendarArrowDown,
 } from 'lucide-react'
 import useStore, { todayStr } from '../store/useStore'
+import { SITE_COLOURS } from '../lib/peptideIdentity'
 import PauseHistory from './PauseHistory'
 import Modal from './ui/Modal'
 import NumberField from './ui/NumberField'
@@ -631,6 +632,7 @@ export function ExposureBlock({ peptide }) {
 export function TenureEditor({ peptide, open, onClose }) {
   const setStartedOn = useStore((s) => s.setStartedOn)
   const setShortName = useStore((s) => s.setShortName)
+  const updatePeptide = useStore((s) => s.updatePeptide)
   const addPriorDose = useStore((s) => s.addPriorDose)
   const removePriorDose = useStore((s) => s.removePriorDose)
   const showToast = useStore((s) => s.showToast)
@@ -638,6 +640,8 @@ export function TenureEditor({ peptide, open, onClose }) {
 
   const [date, setDate] = useState(peptide?.startedOn || t)
   const [short, setShort] = useState(peptide?.shortName || '')
+  const [code, setCode] = useState(peptide?.code || '')
+  const [colour, setColour] = useState(peptide?.colour || SITE_COLOURS[0].id)
   const [adding, setAdding] = useState(false)
   const [entry, setEntry] = useState(null)
 
@@ -660,6 +664,9 @@ export function TenureEditor({ peptide, open, onClose }) {
   const save = () => {
     if (date && date !== peptide.startedOn) setStartedOn(peptide.id, date)
     if (short.trim() !== (peptide.shortName || '')) setShortName(peptide.id, short)
+    const wantCode = code.trim().toUpperCase().slice(0, 3)
+    if (wantCode && wantCode !== peptide.code) updatePeptide(peptide.id, { code: wantCode })
+    if (colour !== peptide.colour) updatePeptide(peptide.id, { colour })
     showToast('Saved — nothing else moved')
     onClose()
   }
@@ -696,6 +703,35 @@ export function TenureEditor({ peptide, open, onClose }) {
         </label>
         <p className="text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
           Used in lists, where a long blend name would be cut off mid-word.
+        </p>
+
+        {/* An 18px pin has no room for a name, so the map uses these two. */}
+        <label className="block">
+          <span className="t-caption mb-1 block" style={{ color: 'var(--text-2)' }}>
+            Map code
+          </span>
+          <input className="input w-24 text-center uppercase" value={code} maxLength={3}
+            aria-label="Map code" data-testid="peptide-code"
+            onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))} />
+        </label>
+        <div>
+          <span className="t-caption mb-1 block" style={{ color: 'var(--text-2)' }}>Map colour</span>
+          <div className="flex flex-wrap gap-2" data-testid="peptide-colour">
+            {SITE_COLOURS.map((c) => (
+              <button key={c.id} onClick={() => setColour(c.id)} aria-label={c.label}
+                data-testid={`colour-${c.id}`} data-on={colour === c.id ? 'true' : 'false'}
+                className="h-8 w-8 rounded-full"
+                style={{
+                  background: c.hex,
+                  outline: colour === c.id ? '2px solid var(--text)' : 'none',
+                  outlineOffset: 2,
+                }} />
+            ))}
+          </div>
+        </div>
+        <p className="text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
+          Two or three letters and a colour, so a pin on the site map says which compound
+          went there without room for the full name.
         </p>
 
         {/* what was happening before there was a log to look at */}

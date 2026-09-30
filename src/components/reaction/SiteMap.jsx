@@ -6,7 +6,10 @@ import {
   WINDOWS, GROUPS, PIN_DIAMETER_PX, COMPOSITE_ASPECT, SCREEN_WIDTH,
   pinsFor, toScreen, windowHeightPx, nearestPin, validatePosition,
 } from '../../lib/sitePins'
-import { allPinStatus, suggestedPin } from '../../lib/reactionTracker'
+import { allPinStatus } from '../../lib/reactionTracker'
+import { recentUses, usesByPin, pinBadge, visibleChips, suggestSite, DEFAULT_WINDOW_DAYS } from '../../lib/siteRotation'
+import { colourHex } from '../../lib/peptideIdentity'
+import { displayName } from '../../lib/naming'
 
 const MIN_ZOOM = 1
 const MAX_ZOOM = 4
@@ -71,11 +74,13 @@ export function useMapPhoto() {
 export default function SiteMap({
   onSelect, selectedId = null, adjust = false, groupFilter: groupFilterProp,
   onAdjustWarning, fit = 'width', maxHeight, view: viewProp, onView, showChrome = true,
-  bleed = false,
+  bleed = false, forPeptideId = null, highlight = null,
 }) {
   const siteMap = useStore((s) => s.siteMap)
   const records = useStore((s) => s.injectionRecords)
   const reactions = useStore((s) => s.reactions)
+  const peptides = useStore((s) => s.peptides)
+  const windowDays = useStore((s) => s.reactionSettings?.windowDays ?? DEFAULT_WINDOW_DAYS)
   const setPinOverride = useStore((s) => s.setPinOverride)
   const photo = useMapPhoto()
 
@@ -136,10 +141,34 @@ export default function SiteMap({
     () => allPinStatus({ records, reactions, nowIso: new Date().toISOString() }),
     [records, reactions],
   )
-  const suggested = useMemo(
-    () => suggestedPin({ records, reactions, nowIso: new Date().toISOString() }),
-    [records, reactions],
+  // One query over the window, shared by the fills, the chips, the legend and
+  // the suggestion — rather than four passes over the same records.
+  const nowIso = useMemo(() => new Date().toISOString(), [records, reactions]) // eslint-disable-line react-hooks/exhaustive-deps
+  const uses = useMemo(
+    () => recentUses({ records, reactions, nowIso, windowDays }),
+    [records, reactions, nowIso, windowDays],
   )
+  const byPin = useMemo(() => usesByPin(uses), [uses])
+
+  const peptideById = useMemo(() => Object.fromEntries(peptides.map((p) => [p.id, p])), [peptides])
+  const codeOf = useCallback((id) => peptideById[id]?.code || '?', [peptideById])
+  const colourOf = useCallback((id) => colourHex(peptideById[id]), [peptideById])
+
+  const badges = useMemo(() => {
+    const out = {}
+    for (const pin of pins) {
+      const b = pinBadge(pin.id, uses, codeOf)
+      if (b) out[pin.id] = b
+    }
+    return out
+  }, [pins, uses, codeOf])
+
+  const suggested = useMemo(() => (
+    suggestSite(forPeptideId, {
+      records, reactions, nowIso, windowDays,
+      overrides, aspect,
+    })?.pinId || null
+  ), [forPeptideId, records, reactions, nowIso, windowDays, overrides, aspect])
 
   const reset = useCallback(() => { setZoom(1); setPan({ x: 0, y: 0 }) }, [])
   useEffect(() => { reset() }, [view, reset])
@@ -284,6 +313,61 @@ export default function SiteMap({
   // different coordinate space from its neighbours.
   const pctOf = (pin) => (dragging === pin.id && dragPct ? dragPct : pin)
 
+  /** A pin's centre in container pixels, after the zoom and pan transform. */
+  const centreOf = (pin) => {
+    const at = pctOf(pin)
+    const fx = (at.x - w.x0) / cropW
+    const fy = (at.y - w.y0) / cropH
+    return {
+      x: (fx * box.w - box.w / 2) * zoom + box.w / 2 + pan.x,
+      y: (fy * box.h - box.h / 2) * zoom + box.h / 2 + pan.y,
+    }
+  }
+
+  /**
+   * Which code chips survive at this zoom.
+   *
+   * Pins sit 44 px apart at default zoom and a chip is wider than that, so most
+   * of them would land on a neighbour. An overlapping chip is worse than none:
+   * it is unreadable and it hides the pin it is labelling. Newest first, so the
+   * most recent shot is the one that keeps its label — and the colour fill is
+   * on the pin itself, so a dropped chip loses the code, never the identity.
+   */
+  const shownChips = useMemo(() => {
+    const withBadge = pins.filter((p) => badges[p.id])
+    if (!withBadge.length) return new Set()
+    const pinBoxes = pins.map((p) => {
+      const c = centreOf(p)
+      return { id: p.id, box: { x: c.x - PIN_DIAMETER_PX / 2, y: c.y - PIN_DIAMETER_PX / 2, w: PIN_DIAMETER_PX, h: PIN_DIAMETER_PX } }
+    })
+    // newest use first, so priority follows recency
+    const order = [...withBadge].sort((a, b) => {
+      const ta = byPin[a.id]?.[0]?.record.timestamp || ''
+      const tb = byPin[b.id]?.[0]?.record.timestamp || ''
+      return String(tb).localeCompare(String(ta))
+    })
+    const chips = order.map((p) => {
+      const c = centreOf(p)
+      const text = badges[p.id].label + (badges[p.id].extra ? ` +${badges[p.id].extra}` : '')
+      const cw = text.length * 5.6 + 8
+      return { pinId: p.id, box: { x: c.x - cw / 2, y: c.y + PIN_DIAMETER_PX / 2 + 2, w: cw, h: 12 } }
+    })
+    return new Set(visibleChips(chips, pinBoxes))
+  }, [pins, badges, byPin, box, zoom, pan, dragPct, dragging]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const legend = useMemo(() => {
+    const seen = []
+    for (const pin of pins) {
+      const b = badges[pin.id]
+      if (!b) continue
+      for (const id of String(b.label).split('/')) {
+        const pep = peptides.find((x) => (x.code || '') === id)
+        if (pep && !seen.some((y) => y.id === pep.id)) seen.push(pep)
+      }
+    }
+    return seen
+  }, [pins, badges, peptides])
+
   return (
     <div className="flex min-h-0 flex-col">
       {showChrome && (
@@ -321,6 +405,19 @@ export default function SiteMap({
               </button>
             )
           })}
+        </div>
+      )}
+
+      {/* Only the compounds actually on the map right now. A fixed key listing
+          everything in the library would be mostly dead entries. */}
+      {legend.length > 0 && (
+        <div className="mb-2 flex shrink-0 flex-wrap gap-x-3 gap-y-1" data-testid="map-legend">
+          {legend.map((pep) => (
+            <span key={pep.id} className="flex items-center gap-1.5 text-xs font-bold" data-testid={`legend-${pep.id}`}>
+              <span className="h-2.5 w-2.5 rounded-full" style={{ background: colourHex(pep) }} />
+              <span style={{ color: 'var(--text-2)' }}>{pep.code} {displayName(pep)}</span>
+            </span>
+          ))}
         </div>
       )}
 
@@ -417,6 +514,17 @@ export default function SiteMap({
               const isSuggested = suggested === pin.id
               const big = selectedId === pin.id || dragging === pin.id
               const d = PIN_DIAMETER_PX * (big ? 1.5 : 1)
+              const badge = badges[pin.id]
+              const lit = highlight?.includes(pin.id)
+              // A pin used inside the window wears its peptide's colour; one
+              // that is reacting keeps the severity ring around it, so "whose
+              // is this" and "is it angry" are two separate readings rather
+              // than one colour trying to say both.
+              const fill = badge ? colourOf(badge.peptideId) : fillFor(st)
+              const ring = st?.status === 'reacting'
+                ? FILL[st.severity] || FILL.mild
+                : isSuggested ? 'var(--lime)' : 'rgba(255,255,255,0.9)'
+              const chipText = badge ? badge.label + (badge.extra ? ` +${badge.extra}` : '') : null
               return (
                 <div
                   key={pin.id}
@@ -424,24 +532,48 @@ export default function SiteMap({
                   data-status={st?.status || 'unused'}
                   data-dim={dim ? '1' : '0'}
                   data-suggested={isSuggested ? '1' : '0'}
-                  className="pointer-events-none absolute rounded-full"
+                  data-peptide={badge?.peptideId || ''}
+                  className="pointer-events-none absolute"
                   style={{
                     left: `${(at.x - w.x0) / cropW * 100}%`,
                     top: `${(at.y - w.y0) / cropH * 100}%`,
-                    width: d,
-                    height: d,
-                    marginLeft: -d / 2,
-                    marginTop: -d / 2,
                     // counter-scale: the gap between pins grows with the zoom,
                     // the pins themselves never do
                     transform: `scale(${1 / zoom})`,
                     transformOrigin: 'center center',
-                    background: fillFor(st),
                     opacity: dim ? 0.18 : opacityFor(st),
-                    border: `2px solid ${isSuggested ? 'var(--lime)' : 'rgba(255,255,255,0.9)'}`,
-                    boxShadow: isSuggested ? '0 0 0 3px color-mix(in srgb, var(--lime) 35%, transparent)' : 'none',
                   }}
-                />
+                >
+                  <div
+                    className="absolute rounded-full"
+                    style={{
+                      left: -d / 2,
+                      top: -d / 2,
+                      width: d,
+                      height: d,
+                      background: fill,
+                      border: `2px solid ${ring}`,
+                      boxShadow: isSuggested
+                        ? '0 0 0 3px color-mix(in srgb, var(--lime) 35%, transparent)'
+                        : lit ? '0 0 0 3px color-mix(in srgb, var(--info) 45%, transparent)' : 'none',
+                    }}
+                  />
+                  {chipText && shownChips.has(pin.id) && (
+                    <span
+                      data-testid={`chip-${pin.id}`}
+                      className="absolute whitespace-nowrap rounded-full px-1.5 text-[8px] font-black leading-[12px]"
+                      style={{
+                        top: d / 2 + 2,
+                        left: 0,
+                        transform: 'translateX(-50%)',
+                        background: 'rgba(0,0,0,0.65)',
+                        color: fill,
+                      }}
+                    >
+                      {chipText}
+                    </span>
+                  )}
+                </div>
               )
             })}
           </div>

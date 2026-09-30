@@ -16,6 +16,8 @@ import {
 } from '../../lib/reactionTracker'
 import SiteMap from './SiteMap'
 import SiteMapSettings from './SiteMapSettings'
+import { AddSite, RecentSitesList } from './LogOnBody'
+import { recentUses, pinBarLines, DEFAULT_WINDOW_DAYS } from '../../lib/siteRotation'
 
 const pct = (r) => (r == null ? '—' : `${Math.round(r * 100)}%`)
 
@@ -93,6 +95,12 @@ export default function ReactionTracker() {
   const [selected, setSelected] = useState(null)
 
   const due = checkDue(ctx)
+  const siteMap = useStore((st) => st.siteMap)
+  const windowDays = useStore((st) => st.reactionSettings?.windowDays ?? DEFAULT_WINDOW_DAYS)
+  const rotationCtx = useMemo(() => ({
+    ...ctx, windowDays, nameOf, overrides: siteMap?.pinOverrides || {},
+  }), [ctx, windowDays, nameOf, siteMap])
+  const windowUses = useMemo(() => recentUses(rotationCtx), [rotationCtx])
   const cards = useMemo(() => peptideScorecards(ctx), [ctx])
   const groups = useMemo(() => groupScorecards(ctx), [ctx])
   const line = useMemo(() => topLine(ctx, nameOf), [ctx, nameOf])
@@ -141,10 +149,19 @@ export default function ReactionTracker() {
           onSelect={(p) => setSelected(p)}
           selectedId={selected?.id || null}
         />
+        <div className="mt-3">
+          <RecentSitesList
+            uses={windowUses}
+            nameOf={nameOf}
+            onPick={(u) => setSelected(PIN_BY_ID[u.pinId])}
+          />
+        </div>
         {selected && (
           <div className="mt-3 rounded-[var(--r-sm)] p-3" style={{ background: 'var(--surface-sunk)' }} data-testid="pin-bar">
             <div className="text-sm font-black">{selected.label}</div>
-            <div className="t-caption mt-0.5" style={{ color: 'var(--text-2)' }}>{pinStatusWords(selected.id, ctx)}</div>
+            {pinBarLines(selected.id, rotationCtx).map((line, i) => (
+              <div key={i} className="t-caption mt-0.5" style={{ color: 'var(--text-2)' }}>{line}</div>
+            ))}
             <div className="mt-2 flex gap-2">
               <button className="chip" data-testid="pin-history" onClick={() => setPinOpen(selected.id)}>History</button>
               <button className="chip" data-testid="pin-confirm" onClick={() => { setLogOpen(selected.id); }}>Confirm</button>
@@ -410,6 +427,7 @@ export function EveningCheck({ open, onClose }) {
 
   const [meanings, setMeanings] = useState(false)
   const [others, setOthers] = useState(false)
+  const [addSite, setAddSite] = useState(null)
   const fresh = newSites(ctx)
   const still = openSites(ctx)
   const t = todayStr()
@@ -444,7 +462,7 @@ export function EveningCheck({ open, onClose }) {
             )}
             <div className="rows">
               {fresh.map((r) => (
-                <CheckRow key={r.id} record={r} nameOf={nameOf}>
+                <CheckRow key={r.id} record={r} nameOf={nameOf} onAddSite={setAddSite}>
                   <div className="mt-2 grid grid-cols-4 gap-1.5">
                     {SEVERITIES.map((s) => (
                       <button
@@ -469,7 +487,7 @@ export function EveningCheck({ open, onClose }) {
             <div className="t-label mb-2" style={{ color: 'var(--text-3)' }}>Still reacting</div>
             <div className="rows">
               {still.map(({ record, reaction }) => (
-                <CheckRow key={record.id} record={record} nameOf={nameOf} reaction={reaction}>
+                <CheckRow key={record.id} record={record} nameOf={nameOf} reaction={reaction} onAddSite={setAddSite}>
                   <div className="mt-2 flex gap-1.5">
                     <button
                       data-testid={`still-${record.id}`}
@@ -524,6 +542,13 @@ export function EveningCheck({ open, onClose }) {
 
         <button onClick={done} className="btn-primary w-full py-3" data-testid="check-done">Done</button>
       </div>
+      {addSite && (
+        <AddSite
+          doseLogId={addSite.doseLogId}
+          peptideId={addSite.peptideId}
+          onClose={() => setAddSite(null)}
+        />
+      )}
     </Modal>
   )
 }
@@ -554,14 +579,26 @@ function UpdateSeverity({ record, onPick }) {
 }
 
 /** One row: where, what, when — plus an optional photo. */
-function CheckRow({ record, reaction, nameOf, children }) {
+function CheckRow({ record, reaction, nameOf, children, onAddSite }) {
   const pin = PIN_BY_ID[record.pinId]
   const when = new Date(record.timestamp)
   return (
     <div className="py-2" data-testid={`check-row-${record.id}`}>
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
-          <div className="text-sm font-black">{pin?.label || 'Unpinned site'}</div>
+          <div className="text-sm font-black">
+            {pin?.label || 'No site'}
+            {!pin && (
+              <button
+                data-testid={`add-site-${record.id}`}
+                onClick={() => onAddSite?.(record)}
+                className="ml-2 t-caption underline"
+                style={{ color: 'var(--info)' }}
+              >
+                Add site
+              </button>
+            )}
+          </div>
           <div className="t-caption" style={{ color: 'var(--text-2)' }}>
             {nameOf(record.peptideId)} · {when.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             {record.mixed ? ' · mixed' : ''}

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Check, Info, Clock, AlertTriangle, Sun, Moon, ChevronRight, Syringe, X, ShieldCheck, Layers, Wind, Bell, Zap, SkipForward, Undo2, PackageOpen, MoreHorizontal, RotateCw, CalendarArrowDown, SlidersHorizontal, Pause, Play } from 'lucide-react'
+import { Check, Info, Clock, AlertTriangle, Sun, Moon, ChevronRight, Syringe, X, ShieldCheck, Layers, Wind, Bell, Zap, SkipForward, Undo2, PackageOpen, MoreHorizontal, RotateCw, CalendarArrowDown, SlidersHorizontal, Pause, Play, PersonStanding } from 'lucide-react'
 import useStore, { todayStr } from '../store/useStore'
 import { cyclePhase, currentRung, stepUpDue, addDaysStr, prettyDate } from '../lib/schedule'
 import { isDueToday, slotOf, isDueSlot, currentSlot, slotIsFlexible, needsProtocolSetup } from '../lib/daily'
@@ -28,6 +28,8 @@ import CompoundSheet from './CompoundSheet'
 import DoseChangeSheet from './DoseChangeSheet'
 import PauseSheet, { HeldStepUpSheet } from './PauseSheet'
 import { SafetyBanner, EveningCheckCard } from './reaction/ReactionTracker'
+import LogOnBody from './reaction/LogOnBody'
+import RecentSitesCard from './reaction/RecentSitesCard'
 import { FormIcon } from './SupplementsTab'
 
 const spring = { type: 'spring', stiffness: 260, damping: 22 }
@@ -111,6 +113,7 @@ export default function Home({ goTo }) {
   const [replacing, setReplacing] = useState(null)
   const [sheetId, setSheetId] = useState(null)
   const [dosing, setDosing] = useState(null)
+  const [logOnBody, setLogOnBody] = useState(null)
   const [pausing, setPausing] = useState(false)
   const paused = !!activePause(pauses, t)
   const [heldFor, setHeldFor] = useState(null)
@@ -387,6 +390,8 @@ export default function Home({ goTo }) {
 
       <EveningCheckCard />
 
+      <RecentSitesCard goTo={goTo} />
+
       {/* first-run pointer at the row */}
       <CoachTip id="log-button" when={slotDue.length > 0}>
         Tap a row to log it — that is the whole thing. Undo sits on the toast if you mis-tap,
@@ -434,6 +439,7 @@ export default function Home({ goTo }) {
           <DueCard key={p.id} peptide={p} index={i} done={loggedToday.has(p.id)}
             titration={titration}
             onLog={() => logDose(p.id)}
+            onLogOnBody={() => setLogOnBody(p.id)}
             onUnlog={() => {
               if (unlogToday(p.id)) showToast(`${displayName(p)} un-logged — back on the list`)
             }}
@@ -501,6 +507,7 @@ export default function Home({ goTo }) {
       <DoseChangeSheet peptideId={dosing} open={!!dosing} onClose={() => setDosing(null)} />
 
       <PauseSheet open={pausing} onClose={() => setPausing(false)} />
+      {logOnBody && <LogOnBody peptideId={logOnBody} onClose={() => setLogOnBody(null)} />}
       <HeldStepUpSheet peptideId={heldFor} open={!!heldFor} onClose={() => setHeldFor(null)} />
 
       <SkipSheet
@@ -1179,7 +1186,7 @@ function Tomorrow() {
  * all belong somewhere you go to read rather than somewhere you go to tap —
  * they are on the compound page and in the bell now.
  */
-function DueCard({ peptide: p, index, done, titration, onLog, onUnlog, onChangeDose, selected, onToggleSelect, skipped, skipReason, onSkip, onUnskip, onFinishVial, onOpenSheet, beckon, canPush, pushedFrom, onPush }) {
+function DueCard({ peptide: p, index, done, titration, onLog, onLogOnBody, onUnlog, onChangeDose, selected, onToggleSelect, skipped, skipReason, onSkip, onUnskip, onFinishVial, onOpenSheet, beckon, canPush, pushedFrom, onPush }) {
   const tState = titration[p.id]
   const { dose } = currentRung(p, tState)
   const nasal = isNasal(p)
@@ -1287,8 +1294,28 @@ function DueCard({ peptide: p, index, done, titration, onLog, onUnlog, onChangeD
               </motion.span>
             </motion.button>
           ) : (
-            <span className="btn-primary flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] text-xs font-black">
-              Log
+            /*
+              Two ways to log, stacked so the row cannot wrap at 390px.
+              Quick log is the row itself and stays one tap. Log on body is a
+              deliberate second choice, so it stops the click reaching the row
+              behind it — a mis-fire there would log the dose with no site and
+              leave nothing to correct it from.
+            */
+            <span className="flex shrink-0 flex-col items-center gap-1">
+              <span className="btn-primary flex h-11 w-11 items-center justify-center rounded-[14px] text-xs font-black">
+                Log
+              </span>
+              <motion.button
+                whileTap={{ scale: 0.92 }}
+                onClick={(e) => { e.stopPropagation(); onLogOnBody?.() }}
+                onKeyDown={(e) => e.stopPropagation()}
+                data-testid="log-on-body"
+                aria-label={`Log ${p.name} on body`}
+                className="flex h-8 w-11 items-center justify-center rounded-[12px]"
+                style={{ background: 'var(--surface-sunk)', color: 'var(--text-2)' }}
+              >
+                <PersonStanding size={16} />
+              </motion.button>
             </span>
           )}
         </motion.div>

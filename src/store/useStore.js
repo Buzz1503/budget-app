@@ -10,6 +10,8 @@ import { canPush } from '../lib/pushes'
 import { pauseEnd } from '../lib/pauses'
 import { findMixedGroup, severityRank, migrateReactionLab } from '../lib/reactionTracker'
 import { PIN_BY_ID } from '../lib/sitePins'
+import { withIdentity } from '../lib/peptideIdentity'
+import { DEFAULT_WINDOW_DAYS } from '../lib/siteRotation'
 import { seedTests as seedBloodTests, seedMarkers as seedBloodMarkers } from '../lib/bloods'
 import { currentRung, cycleInfo, addDaysStr, resolveDoseChange } from '../lib/schedule'
 import { isDueToday } from '../lib/daily'
@@ -42,7 +44,7 @@ const safeStorage = {
 
 function initialState() {
   const t = todayStr()
-  const peptides = seedPeptides(t)
+  const peptides = withIdentity(seedPeptides(t))
   return {
     peptides,
     vials: seedVials(peptides),
@@ -96,6 +98,7 @@ function initialState() {
     reactionSettings: {
       checkTime: '20:00',      // when the evening check becomes due
       lastCheckAt: null,       // the last time the check was actually answered
+      windowDays: DEFAULT_WINDOW_DAYS, // how far back "recent sites" looks
     },
     injectionRecords: [],      // {id, doseLogId, peptideId, pinId, siteGroup, side, timestamp, mixed}
     reactions: [],             // {injectionRecordId, ratings[], worstSeverity, goneAt, photoIds}
@@ -639,7 +642,66 @@ const useStore = create(
         const p = get()._recordDose(peptideId, new Date().toISOString(), null)
         if (!p) return
         const [id] = get()._lastLoggedIds(1)
+        get()._recordUnsited(peptideId, id)
         get().showToast(`${p.name} logged`, () => get().undoLog(id))
+      },
+
+      /**
+       * A live injection with no site chosen yet.
+       *
+       * A quick log still happened somewhere on a body, so it gets a record
+       * with a null pin rather than none at all. That is what lets the evening
+       * check offer "Add site" on it, and what keeps it counting towards the
+       * compound's own reaction rate while staying out of every per-site
+       * figure. Nasal doses are not injected and get nothing.
+       */
+      _recordUnsited(peptideId, doseLogId) {
+        const p = get().peptides.find((x) => x.id === peptideId)
+        if (!p || isNasal(p)) return null
+        return get().logInjection({ peptideId, pinId: null, doseLogId })
+      },
+
+      /**
+       * The same dose, with a site attached.
+       *
+       * Deliberately _recordDose plus logInjection rather than a second logging
+       * path: the dose log is what stock, adherence and every chart read, and a
+       * dose logged on the body has to be indistinguishable from a quick one in
+       * all of them. The only difference is that this one also knows where it
+       * went.
+       */
+      logDoseOnSite(peptideId, pinId) {
+        const p = get()._recordDose(peptideId, new Date().toISOString(), null)
+        if (!p) return null
+        const [id] = get()._lastLoggedIds(1)
+        const record = get().logInjection({ peptideId, pinId, doseLogId: id })
+        const pin = PIN_BY_ID[pinId]
+        get().showToast(
+          `Logged ${p.name}, ${pin?.label || 'no site'}`,
+          () => { get().removeInjectionRecord(record.id); get().undoLog(id) },
+        )
+        return record
+      },
+
+      /**
+       * Give an already-logged dose a site.
+       *
+       * Attaches to the existing dose rather than writing a second one — the
+       * drug was taken once, and a quick log that is later pinned is the same
+       * event with more known about it.
+       */
+      attachSiteToDose(doseLogId, pinId) {
+        const s = get()
+        const existing = s.injectionRecords.find((r) => r.doseLogId === doseLogId)
+        if (existing) {
+          get().updateInjectionRecord(existing.id, { pinId })
+          return existing
+        }
+        const log = s.doseLogs.find((l) => l.id === doseLogId)
+        if (!log) return null
+        return get().logInjection({
+          peptideId: log.peptideId, pinId, doseLogId, timestamp: log.loggedAt,
+        })
       },
 
       /**
@@ -659,6 +721,8 @@ const useStore = create(
           if (p) names.push(p.name)
         }
         const doseIds = get()._lastLoggedIds(names.length)
+        // one record per dose, in the order they were just written
+        peptideIds.slice(0, doseIds.length).forEach((pid, i) => get()._recordUnsited(pid, doseIds[i]))
         const suppTaken = []
         for (const id of supplementIds) {
           if (get().toggleSupplementTaken(id, null, { quiet: true })) suppTaken.push(id)
@@ -701,9 +765,17 @@ const useStore = create(
           const open = { ...(s.openVials[log.peptideId] || { remainingMg: 0 }) }
           // a backfill that never moved the stock has nothing to give back
           if (p && !open.unlinked && log.movedStock !== false) open.remainingMg += toMg(log.doseValue, log.unit)
+          // the injection record hangs off the dose: undoing one that was never
+          // rated leaves nothing behind. A record that has been rated is kept,
+          // because somebody looked at that site and said what they saw.
+          const rx = s.injectionRecords.find((r) => r.doseLogId === logId)
+          const rated = rx && s.reactions.some((x) => x.injectionRecordId === rx.id)
           return {
             doseLogs: s.doseLogs.filter((l) => l.id !== logId),
             openVials: { ...s.openVials, [log.peptideId]: open },
+            injectionRecords: rx && !rated
+              ? s.injectionRecords.filter((r) => r.id !== rx.id)
+              : s.injectionRecords,
           }
         })
       },
@@ -1894,7 +1966,7 @@ const useStore = create(
     }),
     {
       name: 'peptide-command-center', // storage key is history — renaming it would orphan existing data
-      version: 17,
+      version: 18,
       storage: createJSONStorage(() => safeStorage),
       // Saves written before a release can't pick new library entries up from
       // the seed, so each version bump backfills them here — once. Deleting one
@@ -1916,10 +1988,20 @@ const useStore = create(
       //   v15: Reaction Lab
       //   v16: Reaction Lab replaced by the photo site map and the simplified tracker
       //   v17: the map photo is out of backups again unless it was asked for
+      //   v18: a code and a colour on every compound, for the map
       migrate: (persisted, from) => {
-        if (!persisted || from >= 17) return persisted
+        if (!persisted || from >= 18) return persisted
         const s = { ...persisted }
         const t = todayStr()
+        if (from < 18) {
+          // Codes and colours are added, never overwritten: a library edited by
+          // hand keeps whatever it was given.
+          s.peptides = withIdentity(s.peptides || [])
+          s.reactionSettings = {
+            ...(s.reactionSettings || {}),
+            windowDays: s.reactionSettings?.windowDays ?? DEFAULT_WINDOW_DAYS,
+          }
+        }
         if (from < 17) {
           // "Include map photo in backup" is meant to be off until somebody
           // turns it on. Nothing but the switch could ever have set it, and the

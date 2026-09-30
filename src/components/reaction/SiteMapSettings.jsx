@@ -5,6 +5,7 @@ import { putBlob, getBlob, deleteBlob } from '../../lib/blobStore'
 import { loadMapPhoto, releaseMapPhoto, MAP_PHOTO_ERRORS } from '../../lib/mapPhoto'
 import { importPhoto } from '../../lib/photoImport'
 import { DEFAULT_CHECK_TIME } from '../../lib/reactionTracker'
+import { WINDOW_CHOICES, DEFAULT_WINDOW_DAYS } from '../../lib/siteRotation'
 import { PINS, checkPins, MIN_SPACING_PX, SCREEN_WIDTH } from '../../lib/sitePins'
 import AdjustPins from './AdjustPins'
 import { useMapPhoto } from './SiteMap'
@@ -175,6 +176,27 @@ export default function SiteMapSettings() {
           onChange={(e) => updateSettings({ checkTime: e.target.value })}
           className="input w-32 text-center"
         />
+      </div>
+
+      <div>
+        <div className="mb-2 text-sm font-semibold">Show recent sites for</div>
+        <div className="flex gap-2" data-testid="window-days">
+          {WINDOW_CHOICES.map((d) => {
+            const on = (settings?.windowDays ?? DEFAULT_WINDOW_DAYS) === d
+            return (
+              <button
+                key={d}
+                data-testid={`window-${d}`}
+                data-on={on ? 'true' : 'false'}
+                onClick={() => updateSettings({ windowDays: d })}
+                className="chip flex-1 justify-center"
+                style={on ? { background: 'var(--accent)', color: 'var(--accent-fg)', borderColor: 'transparent' } : undefined}
+              >
+                {d}d
+              </button>
+            )
+          })}
+        </div>
       </div>
 
       <button

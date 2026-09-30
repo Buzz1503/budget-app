@@ -272,6 +272,13 @@ export function peptideScorecards(ctx) {
 }
 
 /** The same three numbers, split by where the shot went. */
+/**
+ * The same three numbers, split by where the shot went.
+ *
+ * A quick-logged dose has no siteGroup, so it falls out of every group here
+ * while still counting in the peptide's own totals above — which is right: it
+ * says something about the compound and nothing about the site.
+ */
 export function byGroup(rows) {
   return GROUPS.map((g) => ({
     group: g.id,
