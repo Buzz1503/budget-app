@@ -27,6 +27,9 @@ import ReplaceVial from './ReplaceVial'
 import CompoundSheet from './CompoundSheet'
 import DoseChangeSheet from './DoseChangeSheet'
 import PauseSheet, { HeldStepUpSheet } from './PauseSheet'
+import TonightCard from './reaction/TonightCard'
+import { SafetyBanner } from './reaction/ReactionLab'
+import { activeSafety } from '../lib/reactionScore'
 import { FormIcon } from './SupplementsTab'
 
 const spring = { type: 'spring', stiffness: 260, damping: 22 }
@@ -112,6 +115,12 @@ export default function Home({ goTo }) {
   const [dosing, setDosing] = useState(null)
   const [pausing, setPausing] = useState(false)
   const paused = !!activePause(pauses, t)
+  const labReactions = useStore((s) => s.reactions)
+  const labCheckins = useStore((s) => s.reactionCheckins)
+  const labDanger = useMemo(
+    () => activeSafety({ reactions: labReactions, checkins: labCheckins }),
+    [labReactions, labCheckins]
+  )
   const [heldFor, setHeldFor] = useState(null)
   const slotSupps = useMemo(() => dueInSlot(supplements, slot), [supplements, slot])
   const takenIds = useMemo(() => takenOn(supplementLogs, t), [supplementLogs, t])
@@ -379,7 +388,12 @@ export default function Home({ goTo }) {
         </div>
       </div>
 
+      {/* Pinned above everything, and impossible to dismiss while it stands. */}
+      <SafetyBanner danger={labDanger} />
+
       <PausedBanner onAskStepUp={setHeldFor} />
+
+      <TonightCard goTo={goTo} />
 
       {/* first-run pointer at the row */}
       <CoachTip id="log-button" when={slotDue.length > 0}>

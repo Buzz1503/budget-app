@@ -8,6 +8,7 @@ import {
 import { SEED_KNOWN_GOOD } from '../lib/mixing'
 import { canPush } from '../lib/pushes'
 import { pauseEnd } from '../lib/pauses'
+import { newInvestigation, advance as advanceSteps } from '../lib/investigation'
 import { seedTests as seedBloodTests, seedMarkers as seedBloodMarkers } from '../lib/bloods'
 import { currentRung, cycleInfo, addDaysStr, resolveDoseChange } from '../lib/schedule'
 import { isDueToday } from '../lib/daily'
@@ -84,6 +85,30 @@ function initialState() {
      * nor missed; they are days the protocol was not running.
      */
     pauses: [],
+    /**
+     * Reaction Lab.
+     *
+     * A self-contained investigation into what is causing injection site
+     * reactions. It reads the dose log and inventory but writes only here, so
+     * nothing in this slice can disturb logging, stock or adherence — an
+     * experiment that corrupted the record it was run on would be worthless.
+     */
+    reactionSettings: {
+      enabled: false,          // setup not yet run
+      suspects: [],            // compound ids under investigation
+      sideAssignment: {},      // { compoundId: sideSetId }
+      windowTimes: { morning: '07:00', evening: '20:00' },
+      coin: 'aud-20c',
+      restDays: 3,
+      discardWindows: {},      // { diluent: days } — sterile water is shorter
+    },
+    injectionRecords: [],      // one per shot, with every captured variable
+    reactions: [],             // one per record that produced a mark
+    reactionCheckins: [],      // one per answered window
+    reactionPhotos: [],        // metadata; the image itself is an IndexedDB blob
+    reactionTreatments: [],
+    investigations: [],
+    investigationSteps: [],
     // Vials that have been used up. Kept as a record rather than deleted: it is
     // the only trace of how long a vial actually lasted.
     finishedVials: [],
@@ -1153,6 +1178,280 @@ const useStore = create(
         }))
       },
 
+      // ---------- reaction lab ----------
+
+      /** Finish setup. Everything else is editable later in its settings. */
+      saveReactionSetup({ suspects = [], sideAssignment = {}, windowTimes, coin, restDays } = {}) {
+        set((s) => ({
+          reactionSettings: {
+            ...s.reactionSettings,
+            enabled: true,
+            suspects: [...suspects],
+            sideAssignment: { ...sideAssignment },
+            ...(windowTimes ? { windowTimes } : {}),
+            ...(coin ? { coin } : {}),
+            ...(restDays != null ? { restDays } : {}),
+          },
+        }))
+        // An investigation with no plan is a settings screen, so the default
+        // plan is created with the setup rather than waiting to be asked for.
+        const s = get()
+        if (!s.investigations.length) get().startInvestigation({ suspects })
+      },
+
+      updateReactionSettings(patch = {}) {
+        set((s) => ({ reactionSettings: { ...s.reactionSettings, ...patch } }))
+      },
+
+      /**
+       * Record one injection, with everything known about it.
+       *
+       * Linked to the dose log rather than replacing it: the log says a dose
+       * was taken, this says how and where. Keeping them apart is what stops
+       * the investigation from being able to corrupt the record it studies.
+       */
+      logInjection(rec = {}) {
+        const s = get()
+        const step = s.investigationSteps.find((x) => x.status === 'running') || null
+        const id = `ir-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`
+        const injectedAt = rec.injectedAt || new Date().toISOString()
+        const record = {
+          id,
+          doseLogId: rec.doseLogId || null,
+          investigationStepId: rec.investigationStepId ?? step?.id ?? null,
+          injectedAt,
+          compoundIds: rec.compoundIds || [],
+          componentIds: rec.componentIds || [],
+          sharedSyringe: (rec.compoundIds || []).length > 1,
+          dose: rec.dose ?? null,
+          units: rec.units ?? null,
+          volumeMl: rec.volumeMl ?? null,
+          concentrationMgMl: rec.concentrationMgMl ?? null,
+          vialId: rec.vialId || null,
+          batch: rec.batch || null,
+          vendor: rec.vendor || null,
+          daysSinceRecon: rec.daysSinceRecon ?? null,
+          diluent: rec.diluent || 'bac',
+          zoneId: rec.zoneId || null,
+          point: rec.point || null,
+          side: rec.side || null,
+          needleGauge: rec.needleGauge ?? null,
+          needleLength: rec.needleLength ?? null,
+          angle: rec.angle ?? 90,
+          pinched: rec.pinched ?? null,
+          speed: rec.speed || 'normal',
+          temperature: rec.temperature || 'room',
+          skinPrep: rec.skinPrep || 'swab',
+          swabBrand: rec.swabBrand || null,
+          swabDried: rec.swabDried ?? null,
+          antihistamine: rec.antihistamine || null,
+          antihistamineHours: rec.antihistamineHours ?? null,
+          note: rec.note || '',
+          confounded: !!rec.confounded,
+          confoundedBy: rec.confoundedBy || [],
+        }
+        set((st) => ({ injectionRecords: [...st.injectionRecords, record] }))
+        return record
+      },
+
+      updateInjectionRecord(id, patch = {}) {
+        set((s) => ({
+          injectionRecords: s.injectionRecords.map((r) => (r.id === id ? { ...r, ...patch } : r)),
+        }))
+      },
+
+      /** Remove an injection and everything hanging off it. */
+      removeInjectionRecord(id) {
+        const s = get()
+        const rx = s.reactions.filter((x) => x.injectionRecordId === id).map((x) => x.id)
+        set({
+          injectionRecords: s.injectionRecords.filter((r) => r.id !== id),
+          reactions: s.reactions.filter((x) => x.injectionRecordId !== id),
+          reactionCheckins: s.reactionCheckins.filter((c) => !rx.includes(c.reactionId)),
+          reactionTreatments: s.reactionTreatments.filter((t) => !rx.includes(t.reactionId)),
+          reactionPhotos: s.reactionPhotos.filter((p) => !rx.includes(p.reactionId)),
+        })
+      },
+
+      /** Open a reaction against an injection. One per injection, ever. */
+      openReaction(injectionRecordId) {
+        const s = get()
+        const existing = s.reactions.find((r) => r.injectionRecordId === injectionRecordId)
+        if (existing) return existing
+        const rec = s.injectionRecords.find((r) => r.id === injectionRecordId)
+        if (!rec) return null
+        const rx = {
+          id: `rx-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+          injectionRecordId,
+          injectedAt: rec.injectedAt,
+          zoneId: rec.zoneId,
+          status: 'open',
+          resolvedAt: null,
+          onsetLabel: null,
+        }
+        set((st) => ({ reactions: [...st.reactions, rx] }))
+        return rx
+      },
+
+      updateReaction(id, patch = {}) {
+        set((s) => ({ reactions: s.reactions.map((r) => (r.id === id ? { ...r, ...patch } : r)) }))
+      },
+
+      resolveReaction(id, atIso = null) {
+        set((s) => ({
+          reactions: s.reactions.map((r) => (r.id === id
+            ? { ...r, status: 'resolved', resolvedAt: atIso || new Date().toISOString() }
+            : r)),
+        }))
+      },
+
+      /**
+       * Answer one check-in window.
+       *
+       * `completedAt` is when it was actually done, never when it was due — a
+       * check-in filled in at midnight for an eight o'clock window is a
+       * midnight observation, and scoring it as an evening one would put the
+       * wrong timestamp on the only timeline that matters.
+       */
+      saveCheckin(reactionId, data = {}) {
+        const s = get()
+        const id = `rc-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`
+        const entry = {
+          id,
+          reactionId,
+          windowId: data.windowId || null,
+          scheduledWindow: data.scheduledWindow || null,
+          completedAt: data.completedAt || new Date().toISOString(),
+          present: !!data.present,
+          itch: data.itch ?? 0,
+          pain: data.pain ?? 0,
+          welt: !!data.welt,
+          lump: !!data.lump,
+          warm: !!data.warm,
+          bruise: !!data.bruise,
+          tracedAreaMm2: data.tracedAreaMm2 ?? null,
+          diameterMm: data.diameterMm ?? null,
+          spreadPct: data.spreadPct ?? null,
+          redStreaks: !!data.redStreaks,
+          pus: !!data.pus,
+          fever: !!data.fever,
+          elsewhere: !!data.elsewhere,
+          faceSwelling: !!data.faceSwelling,
+          throatSwelling: !!data.throatSwelling,
+          breathing: !!data.breathing,
+          note: data.note || '',
+        }
+        set((st) => ({ reactionCheckins: [...st.reactionCheckins, entry] }))
+        return entry
+      },
+
+      updateCheckin(id, patch = {}) {
+        set((s) => ({ reactionCheckins: s.reactionCheckins.map((c) => (c.id === id ? { ...c, ...patch } : c)) }))
+      },
+
+      removeCheckin(id) {
+        set((s) => ({ reactionCheckins: s.reactionCheckins.filter((c) => c.id !== id) }))
+      },
+
+      /** Photo metadata. The image itself lives in IndexedDB under `blobKey`. */
+      addReactionPhoto(meta = {}) {
+        const entry = {
+          id: `rp-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+          checkinId: meta.checkinId || null,
+          reactionId: meta.reactionId || null,
+          zoneId: meta.zoneId || null,
+          blobKey: meta.blobKey,
+          width: meta.width ?? null,
+          height: meta.height ?? null,
+          coinCalibration: meta.coinCalibration || null,
+          tracePaths: meta.tracePaths || null,
+          createdAt: meta.createdAt || new Date().toISOString(),
+        }
+        set((s) => ({ reactionPhotos: [...s.reactionPhotos, entry] }))
+        return entry
+      },
+
+      removeReactionPhoto(id) {
+        set((s) => ({ reactionPhotos: s.reactionPhotos.filter((p) => p.id !== id) }))
+      },
+
+      addTreatment(reactionId, { type, appliedAt, note } = {}) {
+        const entry = {
+          id: `rt-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+          reactionId, type, appliedAt: appliedAt || new Date().toISOString(), note: note || '',
+        }
+        set((s) => ({ reactionTreatments: [...s.reactionTreatments, entry] }))
+        return entry
+      },
+
+      removeTreatment(id) {
+        set((s) => ({ reactionTreatments: s.reactionTreatments.filter((t) => t.id !== id) }))
+      },
+
+      // ---------- investigation ----------
+
+      startInvestigation({ name, suspects = [], order } = {}) {
+        const built = newInvestigation({
+          name, suspects, startDate: todayStr(), order,
+        })
+        set((s) => ({
+          investigations: [...s.investigations.map((i) => ({ ...i, status: i.status === 'running' ? 'archived' : i.status })), built.investigation],
+          investigationSteps: [...s.investigationSteps, ...built.steps],
+        }))
+        return built.investigation
+      },
+
+      updateInvestigation(id, patch = {}) {
+        set((s) => ({ investigations: s.investigations.map((i) => (i.id === id ? { ...i, ...patch } : i)) }))
+      },
+
+      updateStep(id, patch = {}) {
+        set((s) => ({ investigationSteps: s.investigationSteps.map((x) => (x.id === id ? { ...x, ...patch } : x)) }))
+      },
+
+      /** Finish the running step and start the next one. */
+      advanceStep(stepId, resultText) {
+        set((s) => ({ investigationSteps: advanceSteps(s.investigationSteps, stepId, resultText) }))
+      },
+
+      /** Skip a step without recording a result — it was not run. */
+      skipStep(stepId) {
+        set((s) => {
+          const i = s.investigationSteps.findIndex((x) => x.id === stepId)
+          if (i < 0) return {}
+          return {
+            investigationSteps: s.investigationSteps.map((x, j) => {
+              if (j === i) return { ...x, status: 'skipped', endDate: todayStr() }
+              if (j === i + 1 && x.status === 'pending') return { ...x, status: 'running', startDate: x.startDate || todayStr() }
+              return x
+            }),
+          }
+        })
+      },
+
+      /** Freeze the step timers without corrupting anything already recorded. */
+      pauseInvestigation(id) {
+        const t = todayStr()
+        set((s) => ({
+          investigations: s.investigations.map((i) => (i.id === id
+            ? { ...i, status: 'paused', pausedRanges: [...(i.pausedRanges || []), { from: t, to: null }] }
+            : i)),
+        }))
+      },
+
+      resumeInvestigation(id) {
+        const t = todayStr()
+        set((s) => ({
+          investigations: s.investigations.map((i) => {
+            if (i.id !== id) return i
+            const ranges = [...(i.pausedRanges || [])]
+            const open = ranges.findIndex((r) => !r.to)
+            if (open >= 0) ranges[open] = { ...ranges[open], to: t }
+            return { ...i, status: 'running', pausedRanges: ranges }
+          }),
+        }))
+      },
+
       // ---------- pauses ----------
 
       /**
@@ -1587,7 +1886,7 @@ const useStore = create(
     }),
     {
       name: 'peptide-command-center', // storage key is history — renaming it would orphan existing data
-      version: 14,
+      version: 15,
       storage: createJSONStorage(() => safeStorage),
       // Saves written before a release can't pick new library entries up from
       // the seed, so each version bump backfills them here — once. Deleting one
@@ -1609,6 +1908,23 @@ const useStore = create(
         if (!persisted || from >= 13) return persisted
         const s = { ...persisted }
         const t = todayStr()
+        if (from < 15) {
+          // A save written before Reaction Lab existed has none of it. Every
+          // key is created so nothing downstream has to guard, and `enabled`
+          // stays false so the setup runs once when it is first opened.
+          s.reactionSettings = s.reactionSettings || {
+            enabled: false, suspects: [], sideAssignment: {},
+            windowTimes: { morning: '07:00', evening: '20:00' },
+            coin: 'aud-20c', restDays: 3, discardWindows: {},
+          }
+          s.injectionRecords = s.injectionRecords || []
+          s.reactions = s.reactions || []
+          s.reactionCheckins = s.reactionCheckins || []
+          s.reactionPhotos = s.reactionPhotos || []
+          s.reactionTreatments = s.reactionTreatments || []
+          s.investigations = s.investigations || []
+          s.investigationSteps = s.investigationSteps || []
+        }
         if (from < 14) {
           // A save written before pauses existed has none. The key is created
           // so nothing downstream has to guard for it.
@@ -1803,6 +2119,14 @@ const useStore = create(
         doseEvents: persisted?.doseEvents || current.doseEvents,
         pushes: persisted?.pushes || current.pushes,
         pauses: persisted?.pauses || current.pauses,
+        reactionSettings: { ...current.reactionSettings, ...(persisted?.reactionSettings || {}) },
+        injectionRecords: persisted?.injectionRecords || current.injectionRecords,
+        reactions: persisted?.reactions || current.reactions,
+        reactionCheckins: persisted?.reactionCheckins || current.reactionCheckins,
+        reactionPhotos: persisted?.reactionPhotos || current.reactionPhotos,
+        reactionTreatments: persisted?.reactionTreatments || current.reactionTreatments,
+        investigations: persisted?.investigations || current.investigations,
+        investigationSteps: persisted?.investigationSteps || current.investigationSteps,
         bloods: { ...current.bloods, ...(persisted?.bloods || {}) },
         runs: { ...current.runs, ...(persisted?.runs || {}) },
         // merged rather than replaced, so a setting added in a later release

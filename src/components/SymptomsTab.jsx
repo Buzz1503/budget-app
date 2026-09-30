@@ -15,6 +15,9 @@ import {
   CATEGORY_BY_ID, ATTRIBUTION_CAVEAT, LIKELIHOOD_TONE, TIER_WORDS,
 } from '../lib/attribution'
 import CoachTip from './ui/CoachTip'
+import ReactionLab, { SafetyBanner } from './reaction/ReactionLab'
+import { activeSafety } from '../lib/reactionScore'
+import { checkinsDue } from '../lib/reactionCheckins'
 
 const SEV_COLOR = { mild: 'var(--warn)', moderate: 'var(--danger)', strong: 'var(--danger)' }
 const SEV_SHORT = { mild: 'Mild', moderate: 'Moderate', strong: 'Strong' }
@@ -35,6 +38,19 @@ export default function SymptomsTab() {
   const doseEvents = useStore((s) => s.doseEvents)
   const logSymptomCheckin = useStore((s) => s.logSymptomCheckin)
   const t = todayStr()
+
+  const reactions = useStore((s) => s.reactions)
+  const reactionCheckins = useStore((s) => s.reactionCheckins)
+  const reactionSettings = useStore((s) => s.reactionSettings)
+  const [tab, setTab] = useState('feeling')
+  // The safety banner is pinned wherever Reaction Lab can be reached from, not
+  // only inside it: somebody with red streaks should not have to be on the
+  // right sub-tab to be told.
+  const labDanger = useMemo(() => activeSafety({ reactions, checkins: reactionCheckins }), [reactions, reactionCheckins])
+  const labDue = useMemo(
+    () => checkinsDue({ reactions, checkins: reactionCheckins, windows: reactionSettings?.windowTimes, nowIso: new Date().toISOString() }).length,
+    [reactions, reactionCheckins, reactionSettings]
+  )
 
   const todayLog = symptomLogs.find((l) => l.date === t)
   const [selected, setSelected] = useState(() => {
@@ -108,6 +124,15 @@ export default function SymptomsTab() {
   const legacySelected = selectedIds.filter((id) => !stackIndex[id] && TAG_BY_ID[id])
   const empty = stack.positive.length === 0 && stack.negative.length === 0
 
+  if (tab === 'reactions') {
+    return (
+      <div className="space-y-3">
+        <SectionTabs tab={tab} onTab={setTab} />
+        <ReactionLab />
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-3">
       <div>
@@ -116,6 +141,9 @@ export default function SymptomsTab() {
           {todayLog ? "Updating today's check-in" : 'Tap anything you’ve noticed today'}
         </p>
       </div>
+
+      <SectionTabs tab={tab} onTab={setTab} />
+      <SafetyBanner danger={labDanger} compact />
 
       {/* search first */}
       <div className="relative">
@@ -625,5 +653,43 @@ function Legend({ color, label }) {
     <span className="flex items-center gap-1">
       <span className="h-2.5 w-2.5 rounded-[10px]" style={{ background: color }} /> {label}
     </span>
+  )
+}
+
+/**
+ * Two things live on this screen now.
+ *
+ * "How I feel" is the daily check-in; Reaction Lab is a running investigation
+ * into one specific thing. They share a tab because both are symptoms, and they
+ * are separated because one is answered in ten seconds a day and the other is
+ * read.
+ */
+function SectionTabs({ tab, onTab }) {
+  const reactions = useStore((s) => s.reactions)
+  const checkins = useStore((s) => s.reactionCheckins)
+  const settings = useStore((s) => s.reactionSettings)
+  const due = useMemo(
+    () => checkinsDue({ reactions, checkins, windows: settings?.windowTimes, nowIso: new Date().toISOString() }).length,
+    [reactions, checkins, settings]
+  )
+  return (
+    <div className="flex rounded-full p-1" data-testid="symptom-tabs" style={{ background: 'var(--surface-sunk)' }}>
+      {[['feeling', 'How I feel'], ['reactions', 'Reaction Lab']].map(([id, label]) => (
+        <button key={id} onClick={() => onTab(id)} data-testid={`symptom-tab-${id}`}
+          data-on={tab === id ? 'true' : 'false'}
+          className="relative flex flex-1 items-center justify-center gap-1.5 rounded-full py-2 text-xs font-black"
+          style={tab === id
+            ? { background: 'var(--accent)', color: 'var(--accent-fg)' }
+            : { color: 'var(--text-2)' }}>
+          {label}
+          {id === 'reactions' && due > 0 && tab !== id && (
+            <span className="flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-xs font-black tabular-nums"
+              data-testid="lab-badge" style={{ background: 'var(--danger)', color: 'var(--accent-fg)' }}>
+              {due}
+            </span>
+          )}
+        </button>
+      ))}
+    </div>
   )
 }
