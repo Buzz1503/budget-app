@@ -156,7 +156,12 @@ export default function SiteMap({
       return
     }
     const pt = localPoint(e)
-    gesture.current = { start: pt, pan0: { ...pan }, moved: false, at: Date.now() }
+    // lastTap has to survive the press that might become the second half of a
+    // double tap — overwrite it here and no double tap can ever be detected
+    gesture.current = {
+      start: pt, pan0: { ...pan }, moved: false, at: Date.now(),
+      lastTap: gesture.current.lastTap,
+    }
     if (!adjust) return
     // in adjust mode a long press picks the pin up; a short tap still selects
     const near = nearestPin(view, unplace(pt), { overrides, ...geom, groups: activeGroups })
@@ -269,11 +274,25 @@ export default function SiteMap({
         </div>
       )}
 
+      {/*
+        Full-bleed, whatever it is nested in.
+
+        The pin table guarantees 44 px between sites *at 390 px of window*. Let
+        a card's padding shrink the window to 324 and that guarantee quietly
+        becomes 37 px — two sites a thumb cannot tell apart. So the map escapes
+        its container's padding rather than trusting every caller to have none.
+      */}
       <div
         ref={boxRef}
         data-testid="site-map"
-        className="relative w-full select-none overflow-hidden rounded-[var(--r-lg)]"
-        style={{ height: boxH, background: 'var(--surface-sunk)', touchAction: 'none' }}
+        className="relative select-none overflow-hidden"
+        style={{
+          height: boxH,
+          width: '100vw',
+          marginLeft: 'calc(50% - 50vw)',
+          background: 'var(--surface-sunk)',
+          touchAction: 'none',
+        }}
         onTouchStart={onPointerDown}
         onTouchMove={onPointerMove}
         onTouchEnd={onPointerUp}

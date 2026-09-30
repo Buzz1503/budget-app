@@ -282,6 +282,7 @@ export function byGroup(rows) {
 
 export function peptideDetail(peptideId, ctx) {
   const rows = countable(ctx).filter(({ record }) => record.peptideId === peptideId)
+  const overall = summarise(rows)
   const all = (ctx.records || [])
     .filter((r) => r.peptideId === peptideId)
     .sort((a, b) => String(b.timestamp).localeCompare(String(a.timestamp)))
@@ -296,7 +297,15 @@ export function peptideDetail(peptideId, ctx) {
         durationDays: durationDays(record, reaction),
       }
     })
-  return { overall: summarise(rows), groups: byGroup(rows), injections: all }
+  return {
+    overall,
+    // The four-injection gate belongs to the peptide, not to each slice of it.
+    // Applied per group it would hide the split almost always — twelve
+    // injections spread over four site groups still shows "Need more data"
+    // four times — which makes the breakdown the card promised unreachable.
+    groups: byGroup(rows).map((g) => ({ ...g, enough: overall.enough })),
+    injections: all,
+  }
 }
 
 /** Reaction rate per site group, across everything. */
