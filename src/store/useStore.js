@@ -1204,12 +1204,16 @@ const useStore = create(
         const clash = findMixedGroup(s.injectionRecords, {
           pinId: rec.pinId, timestamp, peptideId: rec.peptideId,
         })
+        // the dose is read off the ladder when the caller has not supplied one,
+        // so a record logged from a pin tap alone still says how much went in
+        const peptide = s.peptides.find((p) => p.id === rec.peptideId)
+        const rung = peptide ? currentRung(peptide, s.titration?.[peptide.id]) : null
         const record = {
           id,
           doseLogId: rec.doseLogId || null,
           peptideId: rec.peptideId || null,
-          dose: rec.dose ?? null,
-          units: rec.units ?? null,
+          dose: rec.dose ?? rung?.dose ?? null,
+          units: rec.units ?? peptide?.ladder?.unit ?? null,
           pinId: pin ? pin.id : (rec.pinId || null),
           siteGroup: pin ? pin.group : null,
           side: pin ? pin.side : null,

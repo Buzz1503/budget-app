@@ -371,6 +371,11 @@ export function LogInjection({ open, onClose, pinId: initialPin = null, doseLogI
         {prev && (
           <div data-testid="reuse-warning" className="rounded-[var(--r-sm)] p-3 t-caption" style={{ background: 'color-mix(in srgb, var(--info) 16%, transparent)', color: 'var(--info)' }}>
             {reuseWarning(prev, nameOf)}
+            {suggested && suggested !== pinId && (
+              <button className="ml-1 underline" data-testid="reuse-suggestion" onClick={() => setPinId(suggested)}>
+                Try {PIN_BY_ID[suggested]?.label}.
+              </button>
+            )}
           </div>
         )}
 
