@@ -268,6 +268,72 @@ await step('4 · an imported photo is stored upright as a JPEG at the capture si
   console.log(`  ${sizes.length} blobs, all image/jpeg`)
 })
 
+await step('4b · a sideways photo is stored upright, with the rotation baked in', async () => {
+  await body('Photos')
+  const before = (await state()).photos.length
+
+  // A real JPEG, 40 wide by 20 tall, carrying EXIF Orientation 6 — the flag an
+  // iPhone sets on a photo taken in the other orientation. If the rotation is
+  // honoured the stored image comes back 20 by 40; if the flag is ignored it
+  // stays 40 by 20 and every later thumbnail is on its side.
+  const out = await page.evaluate(async () => {
+    const c = document.createElement('canvas')
+    c.width = 40; c.height = 20
+    const g = c.getContext('2d')
+    g.fillStyle = '#c33'; g.fillRect(0, 0, 40, 20)
+    g.fillStyle = '#3c3'; g.fillRect(0, 0, 8, 20)
+    const jpeg = await new Promise((r) => c.toBlob(r, 'image/jpeg', 0.9))
+    const bytes = new Uint8Array(await jpeg.arrayBuffer())
+
+    // APP1 with a one-entry IFD0: tag 0x0112 (Orientation) = 6
+    const app1 = new Uint8Array([
+      0xFF, 0xE1, 0x00, 0x22,
+      0x45, 0x78, 0x69, 0x66, 0x00, 0x00,       // "Exif\0\0"
+      0x4D, 0x4D, 0x00, 0x2A, 0x00, 0x00, 0x00, 0x08, // big-endian TIFF header
+      0x00, 0x01,                                // one entry
+      0x01, 0x12, 0x00, 0x03, 0x00, 0x00, 0x00, 0x01, 0x00, 0x06, 0x00, 0x00,
+      0x00, 0x00, 0x00, 0x00,                    // no next IFD
+    ])
+    const withExif = new Uint8Array(bytes.length + app1.length)
+    withExif.set(bytes.subarray(0, 2), 0)                 // SOI
+    withExif.set(app1, 2)
+    withExif.set(bytes.subarray(2), 2 + app1.length)
+
+    const file = new File([withExif], 'sideways.jpg', { type: 'image/jpeg' })
+    const dt = new DataTransfer()
+    dt.items.add(file)
+    const input = document.querySelector('[data-testid="photo-library-input"]')
+    input.files = dt.files
+    input.dispatchEvent(new Event('change', { bubbles: true }))
+    return { src: [c.width, c.height] }
+  })
+  await page.waitForTimeout(2600)
+  await page.click('[data-testid="import-save-all"]')
+  await page.waitForTimeout(2600)
+
+  const s = await state()
+  if (s.photos.length !== before + 1) throw new Error('the rotated photo was not saved')
+  const key = s.photos[s.photos.length - 1].blobKey
+
+  const dims = await page.evaluate(async (k) => {
+    const db = await new Promise((res, rej) => {
+      const r = indexedDB.open('pcc-blobs'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error)
+    })
+    const blob = await new Promise((res) => {
+      const tx = db.transaction('blobs', 'readonly').objectStore('blobs').get(k)
+      tx.onsuccess = () => res(tx.result); tx.onerror = () => res(null)
+    })
+    if (!blob) return null
+    const bmp = await createImageBitmap(blob)
+    return { w: bmp.width, h: bmp.height, type: blob.type }
+  }, key)
+
+  if (!dims) throw new Error('the rotated photo is not in IndexedDB')
+  if (dims.type !== 'image/jpeg') throw new Error(`stored as ${dims.type}`)
+  if (!(dims.h > dims.w)) throw new Error(`stored ${dims.w}x${dims.h} — the EXIF rotation was ignored`)
+  console.log(`  source ${out.src.join('x')} with Orientation 6, stored ${dims.w}x${dims.h}`)
+})
+
 // ==================================================== 5-6 · the map photo
 
 await step('5 · the map photo is on the device only, and in no build output', async () => {
