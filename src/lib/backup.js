@@ -31,7 +31,21 @@ export async function buildBackup(onProgress) {
   let state = null
   try { state = localStorage.getItem(STORE_KEY) } catch { /* unavailable */ }
 
-  const keys = await allBlobKeys()
+  const parsed = state ? JSON.parse(state) : null
+  /**
+   * The site map photo is a full-body photograph and is left out by default.
+   *
+   * The decision is made here rather than at the call site because this sweeps
+   * *every* blob key: an exclusion a caller has to remember is an exclusion
+   * that will one day be forgotten, and the cost of forgetting this one is a
+   * body photo in a file the user may well email to themselves.
+   */
+  const siteMap = parsed?.state?.siteMap || {}
+  const skip = !siteMap.includePhotoInBackup && siteMap.photoKey
+    ? String(siteMap.photoKey)
+    : null
+
+  const keys = (await allBlobKeys()).filter((k) => String(k) !== skip)
   const blobs = {}
   let done = 0
   for (const key of keys) {
@@ -46,9 +60,10 @@ export async function buildBackup(onProgress) {
     format: BACKUP_FORMAT,
     version: BACKUP_VERSION,
     createdAt: new Date().toISOString(),
-    appState: state ? JSON.parse(state) : null,
+    appState: parsed,
     blobs,
     counts: { blobs: Object.keys(blobs).length },
+    mapPhotoIncluded: !skip && !!siteMap.photoKey,
   }
 }
 

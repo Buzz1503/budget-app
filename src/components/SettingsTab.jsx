@@ -10,6 +10,7 @@ import useStore, { todayStr } from '../store/useStore'
 import NumberField from './ui/NumberField'
 import { formatDose } from '../lib/calc'
 import { buildBackup, restoreBackup, validateBackup, describeBackup, backupFilename } from '../lib/backup'
+import SiteMapSettings from './reaction/SiteMapSettings'
 import { buildIcs } from '../lib/calendar'
 import { deliveryEvents } from '../lib/restock'
 import { addDaysStr } from '../lib/schedule'
@@ -172,6 +173,8 @@ export default function SettingsTab({ goTo }) {
           </button>
         )}
       </div>
+      <SiteMapSettings />
+
       <button onClick={() => goTo?.('wizard')}
         className="btn-primary flex w-full items-center justify-center gap-2 rounded-full py-3 text-sm font-black">
         <Wand2 size={16} /> Build / rebuild my protocol

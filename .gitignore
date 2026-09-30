@@ -16,3 +16,6 @@ e2e/shots/
 peptide-command-center-backup-*.json
 peptide-summary-*.html
 peptide-schedule-*.ics
+
+# private body photos used only for local pin QA — never committed
+dev-assets/

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Ruler, Images, PersonStanding, LineChart as LineChartIcon, Plus, FileText, Trash2, Play,
@@ -60,8 +60,8 @@ export default function BodyTab() {
 // ---------- Stats: quick entry + latest values ----------
 function StatsSection() {
   const measurements = useStore((s) => s.measurements)
-  const deleteMeasurement = useStore((s) => s.deleteMeasurement)
   const [adding, setAdding] = useState(false)
+  const [editing, setEditing] = useState(null)
 
   const recent = [...measurements].reverse().slice(0, 6)
 
@@ -97,23 +97,33 @@ function StatsSection() {
       {recent.length > 0 && (
         <div className="card p-3">
           <p className="mb-2 text-sm font-bold">Recent entries</p>
+          <p className="mb-2 text-xs font-medium" style={{ color: 'var(--text-2)' }}>Tap an entry to correct it.</p>
           <div className="space-y-2">
             {recent.map((m) => (
-              <div key={m.id} className="flex items-center gap-2 text-xs font-semibold">
+              <button
+                key={m.id}
+                data-testid={`entry-${m.id}`}
+                onClick={() => setEditing(m.id)}
+                className="flex w-full items-center gap-2 text-left text-xs font-semibold"
+              >
                 <span className="w-14 shrink-0" style={{ color: 'var(--text-2)' }}>{format(parseISO(m.date), 'd MMM')}</span>
                 <span className="flex-1 truncate leading-tight">
                   {m.weight != null && `${m.weight}kg `}
                   {m.bodyFat != null && `· ${m.bodyFat}% BF `}
-                  {m.source === 'scan' && '· 📄 scan'}
+                  {m.source === 'scan' && '· scan'}
+                  {m.editedAt && (
+                    <span data-testid={`edited-${m.id}`} className="ml-1 font-black" style={{ color: 'var(--text-3)' }}>· Edited</span>
+                  )}
                 </span>
-                <button className="font-bold" style={{ color: 'var(--danger)' }} onClick={() => deleteMeasurement(m.id)}>del</button>
-              </div>
+                <Pencil size={13} style={{ color: 'var(--text-3)' }} />
+              </button>
             ))}
           </div>
         </div>
       )}
 
-      <AddMeasurement open={adding} onClose={() => setAdding(false)} />
+      <MeasurementSheet open={adding} onClose={() => setAdding(false)} />
+      <MeasurementSheet open={!!editing} onClose={() => setEditing(null)} entryId={editing} />
     </div>
   )
 }
@@ -225,13 +235,39 @@ function MeasureField({ group, form, onSet, bodyRefs }) {
   )
 }
 
-function AddMeasurement({ open, onClose }) {
+/**
+ * One sheet for logging and for correcting.
+ *
+ * Add and edit are the same component on purpose: the brief asks for the edit
+ * to use "the same validation as new-entry", and the only way to guarantee two
+ * forms validate identically is for there to be one form.
+ */
+function MeasurementSheet({ open, onClose, entryId = null }) {
   const addMeasurement = useStore((s) => s.addMeasurement)
+  const updateMeasurement = useStore((s) => s.updateMeasurement)
+  const deleteMeasurement = useStore((s) => s.deleteMeasurement)
+  const restoreMeasurement = useStore((s) => s.restoreMeasurement)
+  const showToast = useStore((s) => s.showToast)
+  const measurements = useStore((s) => s.measurements)
+  const photos = useStore((s) => s.photos)
   const bodyRefs = useStore((s) => s.bodyRefs)
+  const editing = entryId ? measurements.find((m) => m.id === entryId) : null
+
   const [form, setForm] = useState({ date: todayStr() })
   const [showExtra, setShowExtra] = useState(false)
   const [scanBusy, setScanBusy] = useState(false)
   const [scanNote, setScanNote] = useState(null)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+
+  // the sheet is filled from the entry each time it opens, so reopening after a
+  // cancel shows what is stored rather than what was abandoned
+  useEffect(() => {
+    if (!open) return
+    setForm(editing ? { ...editing } : { date: todayStr() })
+    setConfirmDelete(false)
+    setScanNote(null)
+    setShowExtra(editing ? EXTRA_GROUPS.some((g) => g.keys.some((k) => editing[k] != null)) : false)
+  }, [open, entryId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
   const field = (k) => {
@@ -267,21 +303,45 @@ function AddMeasurement({ open, onClose }) {
     }
   }
 
+  const hasAny = METRICS.some((m) => form[m.key] != null)
+
   const submit = () => {
-    const hasAny = METRICS.some((m) => form[m.key] != null)
     if (!hasAny) return
-    addMeasurement({ ...form, source: form.source || 'manual' })
-    setForm({ date: todayStr() }); setScanNote(null); setShowExtra(false)
+    if (editing) {
+      // the pre-edit copy is captured before the write, so Undo puts back
+      // exactly what was there rather than an approximation of it
+      const before = { ...editing }
+      updateMeasurement(editing.id, form)
+      showToast('Measurement updated', () => restoreMeasurement(before))
+    } else {
+      addMeasurement({ ...form, source: form.source || 'manual' })
+      setForm({ date: todayStr() })
+      setScanNote(null)
+      setShowExtra(false)
+    }
+    onClose()
+  }
+
+  const remove = () => {
+    const before = { ...editing }
+    deleteMeasurement(editing.id)
+    showToast('Measurement deleted', () => restoreMeasurement(before))
     onClose()
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Log measurement" wide>
+    <Modal open={open} onClose={onClose} title={editing ? 'Edit measurement' : 'Log measurement'} wide>
       <div className="space-y-3">
-        <label className="block">
-          <span className="mb-1 block text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-2)' }}>Date</span>
-          <input type="date" className="input" value={form.date} onChange={(e) => e.target.value && set('date', e.target.value)} />
-        </label>
+        <div className="grid grid-cols-2 gap-3">
+          <label className="block">
+            <span className="mb-1 block text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-2)' }}>Date</span>
+            <input type="date" className="input" data-testid="entry-date" value={form.date} onChange={(e) => e.target.value && set('date', e.target.value)} />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-2)' }}>Time</span>
+            <input type="time" className="input" data-testid="entry-time" value={form.time || ''} onChange={(e) => set('time', e.target.value)} />
+          </label>
+        </div>
 
         {/* scan import */}
         <div className="rounded-[14px] p-3" style={{ background: 'var(--surface-sunk)' }}>
@@ -321,9 +381,98 @@ function AddMeasurement({ open, onClose }) {
           </div>
         )}
 
-        <button onClick={submit} className="btn-primary w-full rounded-full py-3 text-sm font-black">Save measurement</button>
+        <label className="block">
+          <span className="mb-1 block text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-2)' }}>Notes</span>
+          <textarea
+            className="input min-h-16"
+            data-testid="entry-note"
+            value={form.note || ''}
+            onChange={(e) => set('note', e.target.value)}
+            placeholder="Anything worth remembering about this reading"
+          />
+        </label>
+
+        <LinkedPhoto photos={photos} date={form.date} value={form.photoId || null} onPick={(id) => set('photoId', id)} />
+
+        <button
+          onClick={submit}
+          disabled={!hasAny}
+          data-testid="entry-save"
+          className="btn-primary w-full rounded-full py-3 text-sm font-black disabled:opacity-40"
+        >
+          {editing ? 'Save changes' : 'Save measurement'}
+        </button>
+        {!hasAny && (
+          <p className="text-center text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
+            Fill in at least one value.
+          </p>
+        )}
+        <button onClick={onClose} data-testid="entry-cancel" className="w-full rounded-full py-2 text-sm font-bold" style={{ color: 'var(--text-2)' }}>
+          Cancel
+        </button>
+
+        {editing && (
+          <div className="pt-1">
+            {confirmDelete ? (
+              <div className="space-y-2 text-center">
+                <p className="text-xs font-bold" style={{ color: 'var(--danger)' }}>Delete this entry?</p>
+                <div className="flex gap-2">
+                  <button data-testid="entry-delete-confirm" onClick={remove} className="flex-1 rounded-full py-2 text-sm font-extrabold" style={{ background: 'var(--danger)', color: 'var(--accent-fg)' }}>
+                    Yes, delete
+                  </button>
+                  <button onClick={() => setConfirmDelete(false)} className="flex-1 rounded-full py-2 text-sm font-extrabold" style={{ background: 'var(--surface-sunk)' }}>
+                    Keep it
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                data-testid="entry-delete"
+                onClick={() => setConfirmDelete(true)}
+                className="flex w-full items-center justify-center gap-2 rounded-full py-2 text-sm font-bold"
+                style={{ background: 'var(--surface-sunk)', color: 'var(--danger)' }}
+              >
+                <Trash2 size={14} /> Delete entry
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </Modal>
+  )
+}
+
+/** The progress photo this reading belongs with. Same day first, then the rest. */
+function LinkedPhoto({ photos, date, value, onPick }) {
+  const sorted = useMemo(() => [...photos].sort((a, b) => (
+    (b.date === date ? 1 : 0) - (a.date === date ? 1 : 0) || b.date.localeCompare(a.date)
+  )).slice(0, 12), [photos, date])
+
+  if (!photos.length) return null
+  return (
+    <div>
+      <span className="mb-1 block text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-2)' }}>Linked photo</span>
+      <div className="flex gap-2 overflow-x-auto pb-1" data-testid="entry-photo-picker">
+        <button
+          onClick={() => onPick(null)}
+          className="chip shrink-0"
+          style={!value ? { background: 'var(--accent)', color: 'var(--accent-fg)', borderColor: 'transparent' } : undefined}
+        >
+          None
+        </button>
+        {sorted.map((p) => (
+          <button
+            key={p.id}
+            data-testid={`entry-photo-${p.id}`}
+            onClick={() => onPick(p.id)}
+            className="chip shrink-0"
+            style={value === p.id ? { background: 'var(--accent)', color: 'var(--accent-fg)', borderColor: 'transparent' } : undefined}
+          >
+            {format(parseISO(p.date), 'd MMM')} {p.pose}
+          </button>
+        ))}
+      </div>
+    </div>
   )
 }
 
@@ -336,15 +485,24 @@ function TrendsSection() {
   const bodyRefs = useStore((s) => s.bodyRefs)
   const chips = useMemo(() => [...METRICS, ...legacyMetricsPresent(measurements)], [measurements])
   const m = ALL_METRIC_BY_KEY[key] || METRIC_BY_KEY.weight
+  const [editing, setEditing] = useState(null)
 
   const { data, hasData } = useMemo(() => {
     const raw = metricSeries(measurements, key)
     if (raw.length === 0) return { data: [], hasData: false }
     const roll = key === 'weight' ? rollingAverage(raw, 7) : null
     const rollByDate = roll ? Object.fromEntries(roll.map((p) => [p.date, p.value])) : {}
+    // the entry id rides along on each point so a tap on the chart can open the
+    // same edit sheet the list does — the point and the row are one entry
+    const idByDate = Object.fromEntries(measurements.map((x) => [x.date, x.id]))
     return {
       hasData: true,
-      data: raw.map((p) => ({ label: format(parseISO(p.date), 'd MMM'), value: p.value, roll: rollByDate[p.date] ?? null })),
+      data: raw.map((p) => ({
+        label: format(parseISO(p.date), 'd MMM'),
+        value: p.value,
+        roll: rollByDate[p.date] ?? null,
+        id: idByDate[p.date] || null,
+      })),
     }
   }, [measurements, key])
 
@@ -375,17 +533,28 @@ function TrendsSection() {
         ) : (
           <div className="h-52">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -20 }}>
+              <LineChart
+                data={data}
+                margin={{ top: 8, right: 8, bottom: 0, left: -20 }}
+                onClick={(e) => {
+                  const id = e?.activePayload?.[0]?.payload?.id
+                  if (id) setEditing(id)
+                }}
+              >
                 <XAxis dataKey="label" tick={{ fontSize: 9, fill: 'var(--text-2)' }} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={26} />
                 <YAxis tick={{ fontSize: 9, fill: 'var(--text-2)' }} tickLine={false} axisLine={false} domain={['dataMin - 1', 'dataMax + 1']} />
                 <Tooltip contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, fontSize: 12 }} labelStyle={{ color: 'var(--text-2)' }} />
-                <Line type="monotone" dataKey="value" name={m.label} stroke={m.color} strokeWidth={2.5} dot={{ r: 2.5 }} isAnimationActive />
+                <Line type="monotone" dataKey="value" name={m.label} stroke={m.color} strokeWidth={2.5} dot={{ r: 3.5 }} activeDot={{ r: 6 }} isAnimationActive />
                 {key === 'weight' && <Line type="monotone" dataKey="roll" name="7-day avg" stroke="var(--info)" strokeWidth={2} strokeDasharray="4 3" dot={false} connectNulls isAnimationActive />}
               </LineChart>
             </ResponsiveContainer>
           </div>
         )}
+        {hasData && (
+          <p className="mt-1 text-xs font-medium" style={{ color: 'var(--text-2)' }}>Tap a point to correct that entry.</p>
+        )}
       </div>
+      <MeasurementSheet open={!!editing} onClose={() => setEditing(null)} entryId={editing} />
     </div>
   )
 }

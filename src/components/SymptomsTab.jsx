@@ -15,9 +15,8 @@ import {
   CATEGORY_BY_ID, ATTRIBUTION_CAVEAT, LIKELIHOOD_TONE, TIER_WORDS,
 } from '../lib/attribution'
 import CoachTip from './ui/CoachTip'
-import ReactionLab, { SafetyBanner } from './reaction/ReactionLab'
-import { activeSafety } from '../lib/reactionScore'
-import { checkinsDue } from '../lib/reactionCheckins'
+import ReactionTracker, { SafetyBanner } from './reaction/ReactionTracker'
+import { newSites, openSites } from '../lib/reactionTracker'
 
 const SEV_COLOR = { mild: 'var(--warn)', moderate: 'var(--danger)', strong: 'var(--danger)' }
 const SEV_SHORT = { mild: 'Mild', moderate: 'Moderate', strong: 'Strong' }
@@ -39,18 +38,7 @@ export default function SymptomsTab() {
   const logSymptomCheckin = useStore((s) => s.logSymptomCheckin)
   const t = todayStr()
 
-  const reactions = useStore((s) => s.reactions)
-  const reactionCheckins = useStore((s) => s.reactionCheckins)
-  const reactionSettings = useStore((s) => s.reactionSettings)
   const [tab, setTab] = useState('feeling')
-  // The safety banner is pinned wherever Reaction Lab can be reached from, not
-  // only inside it: somebody with red streaks should not have to be on the
-  // right sub-tab to be told.
-  const labDanger = useMemo(() => activeSafety({ reactions, checkins: reactionCheckins }), [reactions, reactionCheckins])
-  const labDue = useMemo(
-    () => checkinsDue({ reactions, checkins: reactionCheckins, windows: reactionSettings?.windowTimes, nowIso: new Date().toISOString() }).length,
-    [reactions, reactionCheckins, reactionSettings]
-  )
 
   const todayLog = symptomLogs.find((l) => l.date === t)
   const [selected, setSelected] = useState(() => {
@@ -128,7 +116,7 @@ export default function SymptomsTab() {
     return (
       <div className="space-y-3">
         <SectionTabs tab={tab} onTab={setTab} />
-        <ReactionLab />
+        <ReactionTracker />
       </div>
     )
   }
@@ -143,7 +131,7 @@ export default function SymptomsTab() {
       </div>
 
       <SectionTabs tab={tab} onTab={setTab} />
-      <SafetyBanner danger={labDanger} compact />
+      <SafetyBanner />
 
       {/* search first */}
       <div className="relative">
@@ -659,22 +647,20 @@ function Legend({ color, label }) {
 /**
  * Two things live on this screen now.
  *
- * "How I feel" is the daily check-in; Reaction Lab is a running investigation
- * into one specific thing. They share a tab because both are symptoms, and they
- * are separated because one is answered in ten seconds a day and the other is
- * read.
+ * "How I feel" is the daily check-in; Reactions is the injection site tracker.
+ * They share a tab because both are symptoms, and they are separated because
+ * one is answered in ten seconds a day and the other is read.
  */
 function SectionTabs({ tab, onTab }) {
   const reactions = useStore((s) => s.reactions)
-  const checkins = useStore((s) => s.reactionCheckins)
-  const settings = useStore((s) => s.reactionSettings)
+  const records = useStore((s) => s.injectionRecords)
   const due = useMemo(
-    () => checkinsDue({ reactions, checkins, windows: settings?.windowTimes, nowIso: new Date().toISOString() }).length,
-    [reactions, checkins, settings]
+    () => newSites({ records, reactions }).length + openSites({ records, reactions }).length,
+    [records, reactions]
   )
   return (
     <div className="flex rounded-full p-1" data-testid="symptom-tabs" style={{ background: 'var(--surface-sunk)' }}>
-      {[['feeling', 'How I feel'], ['reactions', 'Reaction Lab']].map(([id, label]) => (
+      {[['feeling', 'How I feel'], ['reactions', 'Reactions']].map(([id, label]) => (
         <button key={id} onClick={() => onTab(id)} data-testid={`symptom-tab-${id}`}
           data-on={tab === id ? 'true' : 'false'}
           className="relative flex flex-1 items-center justify-center gap-1.5 rounded-full py-2 text-xs font-black"

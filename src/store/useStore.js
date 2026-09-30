@@ -8,7 +8,8 @@ import {
 import { SEED_KNOWN_GOOD } from '../lib/mixing'
 import { canPush } from '../lib/pushes'
 import { pauseEnd } from '../lib/pauses'
-import { newInvestigation, advance as advanceSteps } from '../lib/investigation'
+import { findMixedGroup, severityRank, migrateReactionLab } from '../lib/reactionTracker'
+import { PIN_BY_ID } from '../lib/sitePins'
 import { seedTests as seedBloodTests, seedMarkers as seedBloodMarkers } from '../lib/bloods'
 import { currentRung, cycleInfo, addDaysStr, resolveDoseChange } from '../lib/schedule'
 import { isDueToday } from '../lib/daily'
@@ -86,29 +87,32 @@ function initialState() {
      */
     pauses: [],
     /**
-     * Reaction Lab.
+     * Reaction tracker.
      *
-     * A self-contained investigation into what is causing injection site
-     * reactions. It reads the dose log and inventory but writes only here, so
-     * nothing in this slice can disturb logging, stock or adherence — an
-     * experiment that corrupted the record it was run on would be worthless.
+     * One question: which peptide irritates the site, how badly, and for how
+     * long. It reads the dose log but writes only here, so nothing in this
+     * slice can disturb logging, stock or adherence.
      */
     reactionSettings: {
-      enabled: false,          // setup not yet run
-      suspects: [],            // compound ids under investigation
-      sideAssignment: {},      // { compoundId: sideSetId }
-      windowTimes: { morning: '07:00', evening: '20:00' },
-      coin: 'aud-20c',
-      restDays: 3,
-      discardWindows: {},      // { diluent: days } — sterile water is shorter
+      checkTime: '20:00',      // when the evening check becomes due
+      lastCheckAt: null,       // the last time the check was actually answered
     },
-    injectionRecords: [],      // one per shot, with every captured variable
-    reactions: [],             // one per record that produced a mark
-    reactionCheckins: [],      // one per answered window
-    reactionPhotos: [],        // metadata; the image itself is an IndexedDB blob
-    reactionTreatments: [],
-    investigations: [],
-    investigationSteps: [],
+    injectionRecords: [],      // {id, doseLogId, peptideId, pinId, siteGroup, side, timestamp, mixed}
+    reactions: [],             // {injectionRecordId, ratings[], worstSeverity, goneAt, photoIds}
+    safetyFlags: [],           // {id, date, type, clearedAt}
+    /**
+     * The photo site map.
+     *
+     * `photoKey` names an IndexedDB blob. The image itself never touches this
+     * store, the repository or any build output, and is only in a backup when
+     * `includePhotoInBackup` has been turned on by hand.
+     */
+    siteMap: {
+      photoKey: null,
+      importedAt: null,
+      pinOverrides: {},        // { pinId: {x, y} } — everything else is the default table
+      includePhotoInBackup: false,
+    },
     // Vials that have been used up. Kept as a record rather than deleted: it is
     // the only trace of how long a vial actually lasted.
     finishedVials: [],
@@ -1178,278 +1182,234 @@ const useStore = create(
         }))
       },
 
-      // ---------- reaction lab ----------
-
-      /** Finish setup. Everything else is editable later in its settings. */
-      saveReactionSetup({ suspects = [], sideAssignment = {}, windowTimes, coin, restDays } = {}) {
-        set((s) => ({
-          reactionSettings: {
-            ...s.reactionSettings,
-            enabled: true,
-            suspects: [...suspects],
-            sideAssignment: { ...sideAssignment },
-            ...(windowTimes ? { windowTimes } : {}),
-            ...(coin ? { coin } : {}),
-            ...(restDays != null ? { restDays } : {}),
-          },
-        }))
-        // An investigation with no plan is a settings screen, so the default
-        // plan is created with the setup rather than waiting to be asked for.
-        const s = get()
-        if (!s.investigations.length) get().startInvestigation({ suspects })
-      },
+      // ---------- reaction tracker ----------
 
       updateReactionSettings(patch = {}) {
         set((s) => ({ reactionSettings: { ...s.reactionSettings, ...patch } }))
       },
 
       /**
-       * Record one injection, with everything known about it.
+       * Record one injection at one pin.
        *
-       * Linked to the dose log rather than replacing it: the log says a dose
-       * was taken, this says how and where. Keeping them apart is what stops
-       * the investigation from being able to corrupt the record it studies.
+       * Two peptides on the same pin at the same time cannot be told apart
+       * afterwards, so both are marked `mixed` here rather than being silently
+       * counted — the scorecards then leave them out instead of averaging a
+       * number nobody can act on.
        */
       logInjection(rec = {}) {
         const s = get()
-        const step = s.investigationSteps.find((x) => x.status === 'running') || null
+        const timestamp = rec.timestamp || new Date().toISOString()
+        const pin = rec.pinId ? PIN_BY_ID[rec.pinId] : null
         const id = `ir-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`
-        const injectedAt = rec.injectedAt || new Date().toISOString()
+        const clash = findMixedGroup(s.injectionRecords, {
+          pinId: rec.pinId, timestamp, peptideId: rec.peptideId,
+        })
         const record = {
           id,
           doseLogId: rec.doseLogId || null,
-          investigationStepId: rec.investigationStepId ?? step?.id ?? null,
-          injectedAt,
-          compoundIds: rec.compoundIds || [],
-          componentIds: rec.componentIds || [],
-          sharedSyringe: (rec.compoundIds || []).length > 1,
+          peptideId: rec.peptideId || null,
           dose: rec.dose ?? null,
           units: rec.units ?? null,
-          volumeMl: rec.volumeMl ?? null,
-          concentrationMgMl: rec.concentrationMgMl ?? null,
-          vialId: rec.vialId || null,
-          batch: rec.batch || null,
-          vendor: rec.vendor || null,
-          daysSinceRecon: rec.daysSinceRecon ?? null,
-          diluent: rec.diluent || 'bac',
-          zoneId: rec.zoneId || null,
-          point: rec.point || null,
-          side: rec.side || null,
-          needleGauge: rec.needleGauge ?? null,
-          needleLength: rec.needleLength ?? null,
-          angle: rec.angle ?? 90,
-          pinched: rec.pinched ?? null,
-          speed: rec.speed || 'normal',
-          temperature: rec.temperature || 'room',
-          skinPrep: rec.skinPrep || 'swab',
-          swabBrand: rec.swabBrand || null,
-          swabDried: rec.swabDried ?? null,
-          antihistamine: rec.antihistamine || null,
-          antihistamineHours: rec.antihistamineHours ?? null,
-          note: rec.note || '',
-          confounded: !!rec.confounded,
-          confoundedBy: rec.confoundedBy || [],
+          pinId: pin ? pin.id : (rec.pinId || null),
+          siteGroup: pin ? pin.group : null,
+          side: pin ? pin.side : null,
+          timestamp,
+          mixed: !!clash.length,
+          needsPinning: !pin,
         }
-        set((st) => ({ injectionRecords: [...st.injectionRecords, record] }))
+        const clashIds = clash.map((r) => r.id)
+        set((st) => ({
+          injectionRecords: [
+            ...st.injectionRecords.map((r) => (clashIds.includes(r.id) ? { ...r, mixed: true } : r)),
+            record,
+          ],
+        }))
         return record
       },
 
       updateInjectionRecord(id, patch = {}) {
         set((s) => ({
-          injectionRecords: s.injectionRecords.map((r) => (r.id === id ? { ...r, ...patch } : r)),
+          injectionRecords: s.injectionRecords.map((r) => {
+            if (r.id !== id) return r
+            const next = { ...r, ...patch }
+            if (patch.pinId) {
+              const pin = PIN_BY_ID[patch.pinId]
+              if (pin) {
+                next.siteGroup = pin.group
+                next.side = pin.side
+                next.needsPinning = false
+              }
+            }
+            return next
+          }),
         }))
       },
 
-      /** Remove an injection and everything hanging off it. */
       removeInjectionRecord(id) {
-        const s = get()
-        const rx = s.reactions.filter((x) => x.injectionRecordId === id).map((x) => x.id)
-        set({
+        set((s) => ({
           injectionRecords: s.injectionRecords.filter((r) => r.id !== id),
           reactions: s.reactions.filter((x) => x.injectionRecordId !== id),
-          reactionCheckins: s.reactionCheckins.filter((c) => !rx.includes(c.reactionId)),
-          reactionTreatments: s.reactionTreatments.filter((t) => !rx.includes(t.reactionId)),
-          reactionPhotos: s.reactionPhotos.filter((p) => !rx.includes(p.reactionId)),
-        })
-      },
-
-      /** Open a reaction against an injection. One per injection, ever. */
-      openReaction(injectionRecordId) {
-        const s = get()
-        const existing = s.reactions.find((r) => r.injectionRecordId === injectionRecordId)
-        if (existing) return existing
-        const rec = s.injectionRecords.find((r) => r.id === injectionRecordId)
-        if (!rec) return null
-        const rx = {
-          id: `rx-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
-          injectionRecordId,
-          injectedAt: rec.injectedAt,
-          zoneId: rec.zoneId,
-          status: 'open',
-          resolvedAt: null,
-          onsetLabel: null,
-        }
-        set((st) => ({ reactions: [...st.reactions, rx] }))
-        return rx
-      },
-
-      updateReaction(id, patch = {}) {
-        set((s) => ({ reactions: s.reactions.map((r) => (r.id === id ? { ...r, ...patch } : r)) }))
-      },
-
-      resolveReaction(id, atIso = null) {
-        set((s) => ({
-          reactions: s.reactions.map((r) => (r.id === id
-            ? { ...r, status: 'resolved', resolvedAt: atIso || new Date().toISOString() }
-            : r)),
         }))
       },
 
       /**
-       * Answer one check-in window.
+       * Record tonight's answer for one site.
        *
-       * `completedAt` is when it was actually done, never when it was due — a
-       * check-in filled in at midnight for an eight o'clock window is a
-       * midnight observation, and scoring it as an evening one would put the
-       * wrong timestamp on the only timeline that matters.
+       * One rating per date: answering the same evening twice corrects it
+       * rather than adding a second observation of the same moment. The worst
+       * severity is kept alongside, because it is what the scorecards report
+       * and recomputing it on every read would make "worst so far" quietly
+       * change when an old rating is corrected downwards.
        */
-      saveCheckin(reactionId, data = {}) {
-        const s = get()
-        const id = `rc-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`
-        const entry = {
-          id,
-          reactionId,
-          windowId: data.windowId || null,
-          scheduledWindow: data.scheduledWindow || null,
-          completedAt: data.completedAt || new Date().toISOString(),
-          present: !!data.present,
-          itch: data.itch ?? 0,
-          pain: data.pain ?? 0,
-          welt: !!data.welt,
-          lump: !!data.lump,
-          warm: !!data.warm,
-          bruise: !!data.bruise,
-          tracedAreaMm2: data.tracedAreaMm2 ?? null,
-          diameterMm: data.diameterMm ?? null,
-          spreadPct: data.spreadPct ?? null,
-          redStreaks: !!data.redStreaks,
-          pus: !!data.pus,
-          fever: !!data.fever,
-          elsewhere: !!data.elsewhere,
-          faceSwelling: !!data.faceSwelling,
-          throatSwelling: !!data.throatSwelling,
-          breathing: !!data.breathing,
-          note: data.note || '',
-        }
-        set((st) => ({ reactionCheckins: [...st.reactionCheckins, entry] }))
-        return entry
-      },
-
-      updateCheckin(id, patch = {}) {
-        set((s) => ({ reactionCheckins: s.reactionCheckins.map((c) => (c.id === id ? { ...c, ...patch } : c)) }))
-      },
-
-      removeCheckin(id) {
-        set((s) => ({ reactionCheckins: s.reactionCheckins.filter((c) => c.id !== id) }))
-      },
-
-      /** Photo metadata. The image itself lives in IndexedDB under `blobKey`. */
-      addReactionPhoto(meta = {}) {
-        const entry = {
-          id: `rp-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
-          checkinId: meta.checkinId || null,
-          reactionId: meta.reactionId || null,
-          zoneId: meta.zoneId || null,
-          blobKey: meta.blobKey,
-          width: meta.width ?? null,
-          height: meta.height ?? null,
-          coinCalibration: meta.coinCalibration || null,
-          tracePaths: meta.tracePaths || null,
-          createdAt: meta.createdAt || new Date().toISOString(),
-        }
-        set((s) => ({ reactionPhotos: [...s.reactionPhotos, entry] }))
-        return entry
-      },
-
-      removeReactionPhoto(id) {
-        set((s) => ({ reactionPhotos: s.reactionPhotos.filter((p) => p.id !== id) }))
-      },
-
-      addTreatment(reactionId, { type, appliedAt, note } = {}) {
-        const entry = {
-          id: `rt-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
-          reactionId, type, appliedAt: appliedAt || new Date().toISOString(), note: note || '',
-        }
-        set((s) => ({ reactionTreatments: [...s.reactionTreatments, entry] }))
-        return entry
-      },
-
-      removeTreatment(id) {
-        set((s) => ({ reactionTreatments: s.reactionTreatments.filter((t) => t.id !== id) }))
-      },
-
-      // ---------- investigation ----------
-
-      startInvestigation({ name, suspects = [], order } = {}) {
-        const built = newInvestigation({
-          name, suspects, startDate: todayStr(), order,
-        })
-        set((s) => ({
-          investigations: [...s.investigations.map((i) => ({ ...i, status: i.status === 'running' ? 'archived' : i.status })), built.investigation],
-          investigationSteps: [...s.investigationSteps, ...built.steps],
-        }))
-        return built.investigation
-      },
-
-      updateInvestigation(id, patch = {}) {
-        set((s) => ({ investigations: s.investigations.map((i) => (i.id === id ? { ...i, ...patch } : i)) }))
-      },
-
-      updateStep(id, patch = {}) {
-        set((s) => ({ investigationSteps: s.investigationSteps.map((x) => (x.id === id ? { ...x, ...patch } : x)) }))
-      },
-
-      /** Finish the running step and start the next one. */
-      advanceStep(stepId, resultText) {
-        set((s) => ({ investigationSteps: advanceSteps(s.investigationSteps, stepId, resultText) }))
-      },
-
-      /** Skip a step without recording a result — it was not run. */
-      skipStep(stepId) {
+      rateSite(injectionRecordId, severity, date = todayStr()) {
         set((s) => {
-          const i = s.investigationSteps.findIndex((x) => x.id === stepId)
-          if (i < 0) return {}
+          const existing = s.reactions.find((r) => r.injectionRecordId === injectionRecordId)
+          const base = existing || { injectionRecordId, ratings: [], worstSeverity: null, goneAt: null, photoIds: [] }
+          const ratings = [...base.ratings.filter((r) => r.date !== date), { date, severity }]
+            .sort((a, b) => String(a.date).localeCompare(String(b.date)))
+          const worstSeverity = ratings.reduce(
+            (w, r) => (severityRank(r.severity) > severityRank(w) ? r.severity : w), 'none',
+          )
+          const next = { ...base, ratings, worstSeverity }
           return {
-            investigationSteps: s.investigationSteps.map((x, j) => {
-              if (j === i) return { ...x, status: 'skipped', endDate: todayStr() }
-              if (j === i + 1 && x.status === 'pending') return { ...x, status: 'running', startDate: x.startDate || todayStr() }
-              return x
-            }),
+            reactions: existing
+              ? s.reactions.map((r) => (r.injectionRecordId === injectionRecordId ? next : r))
+              : [...s.reactions, next],
           }
         })
       },
 
-      /** Freeze the step timers without corrupting anything already recorded. */
-      pauseInvestigation(id) {
-        const t = todayStr()
+      /** "Gone" — the reaction has finished. The date is what ends the duration. */
+      markGone(injectionRecordId, date = todayStr()) {
         set((s) => ({
-          investigations: s.investigations.map((i) => (i.id === id
-            ? { ...i, status: 'paused', pausedRanges: [...(i.pausedRanges || []), { from: t, to: null }] }
-            : i)),
+          reactions: s.reactions.map((r) => (
+            r.injectionRecordId === injectionRecordId ? { ...r, goneAt: date } : r
+          )),
         }))
       },
 
-      resumeInvestigation(id) {
-        const t = todayStr()
-        set((s) => ({
-          investigations: s.investigations.map((i) => {
-            if (i.id !== id) return i
-            const ranges = [...(i.pausedRanges || [])]
-            const open = ranges.findIndex((r) => !r.to)
-            if (open >= 0) ranges[open] = { ...ranges[open], to: t }
-            return { ...i, status: 'running', pausedRanges: ranges }
-          }),
+      /** "Still there" — no new severity, just today's date on the record. */
+      markStillThere(injectionRecordId, date = todayStr()) {
+        const s = get()
+        const rx = s.reactions.find((r) => r.injectionRecordId === injectionRecordId)
+        if (!rx) return
+        get().rateSite(injectionRecordId, rx.worstSeverity || 'mild', date)
+        set((st) => ({
+          reactions: st.reactions.map((r) => (
+            r.injectionRecordId === injectionRecordId ? { ...r, goneAt: null } : r
+          )),
         }))
+      },
+
+      /** One photo per row, stored as an IndexedDB blob key. No annotation. */
+      addReactionPhoto(injectionRecordId, blobKey) {
+        if (!blobKey) return
+        set((s) => {
+          const existing = s.reactions.find((r) => r.injectionRecordId === injectionRecordId)
+          if (!existing) {
+            return {
+              reactions: [...s.reactions, {
+                injectionRecordId, ratings: [], worstSeverity: null, goneAt: null, photoIds: [blobKey],
+              }],
+            }
+          }
+          return {
+            reactions: s.reactions.map((r) => (r.injectionRecordId === injectionRecordId
+              ? { ...r, photoIds: [...new Set([...(r.photoIds || []), blobKey])] }
+              : r)),
+          }
+        })
+      },
+
+      removeReactionPhoto(injectionRecordId, blobKey) {
+        set((s) => ({
+          reactions: s.reactions.map((r) => (r.injectionRecordId === injectionRecordId
+            ? { ...r, photoIds: (r.photoIds || []).filter((k) => k !== blobKey) }
+            : r)),
+        }))
+      },
+
+      /** Mark the evening check answered, so it stops being due tonight. */
+      recordCheck(atIso = null) {
+        set((s) => ({
+          reactionSettings: { ...s.reactionSettings, lastCheckAt: atIso || new Date().toISOString() },
+        }))
+      },
+
+      // ---------- safety ----------
+
+      /**
+       * Raise a safety flag. These cannot be switched off in settings: the
+       * banner stays until it is cleared by hand, which is the whole point of
+       * it.
+       */
+      raiseSafetyFlag(type, date = todayStr()) {
+        const s = get()
+        const open = s.safetyFlags.find((f) => f.type === type && !f.clearedAt)
+        if (open) return open
+        const flag = { id: `sf-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`, type, date, clearedAt: null }
+        set((st) => ({ safetyFlags: [...st.safetyFlags, flag] }))
+        return flag
+      },
+
+      clearSafetyFlag(type) {
+        const now = new Date().toISOString()
+        set((s) => ({
+          safetyFlags: s.safetyFlags.map((f) => (
+            f.type === type && !f.clearedAt ? { ...f, clearedAt: now } : f
+          )),
+        }))
+      },
+
+      clearAllSafetyFlags() {
+        const now = new Date().toISOString()
+        set((s) => ({
+          safetyFlags: s.safetyFlags.map((f) => (f.clearedAt ? f : { ...f, clearedAt: now })),
+        }))
+      },
+
+      // ---------- site map ----------
+
+      /**
+       * Point the map at an imported photo.
+       *
+       * Pin positions and history are deliberately untouched: replacing the
+       * photo is retaking the same picture, not starting again, and losing
+       * every adjusted pin would make anyone reluctant to replace a bad one.
+       */
+      setMapPhoto(photoKey) {
+        set((s) => ({
+          siteMap: { ...s.siteMap, photoKey, importedAt: new Date().toISOString() },
+        }))
+      },
+
+      clearMapPhoto() {
+        set((s) => ({ siteMap: { ...s.siteMap, photoKey: null, importedAt: null } }))
+      },
+
+      setPinOverride(pinId, pos) {
+        set((s) => ({
+          siteMap: {
+            ...s.siteMap,
+            pinOverrides: { ...s.siteMap.pinOverrides, [pinId]: { x: pos.x, y: pos.y } },
+          },
+        }))
+      },
+
+      resetPin(pinId) {
+        set((s) => {
+          const next = { ...s.siteMap.pinOverrides }
+          delete next[pinId]
+          return { siteMap: { ...s.siteMap, pinOverrides: next } }
+        })
+      },
+
+      resetAllPins() {
+        set((s) => ({ siteMap: { ...s.siteMap, pinOverrides: {} } }))
+      },
+
+      setIncludeMapPhotoInBackup(on) {
+        set((s) => ({ siteMap: { ...s.siteMap, includePhotoInBackup: !!on } }))
       },
 
       // ---------- pauses ----------
@@ -1702,8 +1662,31 @@ const useStore = create(
         set({ measurements })
         get().showToast('Measurement saved')
       },
+      /**
+       * Correct an entry that is already in the history.
+       *
+       * `editedAt` is stamped so the list can mark it, and the array is sorted
+       * again because the date is editable: an entry moved to last March
+       * belongs in last March, and every chart, trend and average below reads
+       * this array in order.
+       */
+      updateMeasurement(id, patch = {}) {
+        set((s) => ({
+          measurements: s.measurements
+            .map((m) => (m.id === id ? { ...m, ...patch, editedAt: new Date().toISOString() } : m))
+            .sort((a, b) => a.date.localeCompare(b.date)),
+        }))
+      },
       deleteMeasurement(id) {
         set((s) => ({ measurements: s.measurements.filter((m) => m.id !== id) }))
+      },
+      /** Put a deleted or pre-edit entry back exactly as it was, for Undo. */
+      restoreMeasurement(entry) {
+        if (!entry) return
+        set((s) => ({
+          measurements: [...s.measurements.filter((m) => m.id !== entry.id), entry]
+            .sort((a, b) => a.date.localeCompare(b.date)),
+        }))
       },
       setBodyGoal(metric, value) {
         set((s) => ({ bodyGoals: { ...s.bodyGoals, [metric]: value } }))
@@ -1724,6 +1707,14 @@ const useStore = create(
         // 4-week photo streak: photos on ≥4 distinct ISO weeks
         get().showToast('Photo saved')
         return entry
+      },
+      /** Correct an imported photo's date or pose. Re-sorted, like the list is. */
+      updatePhoto(id, patch = {}) {
+        set((s) => ({
+          photos: s.photos
+            .map((p) => (p.id === id ? { ...p, ...patch } : p))
+            .sort((a, b) => a.date.localeCompare(b.date)),
+        }))
       },
       removePhoto(id) {
         set((s) => ({ photos: s.photos.filter((p) => p.id !== id) }))
@@ -1886,7 +1877,7 @@ const useStore = create(
     }),
     {
       name: 'peptide-command-center', // storage key is history — renaming it would orphan existing data
-      version: 15,
+      version: 16,
       storage: createJSONStorage(() => safeStorage),
       // Saves written before a release can't pick new library entries up from
       // the seed, so each version bump backfills them here — once. Deleting one
@@ -1904,26 +1895,45 @@ const useStore = create(
       //   v11: light mode removed
       //   v12: doses can be pushed to the next day
       //   v13: blood results
+      //   v14: pauses
+      //   v15: Reaction Lab
+      //   v16: Reaction Lab replaced by the photo site map and the simplified tracker
       migrate: (persisted, from) => {
-        if (!persisted || from >= 13) return persisted
+        if (!persisted || from >= 16) return persisted
         const s = { ...persisted }
         const t = todayStr()
-        if (from < 15) {
-          // A save written before Reaction Lab existed has none of it. Every
-          // key is created so nothing downstream has to guard, and `enabled`
-          // stays false so the setup runs once when it is first opened.
-          s.reactionSettings = s.reactionSettings || {
-            enabled: false, suspects: [], sideAssignment: {},
-            windowTimes: { morning: '07:00', evening: '20:00' },
-            coin: 'aud-20c', restDays: 3, discardWindows: {},
+        if (from < 16) {
+          // Reaction Lab is gone. Its records are not: every injection is
+          // re-pinned to the nearest site on the photo map, every check-in is
+          // read as one of the four words, and every resolved date becomes a
+          // "Gone" date. Anything that had no site to re-pin to is kept with
+          // `needsPinning` set, so it can be placed by hand instead of being
+          // dropped — the one thing a migration must never do.
+          const { records, reactions, unmapped } = migrateReactionLab({
+            injectionRecords: s.injectionRecords || [],
+            reactions: s.reactions || [],
+            reactionCheckins: s.reactionCheckins || [],
+            reactionPhotos: s.reactionPhotos || [],
+          })
+          s.injectionRecords = records
+          s.reactions = reactions
+          s.safetyFlags = s.safetyFlags || []
+          s.siteMap = s.siteMap || {
+            photoKey: null, importedAt: null, pinOverrides: {}, includePhotoInBackup: false,
           }
-          s.injectionRecords = s.injectionRecords || []
-          s.reactions = s.reactions || []
-          s.reactionCheckins = s.reactionCheckins || []
-          s.reactionPhotos = s.reactionPhotos || []
-          s.reactionTreatments = s.reactionTreatments || []
-          s.investigations = s.investigations || []
-          s.investigationSteps = s.investigationSteps || []
+          s.reactionSettings = {
+            checkTime: s.reactionSettings?.windowTimes?.evening || '20:00',
+            lastCheckAt: null,
+          }
+          if (unmapped.length) {
+            // eslint-disable-next-line no-console
+            console.warn(`[v16] ${unmapped.length} injection(s) had no site on the photo map and need pinning by hand:`, unmapped)
+          }
+          delete s.reactionCheckins
+          delete s.reactionPhotos
+          delete s.reactionTreatments
+          delete s.investigations
+          delete s.investigationSteps
         }
         if (from < 14) {
           // A save written before pauses existed has none. The key is created
@@ -2122,11 +2132,12 @@ const useStore = create(
         reactionSettings: { ...current.reactionSettings, ...(persisted?.reactionSettings || {}) },
         injectionRecords: persisted?.injectionRecords || current.injectionRecords,
         reactions: persisted?.reactions || current.reactions,
-        reactionCheckins: persisted?.reactionCheckins || current.reactionCheckins,
-        reactionPhotos: persisted?.reactionPhotos || current.reactionPhotos,
-        reactionTreatments: persisted?.reactionTreatments || current.reactionTreatments,
-        investigations: persisted?.investigations || current.investigations,
-        investigationSteps: persisted?.investigationSteps || current.investigationSteps,
+        safetyFlags: persisted?.safetyFlags || current.safetyFlags,
+        siteMap: {
+          ...current.siteMap,
+          ...(persisted?.siteMap || {}),
+          pinOverrides: { ...(persisted?.siteMap?.pinOverrides || {}) },
+        },
         bloods: { ...current.bloods, ...(persisted?.bloods || {}) },
         runs: { ...current.runs, ...(persisted?.runs || {}) },
         // merged rather than replaced, so a setting added in a later release
