@@ -8,6 +8,7 @@
 // and a screen can say them while what is stored disagrees.
 import { chromium } from 'playwright'
 import { mkdirSync, existsSync, readdirSync, statSync } from 'fs'
+import { deflateSync } from 'zlib'
 import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
 
@@ -17,11 +18,65 @@ const SHOT = new URL('./shots', import.meta.url).pathname
 mkdirSync(SHOT, { recursive: true })
 const EXE = process.env.CHROMIUM_PATH || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'
 
-// a 2×2 PNG, enough for the canvas to decode and re-encode
-const PNG = Buffer.from(
-  'iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAFUlEQVR42mNk+M9QzwAFjDAGACkNA/9K0RtxAAAAAElFTkSuQmCC',
-  'base64',
-)
+/**
+ * A real PNG of a given size.
+ *
+ * The fixture's shape matters. The map derives its geometry from the image's
+ * natural width and height, so a square test image squashes the vertical pin
+ * spacing and every geometric assertion below measures the fixture rather than
+ * the code. 250x300 is the 1.2 aspect the pin table is authored against.
+ */
+function crc32(buf) {
+  let c
+  const table = crc32.table || (crc32.table = (() => {
+    const t = new Int32Array(256)
+    for (let n = 0; n < 256; n++) {
+      c = n
+      for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1
+      t[n] = c
+    }
+    return t
+  })())
+  let crc = -1
+  for (let i = 0; i < buf.length; i++) crc = (crc >>> 8) ^ table[(crc ^ buf[i]) & 0xFF]
+  return (crc ^ -1) >>> 0
+}
+
+function makePng(w, h) {
+  const stride = w * 3 + 1
+  const raw = Buffer.alloc(stride * h)
+  for (let y = 0; y < h; y++) {
+    const off = y * stride
+    raw[off] = 0
+    for (let x = 0; x < w; x++) {
+      raw[off + 1 + x * 3] = Math.round((x / w) * 255)
+      raw[off + 2 + x * 3] = Math.round((y / h) * 255)
+      raw[off + 3 + x * 3] = 140
+    }
+  }
+  const chunk = (type, data) => {
+    const len = Buffer.alloc(4)
+    len.writeUInt32BE(data.length)
+    const td = Buffer.concat([Buffer.from(type, 'ascii'), data])
+    const crc = Buffer.alloc(4)
+    crc.writeUInt32BE(crc32(td))
+    return Buffer.concat([len, td, crc])
+  }
+  const ihdr = Buffer.alloc(13)
+  ihdr.writeUInt32BE(w, 0)
+  ihdr.writeUInt32BE(h, 4)
+  ihdr[8] = 8      // bit depth
+  ihdr[9] = 2      // truecolour
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]),
+    chunk('IHDR', ihdr),
+    chunk('IDAT', deflateSync(raw)),
+    chunk('IEND', Buffer.alloc(0)),
+  ])
+}
+
+// the composite: portrait, at the aspect the pin table assumes
+const PNG = makePng(250, 300)
 
 const errors = []
 const browser = await chromium.launch({ executablePath: EXE })
@@ -52,6 +107,10 @@ const gotIt = async () => {
 }
 const closeAll = async () => {
   await gotIt()
+  for (let i = 0; i < 4; i++) {
+    if (!(await page.locator('[data-testid="adjust-pins-screen"]').count())) break
+    await page.click('[data-testid="adjust-done"]'); await page.waitForTimeout(350)
+  }
   for (let i = 0; i < 6; i++) {
     if (!(await page.locator('[data-testid="sheet"]').count())) break
     await page.keyboard.press('Escape'); await page.waitForTimeout(300)
@@ -375,10 +434,12 @@ await step('6 · replacing the photo keeps every pin and opens Adjust pins', asy
   const s = await state()
   if (s.siteMap.photoKey === before) throw new Error('the photo was not replaced')
   if (s.siteMap.pinOverrides['flank-l']?.x !== 64.2) throw new Error('replacing the photo lost the adjusted pins')
-  if (!(await page.locator('[data-testid="sheet"]').count())) throw new Error('Adjust pins did not open')
-  if (!(await page.locator('[data-testid="site-map"]').count())) throw new Error('the adjust sheet has no map')
+  if (!(await page.locator('[data-testid="adjust-pins-screen"]').count())) throw new Error('Adjust pins did not open')
+  if (!(await page.locator('[data-testid="site-map"]').count())) throw new Error('the adjust screen has no map')
+  const photoState = await page.getAttribute('[data-testid="site-map"]', 'data-photo')
+  if (photoState !== 'ready') throw new Error(`adjust opened with the photo in state "${photoState}"`)
   await closeAll()
-  console.log('  pin override survived, adjust mode opened')
+  console.log('  pin override survived, adjust opened with the photo already decoded')
 })
 
 // ==================================================== 7, 10, 11 · the map
@@ -521,7 +582,7 @@ await step('8 · the spacing, edge, navel and side rules hold in the browser too
 await step('12 · adjust mode blocks a violating drop with a reason, and resets', async () => {
   await settings()
   await page.click('[data-testid="adjust-pins"]')
-  await page.waitForTimeout(800)
+  await page.waitForTimeout(900)
 
   const box = await page.locator('[data-testid="site-map"]').first().boundingBox()
   const from = await page.locator('[data-testid="pin-abd-r-mid-inner"]').boundingBox()
@@ -560,6 +621,191 @@ await step('12 · adjust mode blocks a violating drop with a reason, and resets'
   if (Object.keys((await state()).siteMap.pinOverrides).length) throw new Error('reset all left overrides behind')
   await closeAll()
   console.log('  legal nudge saved, reset all cleared everything')
+})
+
+// ============================================ bug report · the adjust screen
+
+await step('bug1 · the photo actually renders behind the pins, in both views', async () => {
+  await settings()
+  await page.click('[data-testid="adjust-pins"]')
+  await page.waitForTimeout(900)
+
+  for (const v of ['front', 'back']) {
+    await page.click(`[data-testid="adjust-view-${v}"]`)
+    await page.waitForTimeout(500)
+    const img = await page.evaluate(() => {
+      const el = document.querySelector('[data-testid="site-map"] img')
+      if (!el) return null
+      const r = el.getBoundingClientRect()
+      return {
+        src: el.getAttribute('src') || '',
+        complete: el.complete,
+        natural: [el.naturalWidth, el.naturalHeight],
+        size: [Math.round(r.width), Math.round(r.height)],
+      }
+    })
+    if (!img) throw new Error(`${v}: no image element — pins are floating over nothing`)
+    if (!img.src.startsWith('blob:')) throw new Error(`${v}: src is "${img.src.slice(0, 40)}"`)
+    if (!img.complete || !img.natural[0]) throw new Error(`${v}: the image never decoded`)
+    if (img.size[0] < 10 || img.size[1] < 10) throw new Error(`${v}: image laid out at ${img.size.join('x')}`)
+  }
+  console.log('  blob: URL, decoded, laid out, in front and back')
+})
+
+await step('bug1b · a missing or empty blob shows the error state, never pins on nothing', async () => {
+  await closeAll()
+  // the store still points at a photo, but the blob is gone from IndexedDB
+  const key = (await state()).siteMap.photoKey
+  await page.evaluate(async (k) => {
+    const db = await new Promise((res, rej) => {
+      const r = indexedDB.open('pcc-blobs'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error)
+    })
+    await new Promise((res) => {
+      const tx = db.transaction('blobs', 'readwrite').objectStore('blobs').delete(k)
+      tx.onsuccess = () => res(); tx.onerror = () => res()
+    })
+  }, key)
+  await reload()
+  await tracker()
+
+  if (!(await page.locator('[data-testid="map-error"]').count())) throw new Error('a missing photo did not show the error state')
+  if (!(await page.locator('[data-testid="map-import-again"]').count())) throw new Error('no Import again offered')
+  const pins = await page.locator('[data-testid="site-map"] [data-testid^="pin-"]').count()
+  if (pins !== 0) throw new Error(`${pins} pins drawn over a map that failed to load`)
+  console.log('  error state, Import again, and no pins over an empty map')
+})
+
+await step('bug2+3 · the adjust screen is opaque, fits, and nothing is clipped', async () => {
+  await settings()
+  await page.setInputFiles('[data-testid="map-photo-input"]', { name: 'map3.png', mimeType: 'image/png', buffer: PNG })
+  await page.waitForTimeout(3000)
+  if (!(await page.locator('[data-testid="adjust-pins-screen"]').count())) throw new Error('adjust did not open after the re-import')
+
+  const screen = await page.locator('[data-testid="adjust-pins-screen"]').boundingBox()
+  const vh = await page.evaluate(() => window.innerHeight)
+  if (screen.height < vh - 2) throw new Error(`the screen is ${screen.height}px of ${vh}`)
+
+  // opaque: the tab bar underneath must not be reachable or visible
+  const navHit = await page.evaluate(() => {
+    const nav = document.querySelector('nav')
+    if (!nav) return 'no nav'
+    const r = nav.getBoundingClientRect()
+    const top = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)
+    return top && nav.contains(top) ? 'nav is on top' : 'covered'
+  })
+  if (navHit !== 'covered') throw new Error(`the tab bar is not hidden: ${navHit}`)
+
+  const bg = await page.evaluate(() => getComputedStyle(document.querySelector('[data-testid="adjust-pins-screen"]')).backgroundColor)
+  if (/rgba\([^)]*,\s*0?\.\d+\)/.test(bg)) throw new Error(`the screen background is translucent: ${bg}`)
+
+  // every pin of both views is inside the map box at default zoom
+  for (const v of ['front', 'back']) {
+    await page.click(`[data-testid="adjust-view-${v}"]`)
+    await page.waitForTimeout(500)
+    const clipped = await page.evaluate(() => {
+      const box = document.querySelector('[data-testid="site-map"]').getBoundingClientRect()
+      return [...document.querySelectorAll('[data-testid="site-map"] [data-testid^="pin-"]')]
+        .map((el) => ({ id: el.dataset.testid, r: el.getBoundingClientRect() }))
+        .filter(({ r }) => r.top < box.top - 0.5 || r.bottom > box.bottom + 0.5
+          || r.left < box.left - 0.5 || r.right > box.right + 0.5)
+        .map((x) => x.id)
+    })
+    if (clipped.length) throw new Error(`${v}: ${clipped.length} pin(s) clipped — ${clipped.slice(0, 3).join(', ')}`)
+  }
+
+  // the header controls the report said were missing
+  if (!(await page.locator('[data-testid="adjust-view-front"]').isVisible())) throw new Error('no Front/Back toggle visible')
+  if (!(await page.locator('[data-testid="adjust-done"]').isVisible())) throw new Error('no Done button visible')
+  console.log(`  full height ${Math.round(screen.height)}px, opaque, tab bar covered, all 30 pins inside both windows`)
+})
+
+await step('bug3b · image and pins stay locked together through zoom and pan', async () => {
+  await page.click('[data-testid="adjust-view-front"]')
+  await page.waitForTimeout(400)
+  const read = async () => page.evaluate(() => {
+    const img = document.querySelector('[data-testid="site-map"] img').getBoundingClientRect()
+    const pin = document.querySelector('[data-testid="pin-abd-r-mid-inner"]').getBoundingClientRect()
+    return {
+      // where the pin sits as a fraction of the image, which must never change
+      fx: (pin.x + pin.width / 2 - img.x) / img.width,
+      fy: (pin.y + pin.height / 2 - img.y) / img.height,
+      pinW: pin.width,
+    }
+  })
+  const a = await read()
+  await pinch(page.locator('[data-testid="site-map"]').first(), 2.2)
+  const b = await read()
+
+  if (Math.abs(a.fx - b.fx) > 0.004 || Math.abs(a.fy - b.fy) > 0.004) {
+    throw new Error(`the pin drifted on the image: ${a.fx.toFixed(3)},${a.fy.toFixed(3)} to ${b.fx.toFixed(3)},${b.fy.toFixed(3)}`)
+  }
+  if (Math.abs(a.pinW - b.pinW) > 1.5) throw new Error(`the pin grew from ${a.pinW} to ${b.pinW}`)
+
+  const box = await page.locator('[data-testid="site-map"]').first().boundingBox()
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2)
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2)
+  await page.waitForTimeout(400)
+  const c = await read()
+  if (Math.abs(c.pinW - a.pinW) > 1.5) throw new Error('double tap did not reset')
+  console.log(`  pin held its spot on the image across a ${(await page.evaluate(() => 1))}x-2.2x zoom, size constant`)
+})
+
+await step('bug4 · X with changes asks to discard; Done just closes', async () => {
+  const box = await page.locator('[data-testid="site-map"]').first().boundingBox()
+  const from = await page.locator('[data-testid="pin-abd-r-mid-inner"]').boundingBox()
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2)
+  await page.mouse.down()
+  await page.waitForTimeout(500)
+  await page.mouse.move(from.x + from.width / 2 + 5, from.y + from.height / 2, { steps: 8 })
+  await page.waitForTimeout(250)
+  await page.mouse.up()
+  await page.waitForTimeout(400)
+
+  await page.click('[data-testid="adjust-close"]')
+  await page.waitForTimeout(400)
+  if (!(await page.locator('[data-testid="adjust-discard"]').count())) throw new Error('X with changes did not ask')
+  await page.click('[data-testid="adjust-discard-yes"]')
+  await page.waitForTimeout(500)
+  if (await page.locator('[data-testid="adjust-pins-screen"]').count()) throw new Error('discard did not close the screen')
+
+  // and the tab bar is back
+  const navBack = await page.evaluate(() => !!document.querySelector('nav')?.getBoundingClientRect().height)
+  if (!navBack) throw new Error('the tab bar did not come back')
+  console.log(`  discard prompt shown, screen closed, tab bar restored (box ${Math.round(box.width)}px)`)
+})
+
+await step('bug5 · the backup switch reads OFF by default and says so to a screen reader', async () => {
+  await settings()
+  const sw = page.locator('[data-testid="include-map-in-backup"]')
+  if ((await sw.getAttribute('aria-checked')) !== 'false') throw new Error('the switch is on by default')
+  if ((await sw.getAttribute('data-on')) !== 'false') throw new Error('the switch renders as on')
+  if ((await state()).siteMap.includePhotoInBackup !== false) throw new Error('the stored value is not false')
+
+  // a value that was never chosen by the user is migrated back off
+  await page.evaluate(() => {
+    const raw = JSON.parse(localStorage.getItem('peptide-command-center'))
+    raw.version = 16
+    raw.state.siteMap = { ...raw.state.siteMap, includePhotoInBackup: true }
+    delete raw.state.siteMap.includePhotoInBackupSetAt
+    localStorage.setItem('peptide-command-center', JSON.stringify(raw))
+  })
+  await reload()
+  if ((await state()).siteMap.includePhotoInBackup !== false) throw new Error('an unchosen true was not migrated back off')
+
+  // but a deliberate choice survives
+  await settings()
+  await page.click('[data-testid="include-map-in-backup"]')
+  await page.waitForTimeout(400)
+  let s2 = await state()
+  if (s2.siteMap.includePhotoInBackup !== true) throw new Error('the switch does not turn on')
+  if (!s2.siteMap.includePhotoInBackupSetAt) throw new Error('an explicit choice was not stamped')
+  await reload()
+  s2 = await state()
+  if (s2.siteMap.includePhotoInBackup !== true) throw new Error('a deliberate yes was migrated away')
+  await settings()
+  await page.click('[data-testid="include-map-in-backup"]')
+  await page.waitForTimeout(400)
+  console.log('  off by default, bad default migrated off, explicit choice kept')
 })
 
 // ==================================================== 13-14 · logging

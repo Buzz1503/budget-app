@@ -1412,8 +1412,21 @@ const useStore = create(
         set((s) => ({ siteMap: { ...s.siteMap, pinOverrides: {} } }))
       },
 
+      /**
+       * The only thing that may turn the map photo on in a backup.
+       *
+       * It stamps when the choice was made, so a later migration can tell an
+       * explicit "yes" apart from a value that arrived some other way and
+       * needs putting back to off.
+       */
       setIncludeMapPhotoInBackup(on) {
-        set((s) => ({ siteMap: { ...s.siteMap, includePhotoInBackup: !!on } }))
+        set((s) => ({
+          siteMap: {
+            ...s.siteMap,
+            includePhotoInBackup: !!on,
+            includePhotoInBackupSetAt: new Date().toISOString(),
+          },
+        }))
       },
 
       // ---------- pauses ----------
@@ -1881,7 +1894,7 @@ const useStore = create(
     }),
     {
       name: 'peptide-command-center', // storage key is history — renaming it would orphan existing data
-      version: 16,
+      version: 17,
       storage: createJSONStorage(() => safeStorage),
       // Saves written before a release can't pick new library entries up from
       // the seed, so each version bump backfills them here — once. Deleting one
@@ -1902,10 +1915,21 @@ const useStore = create(
       //   v14: pauses
       //   v15: Reaction Lab
       //   v16: Reaction Lab replaced by the photo site map and the simplified tracker
+      //   v17: the map photo is out of backups again unless it was asked for
       migrate: (persisted, from) => {
-        if (!persisted || from >= 16) return persisted
+        if (!persisted || from >= 17) return persisted
         const s = { ...persisted }
         const t = todayStr()
+        if (from < 17) {
+          // "Include map photo in backup" is meant to be off until somebody
+          // turns it on. Nothing but the switch could ever have set it, and the
+          // switch did not record that it had been used — so a `true` here
+          // cannot be shown to be the user's choice, and a full-body photograph
+          // is not a thing to leave in a backup file on the balance of doubt.
+          if (s.siteMap && !s.siteMap.includePhotoInBackupSetAt) {
+            s.siteMap = { ...s.siteMap, includePhotoInBackup: false }
+          }
+        }
         if (from < 16) {
           // Reaction Lab is gone. Its records are not: every injection is
           // re-pinned to the nearest site on the photo map, every check-in is

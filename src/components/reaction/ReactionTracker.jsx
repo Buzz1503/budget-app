@@ -4,7 +4,7 @@ import useStore, { todayStr } from '../../store/useStore'
 import Modal from '../ui/Modal'
 import { displayName } from '../../lib/naming'
 import { prettyDate } from '../../lib/schedule'
-import { putBlob, blobUrl, getBlob, revokeBlobUrl } from '../../lib/blobStore'
+import { putBlob, blobUrl } from '../../lib/blobStore'
 import { importPhoto } from '../../lib/photoImport'
 import { PIN_BY_ID, GROUPS } from '../../lib/sitePins'
 import {
@@ -137,6 +137,7 @@ export default function ReactionTracker() {
       <div className="card p-4">
         <div className="t-label mb-3" style={{ color: 'var(--text-3)' }}>Sites</div>
         <SiteMap
+          bleed
           onSelect={(p) => setSelected(p)}
           selectedId={selected?.id || null}
         />
@@ -350,6 +351,7 @@ export function LogInjection({ open, onClose, pinId: initialPin = null, doseLogI
             ))}
           </div>
           <SiteMap
+            bleed
             onSelect={(p) => setPinId(p.id)}
             selectedId={pinId}
             groupFilter={group ? [group] : []}
@@ -679,13 +681,10 @@ function InjectionRow({ row, withPeptide = false, nameOf }) {
   useEffect(() => {
     if (!key) { setUrl(null); return undefined }
     let dead = false
-    let made = null
-    getBlob(key).then((b) => {
-      if (dead || !b) return
-      made = blobUrl(b)
-      setUrl(made)
-    })
-    return () => { dead = true; if (made) revokeBlobUrl(made) }
+    // blobUrl takes the *key* and resolves to a URL; handing it the blob itself
+    // put a Promise in src and rendered a broken image
+    blobUrl(key).then((u) => { if (!dead) setUrl(u) })
+    return () => { dead = true }
   }, [key])
 
   const dur = row.durationDays

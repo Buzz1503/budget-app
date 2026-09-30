@@ -1,11 +1,13 @@
-import { useEffect, useRef, useState } from 'react'
-import { Upload, RotateCcw, Move, Check } from 'lucide-react'
+import { useRef, useState } from 'react'
+import { Upload, RotateCcw, Move } from 'lucide-react'
 import useStore from '../../store/useStore'
-import Modal from '../ui/Modal'
-import { putBlob, deleteBlob } from '../../lib/blobStore'
+import { putBlob, getBlob, deleteBlob } from '../../lib/blobStore'
+import { loadMapPhoto, releaseMapPhoto, MAP_PHOTO_ERRORS } from '../../lib/mapPhoto'
 import { importPhoto } from '../../lib/photoImport'
 import { DEFAULT_CHECK_TIME } from '../../lib/reactionTracker'
-import SiteMap from './SiteMap'
+import { PINS, checkPins, MIN_SPACING_PX, SCREEN_WIDTH } from '../../lib/sitePins'
+import AdjustPins from './AdjustPins'
+import { useMapPhoto } from './SiteMap'
 
 /**
  * Settings &gt; Site map.
@@ -24,35 +26,80 @@ export default function SiteMapSettings() {
   const updateSettings = useStore((s) => s.updateReactionSettings)
   const resetAllPins = useStore((s) => s.resetAllPins)
 
-  const [busy, setBusy] = useState(false)
+  const photo = useMapPhoto()
+  const [busy, setBusy] = useState(null)
   const [error, setError] = useState(null)
   const [adjustOpen, setAdjustOpen] = useState(false)
   const fileRef = useRef(null)
 
   const has = !!siteMap?.photoKey
 
+  /**
+   * Import, and do not hand over until the photo is genuinely on screen-ready.
+   *
+   * Adjust pins used to open the moment the store was told about the new key,
+   * which is several steps too early: the blob may still be settling in
+   * IndexedDB, the object URL does not exist yet, and the image has certainly
+   * not decoded. The result was an adjust screen full of pins floating over
+   * nothing. Now every one of those steps is awaited and checked, and a photo
+   * that fails any of them is rejected rather than saved.
+   */
   const onFile = async (e) => {
     const file = e.target.files?.[0]
     e.target.value = ''
     if (!file) return
-    setBusy(true)
     setError(null)
+    setBusy('Reading photo')
+    const key = `sitemap-${Date.now()}`
     try {
+      // HEIC to JPEG and EXIF rotation baked in, before anything is stored
       const out = await importPhoto(file)
       if (!out.ok) { setError(out.error || 'That photo could not be read.'); return }
-      const key = `sitemap-${Date.now()}`
-      await putBlob(key, out.blob)
+      if (!out.blob?.size) { setError('That photo came back empty. Try importing it again.'); return }
+
+      setBusy('Saving photo')
+      const saved = await putBlob(key, out.blob)
+      if (!saved) { setError('This device would not store the photo.'); return }
+
+      // read it back rather than trusting the write
+      const check = await getBlob(key)
+      if (!check?.size) {
+        await deleteBlob(key)
+        setError('The photo did not save properly. Try importing it again.')
+        return
+      }
+
+      setBusy('Loading photo')
+      const loaded = await loadMapPhoto(key)
+      if (loaded.status !== 'ready') {
+        await deleteBlob(key)
+        setError(MAP_PHOTO_ERRORS[loaded.reason] || 'That photo could not be opened.')
+        return
+      }
+
       const old = siteMap?.photoKey
       setMapPhoto(key)
-      if (old && old !== key) { try { await deleteBlob(old) } catch { /* the old one is already gone */ } }
+      if (old && old !== key) {
+        releaseMapPhoto(old)
+        try { await deleteBlob(old) } catch { /* the old one is already gone */ }
+      }
       // Replacing the photo keeps every pin, so the first thing worth doing is
-      // checking they still land on skin — which is this, opened for you.
+      // checking they still land on skin — which is this, opened for you, and
+      // only now that there is something to see.
       setAdjustOpen(true)
     } catch (err) {
+      try { await deleteBlob(key) } catch { /* nothing to clean up */ }
       setError(err.message)
     } finally {
-      setBusy(false)
+      setBusy(null)
     }
+  }
+
+  const remove = async () => {
+    const k = siteMap.photoKey
+    clearMapPhoto()
+    releaseMapPhoto(k)
+    try { await deleteBlob(k) } catch { /* already gone */ }
   }
 
   return (
@@ -75,14 +122,20 @@ export default function SiteMapSettings() {
       />
       <button
         data-testid="import-map-photo"
-        disabled={busy}
+        disabled={!!busy}
         onClick={() => fileRef.current?.click()}
         className="flex w-full items-center justify-center gap-2 rounded-full py-3 text-sm font-black disabled:opacity-50"
         style={{ background: 'var(--surface-sunk)' }}
       >
-        <Upload size={15} /> {busy ? 'Reading photo…' : has ? 'Replace map photo' : 'Import map photo'}
+        <Upload size={15} /> {busy ? `${busy}…` : has ? 'Replace map photo' : 'Import map photo'}
       </button>
-      {error && <div className="t-caption" style={{ color: 'var(--danger)' }}>{error}</div>}
+      {error && (
+        <div className="t-caption" data-testid="map-import-error" style={{ color: 'var(--danger)' }}>
+          {error}
+        </div>
+      )}
+
+      <AspectNote photo={photo} />
 
       {has && (
         <>
@@ -96,7 +149,7 @@ export default function SiteMapSettings() {
           </button>
           <button
             data-testid="remove-map-photo"
-            onClick={async () => { const k = siteMap.photoKey; clearMapPhoto(); try { await deleteBlob(k) } catch { /* already gone */ } }}
+            onClick={remove}
             className="t-caption underline"
             style={{ color: 'var(--text-3)' }}
           >
@@ -105,21 +158,13 @@ export default function SiteMapSettings() {
         </>
       )}
 
-      <label className="flex items-center justify-between gap-3 pt-1">
-        <span className="min-w-0 flex-1">
-          <span className="text-sm font-semibold">Include map photo in backup</span>
-          <span className="t-caption block" style={{ color: 'var(--text-2)' }}>
-            Off by default — a backup file with this on contains a full-body photograph.
-          </span>
-        </span>
-        <input
-          type="checkbox"
-          data-testid="include-map-in-backup"
-          checked={!!siteMap?.includePhotoInBackup}
-          onChange={(e) => setInclude(e.target.checked)}
-          className="h-6 w-6 shrink-0"
-        />
-      </label>
+      <Switch
+        testId="include-map-in-backup"
+        on={!!siteMap?.includePhotoInBackup}
+        onChange={setInclude}
+        label="Include map photo in backup"
+        hint="Off by default — a backup file with this on contains a full-body photograph."
+      />
 
       <div className="flex items-center justify-between gap-3">
         <span className="text-sm font-semibold">Evening check time</span>
@@ -146,56 +191,72 @@ export default function SiteMapSettings() {
   )
 }
 
-/** Long-press a pin and drag it. A position that breaks a rule is not saved. */
-function AdjustPins({ open, onClose }) {
-  const siteMap = useStore((s) => s.siteMap)
-  const resetPin = useStore((s) => s.resetPin)
-  const resetAllPins = useStore((s) => s.resetAllPins)
-  const [selected, setSelected] = useState(null)
-  const [warning, setWarning] = useState(null)
-
-  useEffect(() => { if (!open) { setSelected(null); setWarning(null) } }, [open])
-
-  const moved = Object.keys(siteMap?.pinOverrides || {})
-
+/**
+ * The photo's shape decides how far apart the pins land.
+ *
+ * Pin positions are percentages of the composite, so the gap between two rows
+ * is a percentage of the photo's *height*. A squarer photo than the table was
+ * drawn for pulls those rows together, and the 44 px a thumb needs quietly
+ * becomes less. This says so once, rather than leaving someone to wonder why
+ * two sites keep swapping under their finger.
+ */
+function AspectNote({ photo }) {
+  if (photo.status !== 'ready' || !photo.natural) return null
+  const aspect = photo.natural.h / photo.natural.w
+  const { minSpacingPx } = checkPins(PINS, { screenWidth: SCREEN_WIDTH, aspect })
+  if (minSpacingPx >= MIN_SPACING_PX) return null
   return (
-    <Modal open={open} onClose={onClose} title="Adjust pins">
-      <div className="space-y-3">
-        <p className="t-caption" style={{ color: 'var(--text-2)' }}>
-          Press and hold a pin, then drag it onto the fat you actually inject. Sites need
-          44 px between them, 5 cm from the navel, and have to stay inside the view.
-        </p>
-        <SiteMap
-          adjust
-          selectedId={selected?.id || null}
-          onSelect={(p) => setSelected(p)}
-          onAdjustWarning={setWarning}
-        />
-        {selected && (
-          <div className="rounded-[var(--r-sm)] p-3" style={{ background: 'var(--surface-sunk)' }}>
-            <div className="text-sm font-black">{selected.label}</div>
-            <button
-              data-testid="reset-one-pin"
-              onClick={() => resetPin(selected.id)}
-              className="chip mt-2"
-              disabled={!moved.includes(selected.id)}
-            >
-              Reset this pin
-            </button>
-          </div>
-        )}
-        <div className="flex items-center justify-between">
-          <span className="t-caption" style={{ color: 'var(--text-3)' }}>
-            {moved.length ? `${moved.length} pin${moved.length === 1 ? '' : 's'} moved` : 'Every pin is where it started'}
-          </span>
-          <button className="chip" onClick={resetAllPins} disabled={!moved.length} data-testid="adjust-reset-all">Reset all</button>
-        </div>
-        <button className="btn-primary w-full py-3" onClick={onClose} data-testid="adjust-done">
-          <Check size={15} className="mr-1 inline" /> Done
-        </button>
-      </div>
-    </Modal>
+    <div
+      data-testid="map-aspect-note"
+      className="rounded-[var(--r-sm)] px-3 py-2 t-caption"
+      style={{ background: 'color-mix(in srgb, var(--warn) 14%, transparent)', color: 'var(--warn)' }}
+    >
+      This photo is wider than the map expects, so some sites sit {Math.round(minSpacingPx)} px apart
+      instead of {MIN_SPACING_PX}. A taller photo, or Adjust pins, will separate them.
+    </div>
   )
 }
 
-export { AdjustPins }
+/**
+ * A switch that reads as off when it is off.
+ *
+ * A bare `<input type="checkbox">` inherits the platform's light-mode styling:
+ * on this app's dark background an unchecked box renders as a filled white
+ * square, which reads as ON. For a control whose whole job is to say whether a
+ * body photograph goes into a backup file, "looks on when it is off" is not a
+ * cosmetic problem.
+ */
+function Switch({ on, onChange, label, hint, testId }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="min-w-0 flex-1">
+        <span className="text-sm font-semibold">{label}</span>
+        {hint && <span className="t-caption block" style={{ color: 'var(--text-2)' }}>{hint}</span>}
+      </span>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={on}
+        aria-label={label}
+        data-testid={testId}
+        data-on={on ? 'true' : 'false'}
+        onClick={() => onChange(!on)}
+        className="relative h-7 w-12 shrink-0 rounded-full transition-colors"
+        style={{
+          background: on ? 'var(--good)' : 'var(--surface-sunk)',
+          border: `1px solid ${on ? 'transparent' : 'var(--border)'}`,
+        }}
+      >
+        <span
+          className="absolute top-1/2 h-5 w-5 -translate-y-1/2 rounded-full transition-all"
+          style={{
+            left: on ? 'calc(100% - 22px)' : '2px',
+            background: on ? 'var(--accent-fg)' : 'var(--text-3)',
+          }}
+        />
+      </button>
+    </div>
+  )
+}
+
+export { Switch }
