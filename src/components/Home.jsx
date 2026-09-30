@@ -111,6 +111,7 @@ export default function Home({ goTo }) {
   const [sheetId, setSheetId] = useState(null)
   const [dosing, setDosing] = useState(null)
   const [pausing, setPausing] = useState(false)
+  const paused = !!activePause(pauses, t)
   const [heldFor, setHeldFor] = useState(null)
   const slotSupps = useMemo(() => dueInSlot(supplements, slot), [supplements, slot])
   const takenIds = useMemo(() => takenOn(supplementLogs, t), [supplementLogs, t])
@@ -346,6 +347,16 @@ export default function Home({ goTo }) {
             <button onClick={() => setShowAbout(true)} aria-label="About this app" style={{ color: 'var(--text-3)' }}>
               <Info size={12} />
             </button>
+            {/* The day you want this is the day you open the app meaning to
+                take something and realise you are not going to, so it belongs
+                on this screen and not only in Settings. Hidden while a pause is
+                already running, because the banner below carries Resume. */}
+            {!paused && (
+              <button onClick={() => setPausing(true)} aria-label="Pause the protocol"
+                data-testid="home-pause" style={{ color: 'var(--text-3)' }}>
+                <Pause size={12} />
+              </button>
+            )}
           </p>
           <div className="flex shrink-0 items-center gap-2">
           <AlertBell alerts={alerts} nudge={nudge} goTo={goTo} onDismissNudge={dismissBackupNudge}
@@ -368,7 +379,7 @@ export default function Home({ goTo }) {
         </div>
       </div>
 
-      <PausedBanner onPause={() => setPausing(true)} onAskStepUp={setHeldFor} />
+      <PausedBanner onAskStepUp={setHeldFor} />
 
       {/* first-run pointer at the row */}
       <CoachTip id="log-button" when={slotDue.length > 0}>
@@ -855,7 +866,7 @@ function BellAction({ children, onClick, primary, testid }) {
  * Resume is here rather than buried in Settings: the day you want it is the day
  * you open the app meaning to take something, and that is this screen.
  */
-function PausedBanner({ onPause, onAskStepUp }) {
+function PausedBanner({ onAskStepUp }) {
   const pauses = useStore((s) => s.pauses)
   const peptides = useStore((s) => s.peptides)
   const titration = useStore((s) => s.titration)

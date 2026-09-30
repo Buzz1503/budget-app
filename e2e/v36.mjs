@@ -163,6 +163,40 @@ await step('1 · pause everything, with a reason from the list', async () => {
   console.log(`  paused from ${p.startedOn}, everything, "${p.note}"`)
 })
 
+// The brief asks for a way in from Settings *and* from the Home header. The
+// first cut only wired up Settings — the Home prop was passed and never used —
+// and this suite did not notice because it only ever drove the Settings route.
+await step('1a · a pause can also be started from the Home header', async () => {
+  await page.evaluate(() => {
+    const raw = JSON.parse(localStorage.getItem('peptide-command-center'))
+    raw.state.pauses = []
+    localStorage.setItem('peptide-command-center', JSON.stringify(raw))
+  })
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await page.waitForSelector('nav button'); await page.waitForTimeout(1200)
+  await gotIt()
+
+  await nav('Home')
+  const btn = page.locator('[data-testid="home-pause"]')
+  if (!(await btn.count())) throw new Error('no way to pause from the Home header')
+  await btn.click()
+  await page.waitForTimeout(800)
+  if (!(await page.locator('[data-testid="pause-sheet"]').count())) throw new Error('the pause sheet did not open from Home')
+  await page.click('[data-testid="pause-reason"][data-reason="sick"]')
+  await page.click('[data-testid="pause-save"]')
+  await page.waitForTimeout(900)
+  const s = await state()
+  if (s.pauses.at(-1)?.reason !== 'sick') throw new Error('the pause was not started from Home')
+
+  // and it stands down once something is paused, because the banner carries Resume
+  await nav('Home')
+  if (await page.locator('[data-testid="home-pause"]').count()) {
+    throw new Error('the header still offers Pause while already paused')
+  }
+  if (!(await page.locator('[data-testid="resume-protocol"]').count())) throw new Error('no Resume on the banner')
+  console.log('  started from the Home header; hidden again while paused')
+})
+
 await step('1b · Other opens a free-text reason, and an end date is optional', async () => {
   // clear the one just made so a second can start
   await page.evaluate(() => {
