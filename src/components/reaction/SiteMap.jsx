@@ -537,6 +537,13 @@ export default function SiteMap({
                   style={{
                     left: `${(at.x - w.x0) / cropW * 100}%`,
                     top: `${(at.y - w.y0) / cropH * 100}%`,
+                    // the element carrying the pin's id is the pin's own box,
+                    // so measuring it — in a test or by eye — gives the marker
+                    // rather than a zero-size wrapper around it
+                    width: d,
+                    height: d,
+                    marginLeft: -d / 2,
+                    marginTop: -d / 2,
                     // counter-scale: the gap between pins grows with the zoom,
                     // the pins themselves never do
                     transform: `scale(${1 / zoom})`,
@@ -545,12 +552,8 @@ export default function SiteMap({
                   }}
                 >
                   <div
-                    className="absolute rounded-full"
+                    className="absolute inset-0 rounded-full"
                     style={{
-                      left: -d / 2,
-                      top: -d / 2,
-                      width: d,
-                      height: d,
                       background: fill,
                       border: `2px solid ${ring}`,
                       boxShadow: isSuggested
@@ -563,8 +566,9 @@ export default function SiteMap({
                       data-testid={`chip-${pin.id}`}
                       className="absolute whitespace-nowrap rounded-full px-1.5 text-[8px] font-black leading-[12px]"
                       style={{
-                        top: d / 2 + 2,
-                        left: 0,
+                        top: '100%',
+                        left: '50%',
+                        marginTop: 2,
                         transform: 'translateX(-50%)',
                         background: 'rgba(0,0,0,0.65)',
                         color: fill,
