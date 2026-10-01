@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { X, RotateCcw } from 'lucide-react'
 import useStore from '../../store/useStore'
 import SiteMap from './SiteMap'
+import { useElementHeight, AREA_PADDING_PX } from '../../lib/useElementHeight'
 
 /**
  * Adjust pins, as a screen rather than a sheet.
@@ -28,10 +29,10 @@ export default function AdjustPins({ open, onClose }) {
   const [selected, setSelected] = useState(null)
   const [warning, setWarning] = useState(null)
   const [confirmClose, setConfirmClose] = useState(false)
-  const [mapH, setMapH] = useState(320)
 
   const startOverrides = useRef(null)
   const areaRef = useRef(null)
+  const mapH = useElementHeight(areaRef)
 
   const moved = Object.keys(siteMap?.pinOverrides || {})
 
@@ -59,25 +60,6 @@ export default function AdjustPins({ open, onClose }) {
       window.scrollTo(0, y)
     }
   }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // the map gets whatever the header and footer leave, measured rather than
-  // assumed, so a notch or a home indicator cannot clip a row of pins
-  useEffect(() => {
-    if (!open) return undefined
-    const measure = () => {
-      const el = areaRef.current
-      if (el) setMapH(Math.max(200, el.clientHeight))
-    }
-    measure()
-    const t = setTimeout(measure, 60)
-    window.addEventListener('resize', measure)
-    window.visualViewport?.addEventListener('resize', measure)
-    return () => {
-      clearTimeout(t)
-      window.removeEventListener('resize', measure)
-      window.visualViewport?.removeEventListener('resize', measure)
-    }
-  }, [open])
 
   if (!open) return null
 
@@ -146,7 +128,7 @@ export default function AdjustPins({ open, onClose }) {
         <SiteMap
           adjust
           fit="contain"
-          maxHeight={mapH - 8}
+          maxHeight={mapH - AREA_PADDING_PX}
           view={view}
           onView={setView}
           showChrome={false}

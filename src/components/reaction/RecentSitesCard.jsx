@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import useStore from '../../store/useStore'
@@ -8,6 +8,7 @@ import { colourHex } from '../../lib/peptideIdentity'
 import { recentUses, DEFAULT_WINDOW_DAYS } from '../../lib/siteRotation'
 import { SEVERITY_BY_ID } from '../../lib/reactionTracker'
 import SiteMap from './SiteMap'
+import { useElementHeight, AREA_PADDING_PX } from '../../lib/useElementHeight'
 
 const MAX_LINES = 5
 
@@ -90,6 +91,8 @@ export default function RecentSitesCard() {
 /** View only: the same map with the window's pins ringed, and nothing to log. */
 function RecentSitesMap({ uses, peptideById, onClose }) {
   const [view, setView] = useState('front')
+  const areaRef = useRef(null)
+  const mapH = useElementHeight(areaRef)
   const highlight = useMemo(() => [...new Set(uses.map((u) => u.pinId))], [uses])
 
   return createPortal(
@@ -120,10 +123,10 @@ function RecentSitesMap({ uses, peptideById, onClose }) {
           ))}
         </div>
       </div>
-      <div className="min-h-0 flex-1 px-2 py-2">
+      <div ref={areaRef} className="min-h-0 flex-1 px-2 py-2">
         <SiteMap
           fit="contain"
-          maxHeight={430}
+          maxHeight={mapH - AREA_PADDING_PX}
           view={view}
           onView={setView}
           showChrome={false}

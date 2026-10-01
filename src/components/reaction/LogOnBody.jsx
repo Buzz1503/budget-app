@@ -12,6 +12,7 @@ import {
 } from '../../lib/siteRotation'
 import { SEVERITY_BY_ID } from '../../lib/reactionTracker'
 import SiteMap from './SiteMap'
+import { useElementHeight, AREA_PADDING_PX } from '../../lib/useElementHeight'
 
 /**
  * Logging a dose by choosing where it goes.
@@ -34,9 +35,9 @@ export default function LogOnBody({ peptideId, onClose }) {
   const peptide = peptides.find((p) => p.id === peptideId)
   const [view, setView] = useState('front')
   const [picked, setPicked] = useState(null)
-  const [mapH, setMapH] = useState(300)
   const [confirmAgain, setConfirmAgain] = useState(false)
   const areaRef = useRef(null)
+  const mapH = useElementHeight(areaRef)
 
   const nameOf = useMemo(() => (id) => {
     const p = peptides.find((x) => x.id === id)
@@ -75,17 +76,6 @@ export default function LogOnBody({ peptideId, onClose }) {
       body.style.width = prev.width
       window.scrollTo(0, y)
     }
-  }, [])
-
-  useEffect(() => {
-    const measure = () => {
-      const el = areaRef.current
-      if (el) setMapH(Math.max(180, el.clientHeight))
-    }
-    measure()
-    const t = setTimeout(measure, 60)
-    window.addEventListener('resize', measure)
-    return () => { clearTimeout(t); window.removeEventListener('resize', measure) }
   }, [])
 
   if (!peptide) return null
@@ -159,7 +149,7 @@ export default function LogOnBody({ peptideId, onClose }) {
       <div ref={areaRef} className="min-h-0 flex-1 px-2 py-2">
         <SiteMap
           fit="contain"
-          maxHeight={mapH - 8}
+          maxHeight={mapH - AREA_PADDING_PX}
           view={view}
           onView={setView}
           showChrome={false}
@@ -294,6 +284,8 @@ export function AddSite({ doseLogId, peptideId, onClose }) {
   const peptides = useStore((s) => s.peptides)
   const [picked, setPicked] = useState(null)
   const [view, setView] = useState('front')
+  const areaRef = useRef(null)
+  const mapH = useElementHeight(areaRef)
   const peptide = peptides.find((p) => p.id === peptideId)
 
   const save = () => {
@@ -333,8 +325,8 @@ export function AddSite({ doseLogId, peptideId, onClose }) {
           ))}
         </div>
       </div>
-      <div className="min-h-0 flex-1 px-2 py-2">
-        <SiteMap fit="contain" maxHeight={420} view={view} onView={setView} showChrome={false}
+      <div ref={areaRef} className="min-h-0 flex-1 px-2 py-2">
+        <SiteMap fit="contain" maxHeight={mapH - AREA_PADDING_PX} view={view} onView={setView} showChrome={false}
           forPeptideId={peptideId} selectedId={picked} onSelect={(p) => setPicked(p.id)} />
       </div>
       <div className="shrink-0 px-4 pb-3">

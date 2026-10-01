@@ -1,11 +1,16 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { ImageOff, Loader } from 'lucide-react'
 import useStore from '../../store/useStore'
 import { loadMapPhoto, MAP_PHOTO_ERRORS } from '../../lib/mapPhoto'
 import {
   WINDOWS, GROUPS, PIN_DIAMETER_PX, COMPOSITE_ASPECT, SCREEN_WIDTH,
-  pinsFor, toScreen, windowHeightPx, nearestPin, validatePosition,
+  pinsFor, validatePosition,
 } from '../../lib/sitePins'
+import {
+  toLocal, pctToLocal, localToPct, resolveTap, classifyRelease, isCompatMouse,
+  TAP_SLOP_PX, LONG_PRESS_MS,
+} from '../../lib/mapGeometry'
+import { haptic } from '../../lib/feedback'
 import { allPinStatus } from '../../lib/reactionTracker'
 import { recentUses, usesByPin, pinBadge, visibleChips, suggestSite, DEFAULT_WINDOW_DAYS } from '../../lib/siteRotation'
 import { colourHex } from '../../lib/peptideIdentity'
@@ -13,9 +18,6 @@ import { displayName } from '../../lib/naming'
 
 const MIN_ZOOM = 1
 const MAX_ZOOM = 4
-const LONG_PRESS_MS = 300
-const DOUBLE_TAP_MS = 320
-const MOVE_SLOP_PX = 6
 
 /** One fill per status, so a glance says which sites are in play. */
 const FILL = {
@@ -97,8 +99,20 @@ export default function SiteMap({
   const [box, setBox] = useState({ w: SCREEN_WIDTH, h: 0 })
 
   const outerRef = useRef(null)
+  // The map box itself. Touches are measured against THIS, not outerRef: the
+  // box is centred inside a wrapper that can be wider than it, and measuring
+  // against the wrapper put every touch left of where the pins were drawn.
+  const boxRef = useRef(null)
+  // The legend sits in the same column above the map, so the map has to leave
+  // room for it or it overflows the space it was given by the legend's height.
+  const legendRef = useRef(null)
+  const [legendH, setLegendH] = useState(0)
   const gesture = useRef({})
   const press = useRef(null)
+  const lastTouchAt = useRef(null)
+  const lastTap = useRef(null)
+  const [pressedId, setPressedId] = useState(null)
+  const haptics = useStore((s) => s.settings?.haptics)
 
   const overrides = siteMap?.pinOverrides || {}
   const activeGroups = groupFilterProp ?? groups
@@ -118,7 +132,7 @@ export default function SiteMap({
     if (!el) return undefined
     const measure = () => {
       const availW = el.clientWidth || SCREEN_WIDTH
-      const availH = maxHeight ?? Infinity
+      const availH = maxHeight != null ? maxHeight - legendH : Infinity
       // fit to width, or to whichever of the two is smaller, so that at default
       // zoom the whole window is on screen and no pin can be clipped
       let width = availW
@@ -134,7 +148,7 @@ export default function SiteMap({
     const ro = new ResizeObserver(measure)
     ro.observe(el)
     return () => ro.disconnect()
-  }, [cropRatio, fit, maxHeight])
+  }, [cropRatio, fit, maxHeight, legendH])
 
   const pins = useMemo(() => pinsFor(view, overrides), [view, overrides])
   const status = useMemo(
@@ -185,34 +199,47 @@ export default function SiteMap({
 
   // ------------------------------------------------- coordinate conversions
 
-  /** A touch on the container, as percentages of the whole composite. */
-  const pointToPct = (pt) => {
-    const fx = ((pt.x - box.w / 2 - pan.x) / zoom + box.w / 2) / box.w
-    const fy = ((pt.y - box.h / 2 - pan.y) / zoom + box.h / 2) / box.h
-    return {
-      x: w.x0 + fx * (w.x1 - w.x0),
-      y: w.y0 + fy * (w.y1 - w.y0),
-    }
+  /** The live size and position of the map box, read at the moment of a touch. */
+  const boxRect = () => boxRef.current.getBoundingClientRect()
+
+  /**
+   * A touch as local pixels inside the box.
+   *
+   * Taken from the box's own rectangle, and its width and height come from that
+   * same rectangle — the rounded `box` state is for layout and can be a pixel
+   * out, which at 4x zoom is four.
+   */
+  const touchLocal = (e) => {
+    const t = e.touches?.[0] || e.changedTouches?.[0] || e
+    return toLocal({ x: t.clientX, y: t.clientY }, boxRect())
+  }
+  const viewState = () => {
+    const r = boxRect()
+    return { box: { w: r.width, h: r.height }, zoom, pan }
   }
 
-  const localPoint = (e) => {
-    const r = outerRef.current.getBoundingClientRect()
-    const t = e.touches?.[0] || e.changedTouches?.[0] || e
-    return { x: t.clientX - r.left, y: t.clientY - r.top }
-  }
+  /** A touch, as percentages of the whole composite. */
+  const pointToPct = (pt) => localToPct(view, pt, viewState())
 
   // ------------------------------------------------------------- gestures
 
-  const pickNearest = (pct) => {
-    // measured against the 390 px reference, so which pin a tap belongs to is
-    // the same question at every rendered size
-    const at = toScreen({ ...pct, view }, { screenWidth: SCREEN_WIDTH, aspect })
-    return nearestPin(view, at, { overrides, screenWidth: SCREEN_WIDTH, aspect, groups: activeGroups })
+  const pickNearest = (pt) => resolveTap(view, pt, {
+    ...viewState(), overrides, aspect, groups: activeGroups,
+  })
+
+  const cancelGesture = () => {
+    clearTimeout(press.current)
+    setPressedId(null)
+    gesture.current = {}
   }
 
-  const onDown = (e) => {
+  const onDown = (e, fromTouch) => {
+    if (fromTouch) lastTouchAt.current = Date.now()
+    else if (isCompatMouse(Date.now(), lastTouchAt.current)) return
+
     if (e.touches?.length === 2) {
       clearTimeout(press.current)
+      setPressedId(null)
       const [a, b] = e.touches
       gesture.current = {
         ...gesture.current,
@@ -222,23 +249,29 @@ export default function SiteMap({
       }
       return
     }
-    const pt = localPoint(e)
-    gesture.current = {
-      start: pt, pan0: { ...pan }, moved: false, at: Date.now(),
-      lastTap: gesture.current.lastTap,
-    }
+    const pt = touchLocal(e)
+    gesture.current = { start: pt, pan0: { ...pan }, moved: false, at: Date.now() }
+
+    // Immediate feedback, before the finger lifts: the pin that this touch would
+    // select lights up, so a tap feels registered the instant it lands.
+    const near = pickNearest(pt)
+    setPressedId(near ? near.pin.id : null)
+
     if (!adjust) return
-    const near = pickNearest(pointToPct(pt))
     press.current = setTimeout(() => {
       if (!near) return
       try { navigator.vibrate?.(8) } catch { /* optional */ }
+      setPressedId(null)
       setDragging(near.pin.id)
       setDragPct({ x: near.pin.x, y: near.pin.y })
       setWarning(null)
     }, LONG_PRESS_MS)
   }
 
-  const onMove = (e) => {
+  const onMove = (e, fromTouch) => {
+    if (fromTouch) lastTouchAt.current = Date.now()
+    else if (isCompatMouse(Date.now(), lastTouchAt.current)) return
+
     if (gesture.current.pinch && e.touches?.length === 2) {
       const [a, b] = e.touches
       const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY)
@@ -247,11 +280,10 @@ export default function SiteMap({
       setPan((p) => clamp(p, next))
       return
     }
-    const pt = localPoint(e)
+    const pt = touchLocal(e)
 
     if (dragging) {
       // a pin being dragged never pans and never zooms the map under it
-      e.preventDefault?.()
       const pct = pointToPct(pt)
       setDragPct(pct)
       const v = validatePosition(dragging, pct, { overrides, screenWidth: SCREEN_WIDTH, aspect })
@@ -264,18 +296,33 @@ export default function SiteMap({
     if (!gesture.current.start) return
     const dx = pt.x - gesture.current.start.x
     const dy = pt.y - gesture.current.start.y
-    if (!gesture.current.moved && Math.hypot(dx, dy) > MOVE_SLOP_PX) {
+    if (Math.hypot(dx, dy) > TAP_SLOP_PX) {
+      // past the slop it is a pan, not a tap: stop the long-press and the
+      // pressed highlight, which would otherwise stay lit on a pin the finger
+      // has left
       gesture.current.moved = true
       clearTimeout(press.current)
+      setPressedId(null)
     }
+    // pan only once the finger has clearly left the tap's slop, so a tap that
+    // wobbles a few pixels does not nudge the map under the pins
     if (zoom > 1 && gesture.current.moved) {
-      e.preventDefault?.()
       setPan(clamp({ x: gesture.current.pan0.x + dx, y: gesture.current.pan0.y + dy }, zoom))
     }
   }
 
-  const onUp = (e) => {
+  const onUp = (e, fromTouch) => {
+    if (fromTouch) {
+      lastTouchAt.current = Date.now()
+      // Without this the browser follows every touch with a made-up mousedown,
+      // mouseup and click. They are a second tap 4 ms after the first, and on a
+      // zoomed map that read as a double tap and reset the zoom the moment a pin
+      // was selected.
+      if (e.cancelable) e.preventDefault()
+    } else if (isCompatMouse(Date.now(), lastTouchAt.current)) return
+
     clearTimeout(press.current)
+    setPressedId(null)
 
     if (dragging) {
       const pending = gesture.current.pending
@@ -287,19 +334,29 @@ export default function SiteMap({
       gesture.current = {}
       return
     }
-    if (gesture.current.pinch) { gesture.current = { lastTap: gesture.current.lastTap }; return }
+    if (gesture.current.pinch) { gesture.current = {}; return }
+    if (!gesture.current.start) return
 
-    const now = Date.now()
-    if (gesture.current.moved) { gesture.current = { lastTap: gesture.current.lastTap }; return }
+    const end = touchLocal(e)
+    const verdict = classifyRelease({
+      start: gesture.current.start,
+      end,
+      now: Date.now(),
+      lastTap: lastTap.current,
+      zoom,
+      panned: Math.abs(pan.x) > 1 || Math.abs(pan.y) > 1,
+    })
+    gesture.current = {}
 
-    if (gesture.current.lastTap && now - gesture.current.lastTap < DOUBLE_TAP_MS) {
-      reset()
-      gesture.current = {}
-      return
+    if (verdict === 'none') return
+    if (verdict === 'reset') { reset(); lastTap.current = null; return }
+
+    lastTap.current = { at: Date.now(), x: end.x, y: end.y }
+    const near = pickNearest(end)
+    if (near) {
+      if (haptics) haptic(8)
+      onSelect?.(near.pin)
     }
-    const near = pickNearest(pointToPct(localPoint(e)))
-    if (near) onSelect?.(near.pin)
-    gesture.current = { lastTap: now }
   }
 
   // ----------------------------------------------------------------- view
@@ -313,16 +370,8 @@ export default function SiteMap({
   // different coordinate space from its neighbours.
   const pctOf = (pin) => (dragging === pin.id && dragPct ? dragPct : pin)
 
-  /** A pin's centre in container pixels, after the zoom and pan transform. */
-  const centreOf = (pin) => {
-    const at = pctOf(pin)
-    const fx = (at.x - w.x0) / cropW
-    const fy = (at.y - w.y0) / cropH
-    return {
-      x: (fx * box.w - box.w / 2) * zoom + box.w / 2 + pan.x,
-      y: (fy * box.h - box.h / 2) * zoom + box.h / 2 + pan.y,
-    }
-  }
+  /** A pin's centre in box pixels, after the zoom and pan transform. */
+  const centreOf = (pin) => pctToLocal(view, pctOf(pin), { box, zoom, pan })
 
   /**
    * Which code chips survive at this zoom.
@@ -368,6 +417,11 @@ export default function SiteMap({
     return seen
   }, [pins, badges, peptides])
 
+  useLayoutEffect(() => {
+    const h = legendRef.current ? legendRef.current.offsetHeight + 8 : 0
+    setLegendH((prev) => (prev === h ? prev : h))
+  }, [legend, box.w])
+
   return (
     <div className="flex min-h-0 flex-col">
       {showChrome && (
@@ -411,7 +465,7 @@ export default function SiteMap({
       {/* Only the compounds actually on the map right now. A fixed key listing
           everything in the library would be mostly dead entries. */}
       {legend.length > 0 && (
-        <div className="mb-2 flex shrink-0 flex-wrap gap-x-3 gap-y-1" data-testid="map-legend">
+        <div ref={legendRef} className="mb-2 flex shrink-0 flex-wrap gap-x-3 gap-y-1" data-testid="map-legend">
           {legend.map((pep) => (
             <span key={pep.id} className="flex items-center gap-1.5 text-xs font-bold" data-testid={`legend-${pep.id}`}>
               <span className="h-2.5 w-2.5 rounded-full" style={{ background: colourHex(pep) }} />
@@ -435,6 +489,7 @@ export default function SiteMap({
         style={bleed ? { width: '100vw', marginLeft: 'calc(50% - 50vw)' } : undefined}
       >
         <div
+          ref={boxRef}
           data-testid="site-map"
           data-photo={photo.status}
           className="relative shrink-0 select-none overflow-hidden rounded-[var(--r-lg)]"
@@ -446,12 +501,14 @@ export default function SiteMap({
             // once zoomed, or while adjusting, every touch belongs to the map
             touchAction: adjust || zoom > 1 ? 'none' : 'pan-y',
           }}
-          onTouchStart={onDown}
-          onTouchMove={onMove}
-          onTouchEnd={onUp}
-          onMouseDown={onDown}
-          onMouseMove={(e) => { if (gesture.current.start || dragging) onMove(e) }}
-          onMouseUp={onUp}
+          onTouchStart={(e) => onDown(e, true)}
+          onTouchMove={(e) => onMove(e, true)}
+          onTouchEnd={(e) => onUp(e, true)}
+          onTouchCancel={() => { lastTouchAt.current = Date.now(); cancelGesture() }}
+          onMouseDown={(e) => onDown(e, false)}
+          onMouseMove={(e) => { if (gesture.current.start || dragging) onMove(e, false) }}
+          onMouseUp={(e) => onUp(e, false)}
+          onMouseLeave={() => { if (!dragging && !isCompatMouse(Date.now(), lastTouchAt.current)) cancelGesture() }}
         >
           {photo.status === 'loading' && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-2" data-testid="map-loading">
@@ -512,8 +569,12 @@ export default function SiteMap({
               const st = status[pin.id]
               const dim = activeGroups.length && !activeGroups.includes(pin.group)
               const isSuggested = suggested === pin.id
-              const big = selectedId === pin.id || dragging === pin.id
-              const d = PIN_DIAMETER_PX * (big ? 1.5 : 1)
+              const isSelected = selectedId === pin.id
+              const isPressed = pressedId === pin.id && !isSelected
+              const big = isSelected || dragging === pin.id
+              // selected is the biggest, a pin under the finger swells a little
+              // first, so the tap is felt before it is finished
+              const d = PIN_DIAMETER_PX * (big ? 1.5 : isPressed ? 1.25 : 1)
               const badge = badges[pin.id]
               const lit = highlight?.includes(pin.id)
               // A pin used inside the window wears its peptide's colour; one
@@ -532,6 +593,8 @@ export default function SiteMap({
                   data-status={st?.status || 'unused'}
                   data-dim={dim ? '1' : '0'}
                   data-suggested={isSuggested ? '1' : '0'}
+                  data-selected={isSelected ? '1' : '0'}
+                  data-pressed={isPressed ? '1' : '0'}
                   data-peptide={badge?.peptideId || ''}
                   className="pointer-events-none absolute"
                   style={{
@@ -548,17 +611,25 @@ export default function SiteMap({
                     // the pins themselves never do
                     transform: `scale(${1 / zoom})`,
                     transformOrigin: 'center center',
-                    opacity: dim ? 0.18 : opacityFor(st),
+                    // a selected pin is never dimmed or faded: it has to stay the
+                    // most obvious thing on the map whatever its history says
+                    opacity: isSelected || isPressed ? 1 : dim ? 0.18 : opacityFor(st),
+                    zIndex: isSelected ? 3 : isPressed ? 2 : 1,
+                    transition: dragging === pin.id ? 'none' : 'width 90ms ease-out, height 90ms ease-out, margin 90ms ease-out',
                   }}
                 >
                   <div
                     className="absolute inset-0 rounded-full"
                     style={{
                       background: fill,
-                      border: `2px solid ${ring}`,
-                      boxShadow: isSuggested
-                        ? '0 0 0 3px color-mix(in srgb, var(--lime) 35%, transparent)'
-                        : lit ? '0 0 0 3px color-mix(in srgb, var(--info) 45%, transparent)' : 'none',
+                      border: `${isSelected ? 3 : 2}px solid ${isSelected ? '#fff' : ring}`,
+                      boxShadow: isSelected
+                        // a dark keyline under a white ring reads on skin, on a
+                        // dark shirt and on a pale background alike
+                        ? '0 0 0 2px rgba(0,0,0,0.7), 0 0 0 5px color-mix(in srgb, var(--accent) 55%, transparent)'
+                        : isSuggested
+                          ? '0 0 0 3px color-mix(in srgb, var(--lime) 35%, transparent)'
+                          : lit ? '0 0 0 3px color-mix(in srgb, var(--info) 45%, transparent)' : 'none',
                     }}
                   />
                   {chipText && shownChips.has(pin.id) && (
