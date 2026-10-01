@@ -1146,7 +1146,12 @@ async function pinch(locator, factor) {
     fire('touchmove', [touch(0, x - 40 * f, y), touch(1, x + 40 * f, y)])
     fire('touchend', [touch(0, x - 40 * f, y)])
   }, [cx, cy, 0, factor])
-  await page.waitForTimeout(400)
+  // This helper dispatches touch events, and the map ignores mouse events for
+  // 800 ms after any touch because the browser makes them up after a tap. The
+  // steps that follow use a real mouse, and no device produces a mouse click
+  // 400 ms after a pinch, so wait out the window rather than test something
+  // that cannot happen.
+  await page.waitForTimeout(950)
 }
 
 const noise = errors.filter((e) => e.startsWith('console') || e.startsWith('pageerror'))
