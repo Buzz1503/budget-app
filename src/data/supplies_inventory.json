@@ -1,0 +1,213 @@
+{
+ "schema": "pepito-supplies/v1",
+ "note": "Seeded from dictation. Quantities marked verify=true were ambiguous in the original note - confirm in app.",
+ "categories": [
+  "Pen needles",
+  "Syringe needles",
+  "Syringes",
+  "Pens",
+  "Cartridges",
+  "Swabs & prep",
+  "Sharps disposal",
+  "Other"
+ ],
+ "options": {
+  "pen_needle_gauge": [
+   "29G",
+   "30G",
+   "31G",
+   "32G",
+   "33G"
+  ],
+  "pen_needle_length_mm": [
+   4,
+   5,
+   6,
+   8,
+   10,
+   12
+  ],
+  "syringe_needle_gauge": [
+   "18G",
+   "21G",
+   "23G",
+   "25G",
+   "27G",
+   "29G",
+   "30G",
+   "31G",
+   "32G",
+   "34G"
+  ],
+  "syringe_needle_length_mm": [
+   4,
+   6,
+   8,
+   13,
+   16,
+   25,
+   38
+  ],
+  "syringe_type": [
+   "Luer lock 1 mL low dead space",
+   "Luer slip 1 mL",
+   "Insulin syringe U-100 fixed needle",
+   "Luer lock 3 mL",
+   "Luer lock 5 mL"
+  ],
+  "syringe_volume_ml": [
+   0.3,
+   0.5,
+   1,
+   3,
+   5,
+   10
+  ],
+  "unit": [
+   "box",
+   "pack",
+   "each",
+   "vial",
+   "bottle"
+  ]
+ },
+ "defaults": {
+  "preferred_syringe_type": "Luer lock 1 mL low dead space"
+ },
+ "items": [
+  {
+   "category": "Pen needles",
+   "gauge": "32G",
+   "length_mm": 6,
+   "status": "in_use",
+   "qty": 1,
+   "unit": "box"
+  },
+  {
+   "category": "Pen needles",
+   "gauge": "31G",
+   "length_mm": 8,
+   "status": "in_use",
+   "qty": 1,
+   "unit": "box"
+  },
+  {
+   "category": "Syringe needles",
+   "gauge": "32G",
+   "length_mm": 6,
+   "status": "in_use",
+   "qty": 1,
+   "unit": "box"
+  },
+  {
+   "category": "Syringe needles",
+   "gauge": "27G",
+   "length_mm": 13,
+   "status": "in_use",
+   "qty": 1,
+   "unit": "box"
+  },
+  {
+   "category": "Syringe needles",
+   "gauge": "25G",
+   "length_mm": 13,
+   "status": "in_use",
+   "qty": 1,
+   "unit": "box"
+  },
+  {
+   "category": "Syringe needles",
+   "gauge": "29G",
+   "length_mm": 13,
+   "status": "in_use",
+   "qty": 1,
+   "unit": "box"
+  },
+  {
+   "category": "Pen needles",
+   "gauge": "32G",
+   "length_mm": 8,
+   "status": "stock",
+   "qty": 1,
+   "unit": "box"
+  },
+  {
+   "category": "Pen needles",
+   "gauge": "32G",
+   "length_mm": 4,
+   "status": "stock",
+   "qty": 1,
+   "unit": "box"
+  },
+  {
+   "category": "Syringe needles",
+   "gauge": "25G",
+   "length_mm": 13,
+   "status": "stock",
+   "qty": 1,
+   "unit": "box"
+  },
+  {
+   "category": "Syringe needles",
+   "gauge": "34G",
+   "length_mm": 8,
+   "status": "stock",
+   "qty": 2,
+   "unit": "box",
+   "verify": true,
+   "note": "Dictated as '2 x 34 gauge 8 mm' - confirm gauge and quantity."
+  },
+  {
+   "category": "Syringe needles",
+   "gauge": "32G",
+   "length_mm": 4,
+   "status": "stock",
+   "qty": 1,
+   "unit": "box",
+   "verify": true,
+   "note": "Dictated as 2 then corrected to 1 - confirm."
+  },
+  {
+   "category": "Syringe needles",
+   "gauge": "32G",
+   "length_mm": 6,
+   "status": "stock",
+   "qty": 1,
+   "unit": "box",
+   "verify": true,
+   "note": "Quantity not stated - confirm."
+  },
+  {
+   "category": "Syringe needles",
+   "gauge": "27G",
+   "length_mm": 13,
+   "status": "stock",
+   "qty": 2,
+   "unit": "box"
+  },
+  {
+   "category": "Syringes",
+   "syringe_type": "Luer lock 1 mL low dead space",
+   "status": "in_use",
+   "qty": 0,
+   "unit": "box",
+   "note": "Preferred syringe. Set quantity."
+  },
+  {
+   "category": "Swabs & prep",
+   "name": "Alcohol swabs",
+   "status": "in_use",
+   "qty": 0,
+   "unit": "box",
+   "note": "Set quantity."
+  },
+  {
+   "category": "Sharps disposal",
+   "name": "Sharps container",
+   "status": "in_use",
+   "qty": 0,
+   "unit": "each",
+   "note": "Set quantity."
+  }
+ ]
+}

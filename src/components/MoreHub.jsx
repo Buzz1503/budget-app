@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import {
   Package, Settings, ChevronRight, Activity, History, Wand2, FlaskConical,
-  Combine, Pill, ClipboardList, CalendarPlus,
+  Combine, Pill, ClipboardList, CalendarPlus, Syringe,
 } from 'lucide-react'
 import BackfillSheet from './BackfillSheet'
 
@@ -22,6 +22,7 @@ const SECTIONS = [
       { id: 'wizard', label: 'Build / rebuild my protocol', desc: 'Add, remove or edit anything I take', icon: Wand2 },
       { id: 'protocol', label: 'Protocol overview', desc: 'Everything I’m on, at a glance', icon: ClipboardList },
       { id: 'supplies', label: 'Stock', desc: 'Vials I own, run-out dates and what to order', icon: Package },
+      { id: 'gear', label: 'Supplies', desc: 'Needles, syringes, swabs and sharps', icon: Syringe },
       { id: 'supplements', label: 'Supplements', desc: 'What I take by mouth, AM and PM', icon: Pill },
       { id: 'history', label: 'History & adherence', desc: 'Every dose, rates, shareable summary', icon: History },
       // a sheet, not a screen: it is a correction to make and be done with

@@ -11,6 +11,9 @@ import { pauseEnd } from '../lib/pauses'
 import { findMixedGroup, severityRank, migrateReactionLab } from '../lib/reactionTracker'
 import { PIN_BY_ID } from '../lib/sitePins'
 import { withIdentity } from '../lib/peptideIdentity'
+import {
+  seedGear, cleanItem, finishItem, withOption, newId as newGearId,
+} from '../lib/gear'
 import { DEFAULT_WINDOW_DAYS } from '../lib/siteRotation'
 import { seedTests as seedBloodTests, seedMarkers as seedBloodMarkers } from '../lib/bloods'
 import { currentRung, cycleInfo, addDaysStr, resolveDoseChange } from '../lib/schedule'
@@ -116,6 +119,15 @@ function initialState() {
       pinOverrides: {},        // { pinId: {x, y} } — everything else is the default table
       includePhotoInBackup: false,
     },
+    /**
+     * Supplies and equipment: needles, syringes, swabs, sharps.
+     *
+     * Its own ledger. It never reads or writes vials, doses, run-out dates or
+     * adherence, and none of those read it.
+     */
+    gearItems: seedGear(),
+    gearSwaps: [],             // one dated record per finished box
+    gearOptions: {},           // dropdown values the user has added, by option key
     // Vials that have been used up. Kept as a record rather than deleted: it is
     // the only trace of how long a vial actually lasted.
     finishedVials: [],
@@ -1501,6 +1513,96 @@ const useStore = create(
         }))
       },
 
+      // ---------- supplies & equipment ----------
+
+      /**
+       * Add an item, or top up the row it would duplicate.
+       *
+       * Returns { item, merged }. `mergeInto` is the id of an existing row the
+       * caller was offered and accepted; without it a duplicate is just a second
+       * row, because the person may well want one (a different brand, say).
+       */
+      addGearItem(data, { mergeInto = null } = {}) {
+        const s = get()
+        if (mergeInto) {
+          const target = s.gearItems.find((i) => i.id === mergeInto)
+          if (target) {
+            const qty = (Number(target.qty) || 0) + (Number(data.qty) || 0)
+            set({ gearItems: s.gearItems.map((i) => (i.id === mergeInto ? { ...i, qty } : i)) })
+            return { item: { ...target, qty }, merged: true }
+          }
+        }
+        const item = cleanItem({ ...data, id: newGearId('gear'), createdAt: Date.now() })
+        set({ gearItems: [...s.gearItems, item] })
+        return { item, merged: false }
+      },
+
+      /**
+       * Change anything about an item.
+       *
+       * Saving an edit clears the "confirm quantity" flag: having looked at the
+       * row enough to change it is as good as confirming it.
+       */
+      updateGearItem(id, patch = {}) {
+        set((s) => ({
+          gearItems: s.gearItems.map((i) => (i.id === id
+            ? cleanItem({ ...i, ...patch, id, verify: false, createdAt: i.createdAt })
+            : i)),
+        }))
+      },
+
+      /** "Looks right" — dismiss the prompt without changing the row. */
+      confirmGearItem(id) {
+        set((s) => ({ gearItems: s.gearItems.map((i) => (i.id === id ? { ...i, verify: false } : i)) }))
+      },
+
+      deleteGearItem(id) {
+        const before = get().gearItems
+        const gone = before.find((i) => i.id === id)
+        if (!gone) return
+        set({ gearItems: before.filter((i) => i.id !== id) })
+        get().showToast('Item deleted', () => set({ gearItems: before }))
+      },
+
+      /**
+       * Finish the box in use, swapping a spare in when one is chosen.
+       *
+       * The toast's Undo puts back both arrays exactly as they were, so a
+       * mis-tap on Finished costs nothing.
+       */
+      finishGearItem(itemId, { promoteId = null, date } = {}) {
+        const s = get()
+        const day = date || todayStr()
+        const result = finishItem(s.gearItems, s.gearSwaps, { itemId, promoteId, date: day })
+        if (!result.ok) {
+          get().showToast(result.reason)
+          return result
+        }
+        const prev = { gearItems: s.gearItems, gearSwaps: s.gearSwaps }
+        set({ gearItems: result.items, gearSwaps: result.swaps })
+        get().showToast(
+          result.outcome === 'promoted'
+            ? `Swapped in a new box: ${result.swap.label}`
+            : `Finished: ${result.swap.label}`,
+          () => set(prev),
+        )
+        return result
+      },
+
+      removeGearSwap(id) {
+        const before = get().gearSwaps
+        set({ gearSwaps: before.filter((x) => x.id !== id) })
+        get().showToast('Swap removed from history', () => set({ gearSwaps: before }))
+      },
+
+      /** A new value for one dropdown. Returns the value as stored, or null if refused. */
+      addGearOption(key, raw) {
+        const s = get()
+        const { extras, value } = withOption(s.gearOptions, key, raw, s.gearItems)
+        if (value != null && extras !== s.gearOptions) set({ gearOptions: extras })
+        return value
+      },
+
       // ---------- pauses ----------
 
       /**
@@ -1966,7 +2068,7 @@ const useStore = create(
     }),
     {
       name: 'peptide-command-center', // storage key is history — renaming it would orphan existing data
-      version: 18,
+      version: 19,
       storage: createJSONStorage(() => safeStorage),
       // Saves written before a release can't pick new library entries up from
       // the seed, so each version bump backfills them here — once. Deleting one
@@ -1989,10 +2091,19 @@ const useStore = create(
       //   v16: Reaction Lab replaced by the photo site map and the simplified tracker
       //   v17: the map photo is out of backups again unless it was asked for
       //   v18: a code and a colour on every compound, for the map
+      //   v19: supplies and equipment, seeded from the user's own inventory
       migrate: (persisted, from) => {
-        if (!persisted || from >= 18) return persisted
+        if (!persisted || from >= 19) return persisted
         const s = { ...persisted }
         const t = todayStr()
+        if (from < 19) {
+          // Only ever added, never replaced: a save that somehow already has an
+          // inventory keeps it. Nothing outside the three gear keys is touched,
+          // which is the whole point of keeping it a separate ledger.
+          s.gearItems = s.gearItems || seedGear()
+          s.gearSwaps = s.gearSwaps || []
+          s.gearOptions = s.gearOptions || {}
+        }
         if (from < 18) {
           // Codes and colours are added, never overwritten: a library edited by
           // hand keeps whatever it was given.
@@ -2243,6 +2354,11 @@ const useStore = create(
         injectionRecords: persisted?.injectionRecords || current.injectionRecords,
         reactions: persisted?.reactions || current.reactions,
         safetyFlags: persisted?.safetyFlags || current.safetyFlags,
+        // an empty inventory is a real state (everything deleted), so these take
+        // the saved value whenever there is one, not only when it is non-empty
+        gearItems: persisted?.gearItems || current.gearItems,
+        gearSwaps: persisted?.gearSwaps || current.gearSwaps,
+        gearOptions: persisted?.gearOptions || current.gearOptions,
         siteMap: {
           ...current.siteMap,
           ...(persisted?.siteMap || {}),

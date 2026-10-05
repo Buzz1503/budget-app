@@ -13,6 +13,7 @@ import CalendarTab from './components/CalendarTab'
 import CalcTab from './components/CalcTab'
 import MixTab from './components/MixTab'
 import SuppliesTab from './components/SuppliesTab'
+import GearTab from './components/GearTab'
 import SettingsTab from './components/SettingsTab'
 import RightNowTab from './components/RightNowTab'
 import SymptomsTab from './components/SymptomsTab'
@@ -38,6 +39,7 @@ const SCREENS = {
   protocol: ProtocolTab,
   calc: CalcTab,
   supplies: SuppliesTab,
+  gear: GearTab,
   settings: SettingsTab,
   history: HistoryTab,
   supplements: SupplementsTab,
@@ -56,7 +58,7 @@ const PRIMARY_IDS = new Set(PRIMARY.map((t) => t.id))
 
 const SUB_TITLES = {
   now: 'Right Now', protocol: 'My protocol', supplies: 'Stock', calc: 'Calculator',
-  mix: 'Mix', settings: 'Settings', history: 'History', supplements: 'Supplements',
+  mix: 'Mix', settings: 'Settings', history: 'History', supplements: 'Supplements', gear: 'Supplies',
 }
 
 // Screens that were their own destination in an earlier version. Old deep links
