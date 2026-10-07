@@ -11,6 +11,7 @@ import { pauseEnd } from '../lib/pauses'
 import { findMixedGroup, severityRank, migrateReactionLab } from '../lib/reactionTracker'
 import { PIN_BY_ID } from '../lib/sitePins'
 import { withIdentity } from '../lib/peptideIdentity'
+import { applyImport } from '../lib/bloodImport'
 import {
   seedGear, cleanItem, finishItem, withOption, newId as newGearId,
 } from '../lib/gear'
@@ -940,6 +941,23 @@ const useStore = create(
             retestIntervals: { ...s.bloods.retestIntervals, [panel]: days == null ? undefined : Number(days) },
           },
         }))
+      },
+
+      /**
+       * Write a previewed import into the blood record, all at once.
+       *
+       * Takes the plan the preview produced and nothing else: by this point every
+       * decision — merge or replace, what to do with a name the app did not know,
+       * which values were confirmed — has already been made on screen. Touches the
+       * `bloods` slice only. Returns what happened, which test each result became
+       * (so a report can be attached to it), and a `restore` that puts the record
+       * back exactly as it was.
+       */
+      importBloodResults(plan) {
+        const prev = get().bloods
+        const result = applyImport(prev, plan)
+        set({ bloods: result.bloods })
+        return { ...result, restore: () => set({ bloods: prev }) }
       },
 
       /** The report itself — a PDF or a photo — kept in IndexedDB, not here. */

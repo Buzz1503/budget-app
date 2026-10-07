@@ -10,6 +10,7 @@ import {
 import { MarkerRow } from './bloods/RangeBar'
 import MarkerDetail from './bloods/MarkerDetail'
 import AddTestSheet from './bloods/AddTestSheet'
+import ImportBloods from './bloods/ImportBloods'
 
 /**
  * What the lab measured.
@@ -86,6 +87,7 @@ export default function BloodsTab() {
         className="btn-primary flex w-full items-center justify-center gap-2 rounded-full py-3 text-sm font-black">
         <Plus size={16} /> Add a test
       </button>
+      <ImportBloods />
 
       {/* ------------------------------------------------ out of range */}
       {flagged.length > 0 && (
