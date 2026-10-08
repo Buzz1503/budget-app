@@ -202,7 +202,8 @@ export default function LogOnBody({ peptideId, onClose }) {
 
         <RecentSitesList uses={uses} nameOf={nameOf} onPick={(u) => { setView(PIN_BY_ID[u.pinId]?.view || 'front'); setPicked(u.pinId) }} />
 
-        {picked && <NeedlePicker peptide={peptide} value={needle} onChange={setNeedle} />}
+        {/* always shown, so choosing a pin does not change the height of the area the map lives in */}
+        <NeedlePicker peptide={peptide} value={needle} onChange={setNeedle} />
 
         {confirmAgain && (
           <p className="t-caption" data-testid="lob-already" style={{ color: 'var(--warn)' }}>
