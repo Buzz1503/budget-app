@@ -222,3 +222,17 @@ describe('Gone on the day it was logged', () => {
     expect(peakSeverity(r)).toBe('moderate')
   })
 })
+
+describe('reactions saved before openedOn existed', () => {
+  const legacy = { injectionRecordId: 'x', ratings: [{ date: '2026-10-01', severity: 'moderate' }], worstSeverity: 'moderate', goneAt: null, photoIds: [] }
+  it('Gone on a later day resolves them', () => {
+    const r = applyCheck(legacy, { date: '2026-10-03', severity: 'none' })
+    expect(r.goneAt).toBe('2026-10-03')
+    expect(timeToResolve(r)).toBe(2)
+  })
+  it('Gone on the day they were logged resolves them and keeps the check', () => {
+    const r = applyCheck(legacy, { date: '2026-10-01', severity: 'none' })
+    expect(r.goneAt).toBe('2026-10-01')
+    expect(checksOf(r)).toHaveLength(1)
+  })
+})

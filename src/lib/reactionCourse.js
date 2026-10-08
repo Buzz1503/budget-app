@@ -148,7 +148,8 @@ export function applyCheck(reaction, { date, severity, symptoms = [] }) {
   // Gone on the very day it was logged resolves it at once, and leaves that
   // day's own check standing: replacing it would erase the reaction that was
   // just reported, and the record of it opening is the point of the record.
-  if (severity === 'none' && base.openedOn && day(base.openedOn) === d && !base.goneAt) {
+  const openedBefore = openedOn(base) // derived: older reactions never stored it
+  if (severity === 'none' && openedBefore && openedBefore === d && !base.goneAt) {
     return { ...base, goneAt: d }
   }
   const entry = {
@@ -164,7 +165,7 @@ export function applyCheck(reaction, { date, severity, symptoms = [] }) {
   if (!next.openedOn && severityRank(severity) >= 1) next.openedOn = d
   if (severity === 'none') {
     // the first Gone is the one that counts, and only once it has opened
-    if (!next.goneAt && next.openedOn && d > next.openedOn) next.goneAt = d
+    if (!next.goneAt && openedBefore && d > openedBefore) next.goneAt = d
   } else if (next.goneAt && day(next.goneAt) === d) {
     next.goneAt = null // today's answer corrected from Gone
   }

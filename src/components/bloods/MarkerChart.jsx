@@ -233,6 +233,7 @@ export default function MarkerChart({ name, series, range, events, overlay, over
   return (
     <div className="card p-3" data-testid="marker-graph" data-range={rangeKey(sel)}
       data-view-from={dateOfDay(view.x0)} data-view-to={dateOfDay(view.x1)}
+      data-view-x0={view.x0.toFixed(4)} data-view-x1={view.x1.toFixed(4)}
       data-axis-lo={axis.lo.toFixed(3)} data-axis-hi={axis.hi.toFixed(3)}
       data-zoomed={userView ? 'true' : 'false'} data-sparse="false">
       <p className="t-caption" style={{ color: 'var(--text-2)' }}>Over time</p>

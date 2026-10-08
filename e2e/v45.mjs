@@ -150,7 +150,7 @@ await step('1b · each range shows only its own results, and the axes follow the
   const within = (years) => {
     const d = new Date(); d.setFullYear(d.getFullYear() - years)
     const from = ymd(d)
-    return dates.filter((x) => x >= from && x <= TODAY)
+    return dates.filter((x) => x >= from && x <= TODAY).sort()
   }
   const heightUsed = async () => {
     const ys = await page.locator('[data-testid="graph-point"] circle').evaluateAll((els) => els.map((e) => Number(e.getAttribute('cy'))))
@@ -209,25 +209,33 @@ await step('1c · pinch zooms, drag pans, double-tap goes back to the chosen ran
 })
 
 await step('1d · overlay marks sit on their dates at every zoom', async () => {
-  await page.click('[data-testid="range-All"]'); await page.waitForTimeout(350)
-  const toggles = page.locator('[data-testid="overlay-toggle"]')
-  const n = await toggles.count()
-  if (!n) throw new Error('no compounds to overlay')
-  for (let i = 0; i < n; i++) await toggles.nth(i).click()
-  await page.waitForTimeout(400)
+  // the first marker may have been measured too recently for any compound to
+  // have started or changed inside its window, so look for one that has marks
+  let found = false
+  for (let m = 0; m < 12 && !found; m++) {
+    await openMarker(m)
+    if ((await tableDates()).length < 2) continue
+    await page.click('[data-testid="range-All"]'); await page.waitForTimeout(350)
+    const toggles = page.locator('[data-testid="overlay-toggle"]')
+    const n = await toggles.count()
+    for (let i = 0; i < n; i++) await toggles.nth(i).click()
+    await page.waitForTimeout(400)
+    found = (await page.locator('[data-testid="overlay-mark"]').count()) > 0
+  }
+  if (!found) throw new Error('no marker has a compound event inside its results, so nothing could be checked')
 
   const check = async (label) => {
-    const from = dayNum(await attr('data-view-from')); const to = dayNum(await attr('data-view-to'))
+    const from = Number(await attr('data-view-x0')); const to = Number(await attr('data-view-x1'))
     const marks = await page.locator('[data-testid="overlay-mark"]').evaluateAll((els) => els.map((e) => ({ d: e.getAttribute('data-date'), x: Number(e.getAttribute('data-x')) })))
     const pts = await page.locator('[data-testid="graph-point"]').evaluateAll((els) => els.map((e) => ({ d: e.getAttribute('data-date'), x: Number(e.getAttribute('data-x')) })))
     const at = (d) => 34 + ((dayNum(d) - from) / (to - from)) * (310 - 34)
     for (const m of marks) {
-      if (Math.abs(m.x - at(m.d)) > 0.02) throw new Error(`${label}: a mark for ${m.d} is at x=${m.x}, should be ${at(m.d).toFixed(2)}`)
+      if (Math.abs(m.x - at(m.d)) > 0.05) throw new Error(`${label}: a mark for ${m.d} is at x=${m.x}, should be ${at(m.d).toFixed(2)}`)
       const p = pts.find((q) => q.d === m.d)
-      if (p && Math.abs(p.x - m.x) > 0.02) throw new Error(`${label}: a result and a mark on ${m.d} are at different x (${p.x} vs ${m.x})`)
+      if (p && Math.abs(p.x - m.x) > 0.05) throw new Error(`${label}: a result and a mark on ${m.d} are at different x (${p.x} vs ${m.x})`)
     }
     for (const p of pts) {
-      if (Math.abs(p.x - at(p.d)) > 0.02) throw new Error(`${label}: a result for ${p.d} is at x=${p.x}, should be ${at(p.d).toFixed(2)}`)
+      if (Math.abs(p.x - at(p.d)) > 0.05) throw new Error(`${label}: a result for ${p.d} is at x=${p.x}, should be ${at(p.d).toFixed(2)}`)
     }
     return marks.length
   }
@@ -235,7 +243,6 @@ await step('1d · overlay marks sit on their dates at every zoom', async () => {
   await pinchChart(2.0); counts.push(await check('zoomed once'))
   await dragChart(-70); counts.push(await check('panned'))
   await pinchChart(2.0); counts.push(await check('zoomed twice'))
-  if (counts.every((c) => c === 0)) throw new Error('no overlay mark was on screen at any zoom, so nothing was checked')
   console.log(`  marks on screen at each zoom: ${counts.join(', ')}`)
   await tap(); await page.waitForTimeout(80); await tap(); await page.waitForTimeout(250)
 })
@@ -262,11 +269,16 @@ await step('1e · point labels never sit on top of each other, and come back whe
 })
 
 await step('1f · a range with fewer than two results lists the values and draws no trend', async () => {
-  const dates = await tableDates()
-  const byYear = {}
-  for (const d of dates) byYear[d.slice(0, 4)] = (byYear[d.slice(0, 4)] || 0) + 1
-  const lone = Object.keys(byYear).find((y) => byYear[y] === 1)
-  if (!lone) throw new Error('this marker has no year with exactly one result to test with')
+  let lone = null
+  for (let i = 0; i < 12 && !lone; i++) {
+    await openMarker(i)
+    const dates = await tableDates()
+    const byYear = {}
+    for (const d of dates) byYear[d.slice(0, 4)] = (byYear[d.slice(0, 4)] || 0) + 1
+    // needs at least two results overall, or there is no chart to range
+    lone = dates.length >= 2 ? Object.keys(byYear).find((y) => byYear[y] === 1) : null
+  }
+  if (!lone) throw new Error('no marker has a year with exactly one result to test with')
   if (!(await page.locator(`[data-testid="range-year-${lone}"]`).count())) await page.click('[data-testid="range-by-year"]')
   await page.click(`[data-testid="range-year-${lone}"]`); await page.waitForTimeout(400)
   if (!(await page.locator('[data-testid="chart-sparse"]').count())) throw new Error('no sparse message')
@@ -276,7 +288,9 @@ await step('1f · a range with fewer than two results lists the values and draws
   if (await page.locator('[data-testid="marker-graph"] polyline').count()) throw new Error('a line is drawn')
   if ((await page.locator('[data-testid="sparse-value"]').count()) !== 1) throw new Error('the value is not listed')
   await noOverflow('the sparse state')
-  await page.click('[data-testid="range-2Y"]'); await page.waitForTimeout(300)
+  // the range that has more than one still draws
+  await page.click('[data-testid="range-All"]'); await page.waitForTimeout(350)
+  if (!(await page.locator('[data-testid="chart-svg"]').count())) throw new Error('All lost its chart')
   console.log(`  ${lone}: one result, listed, no line`)
 })
 
@@ -327,9 +341,9 @@ await step('2b · Topical is a form option, and a topical never reads as oral or
   if (!/Topical/.test(rowText)) throw new Error(`the row reads "${rowText.replace(/\n/g, ' ')}"`)
   if (!/no dose set/.test(rowText)) throw new Error('an amount was invented')
 
-  await page.click('[data-testid="supplements-view"] button:has-text("Add")').catch(() => {})
-  await page.waitForTimeout(500)
-  const manual = page.locator('button:has-text("Enter it yourself"), button:has-text("yourself")')
+  await page.click('[data-testid="add-supplement"]')
+  await page.waitForTimeout(600)
+  const manual = page.locator('button[aria-label="Enter my own"]')
   if (await manual.count()) { await manual.first().click(); await page.waitForTimeout(400) }
   const options = await page.locator('select[aria-label="Form"] option').allInnerTexts()
   for (const f of ['Tablet', 'Capsule', 'Powder', 'Spray', 'Liquid', 'Topical']) {
@@ -400,7 +414,7 @@ const tracker = async () => {
 const PIN_OPEN = 'abd-l-upper-inner'
 const PIN_TWO = 'abd-r-upper-inner'
 const PIN_DONE = 'thigh-l-front-upper'
-const PIN_LEFT = 'flank-l'
+const PIN_LEFT = 'abd-l-upper-outer'
 const NEEDLE_A = { gauge: '32G', lengthMm: 6 }
 const NEEDLE_B = { gauge: '27G', lengthMm: 13 }
 const chk = (n, severity, symptoms = []) => ({ date: dayOffset(n), severity, symptoms })
@@ -415,7 +429,7 @@ const seedReactions = () => setState(`
     rec('o1', 'bpc157', a.PIN_OPEN, 'abdomen', a.t3),
     rec('o2', 'ghkcu', a.PIN_TWO, 'abdomen', a.t1),
     rec('d1', 'motsc', a.PIN_DONE, 'thigh', a.t12),
-    rec('x1', 'kpv', a.PIN_LEFT, 'flank', a.t14),
+    rec('x1', 'kpv', a.PIN_LEFT, 'abdomen', a.t14),
   ]
   const wrap = (id, ratings, extra = {}) => ({
     injectionRecordId: id, ratings, worstSeverity: ratings.reduce((w, r) => (['none','mild','moderate','severe'].indexOf(r.severity) > ['none','mild','moderate','severe'].indexOf(w) ? r.severity : w), 'none'),

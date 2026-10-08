@@ -566,6 +566,9 @@ export function ReactionsList() {
       || b.opened.localeCompare(a.opened)), [reactions, records, today])
 
   return (
+    // the detail sheet is a sibling of the card, not inside it: the card has a
+    // backdrop filter, which would make a fixed sheet position against the card
+    <>
     <div className="card p-4" data-testid="reactions-list">
       <div className="t-label mb-2" style={{ color: 'var(--text-3)' }}>Reactions</div>
       {rows.length === 0 && <div className="t-caption" style={{ color: 'var(--text-2)' }}>None logged.</div>}
@@ -592,8 +595,9 @@ export function ReactionsList() {
           )
         })}
       </div>
-      {detail && <ReactionDetail recordId={detail} onClose={() => setDetail(null)} />}
     </div>
+    {detail && <ReactionDetail recordId={detail} onClose={() => setDetail(null)} />}
+    </>
   )
 }
 
