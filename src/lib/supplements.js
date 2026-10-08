@@ -1,4 +1,4 @@
-// Oral supplements — tablets, capsules, powders, sprays, liquids.
+// Supplements — tablets, capsules, powders, sprays, liquids, and topicals.
 //
 // Tracked like the peptide stack minus everything that belongs to a needle:
 // no injection site, no co-draw, no insulin units. A supplement has a name, a
@@ -20,12 +20,12 @@ export const SLOTS = ['AM', 'PM']
 
 /** Icon per form, so a powder never looks like a tablet at a glance. */
 export const FORM_ICON = {
-  tablet: 'Pill', capsule: 'Pill', powder: 'Scoop', spray: 'SprayCan', liquid: 'Droplet',
+  tablet: 'Pill', capsule: 'Pill', powder: 'Scoop', spray: 'SprayCan', liquid: 'Droplet', topical: 'Droplets',
 }
 
 /** Plain wording for the form, used wherever the dose is shown. */
 export const FORM_LABEL = {
-  tablet: 'Tablet', capsule: 'Capsule', powder: 'Powder', spray: 'Spray', liquid: 'Liquid',
+  tablet: 'Tablet', capsule: 'Capsule', powder: 'Powder', spray: 'Spray', liquid: 'Liquid', topical: 'Topical',
 }
 
 /**
@@ -64,6 +64,18 @@ export function searchLibrary(query = '') {
     if (!!b.owned !== !!a.owned) return b.owned ? 1 : -1
     return a.name.localeCompare(b.name)
   })
+}
+
+/** The button word. A topical is applied, not taken. */
+export function takeVerb(supplement, past = true) {
+  const topical = supplement?.form === 'topical'
+  if (past) return topical ? 'Applied' : 'Taken'
+  return topical ? 'Apply' : 'Take'
+}
+
+/** Placeholder for the dose box, which differs because the answers differ. */
+export function dosePlaceholder(form) {
+  return form === 'topical' ? 'Optional — leave empty if you don\'t measure it' : 'e.g. 2 capsules, or 3 g'
 }
 
 /** A stack entry built from a library row — every field editable afterwards. */

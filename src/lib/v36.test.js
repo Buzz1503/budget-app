@@ -169,7 +169,9 @@ describe('buildSummaryHtml', () => {
   it('renders without a hole where a removed feature used to be', () => {
     const html = buildSummaryHtml(args())
     expect(html).not.toContain('undefined')
-    expect(html).not.toMatch(/site/i)
+    // injection-site reactions came back in v36 (the section says "site"); the
+    // removed rotation feature's own words must not
+    expect(html).not.toMatch(/rotation|zone/i)
   })
 
   it('states time on compound and what was taken', () => {

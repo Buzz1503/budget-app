@@ -10,10 +10,12 @@ import { PIN_BY_ID, GROUPS } from '../../lib/sitePins'
 import {
   SEVERITIES, SEVERITY_BY_ID, RATED_SEVERITIES, SAFETY_FLAGS, DEFAULT_CHECK_TIME,
   activeSafety, checkDue, newSites, openSites, pinStatusWords, suggestedPin,
-  peptideScorecards, groupScorecards, peptideDetail, pinHistory, topLine,
+  peptideDetail, pinHistory,
   durationWords, recentOtherUse, reuseWarning, mixedWarning, findMixedGroup,
-  needsSymptomReview, MIN_FOR_NUMBERS,
+  needsSymptomReview,
 } from '../../lib/reactionTracker'
+import { ReactionCheck, LogReaction, ReactionsList, PatternsSection, NeedlePicker } from './ReactionCourse'
+import { patterns, MIN_INJECTIONS } from '../../lib/reactionPatterns'
 import SiteMap from './SiteMap'
 import SiteMapSettings from './SiteMapSettings'
 import { AddSite, RecentSitesList } from './LogOnBody'
@@ -93,6 +95,7 @@ export default function ReactionTracker() {
   const [pinOpen, setPinOpen] = useState(null)
   const [peptideOpen, setPeptideOpen] = useState(null)
   const [selected, setSelected] = useState(null)
+  const [reactionOpen, setReactionOpen] = useState(false)
 
   const due = checkDue(ctx)
   const siteMap = useStore((st) => st.siteMap)
@@ -101,9 +104,6 @@ export default function ReactionTracker() {
     ...ctx, windowDays, nameOf, overrides: siteMap?.pinOverrides || {},
   }), [ctx, windowDays, nameOf, siteMap])
   const windowUses = useMemo(() => recentUses(rotationCtx), [rotationCtx])
-  const cards = useMemo(() => peptideScorecards(ctx), [ctx])
-  const groups = useMemo(() => groupScorecards(ctx), [ctx])
-  const line = useMemo(() => topLine(ctx, nameOf), [ctx, nameOf])
   const review = useMemo(() => needsSymptomReview(ctx), [ctx])
 
   return (
@@ -127,6 +127,9 @@ export default function ReactionTracker() {
         <button data-testid="log-injection" onClick={() => setLogOpen(true)} className="btn-primary flex flex-1 items-center justify-center gap-2 py-3">
           <Plus size={16} /> Log injection
         </button>
+        <button data-testid="log-reaction" onClick={() => setReactionOpen(true)} className="chip px-4">
+          Log a reaction
+        </button>
         <button
           data-testid="open-check"
           onClick={() => setCheckOpen(true)}
@@ -135,11 +138,6 @@ export default function ReactionTracker() {
         >
           Evening check{due ? ' ·' : ''}
         </button>
-      </div>
-
-      <div className="card p-4">
-        <div className="t-label mb-1" style={{ color: 'var(--text-3)' }}>Summary</div>
-        <div className="text-sm font-bold" data-testid="reaction-topline">{line}</div>
       </div>
 
       <div className="card p-4">
@@ -170,51 +168,9 @@ export default function ReactionTracker() {
         )}
       </div>
 
-      <div className="card p-4">
-        <div className="t-label mb-2" style={{ color: 'var(--text-3)' }}>By peptide</div>
-        {cards.length === 0 && (
-          <div className="t-caption" style={{ color: 'var(--text-2)' }}>Nothing logged yet.</div>
-        )}
-        <div className="rows">
-          {cards.map((c) => (
-            <button
-              key={c.peptideId}
-              data-testid={`peptide-card-${c.peptideId}`}
-              onClick={() => setPeptideOpen(c.peptideId)}
-              className="flex w-full items-center gap-3 py-2 text-left"
-            >
-              <div className="min-w-0 flex-1">
-                <div className="text-sm font-black">{nameOf(c.peptideId)}</div>
-                <div className="t-caption" style={{ color: 'var(--text-2)' }}>
-                  {c.enough
-                    ? `Reacted ${c.reacted} of ${c.n}${c.commonSeverity ? ` · mostly ${SEVERITY_BY_ID[c.commonSeverity]?.label.toLowerCase()}` : ''}${c.avgDurationDays != null ? ` · ${c.avgDurationDays} days on average` : ''}`
-                    : `Need more data — ${c.n} of ${MIN_FOR_NUMBERS} rated`}
-                </div>
-              </div>
-              <ChevronRight size={16} style={{ color: 'var(--text-3)' }} />
-            </button>
-          ))}
-        </div>
-      </div>
+      <ReactionsList />
 
-      <div className="card p-4">
-        <div className="t-label mb-2" style={{ color: 'var(--text-3)' }}>By site</div>
-        {groups.length === 0 && (
-          <div className="t-caption" style={{ color: 'var(--text-2)' }}>Nothing rated yet.</div>
-        )}
-        <div className="rows">
-          {groups.map((g) => (
-            <div key={g.group} className="flex items-center gap-3 py-2" data-testid={`group-card-${g.group}`}>
-              <div className="min-w-0 flex-1 text-sm font-black">{g.label}</div>
-              <div className="t-caption tabular-nums" style={{ color: 'var(--text-2)' }}>
-                {g.enough
-                  ? `${pct(g.rate)} · ${g.avgDurationDays != null ? `${g.avgDurationDays} days` : 'no duration yet'}`
-                  : 'Need more data'}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+      <PatternsSection onOpenPeptide={setPeptideOpen} />
 
       <div className="t-caption" style={{ color: 'var(--text-3)' }}>
         Evening check at {settings?.checkTime || DEFAULT_CHECK_TIME}. Change it in Settings &gt; Site map.
@@ -226,6 +182,7 @@ export default function ReactionTracker() {
         pinId={typeof logOpen === 'string' ? logOpen : null}
         onClose={() => setLogOpen(false)}
       />
+      <LogReaction open={reactionOpen} onClose={() => setReactionOpen(false)} />
       <PinHistory pinId={pinOpen} onClose={() => setPinOpen(null)} />
       <PeptideDetail peptideId={peptideOpen} onClose={() => setPeptideOpen(null)} />
     </div>
@@ -310,6 +267,7 @@ export function LogInjection({ open, onClose, pinId: initialPin = null, doseLogI
   const [peptideId, setPeptideId] = useState(fixedPeptide || injectable[0]?.id || null)
   const [pinId, setPinId] = useState(initialPin)
   const [group, setGroup] = useState(null)
+  const [needle, setNeedle] = useState(undefined)
 
   const suggested = useMemo(() => suggestedPin({ ...ctx, group }), [ctx, group])
   const pin = pinId ? PIN_BY_ID[pinId] : null
@@ -320,7 +278,7 @@ export function LogInjection({ open, onClose, pinId: initialPin = null, doseLogI
 
   const save = () => {
     if (!pinId || !peptideId) return
-    log({ peptideId, pinId, doseLogId })
+    log({ peptideId, pinId, doseLogId, ...(needle !== undefined ? { needle } : {}) })
     onClose?.()
   }
 
@@ -398,6 +356,8 @@ export function LogInjection({ open, onClose, pinId: initialPin = null, doseLogI
           </div>
         )}
 
+        {pin && <NeedlePicker peptide={peptides.find((p) => p.id === peptideId)} value={needle} onChange={setNeedle} />}
+
         <button data-testid="log-save" onClick={save} disabled={!pinId || !peptideId} className="btn-primary w-full py-3 disabled:opacity-40">
           Save
         </button>
@@ -428,6 +388,7 @@ export function EveningCheck({ open, onClose }) {
   const [meanings, setMeanings] = useState(false)
   const [others, setOthers] = useState(false)
   const [addSite, setAddSite] = useState(null)
+  const [checking, setChecking] = useState(null)
   const fresh = newSites(ctx)
   const still = openSites(ctx)
   const t = todayStr()
@@ -498,6 +459,14 @@ export function EveningCheck({ open, onClose }) {
                       Still there
                     </button>
                     <button
+                      data-testid={`check-${record.id}`}
+                      onClick={() => setChecking(record.id)}
+                      className="flex-1 rounded-[var(--r-sm)] py-2 text-xs font-black"
+                      style={{ background: 'var(--surface-sunk)' }}
+                    >
+                      Check…
+                    </button>
+                    <button
                       data-testid={`gone-${record.id}`}
                       onClick={() => markGone(record.id, t)}
                       className="flex-1 rounded-[var(--r-sm)] py-2 text-xs font-black"
@@ -542,6 +511,7 @@ export function EveningCheck({ open, onClose }) {
 
         <button onClick={done} className="btn-primary w-full py-3" data-testid="check-done">Done</button>
       </div>
+      {checking && <ReactionCheck recordId={checking} onClose={() => setChecking(null)} />}
       {addSite && (
         <AddSite
           doseLogId={addSite.doseLogId}
@@ -645,46 +615,41 @@ function RowPhoto({ record, reaction }) {
 
 function PeptideDetail({ peptideId, onClose }) {
   const ctx = useCtx()
+  const peptides = useStore((st) => st.peptides)
   const nameOf = usePeptideName()
   const detail = useMemo(() => (peptideId ? peptideDetail(peptideId, ctx) : null), [peptideId, ctx])
+  const row = useMemo(
+    () => (peptideId ? patterns({ ...ctx, peptides }).peptides.find((r) => r.peptideId === peptideId) : null),
+    [peptideId, ctx, peptides],
+  )
   if (!peptideId || !detail) return null
-  const o = detail.overall
+  const s = row?.clean
   return (
     <Modal open onClose={onClose} title={nameOf(peptideId)}>
       <div className="space-y-4">
         <div className="rounded-[var(--r-sm)] p-3" style={{ background: 'var(--surface-sunk)' }} data-testid="peptide-overall">
-          {o.enough ? (
+          {s?.status === 'ok' ? (
             <div className="t-caption" style={{ color: 'var(--text-2)' }}>
-              Reacted {o.reacted} of {o.n}
-              {o.commonSeverity ? ` · mostly ${SEVERITY_BY_ID[o.commonSeverity]?.label.toLowerCase()}` : ''}
-              {o.avgDurationDays != null ? ` · ${o.avgDurationDays} days on average` : ''}
+              Reacted {s.reactions} of {s.checked} checked on its own
+              {s.medianDaysToResolve != null ? ` · median ${s.medianDaysToResolve} days to resolve` : ''}
             </div>
           ) : (
-            <div className="t-caption" style={{ color: 'var(--text-2)' }}>Need more data — {o.n} of {MIN_FOR_NUMBERS} rated.</div>
+            <div className="t-caption" style={{ color: 'var(--text-2)' }}>
+              Not enough data yet — {s?.checked ?? 0} of {MIN_INJECTIONS} checked on its own.
+            </div>
+          )}
+          {row?.coDraw && (
+            <div className="t-caption mt-1" style={{ color: 'var(--text-3)' }}>
+              {row.coDraw.injections} shared a syringe — unable to isolate, not counted above.
+            </div>
           )}
         </div>
-
-        {detail.groups.length > 0 && (
-          <div>
-            <div className="t-label mb-1" style={{ color: 'var(--text-3)' }}>By site</div>
-            <div className="rows">
-              {detail.groups.map((g) => (
-                <div key={g.group} className="flex items-center justify-between py-1.5" data-testid={`peptide-group-${g.group}`}>
-                  <span className="text-sm font-bold">{g.label}</span>
-                  <span className="t-caption tabular-nums" style={{ color: 'var(--text-2)' }}>
-                    {g.enough ? `Reacted ${g.reacted} of ${g.n}${g.avgDurationDays != null ? ` · ${g.avgDurationDays} days` : ''}` : 'Need more data'}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
         <div>
           <div className="t-label mb-1" style={{ color: 'var(--text-3)' }}>Injections</div>
           <div className="rows">
-            {detail.injections.map((row) => (
-              <InjectionRow key={row.record.id} row={row} />
+            {detail.injections.map((r) => (
+              <InjectionRow key={r.record.id} row={r} />
             ))}
           </div>
         </div>

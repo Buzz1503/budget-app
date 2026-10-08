@@ -141,7 +141,9 @@ function DayBody({
               return (
                 <p key={e.supplementId} className="flex items-center gap-2 text-xs font-bold"
                   data-testid="day-supplement" data-state={st}>
-                  <S.icon size={11} className="shrink-0" style={{ color: S.tone }} />
+                  {(st === 'due' || st === 'scheduled')
+                    ? <Pill size={11} className="shrink-0" style={{ color: S.tone }} />
+                    : <S.icon size={11} className="shrink-0" style={{ color: S.tone }} />}
                   <span className="min-w-0 flex-1 truncate">{e.name}</span>
                   <span className="shrink-0 font-semibold" style={{ color: S.tone }}>{S.label}</span>
                 </p>

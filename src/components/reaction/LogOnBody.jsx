@@ -12,6 +12,7 @@ import {
 } from '../../lib/siteRotation'
 import { SEVERITY_BY_ID } from '../../lib/reactionTracker'
 import SiteMap from './SiteMap'
+import { NeedlePicker } from './ReactionCourse'
 import { useElementHeight, AREA_PADDING_PX } from '../../lib/useElementHeight'
 
 /**
@@ -36,6 +37,7 @@ export default function LogOnBody({ peptideId, onClose }) {
   const [view, setView] = useState('front')
   const [picked, setPicked] = useState(null)
   const [confirmAgain, setConfirmAgain] = useState(false)
+  const [needle, setNeedle] = useState(undefined)
   const areaRef = useRef(null)
   const mapH = useElementHeight(areaRef)
 
@@ -86,7 +88,7 @@ export default function LogOnBody({ peptideId, onClose }) {
   const commit = () => {
     if (!picked) return
     if (alreadyToday && !confirmAgain) { setConfirmAgain(true); return }
-    logDoseOnSite(peptideId, picked)
+    logDoseOnSite(peptideId, picked, { needle })
     onClose?.()
   }
 
@@ -199,6 +201,8 @@ export default function LogOnBody({ peptideId, onClose }) {
         ) : null}
 
         <RecentSitesList uses={uses} nameOf={nameOf} onPick={(u) => { setView(PIN_BY_ID[u.pinId]?.view || 'front'); setPicked(u.pinId) }} />
+
+        {picked && <NeedlePicker peptide={peptide} value={needle} onChange={setNeedle} />}
 
         {confirmAgain && (
           <p className="t-caption" data-testid="lob-already" style={{ color: 'var(--warn)' }}>

@@ -15,6 +15,8 @@ import { expiryInfo, runOutInfo } from './inventory'
 import { runsFor, MILESTONES } from './tenure'
 import { dueWithPushes, pushedAway } from './pushes'
 import { isPausedOn, pauseOn, pausesOn, reasonWords } from './pauses'
+import { isReaction, openedOn, severityWord } from './reactionCourse'
+import { PIN_BY_ID } from './sitePins'
 
 export const WEEK_STARTS_ON = 1 // Monday
 
@@ -28,6 +30,7 @@ export const EVENT_META = {
   delivery: { label: 'Delivery expected', tone: 'var(--indigo)', glyph: '🚚' },
   started: { label: 'Started', tone: 'var(--indigo)', glyph: '◆' },
   anniversary: { label: 'Time on compound', tone: 'var(--lime)', glyph: '◇' },
+  reaction: { label: 'Reaction', tone: 'var(--warn)', glyph: '●' },
 }
 
 // Adherence states a past day can be in. Future days are 'future'; a day with
@@ -113,6 +116,7 @@ export function buildCalendar({
   peptides = [], titration = {}, doseLogs = [], openVials = {}, vials = [],
   supplements = [], supplementLogs = [], skips = [],
   restock = {}, runs = {}, pushes = [], pauses = [], symptomLogs = [], bloodTests = [],
+  reactions = [], injectionRecords = [],
   todayStr, from, to, verdictOf = null, leadDays = 30,
 }) {
   const dates = datesBetween(from, to)
@@ -205,6 +209,20 @@ export function buildCalendar({
         })
       }
     }
+  }
+
+  // An injection-site reaction lands on the day it was logged, whether or not
+  // it has cleared since — the calendar is a record of what happened when.
+  for (const rx of reactions) {
+    if (!isReaction(rx)) continue
+    const rec = injectionRecords.find((r) => r.id === rx.injectionRecordId)
+    if (!rec) continue
+    const p = peptides.find((x) => x.id === rec.peptideId)
+    const first = (rx.ratings || []).find((r) => r.severity !== 'none')
+    pushEvent(openedOn(rx), {
+      kind: 'reaction', peptideId: rec.peptideId, recordId: rec.id,
+      text: `Reaction — ${PIN_BY_ID[rec.pinId]?.label || 'no site'}${p ? `, ${p.name}` : ''}${first ? ` (${severityWord(first.severity).toLowerCase()})` : ''}`,
+    })
   }
 
   // expected deliveries from the restock list

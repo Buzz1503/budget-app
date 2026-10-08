@@ -1,18 +1,16 @@
 import { useMemo, useState } from 'react'
-import { format, parseISO } from 'date-fns'
-import { Check, Pencil, RotateCcw } from 'lucide-react'
+import { Pencil, RotateCcw } from 'lucide-react'
 import useStore, { todayStr } from '../../store/useStore'
 import Modal from '../ui/Modal'
 import NumberField from '../ui/NumberField'
-import { prettyDate, daysBetween } from '../../lib/schedule'
+import { prettyDate } from '../../lib/schedule'
 import { displayName } from '../../lib/naming'
 import { doseTimeline } from '../../lib/tenure'
 import {
   markerByName, rangeOf, seriesFor, statusOf, fmtRange, deltaWords, deltaFor,
 } from '../../lib/bloods'
 import { RangeBar } from './RangeBar'
-
-const CH = { w: 320, h: 170, padL: 34, padR: 10, padT: 16, padB: 30 }
+import MarkerChart from './MarkerChart'
 
 /**
  * One marker, over everything that has been recorded of it.
@@ -70,23 +68,6 @@ export default function MarkerDetail({ name, open, onClose }) {
     return [...ids].map(([id, n]) => ({ id, name: n }))
   }, [events])
 
-  const geom = useMemo(() => {
-    if (series.length === 0) return null
-    const values = series.map((s) => s.value)
-    const bounds = [...values]
-    if (range?.low != null) bounds.push(range.low)
-    if (range?.high != null) bounds.push(range.high)
-    let lo = Math.min(...bounds)
-    let hi = Math.max(...bounds)
-    const pad = (hi - lo) * 0.18 || Math.abs(hi) * 0.18 || 1
-    lo -= pad; hi += pad
-    const from = series[0].date
-    const span = Math.max(1, daysBetween(from, series[series.length - 1].date))
-    const x = (d) => CH.padL + (Math.min(Math.max(daysBetween(from, d), 0), span) / span) * (CH.w - CH.padL - CH.padR)
-    const y = (v) => CH.h - CH.padB - ((v - lo) / (hi - lo || 1)) * (CH.h - CH.padT - CH.padB)
-    return { lo, hi, from, span, x, y }
-  }, [series, range])
-
   if (!open || !marker) return null
 
   const latest = series.length ? series[series.length - 1] : null
@@ -122,99 +103,14 @@ export default function MarkerDetail({ name, open, onClose }) {
         </div>
 
         {/* ------------------------------------------------- the graph */}
-        {series.length >= 2 && geom ? (
-          <div className="card p-3" data-testid="marker-graph">
-            <p className="t-caption" style={{ color: 'var(--text-2)' }}>Over time</p>
-            <svg viewBox={`0 0 ${CH.w} ${CH.h}`} className="mt-2 w-full" role="img"
-              aria-label={`${marker.name} over time`} style={{ overflow: 'visible' }}>
-              {/* the lab's interval, behind everything */}
-              {(range.low != null || range.high != null) && (
-                <rect x={CH.padL}
-                  y={range.high != null ? geom.y(range.high) : CH.padT}
-                  width={CH.w - CH.padL - CH.padR}
-                  height={Math.max(1, (range.low != null ? geom.y(range.low) : CH.h - CH.padB)
-                    - (range.high != null ? geom.y(range.high) : CH.padT))}
-                  fill="var(--good)" opacity="0.10" data-testid="ref-band" />
-              )}
-              {[range.low, range.high].filter((v) => v != null).map((v) => (
-                <g key={v}>
-                  <line x1={CH.padL} y1={geom.y(v)} x2={CH.w - CH.padR} y2={geom.y(v)}
-                    stroke="var(--good)" strokeWidth="1" strokeDasharray="3 3" opacity="0.5" />
-                  <text x={CH.padL - 4} y={geom.y(v) + 3} fontSize="9" fontWeight="700" textAnchor="end"
-                    fill="var(--text-3)" className="tabular-nums">{v}</text>
-                </g>
-              ))}
-
-              {/* what the protocol was doing, drawn behind the line */}
-              {events.filter((e) => overlay.has(e.peptideId)).map((e, i) => (
-                <g key={`${e.peptideId}-${e.date}-${i}`} data-testid="overlay-mark"
-                  data-compound={e.peptideId} data-kind={e.kind}>
-                  <line x1={geom.x(e.date)} y1={CH.padT} x2={geom.x(e.date)} y2={CH.h - CH.padB}
-                    stroke="var(--info)" strokeWidth="1" strokeDasharray="2 3" opacity="0.8" />
-                  <text x={geom.x(e.date) + 2} y={CH.padT + 8} fontSize="8" fontWeight="700"
-                    fill="var(--info)">{e.kind === 'start' ? '▲' : e.kind === 'stop' ? '■' : '◆'}</text>
-                </g>
-              ))}
-
-              {/* the line itself */}
-              <polyline fill="none" stroke="var(--text)" strokeWidth="2" strokeLinejoin="round"
-                points={series.map((s) => `${geom.x(s.date)},${geom.y(s.value)}`).join(' ')} />
-
-              {series.map((s, i) => {
-                const st = statusOf(s.value, range)
-                const showLabel = series.length <= 8 || i === 0 || i === series.length - 1 || st !== 'in'
-                return (
-                  <g key={s.date} data-testid="graph-point" data-date={s.date} data-status={st}>
-                    <circle cx={geom.x(s.date)} cy={geom.y(s.value)} r="3.5"
-                      fill={st === 'in' ? 'var(--text)' : 'var(--warn)'}
-                      stroke="var(--surface-solid)" strokeWidth="1.5" />
-                    {showLabel && (
-                      <text x={geom.x(s.date)} y={geom.y(s.value) - 7} fontSize="9" fontWeight="800"
-                        textAnchor={i === 0 ? 'start' : i === series.length - 1 ? 'end' : 'middle'}
-                        fill={st === 'in' ? 'var(--text-2)' : 'var(--warn)'} className="tabular-nums">
-                        {s.value}
-                      </text>
-                    )}
-                  </g>
-                )
-              })}
-
-              <text x={CH.padL} y={CH.h - 8} fontSize="9" fontWeight="700" fill="var(--text-3)" className="tabular-nums">
-                {format(parseISO(series[0].date), 'MMM yy')}
-              </text>
-              <text x={CH.w - CH.padR} y={CH.h - 8} fontSize="9" fontWeight="700" textAnchor="end"
-                fill="var(--text-3)" className="tabular-nums">
-                {format(parseISO(series[series.length - 1].date), 'MMM yy')}
-              </text>
-            </svg>
-
-            {/* which compounds to draw behind it */}
-            {overlayable.length > 0 && (
-              <div className="mt-2" data-testid="overlay-toggles">
-                <p className="t-caption mb-1.5" style={{ color: 'var(--text-3)' }}>Overlay my compounds</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {overlayable.map((c) => (
-                    <button key={c.id} data-testid="overlay-toggle" data-on={overlay.has(c.id) ? 'true' : 'false'}
-                      onClick={() => setOverlay((prev) => {
-                        const next = new Set(prev)
-                        if (next.has(c.id)) next.delete(c.id); else next.add(c.id)
-                        return next
-                      })}
-                      className="flex min-h-[34px] items-center gap-1.5 rounded-full px-2.5 text-xs font-bold"
-                      style={overlay.has(c.id)
-                        ? { background: 'color-mix(in srgb, var(--info) 22%, transparent)', color: 'var(--info)' }
-                        : { background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
-                      {overlay.has(c.id) && <Check size={11} />} {c.name}
-                    </button>
-                  ))}
-                </div>
-                <p className="mt-1.5 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-3)' }}>
-                  ▲ started · ◆ dose changed · ■ stopped. Lines mark when, not why — two things happening near
-                  each other is not one causing the other.
-                </p>
-              </div>
-            )}
-          </div>
+        {series.length >= 2 ? (
+          <MarkerChart name={marker.name} series={series} range={range} events={events} today={t}
+            overlay={overlay} overlayable={overlayable}
+            onToggleOverlay={(id) => setOverlay((prev) => {
+              const next = new Set(prev)
+              if (next.has(id)) next.delete(id); else next.add(id)
+              return next
+            })} />
         ) : (
           <div className="card p-4" data-testid="marker-graph-empty">
             <p className="text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>

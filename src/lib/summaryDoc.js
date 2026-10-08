@@ -7,6 +7,9 @@ import { slotOf, scheduledWeekdaySet, needsProtocolSetup, WEEKDAYS } from './dai
 import { formatDose } from './calc'
 import { metricSeries, rollingAverage, METRIC_BY_KEY } from './metrics'
 import { tenureFor, cumulativeExposure, cyclePosition, doseTenure } from './tenure'
+import { isReaction, statusOf, openedOn, timeToResolve, peakSeverity, daysOpen, severityWord, checksOf } from './reactionCourse'
+import { PIN_BY_ID } from './sitePins'
+import { needleLabel } from './injectionCapture'
 
 function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, (c) => (
@@ -22,6 +25,7 @@ function weekdayLabel(peptide) {
 
 export function buildSummaryHtml({
   peptides, titration, doseLogs, doseEvents = [], measurements, summary, from, to, runs = {},
+  reactions = [], injectionRecords = [],
   framed = false,
 }) {
   const fmt = (d) => format(parseISO(d), 'd MMM yyyy')
@@ -101,6 +105,29 @@ export function buildSummaryHtml({
     </tr>`
   }).filter(Boolean).join('')
 
+  // Every injection-site reaction logged in the window, as entered. Counts and
+  // dates only: no rate, no ranking, nothing about cause.
+  const nameOfPeptide = (id) => peptides.find((p) => p.id === id)?.name || 'Unknown'
+  const reactionRows = reactions
+    .filter(isReaction)
+    .map((rx) => ({ rx, rec: injectionRecords.find((r) => r.id === rx.injectionRecordId), opened: openedOn(rx) }))
+    .filter((x) => x.rec && x.opened >= from && x.opened <= to)
+    .sort((a, b) => a.opened.localeCompare(b.opened))
+    .map(({ rx, rec, opened }) => {
+      const st = statusOf(rx, today)
+      const ttr = timeToResolve(rx)
+      const ids = (rec.coDrawPeptideIds?.length ? rec.coDrawPeptideIds : [rec.peptideId]).filter(Boolean)
+      return `<tr>
+      <td>${esc(fmt(opened))}</td>
+      <td>${esc(PIN_BY_ID[rec.pinId]?.label || 'No site recorded')}</td>
+      <td>${esc(ids.map(nameOfPeptide).join(' + '))}${ids.length > 1 ? ' <span class="muted">(shared a syringe)</span>' : ''}</td>
+      <td>${esc(needleLabel(rec.needle))}</td>
+      <td>${esc(peakSeverity(rx) ? severityWord(peakSeverity(rx)) : '—')}</td>
+      <td>${esc(st === 'resolved' ? `Resolved${ttr === 0 ? ' same day' : ` after ${ttr} day${ttr === 1 ? '' : 's'}`}` : st === 'abandoned' ? 'Not checked for a week' : `Open, ${daysOpen(rx, today)} day${daysOpen(rx, today) === 1 ? '' : 's'}`)}</td>
+      <td class="num">${checksOf(rx).length}</td>
+    </tr>`
+    }).join('')
+
   // the compound that has been running longest, for the header
   const longest = active
     .map((p) => tenureFor(p, { runs, todayStr: today }))
@@ -174,6 +201,12 @@ export function buildSummaryHtml({
   ${adherenceRows ? `<table>
     <thead><tr><th>Peptide</th><th class="num">Taken</th><th class="num">Missed</th><th class="num">Rate</th></tr></thead>
     <tbody>${adherenceRows}</tbody></table>` : '<p class="empty">Nothing scheduled in this window.</p>'}
+
+  <h2>Injection-site reactions</h2>
+  ${reactionRows ? `<table>
+    <thead><tr><th>Logged</th><th>Site</th><th>Peptide</th><th>Needle</th><th>Peak</th><th>Outcome</th><th class="num">Checks</th></tr></thead>
+    <tbody>${reactionRows}</tbody></table>`
+    : '<p class="empty">No reactions logged in this window.</p>'}
 
   <h2>Body composition</h2>
   ${trendRows ? `<table>

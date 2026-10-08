@@ -1,4 +1,5 @@
 import { PIN_BY_ID, PINS, GROUPS, SIDE_WORD } from './sitePins'
+import { statusOf as courseStatus, localDay, isReaction as courseIsReaction, openedOn as courseOpenedOn } from './reactionCourse'
 
 /**
  * Which peptide irritates the skin, how badly, and for how long.
@@ -73,10 +74,14 @@ export function durationWords(days) {
   return `${days} day${days === 1 ? '' : 's'}`
 }
 
-/** Still open: rated at Mild or above and not yet marked gone. */
-export function stillReacting(record, reaction) {
+/**
+ * Still open: rated at Mild or above, not marked gone, and not left alone for
+ * a week. A reaction nobody has checked in seven days is abandoned — kept, but
+ * no longer asked about and no longer treated as a site to avoid.
+ */
+export function stillReacting(record, reaction, today = localDay()) {
   if (!reaction || reaction.goneAt) return false
-  return reacted(reaction)
+  return courseStatus(reaction, today) === 'open'
 }
 
 // -------------------------------------------------------------- the rules
@@ -126,15 +131,21 @@ export function pinStatus(pinId, { records = [], reactions = [], nowIso } = {}) 
   const last = mine[0]
   const daysAgo = Math.max(0, Math.round((new Date(nowIso || Date.now()) - new Date(last.timestamp)) / 86400000))
 
-  const open = mine
+  const today = localDay(nowIso ? new Date(nowIso) : new Date())
+  const rxs = mine
     .map((r) => reactions.find((x) => x.injectionRecordId === r.id))
-    .filter((rx) => rx && stillReacting(mine.find((r) => r.id === rx.injectionRecordId), rx))
+    .filter((rx) => rx && courseIsReaction(rx))
+  // how the most recent reaction here ended up, so the map can mark a site
+  // that has reacted before even when nothing is open on it now
+  const latest = [...rxs].sort((a, b) => String(courseOpenedOn(b)).localeCompare(String(courseOpenedOn(a))))[0]
+  const mark = latest ? courseStatus(latest, today) : null
+  const open = rxs.filter((rx) => stillReacting(null, rx, today))
   if (open.length) {
     const worst = open.reduce((w, rx) => (severityRank(worstOf(rx)) > severityRank(w) ? worstOf(rx) : w), 'none')
-    return { status: 'reacting', severity: worst, lastUsed: last.timestamp, daysAgo }
+    return { status: 'reacting', severity: worst, lastUsed: last.timestamp, daysAgo, mark: 'open' }
   }
-  if (daysAgo <= REUSE_WINDOW_DAYS) return { status: 'recent', lastUsed: last.timestamp, daysAgo }
-  return { status: 'clear', lastUsed: last.timestamp, daysAgo }
+  if (daysAgo <= REUSE_WINDOW_DAYS) return { status: 'recent', lastUsed: last.timestamp, daysAgo, mark }
+  return { status: 'clear', lastUsed: last.timestamp, daysAgo, mark }
 }
 
 export function allPinStatus(ctx) {
@@ -185,10 +196,11 @@ export function newSites({ records = [], reactions = [] } = {}) {
 }
 
 /** Sites rated Mild or above and not yet marked gone. */
-export function openSites({ records = [], reactions = [] } = {}) {
+export function openSites({ records = [], reactions = [], nowIso } = {}) {
+  const today = localDay(nowIso ? new Date(nowIso) : new Date())
   return records
     .map((r) => ({ record: r, reaction: reactions.find((x) => x.injectionRecordId === r.id) }))
-    .filter(({ record, reaction }) => stillReacting(record, reaction))
+    .filter(({ record, reaction }) => stillReacting(record, reaction, today))
     .sort((a, b) => String(b.record.timestamp).localeCompare(String(a.record.timestamp)))
 }
 

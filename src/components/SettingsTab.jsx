@@ -44,6 +44,7 @@ export default function SettingsTab({ goTo }) {
         measurements: state.measurements, photos: state.photos, bodyGoals: state.bodyGoals,
         bodyRefs: state.bodyRefs,
         gearItems: state.gearItems, gearSwaps: state.gearSwaps, gearOptions: state.gearOptions,
+        injectionRecords: state.injectionRecords, reactions: state.reactions,
       }
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
       const url = URL.createObjectURL(blob)
@@ -298,7 +299,7 @@ function BackupCard() {
           <p className="mt-1 text-xs font-medium" style={{ color: 'var(--text-2)' }}>
             From {info.createdAt ? format(parseISO(info.createdAt), 'd MMM yyyy, HH:mm') : 'unknown date'} —
             {' '}{info.peptides} peptides, {info.doseLogs} dose logs, {info.measurements} measurements,
-            {' '}{info.symptomLogs} check-ins, {info.gearItems} supplies, {info.blobs} photo/scan files.
+            {' '}{info.symptomLogs} check-ins, {info.gearItems} supplies, {info.reactions} reactions, {info.blobs} photo/scan files.
             <span className="font-bold" style={{ color: 'var(--text)' }}> This overwrites everything currently in the app.</span>
           </p>
           <div className="mt-2 flex gap-2">

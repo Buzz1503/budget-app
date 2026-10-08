@@ -280,7 +280,7 @@ export default function ProtocolTab({ goTo }) {
               <Pill size={16} />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-bold leading-tight">{supplements.length} taken by mouth</p>
+              <p className="truncate text-sm font-bold leading-tight">{supplements.length} daily item{supplements.length === 1 ? '' : 's'}</p>
               <p className="truncate text-xs font-semibold leading-tight" style={{ color: 'var(--text-2)' }}>
                 {supplements.slice(0, 3).map((s) => s.name).join(', ')}{supplements.length > 3 ? '…' : ''}
               </p>

@@ -2,12 +2,12 @@ import { useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Pill, Plus, Search, X, Sun, Moon, AlertTriangle, Info, Trash2, Check,
-  SprayCan, Droplet, Beaker, ChevronRight,
+  SprayCan, Droplet, Droplets, Beaker, ChevronRight,
 } from 'lucide-react'
-import useStore from '../store/useStore'
+import useStore, { todayStr } from '../store/useStore'
 import {
   FORMS, FORM_LABEL, SUPPLEMENT_NOTE, searchLibrary, fromLibrary, blankSupplement,
-  bySlot, allCautions, defaultSlotFor, SLOTS,
+  bySlot, allCautions, defaultSlotFor, SLOTS, dosePlaceholder, supplementAdherence,
 } from '../lib/supplements'
 import Modal from './ui/Modal'
 
@@ -15,8 +15,9 @@ import Modal from './ui/Modal'
 export function FormIcon({ form, size = 14, ...rest }) {
   const Icon = form === 'spray' ? SprayCan
     : form === 'liquid' ? Droplet
-      : form === 'powder' ? Beaker
-        : Pill
+      : form === 'topical' ? Droplets
+        : form === 'powder' ? Beaker
+          : Pill
   return <Icon size={size} {...rest} />
 }
 
@@ -36,7 +37,7 @@ export default function SupplementsTab() {
           <Pill size={22} style={{ color: 'var(--warn)' }} /> Supplements
         </h1>
         <p className="text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
-          What you take by mouth — {supplements.length} on the shelf
+          What you take daily — {supplements.length} on the shelf
         </p>
       </div>
 
@@ -99,6 +100,12 @@ export default function SupplementsTab() {
 
 function SupplementRow({ supplement: s, onEdit, onRemove }) {
   const [open, setOpen] = useState(false)
+  const logs = useStore((x) => x.supplementLogs)
+  const record = useMemo(() => {
+    if (!s.addedOn) return null
+    const row = supplementAdherence([s], logs, s.addedOn, todayStr()).rows[0]
+    return row ? { since: s.addedOn, taken: row.taken, days: row.scheduled } : null
+  }, [s, logs])
   return (
     <motion.div layout className="card overflow-hidden">
       <button onClick={() => setOpen(!open)} className="flex w-full items-center gap-3 p-3 text-left">
@@ -110,6 +117,12 @@ function SupplementRow({ supplement: s, onEdit, onRemove }) {
           <p className="truncate text-xs font-semibold leading-tight" style={{ color: 'var(--text-2)' }}>
             {s.dose || 'no dose set'}{s.brand ? ` · ${s.brand}` : ''} · {FORM_LABEL[s.form] || s.form}
           </p>
+          {record && (
+            <p className="truncate text-xs font-medium leading-tight tabular-nums" data-testid="supplement-record"
+              style={{ color: 'var(--text-3)' }}>
+              Day {record.days} · {record.taken} of {record.days} logged
+            </p>
+          )}
         </div>
         {s.caution && <AlertTriangle size={14} className="shrink-0" style={{ color: 'var(--warn)' }} />}
         <ChevronRight size={16} className="shrink-0 transition-transform"
@@ -225,7 +238,7 @@ function AddSupplement({ open, onClose }) {
           </Field>
           <Field label="Dose">
             <input className="input" value={draft.dose} aria-label="Dose"
-              placeholder="e.g. 2 capsules, or 3 g"
+              placeholder={dosePlaceholder(draft.form)}
               onChange={(e) => setDraft({ ...draft, dose: e.target.value })} />
           </Field>
           <Field label="When">
@@ -323,6 +336,7 @@ function EditSupplement({ supplement, onClose }) {
         </Field>
         <Field label="Dose">
           <input className="input" value={current.dose || ''} aria-label="Dose"
+            placeholder={dosePlaceholder(current.form)}
             onChange={(e) => set({ dose: e.target.value })} />
         </Field>
         <Field label="When">

@@ -15,6 +15,7 @@ import {
   PINS, PIN_BY_ID, NAVEL_CLEARANCE_PCT, COMPOSITE_ASPECT,
 } from './sitePins'
 import { worstOf, stillReacting, SEVERITY_BY_ID } from './reactionTracker'
+import { localDay } from './reactionCourse'
 
 export const DEFAULT_WINDOW_DAYS = 3
 export const WINDOW_CHOICES = [1, 2, 3, 5, 7]
@@ -52,10 +53,27 @@ export function recentUses({ records = [], reactions = [], nowIso, windowDays = 
         pinId: record.pinId,
         peptideId: record.peptideId,
         severity: worstOf(reaction),
-        reacting: stillReacting(record, reaction),
+        reacting: stillReacting(record, reaction, localDay(new Date(now))),
         hoursAgo: (now - new Date(record.timestamp).getTime()) / 3600000,
       }
     })
+}
+
+/**
+ * Pins with a reaction that is open right now, however long ago the shot was.
+ * The recent-use window only sees recent shots, but a mark does not care what
+ * the window is: a site still reacting a fortnight on is still a site to avoid.
+ */
+export function openReactionPins({ records = [], reactions = [], nowIso } = {}) {
+  const today = localDay(nowIso ? new Date(nowIso) : new Date())
+  const out = {}
+  for (const record of records) {
+    if (!record.pinId) continue
+    const reaction = reactions.find((x) => x.injectionRecordId === record.id)
+    if (!stillReacting(record, reaction, today)) continue
+    out[record.pinId] = { peptideId: record.peptideId, severity: worstOf(reaction) }
+  }
+  return out
 }
 
 /** The window's uses grouped by pin, each list newest first. */
@@ -118,7 +136,10 @@ export function warningsFor(pinId, peptideId, ctx = {}) {
   const here = byPin[pinId] || []
 
   // still reacting outranks everything: the mark is on the skin now
-  const reacting = here.find((u) => u.reacting)
+  const reacting = here.find((u) => u.reacting) || (() => {
+    const o = openReactionPins({ records, reactions, nowIso })[pinId]
+    return o ? { peptideId: o.peptideId, severity: o.severity } : null
+  })()
   if (reacting) {
     const sev = SEVERITY_BY_ID[reacting.severity]?.label
     out.push({
@@ -180,6 +201,7 @@ export function suggestSite(peptideId, ctx = {}) {
   const byPin = usesByPin(uses)
   const now = nowIso ? new Date(nowIso).getTime() : Date.now()
 
+  const openPins = openReactionPins({ records, reactions, nowIso })
   const lastUsed = {}
   for (const r of records) {
     if (!r.pinId) continue
@@ -193,7 +215,7 @@ export function suggestSite(peptideId, ctx = {}) {
 
   const scored = pool.map((pin) => {
     const here = byPin[pin.id] || []
-    const reacting = here.some((u) => u.reacting)
+    const reacting = here.some((u) => u.reacting) || !!openPins[pin.id]
     const inWindow = here.length > 0
     const neighbourClash = neighboursOf(pin.id, { aspect, overrides }).some((n) => (
       (byPin[n.id] || []).some((u) => u.peptideId !== peptideId && u.hoursAgo <= NEIGHBOUR_HOURS)

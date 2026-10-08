@@ -16,7 +16,7 @@ import Modal from './ui/Modal'
 import CoachTip from './ui/CoachTip'
 import Term from './ui/Term'
 import CoDrawModal from './CoDrawModal'
-import { dueInSlot, takenOn, FORM_LABEL } from '../lib/supplements'
+import { dueInSlot, takenOn, FORM_LABEL, takeVerb } from '../lib/supplements'
 import { skippedOn, supplementsSkippedOn, skipFor, SKIP_REASONS, REASON_LABEL } from '../lib/skips'
 import { dueWithPushes, canPushOn, pushedLabel } from '../lib/pushes'
 import {
@@ -30,6 +30,7 @@ import PauseSheet, { HeldStepUpSheet } from './PauseSheet'
 import { SafetyBanner, EveningCheckCard } from './reaction/ReactionTracker'
 import LogOnBody from './reaction/LogOnBody'
 import RecentSitesCard from './reaction/RecentSitesCard'
+import { OpenReactionsCard } from './reaction/ReactionCourse'
 import { FormIcon } from './SupplementsTab'
 
 const spring = { type: 'spring', stiffness: 260, damping: 22 }
@@ -388,6 +389,7 @@ export default function Home({ goTo }) {
 
       <PausedBanner onAskStepUp={setHeldFor} />
 
+      <OpenReactionsCard />
       <EveningCheckCard />
 
       <RecentSitesCard goTo={goTo} />
@@ -677,12 +679,12 @@ function TakeRow({ supplement: s, taken, skipped, onToggle, onSkip, onUnskip, in
             </motion.button>
           )}
           <motion.button whileTap={{ scale: 0.94 }} onClick={onToggle}
-            aria-label={`${taken ? 'Undo' : 'Taken'}: ${s.name}`} aria-pressed={taken}
+            aria-label={`${taken ? 'Undo' : takeVerb(s)}: ${s.name}`} aria-pressed={taken}
             className="flex h-8 shrink-0 items-center gap-1 rounded-full px-3 text-xs font-black"
             style={taken
               ? { background: 'color-mix(in srgb, var(--good) 20%, transparent)', color: 'var(--good)' }
               : { background: 'var(--accent)', color: 'var(--accent-fg)' }}>
-            {taken ? <><Check size={12} /> Taken</> : 'Taken'}
+            {taken ? <><Check size={12} /> {takeVerb(s)}</> : takeVerb(s)}
           </motion.button>
         </>
       )}
@@ -1150,7 +1152,7 @@ function Tomorrow() {
       </p>
       {rows.length === 0 ? (
         <p className="text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
-          Nothing to inject{orals > 0 ? ` — ${orals} oral${orals === 1 ? '' : 's'} as usual` : ' — a clear day'}
+          Nothing to inject{orals > 0 ? ` — ${orals} daily item${orals === 1 ? '' : 's'} as usual` : ' — a clear day'}
         </p>
       ) : (
         <div className="space-y-1">

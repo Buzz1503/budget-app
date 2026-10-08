@@ -390,9 +390,10 @@ describe('what a pin looks like', () => {
     expect(pinStatus('abd-r-mid-inner', { records, reactions: [], nowIso }).status).toBe('clear')
   })
 
-  it('reads as reacting while a mark is still there, however long ago', () => {
+  it('reads as reacting while a mark is still there and still being checked, however long ago the shot was', () => {
+    // v36: a reaction nobody has checked in a week is abandoned, not open
     const records = [rec({ id: 'a', timestamp: at('2026-08-01', 8) })]
-    const reactions = [rx({ injectionRecordId: 'a', ratings: [{ date: at('2026-08-02'), severity: 'moderate' }] })]
+    const reactions = [rx({ injectionRecordId: 'a', ratings: [{ date: at('2026-09-28'), severity: 'moderate' }] })]
     const st = pinStatus('abd-r-mid-inner', { records, reactions, nowIso })
     expect(st.status).toBe('reacting')
     expect(st.severity).toBe('moderate')
@@ -432,7 +433,7 @@ describe('the evening check', () => {
       rx({ injectionRecordId: 'a', ratings: [{ date: at(T), severity: 'mild' }] }),
       rx({ injectionRecordId: 'b', ratings: [{ date: at(T), severity: 'none' }] }),
     ]
-    expect(openSites({ records, reactions }).map((x) => x.record.id)).toEqual(['a'])
+    expect(openSites({ records, reactions, nowIso: at(T, 20) }).map((x) => x.record.id)).toEqual(['a'])
   })
 
   it('drops a site from the list once it is gone', () => {

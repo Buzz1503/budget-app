@@ -591,6 +591,7 @@ export default function SiteMap({
                   key={pin.id}
                   data-testid={`pin-${pin.id}`}
                   data-status={st?.status || 'unused'}
+                  data-reaction={st?.mark || ''}
                   data-dim={dim ? '1' : '0'}
                   data-suggested={isSuggested ? '1' : '0'}
                   data-selected={isSelected ? '1' : '0'}
@@ -632,6 +633,20 @@ export default function SiteMap({
                           : lit ? '0 0 0 3px color-mix(in srgb, var(--info) 45%, transparent)' : 'none',
                     }}
                   />
+                  {st?.mark && st.mark !== 'open' && (
+                    // a site that has reacted before wears a small corner mark:
+                    // solid for one that cleared, dashed for one left unchecked
+                    <span
+                      data-testid={`reaction-mark-${pin.id}`}
+                      data-mark={st.mark}
+                      className="absolute rounded-full"
+                      style={{
+                        width: '42%', height: '42%', right: '-18%', top: '-18%',
+                        background: st.mark === 'resolved' ? 'var(--good)' : 'var(--surface-solid)',
+                        border: st.mark === 'resolved' ? '1.5px solid rgba(0,0,0,0.6)' : '1.5px dashed var(--text-2)',
+                      }}
+                    />
+                  )}
                   {chipText && shownChips.has(pin.id) && (
                     <span
                       data-testid={`chip-${pin.id}`}

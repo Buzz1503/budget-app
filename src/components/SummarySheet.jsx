@@ -26,17 +26,19 @@ export default function SummarySheet({ open, onClose, from, to, summary }) {
   const doseEvents = useStore((s) => s.doseEvents)
   const measurements = useStore((s) => s.measurements)
   const runs = useStore((s) => s.runs)
+  const reactions = useStore((s) => s.reactions)
+  const injectionRecords = useStore((s) => s.injectionRecords)
   const frame = useRef(null)
 
   const html = useMemo(() => {
     if (!open) return ''
     return buildSummaryHtml({
-      peptides, titration, doseLogs, doseEvents, measurements, summary, from, to, runs,
+      peptides, titration, doseLogs, doseEvents, measurements, summary, from, to, runs, reactions, injectionRecords,
       // the sheet supplies the print action, so the document needs no script of
       // its own and the frame can stay sandboxed without one
       framed: true,
     })
-  }, [open, peptides, titration, doseLogs, doseEvents, measurements, summary, from, to, runs])
+  }, [open, peptides, titration, doseLogs, doseEvents, measurements, summary, from, to, runs, reactions, injectionRecords])
 
   const print = () => {
     const win = frame.current?.contentWindow

@@ -26,6 +26,9 @@ import { toMg, doseToUnits, concentration, isNasal, convertLadderForRoute } from
 import { DEFAULT_BODY_REFS } from '../lib/metrics'
 import { attributeSymptom, attributionSnapshot } from '../lib/attribution'
 import { slotForCategory } from '../lib/supplements'
+import { backfillTopicals } from '../lib/topicals'
+import { applyCheck, toAbandon, localDay } from '../lib/reactionCourse'
+import { captureFor, normaliseNeedle, coDrawInfo } from '../lib/injectionCapture'
 import { vialOnDate } from '../lib/backfill'
 import { DEFAULT_FX_USD_TO_AUD, referenceUsdPerVial } from '../lib/cost'
 
@@ -683,11 +686,14 @@ const useStore = create(
        * all of them. The only difference is that this one also knows where it
        * went.
        */
-      logDoseOnSite(peptideId, pinId) {
+      logDoseOnSite(peptideId, pinId, extras = {}) {
         const p = get()._recordDose(peptideId, new Date().toISOString(), null)
         if (!p) return null
         const [id] = get()._lastLoggedIds(1)
-        const record = get().logInjection({ peptideId, pinId, doseLogId: id })
+        const record = get().logInjection({
+          peptideId, pinId, doseLogId: id,
+          ...(extras.needle !== undefined ? { needle: extras.needle } : {}),
+        })
         const pin = PIN_BY_ID[pinId]
         get().showToast(
           `Logged ${p.name}, ${pin?.label || 'no site'}`,
@@ -1322,6 +1328,23 @@ const useStore = create(
           timestamp,
           mixed: !!clash.length,
           needsPinning: !pin,
+          // pulled from what the app already knows, so logging stays one tap:
+          // who shared the syringe, and the needle currently In use in Supplies
+          // for this route. Anything the caller passes wins, and every one of
+          // them can be corrected afterwards.
+          ...(() => {
+            const cap = captureFor({
+              peptide, doseLogId: rec.doseLogId, doseLogs: s.doseLogs,
+              gearItems: s.gearItems || [], records: s.injectionRecords,
+            })
+            return {
+              coDraw: rec.coDraw ?? cap.coDraw,
+              coDrawId: rec.coDrawId ?? cap.coDrawId,
+              coDrawPeptideIds: rec.coDrawPeptideIds ?? cap.coDrawPeptideIds,
+              needle: rec.needle !== undefined ? normaliseNeedle(rec.needle) : cap.needle,
+              route: cap.route,
+            }
+          })(),
         }
         const clashIds = clash.map((r) => r.id)
         set((st) => ({
@@ -1367,16 +1390,16 @@ const useStore = create(
        * and recomputing it on every read would make "worst so far" quietly
        * change when an old rating is corrected downwards.
        */
-      rateSite(injectionRecordId, severity, date = todayStr()) {
+      rateSite(injectionRecordId, severity, date = todayStr(), symptoms = null) {
         set((s) => {
           const existing = s.reactions.find((r) => r.injectionRecordId === injectionRecordId)
+          // a check that says nothing about symptoms carries yesterday's forward,
+          // so a bare "still there" does not quietly erase what was ticked
+          const last = existing ? [...(existing.ratings || [])].sort((a, b) => String(a.date).localeCompare(String(b.date))).at(-1) : null
           const base = existing || { injectionRecordId, ratings: [], worstSeverity: null, goneAt: null, photoIds: [] }
-          const ratings = [...base.ratings.filter((r) => r.date !== date), { date, severity }]
-            .sort((a, b) => String(a.date).localeCompare(String(b.date)))
-          const worstSeverity = ratings.reduce(
-            (w, r) => (severityRank(r.severity) > severityRank(w) ? r.severity : w), 'none',
-          )
-          const next = { ...base, ratings, worstSeverity }
+          const next = applyCheck(base, {
+            date, severity, symptoms: symptoms ?? last?.symptoms ?? [],
+          })
           return {
             reactions: existing
               ? s.reactions.map((r) => (r.injectionRecordId === injectionRecordId ? next : r))
@@ -1385,30 +1408,60 @@ const useStore = create(
         })
       },
 
+      /**
+       * The daily check: today's symptoms and severity, and an optional photo.
+       * Gone resolves the reaction on the spot. One check a day — answering
+       * again corrects it.
+       */
+      recordReactionCheck(injectionRecordId, { severity, symptoms = [], date = todayStr(), photoKey = null } = {}) {
+        get().rateSite(injectionRecordId, severity, date, symptoms)
+        if (photoKey) get().addReactionPhoto(injectionRecordId, photoKey, date)
+      },
+
+      /**
+       * Log a reaction against an injection: opens it. Whatever was captured
+       * with the injection can be corrected in the same breath.
+       */
+      logReaction(injectionRecordId, { severity = 'mild', symptoms = [], date = todayStr(), record = null, photoKey = null } = {}) {
+        if (record && Object.keys(record).length) get().updateInjectionRecord(injectionRecordId, record)
+        get().recordReactionCheck(injectionRecordId, { severity, symptoms, date, photoKey })
+      },
+
+      /**
+       * Write down reactions that have gone a week without a check. Safe to run
+       * as often as you like: it only ever marks ones not already marked, and
+       * nothing is deleted.
+       */
+      sweepReactions(today = localDay()) {
+        const list = toAbandon({ reactions: get().reactions }, today)
+        if (!list.length) return 0
+        const by = Object.fromEntries(list.map((x) => [x.injectionRecordId, x.abandonedAt]))
+        set((s) => ({
+          reactions: s.reactions.map((r) => (by[r.injectionRecordId] ? { ...r, abandonedAt: by[r.injectionRecordId] } : r)),
+        }))
+        return list.length
+      },
+
       /** "Gone" — the reaction has finished. The date is what ends the duration. */
       markGone(injectionRecordId, date = todayStr()) {
         set((s) => ({
           reactions: s.reactions.map((r) => (
-            r.injectionRecordId === injectionRecordId ? { ...r, goneAt: date } : r
+            r.injectionRecordId === injectionRecordId ? applyCheck(r, { date, severity: 'none' }) : r
           )),
         }))
       },
 
-      /** "Still there" — no new severity, just today's date on the record. */
+      /** "Still there" — yesterday's answer, dated today. */
       markStillThere(injectionRecordId, date = todayStr()) {
-        const s = get()
-        const rx = s.reactions.find((r) => r.injectionRecordId === injectionRecordId)
+        const rx = get().reactions.find((r) => r.injectionRecordId === injectionRecordId)
         if (!rx) return
-        get().rateSite(injectionRecordId, rx.worstSeverity || 'mild', date)
-        set((st) => ({
-          reactions: st.reactions.map((r) => (
-            r.injectionRecordId === injectionRecordId ? { ...r, goneAt: null } : r
-          )),
-        }))
+        const last = [...(rx.ratings || [])].filter((x) => x.severity !== 'none')
+          .sort((a, b) => String(a.date).localeCompare(String(b.date))).at(-1)
+        get().rateSite(injectionRecordId, last?.severity || rx.worstSeverity || 'mild', date, last?.symptoms ?? [])
       },
 
       /** One photo per row, stored as an IndexedDB blob key. No annotation. */
-      addReactionPhoto(injectionRecordId, blobKey) {
+      addReactionPhoto(injectionRecordId, blobKey, date = todayStr()) {
         if (!blobKey) return
         set((s) => {
           const existing = s.reactions.find((r) => r.injectionRecordId === injectionRecordId)
@@ -1416,12 +1469,17 @@ const useStore = create(
             return {
               reactions: [...s.reactions, {
                 injectionRecordId, ratings: [], worstSeverity: null, goneAt: null, photoIds: [blobKey],
+                photoDates: { [blobKey]: date },
               }],
             }
           }
           return {
             reactions: s.reactions.map((r) => (r.injectionRecordId === injectionRecordId
-              ? { ...r, photoIds: [...new Set([...(r.photoIds || []), blobKey])] }
+              ? {
+                ...r,
+                photoIds: [...new Set([...(r.photoIds || []), blobKey])],
+                photoDates: { ...(r.photoDates || {}), [blobKey]: date },
+              }
               : r)),
           }
         })
@@ -1800,7 +1858,7 @@ const useStore = create(
             backfilled: !!dateStr,
           }],
         })
-        if (!quiet) get().showToast(`${supp?.name || 'Supplement'} taken`, () => get().toggleSupplementTaken(id, dateStr))
+        if (!quiet) get().showToast(`${supp?.name || 'Supplement'} ${supp?.form === 'topical' ? 'applied' : 'taken'}`, () => get().toggleSupplementTaken(id, dateStr))
         return true
       },
 
@@ -2086,7 +2144,7 @@ const useStore = create(
     }),
     {
       name: 'peptide-command-center', // storage key is history — renaming it would orphan existing data
-      version: 19,
+      version: 20,
       storage: createJSONStorage(() => safeStorage),
       // Saves written before a release can't pick new library entries up from
       // the seed, so each version bump backfills them here — once. Deleting one
@@ -2110,10 +2168,35 @@ const useStore = create(
       //   v17: the map photo is out of backups again unless it was asked for
       //   v18: a code and a colour on every compound, for the map
       //   v19: supplies and equipment, seeded from the user's own inventory
+      //   v20: two nightly topicals, with the nights since each was started
       migrate: (persisted, from) => {
-        if (!persisted || from >= 19) return persisted
+        if (!persisted || from >= 20) return persisted
         const s = { ...persisted }
         const t = todayStr()
+        if (from < 20) {
+          // Idempotent: a topical already on the shelf is reused and a night
+          // that already has a log is left alone, so running this over a save
+          // that has partly done it adds only what is missing.
+          const next = backfillTopicals({
+            supplements: s.supplements || [], supplementLogs: s.supplementLogs || [],
+          }, t)
+          s.supplements = next.supplements
+          s.supplementLogs = next.supplementLogs
+          // Reactions grow a lifecycle and injections remember who shared the
+          // syringe. Past injections gain the co-draw fields from the dose they
+          // hang off; their needle stays unrecorded rather than guessed, and
+          // every reaction keeps the ratings it already had.
+          s.injectionRecords = (s.injectionRecords || []).map((r) => {
+            if (r.coDrawPeptideIds !== undefined) return r
+            const co = coDrawInfo(s.doseLogs || [], r.doseLogId)
+            return {
+              ...r,
+              coDraw: co.coDraw, coDrawId: co.coDrawId,
+              coDrawPeptideIds: co.peptideIds.length ? co.peptideIds : [r.peptideId].filter(Boolean),
+              needle: r.needle ?? null,
+            }
+          })
+        }
         if (from < 19) {
           // Only ever added, never replaced: a save that somehow already has an
           // inventory keeps it. Nothing outside the three gear keys is touched,

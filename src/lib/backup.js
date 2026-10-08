@@ -87,6 +87,7 @@ export function describeBackup(bundle) {
     symptomLogs: s.symptomLogs?.length ?? 0,
     photos: s.photos?.length ?? 0,
     gearItems: s.gearItems?.length ?? 0,
+    reactions: s.reactions?.length ?? 0,
     blobs: Object.keys(bundle?.blobs || {}).length,
   }
 }
