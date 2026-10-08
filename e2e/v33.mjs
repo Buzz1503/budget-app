@@ -318,7 +318,11 @@ await step('5 · a save from before v30.1 keeps its data and loses only the them
   if (!after.doseLogs.some((l) => l.id === 'mig-1')) throw new Error('the seeded dose log is gone')
   if (after.symptomLogs.length !== seeded.symptoms) throw new Error('symptom check-ins changed')
   if (after.measurements.length !== seeded.measurements) throw new Error('measurements changed')
-  if (after.supplements.length !== seeded.supplements) throw new Error('supplements changed')
+  // v36 adds Minoxidil and Tretinoin to any older save; nothing already on the
+  // shelf may change or go
+  if (!after.supplements.some((x) => x.id === 'mig-sup' && x.dose === '400 mg')) throw new Error('a supplement already on the shelf changed')
+  const added = after.supplements.length - seeded.supplements
+  if (added !== 2) throw new Error(`the migration added ${added} supplements, expected the two topicals`)
   if (after.settings.theme) throw new Error('settings.theme survived the migration')
   if (await page.evaluate(() => document.documentElement.dataset.theme)) throw new Error('the root gained a theme again')
   console.log(`  upgraded from v10: ${after.doseLogs.length} logs, ${after.supplements.length} supplements, theme dropped`)
