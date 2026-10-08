@@ -211,6 +211,16 @@ await step('1c · pinch zooms, drag pans, double-tap goes back to the chosen ran
 await step('1d · overlay marks sit on their dates at every zoom', async () => {
   // the first marker may have been measured too recently for any compound to
   // have started or changed inside its window, so look for one that has marks
+  // Peptides in the seed all start recently, after the last result, so give one
+  // a history that falls between results: a start and a later dose change.
+  await setState(`
+    s.doseEvents = (s.doseEvents || []).filter((e) => !String(e.id).startsWith('de-e2e'))
+    s.doseEvents.push(
+      { id: 'de-e2e-1', peptideId: 'bpc157', kind: 'start', date: '2025-06-15', at: null, to: 250, unit: 'mcg' },
+      { id: 'de-e2e-2', peptideId: 'bpc157', kind: 'step-up', date: '2025-11-20', at: null, from: 250, to: 500, unit: 'mcg' },
+    )
+  `)
+  await reload()
   let found = false
   for (let m = 0; m < 12 && !found; m++) {
     await openMarker(m)
