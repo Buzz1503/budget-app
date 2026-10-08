@@ -240,7 +240,11 @@ await step('3b · the compound overlay is there and toggles per compound', async
   await toggles.first().click()
   await page.waitForTimeout(500)
   const after = await marks()
-  if (after === before) throw new Error('toggling a compound changed nothing on the graph')
+  // v36: the chart opens on 2Y, so a compound whose changes all fall outside the
+  // view legitimately draws nothing — but then the page has to say why
+  if (after === before && !(await page.locator('[data-testid="overlay-offscreen"]').count())) {
+    throw new Error('toggling a compound changed nothing on the graph, and nothing explains why')
+  }
   await toggles.first().click()
   await page.waitForTimeout(500)
   if (await marks() !== before) throw new Error('toggling it back did not restore the overlay')

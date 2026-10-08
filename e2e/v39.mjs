@@ -861,7 +861,9 @@ await step('14 · two peptides on one pin warn, mark both mixed and leave the sc
   const card = page.locator('[data-testid="peptide-card-motsc"]')
   if (!(await card.count())) throw new Error('no card for motsc')
   const text = await card.innerText()
-  if (!/reacted 1 of 4/i.test(text)) throw new Error(`the card reads "${text.replace(/\n/g, ' ')}" — mixed shots were counted`)
+  // v36: four on their own (the mixed one is counted apart, as unable to isolate)
+  if (!/4 injections/i.test(text) || !/1 reaction/i.test(text.split(/plus/i)[0])) throw new Error(`the card reads "${text.replace(/\n/g, ' ')}" — mixed shots were counted`)
+  if (!/unable to isolate/i.test(text)) throw new Error('the mixed shot is not flagged as unable to isolate')
 
   // and the live warning on a fresh mixed log
   await page.click('[data-testid="log-injection"]')
@@ -921,7 +923,7 @@ await step('15 · the evening check is one screen: new sites, then still reactin
   console.log('  rated one, resolved one, all without leaving the sheet')
 })
 
-await step('16 · duration, worst severity and rate are right; under four says so', async () => {
+await step('16 · duration, worst severity and rate are right; under five says so', async () => {
   await setState(`
     s.injectionRecords = [
       { id:'d1', peptideId:'motsc', pinId:'abd-r-mid-inner', siteGroup:'abdomen', side:'r', timestamp:a.t1, mixed:false },
@@ -939,7 +941,7 @@ await step('16 · duration, worst severity and rate are right; under four says s
   await tracker()
 
   const card = await page.locator('[data-testid="peptide-card-motsc"]').innerText()
-  if (!/need more data/i.test(card)) throw new Error(`two rated injections should say Need more data, not "${card.replace(/\n/g, ' ')}"`)
+  if (!/not enough data yet/i.test(card) || /%/.test(card)) throw new Error(`two rated injections should say Not enough data yet, not "${card.replace(/\n/g, ' ')}"`)
 
   await page.click('[data-testid="peptide-card-motsc"]')
   await page.waitForTimeout(700)
@@ -948,10 +950,10 @@ await step('16 · duration, worst severity and rate are right; under four says s
   if (!d1) throw new Error('the worst severity is not Severe on the twice-rated site')
   if (!/4 days/i.test(d1)) throw new Error(`duration reads "${d1.replace(/\n/g, ' ')}", expected 4 days`)
   await closeAll()
-  console.log('  worst = severe, duration = 4 days, "Need more data" under four')
+  console.log('  worst = severe, duration = 4 days, "Not enough data yet" under five')
 })
 
-await step('17 · a peptide card splits by site group, and a pin shows its history', async () => {
+await step('17 · the site split lives in Patterns, a peptide card lists its injections, and a pin shows its history', async () => {
   await setState(`
     s.injectionRecords = [
       { id:'g1', peptideId:'motsc', pinId:'abd-r-mid-inner', siteGroup:'abdomen', side:'r', timestamp:a.t1, mixed:false },
@@ -974,12 +976,17 @@ await step('17 · a peptide card splits by site group, and a pin shows its histo
   await reload()
   await tracker()
 
+  // v36: the split by part of the body is the Patterns "by site region" card,
+  // and a region only gets a rate from five checked injections
+  const abd = await page.locator('[data-testid="group-card-abdomen"]').innerText()
+  const thigh = await page.locator('[data-testid="group-card-thigh"]').innerText()
+  if (!/3 injections/i.test(abd) || !/2 reactions/i.test(abd)) throw new Error(`abdomen reads "${abd.replace(/\n/g, ' ')}"`)
+  if (!/2 injections/i.test(thigh) || !/0 reactions/i.test(thigh)) throw new Error(`thigh reads "${thigh.replace(/\n/g, ' ')}"`)
+  if (!/not enough data yet/i.test(abd + thigh) || /%/.test(abd + thigh)) throw new Error('a region shows a rate under five checked injections')
   await page.click('[data-testid="peptide-card-motsc"]')
   await page.waitForTimeout(700)
-  const abd = await page.locator('[data-testid="peptide-group-abdomen"]').innerText()
-  const thigh = await page.locator('[data-testid="peptide-group-thigh"]').innerText()
-  if (!/reacted 2 of 3/i.test(abd)) throw new Error(`abdomen reads "${abd.replace(/\n/g, ' ')}"`)
-  if (!/0 of 2/i.test(thigh)) throw new Error(`thigh reads "${thigh.replace(/\n/g, ' ')}"`)
+  const rowsN = await page.locator('[data-testid^="injection-row-"]').count()
+  if (rowsN !== 5) throw new Error(`the peptide card lists ${rowsN} injections, not 5`)
   await closeAll()
 
   // and a pin's own history
@@ -992,7 +999,7 @@ await step('17 · a peptide card splits by site group, and a pin shows its histo
   const list = await page.locator('[data-testid="pin-history-list"]').innerText()
   if (!list.trim()) throw new Error('the pin history is empty')
   await closeAll()
-  console.log(`  abdomen "${abd.split('\n').slice(-1)[0].slice(0, 40)}", thigh "${thigh.split('\n').slice(-1)[0].slice(0, 30)}"`)
+  console.log(`  abdomen "${abd.replace(/\n/g, ' ').slice(0, 50)}", thigh "${thigh.replace(/\n/g, ' ').slice(0, 50)}"`)
 })
 
 // ==================================================== safety (4.5)
