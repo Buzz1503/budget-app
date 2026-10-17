@@ -40,6 +40,20 @@ node e2e/pwa.mjs         # PWA + offline checks (needs preview running)
 
 Other suites in `e2e/` (`smoke`, `v3`–`v6`) drive the app in a real browser at 390px; each takes a `BASE_URL`.
 
+### Native iOS app (Capacitor)
+
+The same app, wrapped as an iOS app. Two build targets, so the wrong one can't be run by accident:
+
+```bash
+npm run build:web        # GitHub Pages: assets under /budget-app/, with the service worker  -> dist/
+npm run build:native     # iOS app: assets from /, no service worker, no manifest            -> dist-native/
+npm run cap:sync         # build:native, then copy it and the plugins into ios/
+npm run cap:open         # open the project in Xcode (macOS only)
+npm run ios:assets       # regenerate the app icon and launch image from the PWA artwork
+```
+
+`ios/` is committed; the copied web build inside it (`ios/App/App/public`) and `dist-native/` are generated and ignored. Signing is done in Xcode with your own Apple ID and is never committed.
+
 Deployment is automatic: pushing to `main` runs `.github/workflows/deploy.yml`, which tests, builds and publishes to GitHub Pages.
 
 ## Stack

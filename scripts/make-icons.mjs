@@ -3,9 +3,9 @@
 // with a completion-ring arc echoing the Home screen's daily ring.
 import sharp from 'sharp'
 import { mkdirSync, writeFileSync } from 'fs'
+import { pathToFileURL } from 'url'
 
 const OUT = 'public'
-mkdirSync(OUT, { recursive: true })
 
 const BG = '#080a12'   // app --bg
 const LIME = '#b4f13a' // app --lime
@@ -14,7 +14,7 @@ const INDIGO = '#6d6bff'
 
 // `pad` insets the artwork so a maskable icon survives circular cropping
 // (safe zone = middle 80%).
-function svg({ size, bg, pad }) {
+export function svg({ size, bg, pad }) {
   const s = size
   const c = s / 2
   const k = (1 - pad * 2)           // usable fraction after safe-zone padding
@@ -70,19 +70,24 @@ function svg({ size, bg, pad }) {
 </svg>`
 }
 
-const targets = [
-  { file: 'pwa-192x192.png', size: 192, bg: true, pad: 0.06 },
-  { file: 'pwa-512x512.png', size: 512, bg: true, pad: 0.06 },
-  // maskable: extra padding so nothing is clipped by the platform mask
-  { file: 'pwa-maskable-512x512.png', size: 512, bg: true, pad: 0.14 },
-  { file: 'apple-touch-icon.png', size: 180, bg: true, pad: 0.08 },
-]
+// Imported by make-ios-assets.mjs for the same artwork; only write the PWA set
+// when run directly.
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+  mkdirSync(OUT, { recursive: true })
+  const targets = [
+    { file: 'pwa-192x192.png', size: 192, bg: true, pad: 0.06 },
+    { file: 'pwa-512x512.png', size: 512, bg: true, pad: 0.06 },
+    // maskable: extra padding so nothing is clipped by the platform mask
+    { file: 'pwa-maskable-512x512.png', size: 512, bg: true, pad: 0.14 },
+    { file: 'apple-touch-icon.png', size: 180, bg: true, pad: 0.08 },
+  ]
 
-for (const t of targets) {
-  await sharp(Buffer.from(svg(t))).png().toFile(`${OUT}/${t.file}`)
-  console.log(`wrote ${OUT}/${t.file} (${t.size}x${t.size})`)
+  for (const t of targets) {
+    await sharp(Buffer.from(svg(t))).png().toFile(`${OUT}/${t.file}`)
+    console.log(`wrote ${OUT}/${t.file} (${t.size}x${t.size})`)
+  }
+
+  // favicon.svg — scales crisply in browser tabs
+  writeFileSync(`${OUT}/favicon.svg`, svg({ size: 64, bg: true, pad: 0.05 }))
+  console.log(`wrote ${OUT}/favicon.svg`)
 }
-
-// favicon.svg — scales crisply in browser tabs
-writeFileSync(`${OUT}/favicon.svg`, svg({ size: 64, bg: true, pad: 0.05 }))
-console.log(`wrote ${OUT}/favicon.svg`)

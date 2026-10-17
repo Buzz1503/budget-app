@@ -10,19 +10,44 @@ export const ACCESSORY_BAR = 44
 // keyboard. Every phone keyboard is far taller than 120px.
 const KEYBOARD_MIN = 120
 
-function read() {
-  if (typeof window === 'undefined') {
-    return { height: 800, offsetTop: 0, keyboard: 0, keyboardOpen: false }
+// In the native (Capacitor) shell the Keyboard plugin resizes the web view
+// itself, so the window is already the part above the keyboard: innerHeight and
+// the visual viewport shrink together and their difference — how the web build
+// knows a keyboard is up — is always zero. The plugin's events say it instead.
+let nativeKb = { open: false, height: 0 }
+const nativeListeners = new Set()
+
+export function setNativeKeyboard(next) {
+  nativeKb = { open: !!next.open, height: next.height || 0 }
+  nativeListeners.forEach((fn) => fn())
+}
+
+/**
+ * The viewport, as numbers. Pure: everything it reads is passed in.
+ * `native` selects the Capacitor path described above.
+ */
+export function viewportState({ native = false, kb = nativeKb, innerHeight = 800, vv = null } = {}) {
+  if (native) {
+    return { height: innerHeight, offsetTop: 0, keyboard: kb.height, keyboardOpen: kb.open, native: true }
   }
-  const vv = window.visualViewport
-  const height = vv ? vv.height : window.innerHeight
-  const keyboard = Math.max(0, window.innerHeight - height)
+  const height = vv ? vv.height : innerHeight
+  const keyboard = Math.max(0, innerHeight - height)
   return {
     height,
     offsetTop: vv ? vv.offsetTop : 0,
     keyboard,
     keyboardOpen: keyboard > KEYBOARD_MIN,
+    native: false,
   }
+}
+
+function read() {
+  if (typeof window === 'undefined') {
+    return { height: 800, offsetTop: 0, keyboard: 0, keyboardOpen: false, native: false }
+  }
+  return viewportState({
+    native: __NATIVE__, innerHeight: window.innerHeight, vv: window.visualViewport,
+  })
 }
 
 /**
@@ -49,6 +74,7 @@ export function useVisualViewport() {
       clearTimeout(settle)
       settle = setTimeout(() => setVp(read()), 260)
     }
+    nativeListeners.add(onChange)
     vv?.addEventListener('resize', onChange)
     vv?.addEventListener('scroll', onChange)
     window.addEventListener('resize', onChange)
@@ -56,6 +82,7 @@ export function useVisualViewport() {
     onChange()
     return () => {
       clearTimeout(settle)
+      nativeListeners.delete(onChange)
       vv?.removeEventListener('resize', onChange)
       vv?.removeEventListener('scroll', onChange)
       window.removeEventListener('resize', onChange)
@@ -72,7 +99,9 @@ export function useVisualViewport() {
  * still reads as a sheet rather than a full-screen takeover.
  */
 export function sheetMaxHeight(vp) {
-  const gutter = vp.keyboardOpen ? ACCESSORY_BAR : Math.round(vp.height * 0.12)
+  // Native: the web view already ends where the keyboard (accessory strip
+  // included) begins, so there is no strip to reserve a row for.
+  const gutter = vp.keyboardOpen ? (vp.native ? 12 : ACCESSORY_BAR) : Math.round(vp.height * 0.12)
   return Math.max(200, Math.round(vp.height - gutter))
 }
 

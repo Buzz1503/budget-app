@@ -3,19 +3,34 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
-// GitHub project Pages serve from /<repo>/, so assets need that base.
-// Overridable for local preview and for the single-file artifact build.
-const base = process.env.VITE_BASE ?? '/budget-app/'
+// Two build targets, chosen by Vite's --mode (see the build:* scripts):
+//
+//   web     the GitHub Pages site. Served from /<repo>/, so assets need that
+//           base. Overridable for local preview and by the Pages workflow.
+//   native  the Capacitor iOS app. Served from the root of the app's own web
+//           view (capacitor://localhost), where a repo-subpath base loads
+//           nothing but a white screen. No service worker either: the web view
+//           would cache stale assets and there is nothing to be offline from.
+//
+// Every other mode (dev, test, the plain `vite build` the Pages workflow runs
+// through `npm run build`) is the web target, exactly as before.
+export const NATIVE_MODE = 'native'
 
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  const native = mode === NATIVE_MODE
+  const base = native ? '/' : (process.env.VITE_BASE ?? '/budget-app/')
+  return {
   base,
+  // compile-time, so the service-worker registration is dead code in the native bundle
+  define: { __NATIVE__: JSON.stringify(native) },
+  build: native ? { outDir: 'dist-native' } : undefined,
   plugins: [
     react(),
     tailwindcss(),
     VitePWA({
       // the single-file artifact build has no origin to host a SW: disable
       // generation there, but keep the virtual module resolvable
-      disable: process.env.VITE_NO_PWA === '1',
+      disable: native || process.env.VITE_NO_PWA === '1',
       registerType: 'prompt', // we surface our own "new version — refresh" prompt
       injectRegister: null,   // registration is handled in src/pwa.js
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
@@ -66,4 +81,5 @@ export default defineConfig({
     environment: 'node',
     include: ['src/**/*.test.js'],
   },
+  }
 })

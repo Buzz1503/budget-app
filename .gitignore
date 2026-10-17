@@ -19,3 +19,17 @@ peptide-schedule-*.ics
 
 # private body photos used only for local pin QA — never committed
 dev-assets/
+
+# native (Capacitor) build output
+dist-native/
+
+# iOS signing material — never committed
+*.mobileprovision
+*.provisionprofile
+*.p12
+*.p8
+*.cer
+*.certSigningRequest
+ExportOptions.plist
+ios/**/xcuserdata/
+ios/**/DerivedData/

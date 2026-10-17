@@ -1,0 +1,27 @@
+{
+  "appId": "com.buzz.pepito",
+  "appName": "Pepito+",
+  "webDir": "dist-native",
+  "backgroundColor": "#080a12",
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#080a12"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchAutoHide": false,
+      "launchFadeOutDuration": 250,
+      "backgroundColor": "#080a12",
+      "showSpinner": false
+    },
+    "StatusBar": {
+      "style": "DARK",
+      "overlaysWebView": true
+    },
+    "Keyboard": {
+      "resize": "native",
+      "style": "DARK",
+      "resizeOnFullScreen": true
+    }
+  }
+}

@@ -5,6 +5,10 @@
 import { registerSW } from 'virtual:pwa-register'
 
 export function setupPWA({ onNeedRefresh, onOfflineReady } = {}) {
+  // The native (Capacitor) build has no service worker at all: registering one
+  // inside the app's web view would only cache stale assets. __NATIVE__ is a
+  // compile-time constant, so in that bundle everything below is dead code.
+  if (__NATIVE__) return () => {}
   if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return () => {}
   try {
     const updateSW = registerSW({
