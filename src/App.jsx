@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useRef } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef, Suspense } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Sun, CalendarDays, HeartPulse, LayoutGrid, ChevronLeft, PersonStanding, Droplet,
@@ -25,6 +25,7 @@ import ScheduleWizard from './components/ScheduleWizard'
 import MoreHub from './components/MoreHub'
 import Toast from './components/Toast'
 import UpdatePrompt from './components/UpdatePrompt'
+import { HEALTH_BUILD, HealthBoot, HealthSettings } from './health/ui'
 
 // full registry of every screen
 const SCREENS = {
@@ -43,6 +44,8 @@ const SCREENS = {
   settings: SettingsTab,
   history: HistoryTab,
   supplements: SupplementsTab,
+  // native app only: compiled out of the web build
+  ...(HEALTH_BUILD ? { health: HealthSettings } : {}),
 }
 
 // Six primary tabs in the bottom bar; everything else lives under More.
@@ -59,6 +62,7 @@ const PRIMARY_IDS = new Set(PRIMARY.map((t) => t.id))
 const SUB_TITLES = {
   now: 'Right Now', protocol: 'My protocol', supplies: 'Stock', calc: 'Calculator',
   mix: 'Mix', settings: 'Settings', history: 'History', supplements: 'Supplements', gear: 'Supplies',
+  health: 'Health',
 }
 
 // Screens that were their own destination in an earlier version. Old deep links
@@ -156,10 +160,12 @@ export default function App() {
             exit={{ opacity: 0, x: -14 }}
             transition={{ duration: 0.18 }}
           >
-            <Active goTo={goTo} />
+            <Suspense fallback={null}><Active goTo={goTo} /></Suspense>
           </motion.div>
         </AnimatePresence>
       </main>
+
+      {HEALTH_BUILD && <Suspense fallback={null}><HealthBoot /></Suspense>}
 
       {/* bottom tab bar */}
       <nav

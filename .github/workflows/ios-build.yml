@@ -1,0 +1,41 @@
+name: iOS build check
+
+# Compiles the iOS app (including the Swift Health plugin) on a Mac, without
+# signing, so a Swift error shows up here rather than on Buzz's laptop. It
+# installs nothing anywhere and does not touch the Pages deploy.
+on:
+  push:
+    branches: [native-health]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build the native web bundle and sync it into ios/
+        run: |
+          npm run build:native
+          npx cap sync ios
+
+      - name: Compile for the iOS Simulator (no signing)
+        run: |
+          set -o pipefail
+          xcodebuild -version
+          xcodebuild \
+            -project ios/App/App.xcodeproj \
+            -scheme App \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            -skipPackagePluginValidation \
+            CODE_SIGNING_ALLOWED=NO \
+            build 2>&1 | tail -n 80

@@ -26,6 +26,7 @@ import { toMg, doseToUnits, concentration, isNasal, convertLadderForRoute } from
 import { DEFAULT_BODY_REFS } from '../lib/metrics'
 import { attributeSymptom, attributionSnapshot } from '../lib/attribution'
 import { slotForCategory } from '../lib/supplements'
+import { DEFAULT_HABITS } from '../lib/healthDefaults'
 import { backfillTopicals } from '../lib/topicals'
 import { applyCheck, toAbandon, localDay } from '../lib/reactionCourse'
 import { captureFor, normaliseNeedle, coDrawInfo } from '../lib/injectionCapture'
@@ -132,6 +133,24 @@ function initialState() {
     gearItems: seedGear(),
     gearSwaps: [],             // one dated record per finished box
     gearOptions: {},           // dropdown values the user has added, by option key
+    /**
+     * Apple Health (native app only). The health data itself is never kept
+     * here — it lives in its own IndexedDB cache (src/health/cache.ts), is
+     * rebuilt from Health, and is left out of backups. What is kept here is
+     * what the user chose and entered: settings, daily check-ins and habits.
+     */
+    healthSettings: {
+      connected: false,                  // the first-run screen was completed
+      sleepPriority: ['watch', 'withings', 'phone', 'other'],
+      sleepNeedH: 8,
+      maxHR: null,                       // null: 208 − 0.7 × age
+      wakeTarget: null,                  // 'HH:MM'; null: median of the last 14 nights
+      checkinEnabled: true,
+      overlays: {},                      // per chart type: { ticks, changes, tenure, compounds, bloods }
+    },
+    checkins: {},                        // { 'YYYY-MM-DD': { energy, mood, appetite, drive } } — 1 to 5
+    habits: DEFAULT_HABITS.map((h) => ({ ...h })),
+    habitLogs: {},                       // { 'YYYY-MM-DD': { habitId: true | false } }
     // Vials that have been used up. Kept as a record rather than deleted: it is
     // the only trace of how long a vial actually lasted.
     finishedVials: [],
@@ -1862,6 +1881,73 @@ const useStore = create(
         return true
       },
 
+      // ---------- health: settings, check-in, journal ----------
+      setHealthSettings(patch = {}) {
+        set((s) => ({ healthSettings: { ...s.healthSettings, ...patch } }))
+      },
+      setChartOverlay(chartType, patch = {}) {
+        set((s) => ({
+          healthSettings: {
+            ...s.healthSettings,
+            overlays: {
+              ...s.healthSettings.overlays,
+              [chartType]: { ...(s.healthSettings.overlays?.[chartType] || {}), ...patch },
+            },
+          },
+        }))
+      },
+      /** One 1–5 answer. Tapping the same value again clears it. */
+      setCheckin(date, key, value) {
+        set((s) => {
+          const day = { ...(s.checkins[date] || {}) }
+          if (day[key] === value || value == null) delete day[key]
+          else day[key] = value
+          const checkins = { ...s.checkins }
+          if (Object.keys(day).length) checkins[date] = day
+          else delete checkins[date]
+          return { checkins }
+        })
+      },
+      addHabit(name) {
+        const clean = String(name || '').trim()
+        if (!clean) return null
+        const id = `habit-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`
+        set((s) => ({ habits: [...s.habits, { id, name: clean }] }))
+        return id
+      },
+      renameHabit(id, name) {
+        const clean = String(name || '').trim()
+        if (!clean) return
+        set((s) => ({ habits: s.habits.map((h) => (h.id === id ? { ...h, name: clean } : h)) }))
+      },
+      /** Removing a habit keeps its past answers out of every comparison too. */
+      removeHabit(id) {
+        set((s) => ({
+          habits: s.habits.filter((h) => h.id !== id),
+          habitLogs: Object.fromEntries(Object.entries(s.habitLogs).map(([d, row]) => {
+            const { [id]: _gone, ...rest } = row
+            return [d, rest]
+          }).filter(([, row]) => Object.keys(row).length)),
+        }))
+      },
+      /** Yes, no, or unanswered (null). */
+      setHabit(date, id, value) {
+        set((s) => {
+          const day = { ...(s.habitLogs[date] || {}) }
+          if (value == null) delete day[id]
+          else day[id] = !!value
+          const habitLogs = { ...s.habitLogs }
+          if (Object.keys(day).length) habitLogs[date] = day
+          else delete habitLogs[date]
+          return { habitLogs }
+        })
+      },
+      setAffectsRecoveryBaseline(peptideId, on) {
+        set((s) => ({
+          peptides: s.peptides.map((p) => (p.id === peptideId ? { ...p, affectsRecoveryBaseline: !!on } : p)),
+        }))
+      },
+
       // ---------- symptoms ----------
       /**
        * A check-in, for today or for a day that has already been.
@@ -2471,6 +2557,10 @@ const useStore = create(
         // arrives with its default instead of being undefined on every existing
         // save — fx_usd_to_aud is the first one this actually matters for
         settings: { ...current.settings, ...(persisted?.settings || {}) },
+        healthSettings: { ...current.healthSettings, ...(persisted?.healthSettings || {}) },
+        checkins: persisted?.checkins || current.checkins,
+        habits: persisted?.habits || current.habits,
+        habitLogs: persisted?.habitLogs || current.habitLogs,
       }),
       onRehydrateStorage: () => (state) => {
         state?.enrichLibraryFromReference?.()

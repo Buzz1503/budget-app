@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import {
   Package, Settings, ChevronRight, Activity, History, Wand2, FlaskConical,
-  Combine, Pill, ClipboardList, CalendarPlus, Syringe,
+  Combine, Pill, ClipboardList, CalendarPlus, Syringe, HeartPulse,
 } from 'lucide-react'
+import { HEALTH_BUILD } from '../health/ui'
 import BackfillSheet from './BackfillSheet'
 
 /**
@@ -42,6 +43,8 @@ const SECTIONS = [
     id: 'data',
     title: 'Data',
     links: [
+      // native app only: Apple Health is read on the iPhone, never on the web
+      ...(HEALTH_BUILD ? [{ id: 'health', label: 'Health', desc: 'Apple Health connection, sleep and training settings', icon: HeartPulse }] : []),
       { id: 'settings', label: 'Settings, backup & export', desc: 'Lead time, currency, backup and reset', icon: Settings },
     ],
   },
