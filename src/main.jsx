@@ -12,5 +12,6 @@ ReactDOM.createRoot(document.getElementById('root')).render(
 // The Capacitor shell: hide the launch image once the app has painted, and tell
 // the layout when the native keyboard is up. Compiled out of the web build.
 if (__NATIVE__) {
+  document.documentElement.classList.add('native')
   import('./native').then((m) => m.startNative())
 }

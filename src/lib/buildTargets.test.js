@@ -72,6 +72,18 @@ describe('what each build writes', { timeout: 240000 }, () => {
     expect(existsSync(join(dirs.web, 'manifest.webmanifest'))).toBe(true)
   })
 
+  it('web: the viewport is left alone (pinch-zoom stays available in the browser)', () => {
+    const html = readFileSync(join(dirs.web, 'index.html'), 'utf8')
+    expect(html).toContain('content="width=device-width, initial-scale=1.0, viewport-fit=cover"')
+    expect(html).not.toContain('maximum-scale')
+  })
+
+  it('native: the viewport is locked so focusing a text box does not zoom the app in', () => {
+    const html = readFileSync(join(dirs.native, 'index.html'), 'utf8')
+    expect(html).toContain('maximum-scale=1.0')
+    expect(html).toContain('viewport-fit=cover')
+  })
+
   it('web: the service worker is still registered', () => {
     expect(bundle(dirs.web).some((js) => js.includes('serviceWorker'))).toBe(true)
   })

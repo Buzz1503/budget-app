@@ -25,6 +25,16 @@ export default defineConfig(({ mode }) => {
   define: { __NATIVE__: JSON.stringify(native) },
   build: native ? { outDir: 'dist-native' } : undefined,
   plugins: [
+    // Native only: stop iOS zooming the page in when a text box is focused. The
+    // web view does not zoom back out the way Safari does, so without this a tap
+    // on a search field leaves the whole app too big for the screen.
+    native && {
+      name: 'native-viewport-lock',
+      transformIndexHtml: (html) => html.replace(
+        'content="width=device-width, initial-scale=1.0, viewport-fit=cover"',
+        'content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover"',
+      ),
+    },
     react(),
     tailwindcss(),
     VitePWA({

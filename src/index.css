@@ -217,3 +217,12 @@ select.input option { background: var(--surface-solid); color: var(--text); }
 
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 3px; }
+
+/* Native app only (main.jsx adds .native): iOS zooms the page in when a text box
+   with type under 16px is focused, and the app's web view does not zoom back out.
+   Text boxes are 16px there so it never starts. */
+.native input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+.native textarea,
+.native select {
+  font-size: 16px;
+}

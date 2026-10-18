@@ -97,6 +97,22 @@ await step('the page is set up for the notch: viewport-fit=cover and safe-area p
   if (!/safe-area-inset-top/.test(css) || !/safe-area-inset-bottom/.test(css)) throw new Error('the safe-area insets are not used')
 })
 
+await step('text boxes cannot zoom the app: viewport locked, and inputs are 16px', async () => {
+  const meta = await page.getAttribute('meta[name="viewport"]', 'content')
+  if (!/maximum-scale=1(\.0)?/.test(meta)) throw new Error(`viewport meta is "${meta}"`)
+  if (!(await page.evaluate(() => document.documentElement.classList.contains('native')))) throw new Error('the native class is missing')
+  // open a screen with a text box: Home has none, so make one the way the app does (class .input)
+  const size = await page.evaluate(() => {
+    const el = document.createElement('input')
+    el.className = 'input'
+    document.body.appendChild(el)
+    const px = getComputedStyle(el).fontSize
+    el.remove()
+    return px
+  })
+  if (size !== '16px') throw new Error(`a text box is ${size}, so iOS would zoom into it`)
+})
+
 const MARK = 'native-persistence-check'
 const BLOB_KEY = 'native-blob-check'
 await step('localStorage (the Zustand store) and IndexedDB (blobs) both write and read back', async () => {
