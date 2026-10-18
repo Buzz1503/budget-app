@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, Suspense } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   CalendarClock, TrendingUp, Pencil, Plus, Trash2, Info, SkipForward,
@@ -19,6 +19,7 @@ import {
   milestonesFor, reassessPrompt, durationWords, doseTenure,
 } from '../lib/tenure'
 import { displayName } from '../lib/naming'
+import { HEALTH_BUILD, CompoundHealth } from '../health/ui'
 
 /**
  * How long, on what, and what changed.
@@ -1056,6 +1057,7 @@ export function CompoundDetail({ peptideId, open, onClose }) {
             wherever its dose history is read. */}
         <CompoundPauses peptideId={peptide.id} />
         <ExposureBlock peptide={peptide} />
+        {HEALTH_BUILD && <Suspense fallback={null}><CompoundHealth peptideId={peptide.id} /></Suspense>}
 
         {stepUps.length > 0 && (
           <div className="card p-3" data-testid="stepup-list">

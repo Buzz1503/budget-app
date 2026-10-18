@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, Suspense } from 'react'
+import { HEALTH_BUILD, HomeHealthCard } from '../health/ui'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Check, Info, Clock, AlertTriangle, Sun, Moon, ChevronRight, Syringe, X, ShieldCheck, Layers, Wind, Bell, Zap, SkipForward, Undo2, PackageOpen, MoreHorizontal, RotateCw, CalendarArrowDown, SlidersHorizontal, Pause, Play, PersonStanding } from 'lucide-react'
 import useStore, { todayStr } from '../store/useStore'
@@ -495,6 +496,9 @@ export default function Home({ goTo }) {
 
       {/* what tomorrow asks for, with the doses */}
       <Tomorrow />
+
+      {/* native app only: readiness and today's check-in, below everything else */}
+      {HEALTH_BUILD && <Suspense fallback={null}><HomeHealthCard goTo={goTo} /></Suspense>}
 
       {/* keeps the last card clear of the floating co-draw bar */}
       {selected.size > 0 && <div aria-hidden className="h-20" />}

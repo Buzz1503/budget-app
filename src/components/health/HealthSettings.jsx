@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react'
-import { HeartPulse, RefreshCw } from 'lucide-react'
+import { HeartPulse, RefreshCw, ChevronUp, ChevronDown, Trash2, Plus } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import useStore from '../../store/useStore'
 import { useHealth } from '../../health/state'
+import NumberField from '../ui/NumberField'
+import { affectsBaseline } from '../../health/engine/protocol'
+import { useCompounds } from './useHealthModel'
 
 /** What is read, and why — said before the system sheet asks. */
 const READS = [
@@ -74,6 +77,144 @@ function Connect() {
   )
 }
 
+const SOURCE_LABEL = { watch: 'Apple Watch', withings: 'Withings', phone: 'iPhone', other: 'Other apps' }
+
+/** The same switch as Settings › Site map. */
+function Switch({ on, onChange, label, hint, testId }) {
+  return (
+    <div className="flex items-center justify-between gap-3 py-2.5">
+      <span className="min-w-0 flex-1">
+        <span className="text-sm font-semibold">{label}</span>
+        {hint && <span className="t-caption block" style={{ color: 'var(--text-3)' }}>{hint}</span>}
+      </span>
+      <button type="button" role="switch" aria-checked={on} aria-label={label} data-testid={testId} data-on={on ? 'true' : 'false'}
+        onClick={() => onChange(!on)} className="relative h-7 w-12 shrink-0 rounded-full transition-colors"
+        style={{ background: on ? 'var(--good)' : 'var(--surface-sunk)', border: `1px solid ${on ? 'transparent' : 'var(--border)'}` }}>
+        <span className="absolute top-1/2 h-5 w-5 -translate-y-1/2 rounded-full transition-all"
+          style={{ left: on ? 'calc(100% - 22px)' : '2px', background: on ? 'var(--accent-fg)' : 'var(--text-3)' }} />
+      </button>
+    </div>
+  )
+}
+
+function SleepSource() {
+  const priority = useStore((s) => s.healthSettings.sleepPriority)
+  const setHealthSettings = useStore((s) => s.setHealthSettings)
+  const sync = useHealth((s) => s.sync)
+  const move = (i, by) => {
+    const next = [...priority]
+    const [x] = next.splice(i, 1)
+    next.splice(i + by, 0, x)
+    setHealthSettings({ sleepPriority: next })
+    // nights are built when Health is read, so read again to apply the order
+    void sync({ priority: next, full: true })
+  }
+  return (
+    <div className="card p-4" data-testid="health-sleep-priority">
+      <p className="t-label">Sleep source</p>
+      <p className="text-xs font-medium leading-snug" style={{ color: 'var(--text-3)' }}>When two sources record the same night, the higher one is used. One source per night.</p>
+      <div className="mt-2 rows">
+        {priority.map((k, i) => (
+          <div key={k} className="flex items-center gap-2 py-2" data-testid="sleep-priority-row" data-source={k}>
+            <span className="w-5 text-xs font-black tabular-nums" style={{ color: 'var(--text-3)' }}>{i + 1}</span>
+            <span className="min-w-0 flex-1 text-sm font-semibold">{SOURCE_LABEL[k] || k}</span>
+            <button onClick={() => move(i, -1)} disabled={i === 0} aria-label={`Move ${SOURCE_LABEL[k]} up`} data-testid={`sleep-up-${k}`} className="rounded-full p-1.5 disabled:opacity-30"><ChevronUp size={16} /></button>
+            <button onClick={() => move(i, 1)} disabled={i === priority.length - 1} aria-label={`Move ${SOURCE_LABEL[k]} down`} className="rounded-full p-1.5 disabled:opacity-30"><ChevronDown size={16} /></button>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function Numbers() {
+  const hs = useStore((s) => s.healthSettings)
+  const setHealthSettings = useStore((s) => s.setHealthSettings)
+  return (
+    <div className="card space-y-3 p-4" data-testid="health-numbers">
+      <label className="block">
+        <span className="t-label">Sleep need (hours)</span>
+        <NumberField value={hs.sleepNeedH} min={4} max={12} onChange={(v) => setHealthSettings({ sleepNeedH: v || 8 })} className="input mt-1" data-testid="health-sleep-need" aria-label="Sleep need in hours" />
+      </label>
+      <label className="block">
+        <span className="t-label">Max heart rate (bpm)</span>
+        <NumberField value={hs.maxHR ?? ''} allowEmpty emptyValue={null} integer min={0} max={240} onChange={(v) => setHealthSettings({ maxHR: v || null })} className="input mt-1" data-testid="health-max-hr" aria-label="Max heart rate" placeholder="Estimated from age" />
+        <span className="mt-1 block text-xs font-medium" style={{ color: 'var(--text-3)' }}>Leave empty to use 208 − 0.7 × age.</span>
+      </label>
+      <label className="block">
+        <span className="t-label">Target wake time</span>
+        <input type="time" value={hs.wakeTarget || ''} onChange={(e) => setHealthSettings({ wakeTarget: e.target.value || null })} className="input mt-1" data-testid="health-wake-target" aria-label="Target wake time" />
+        <span className="mt-1 block text-xs font-medium" style={{ color: 'var(--text-3)' }}>Empty: your usual wake time from the last 14 nights.</span>
+      </label>
+    </div>
+  )
+}
+
+function BaselineCompounds() {
+  const compounds = useCompounds()
+  const setAffects = useStore((s) => s.setAffectsRecoveryBaseline)
+  if (!compounds.length) return null
+  return (
+    <div className="card p-4" data-testid="health-baseline-compounds">
+      <p className="t-label">Compounds that affect baselines</p>
+      <p className="text-xs font-medium leading-snug" style={{ color: 'var(--text-3)' }}>
+        When one of these starts, stops or changes dose, readiness keeps the baseline from before until 10 days of new data exist. On by default for GLP-1 class compounds and testosterone esters.
+      </p>
+      <div className="mt-1 rows">
+        {compounds.map((c) => (
+          <Switch key={c.id} label={c.name} on={affectsBaseline(c)} onChange={(on) => setAffects(c.id, on)} testId={`baseline-${c.id}`} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/** A name you can clear and retype; it is saved when you leave the field. */
+function HabitRow({ habit: h, onRename, onRemove }) {
+  const [draft, setDraft] = useState(h.name)
+  return (
+    <div className="flex items-center gap-2" data-testid="habit-row">
+      <input className="input min-w-0 flex-1" value={draft} aria-label={`Habit name ${h.name}`}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => { if (draft.trim()) onRename(h.id, draft); else setDraft(h.name) }} />
+      <button onClick={() => onRemove(h.id)} aria-label={`Remove ${h.name}`} data-testid={`habit-remove-${h.id}`} className="rounded-full p-2" style={{ color: 'var(--text-3)' }}><Trash2 size={15} /></button>
+    </div>
+  )
+}
+
+function Habits() {
+  const habits = useStore((s) => s.habits)
+  const addHabit = useStore((s) => s.addHabit)
+  const renameHabit = useStore((s) => s.renameHabit)
+  const removeHabit = useStore((s) => s.removeHabit)
+  const [name, setName] = useState('')
+  const add = () => { if (name.trim()) { addHabit(name.trim()); setName('') } }
+  return (
+    <div className="card p-4" data-testid="health-habits">
+      <p className="t-label">Journal habits</p>
+      <p className="text-xs font-medium leading-snug" style={{ color: 'var(--text-3)' }}>Yes or no for a day, from the Home card or the day sheet. Removing one removes its answers.</p>
+      <div className="mt-2 space-y-2">
+        {habits.map((h) => <HabitRow key={h.id} habit={h} onRename={renameHabit} onRemove={removeHabit} />)}
+        <div className="flex items-center gap-2">
+          <input className="input min-w-0 flex-1" value={name} placeholder="Add a habit" aria-label="New habit" data-testid="habit-new"
+            onChange={(e) => setName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') add() }} />
+          <button onClick={add} aria-label="Add habit" data-testid="habit-add" className="rounded-full p-2" style={{ background: 'var(--surface-sunk)' }}><Plus size={15} /></button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function CheckinToggle() {
+  const on = useStore((s) => s.healthSettings.checkinEnabled)
+  const setHealthSettings = useStore((s) => s.setHealthSettings)
+  return (
+    <div className="card px-4" data-testid="health-checkin-setting">
+      <Switch label="Daily check-in" hint="Energy, mood, appetite and drive, 1 to 5. Optional." on={on !== false} onChange={(v) => setHealthSettings({ checkinEnabled: v })} testId="health-checkin-toggle" />
+    </div>
+  )
+}
+
 export default function HealthSettings() {
   const available = useHealth((s) => s.available)
   const loaded = useHealth((s) => s.loaded)
@@ -125,6 +266,18 @@ export default function HealthSettings() {
           )}
         </div>
       )}
+      {connected && (
+        <>
+          <SleepSource />
+          <Numbers />
+          <BaselineCompounds />
+        </>
+      )}
+      <Habits />
+      <CheckinToggle />
+      <p className="px-1 text-xs font-medium leading-snug" style={{ color: 'var(--text-3)' }}>
+        Health data stays on this phone and is not part of the backup file. Settings, check-ins and habits are.
+      </p>
     </div>
   )
 }

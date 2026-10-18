@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { format, parseISO } from 'date-fns'
-import { ChevronDown, ChevronRight, Droplet, HeartPulse } from 'lucide-react'
+import { ChevronDown, ChevronRight, Droplet, HeartPulse, Dumbbell } from 'lucide-react'
 import { monthSummary } from '../lib/calendarView'
+import { useHealthLink } from '../lib/healthLink'
 
 const DOW = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 
@@ -150,6 +151,8 @@ function DayCell({ day: d, muted, onOpen }) {
   const owed = d.owed ?? d.scheduled
   const hasSymptom = !!d.symptom
   const hasBlood = !!d.bloodTests?.length
+  // filled in only by the native app's Apple Health; empty everywhere else
+  const hasWorkout = useHealthLink((s) => s.workoutDates.has(d.date))
 
   // said in words, because the ring and the dots are colour and shape only
   const label = [
@@ -159,6 +162,7 @@ function DayCell({ day: d, muted, onOpen }) {
     d.missed > 0 ? `${d.missed} missed` : null,
     hasSymptom ? 'symptoms logged' : null,
     hasBlood ? 'blood test' : null,
+    hasWorkout ? 'workout' : null,
   ].filter(Boolean).join(', ')
 
   return (
@@ -205,8 +209,9 @@ function DayCell({ day: d, muted, onOpen }) {
       </span>
 
       {/* not doses, so deliberately not dots — they sit in the corner instead */}
-      {(hasSymptom || hasBlood) && (
+      {(hasSymptom || hasBlood || hasWorkout) && (
         <span className="absolute right-0.5 top-0.5 flex gap-px">
+          {hasWorkout && <Dumbbell size={8} data-testid="day-workout-marker" style={{ color: 'var(--text-3)' }} />}
           {hasSymptom && <HeartPulse size={8} data-testid="day-symptom" style={{ color: 'var(--violet)' }} />}
           {hasBlood && <Droplet size={8} data-testid="day-blood" style={{ color: 'var(--info)' }} />}
         </span>

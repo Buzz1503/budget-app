@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, Suspense } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Ruler, Images, PersonStanding, LineChart as LineChartIcon, Plus, FileText, Trash2, Play,
@@ -19,6 +19,8 @@ import BodyModel from './BodyModel'
 import MeasureGuide from './MeasureGuide'
 import PhotosSection from './PhotosSection'
 import OutcomeEngine from './OutcomeEngine'
+import { useHealthLink } from '../lib/healthLink'
+import { HEALTH_BUILD, BodyHealthView, MeasurementsHealth } from '../health/ui'
 
 const SECTIONS = [
   { id: 'stats', label: 'Stats', icon: Ruler },
@@ -28,11 +30,48 @@ const SECTIONS = [
   { id: 'outcome', label: 'Outcomes', icon: LineChartIcon },
 ]
 
-export default function BodyTab() {
+const SEGMENTS = [
+  { id: 'measurements', label: 'Measurements' },
+  { id: 'recovery', label: 'Recovery' },
+  { id: 'sleep', label: 'Sleep' },
+  { id: 'training', label: 'Training' },
+]
+
+// Measurements | Recovery | Sleep | Training. Only in the native app once Apple
+// Health is there; everywhere else the Body tab is exactly what it was.
+function HealthSegments({ value, onChange }) {
+  return (
+    <div className="flex gap-1 rounded-full p-1" style={{ background: 'var(--surface-sunk)' }} role="tablist" data-testid="body-segments">
+      {SEGMENTS.map((s) => (
+        <button key={s.id} role="tab" aria-selected={value === s.id} onClick={() => onChange(s.id)} data-testid={`body-seg-${s.id}`}
+          className="min-h-[34px] flex-1 rounded-full text-xs font-bold"
+          style={value === s.id ? { background: 'var(--surface2)', color: 'var(--text)' } : { color: 'var(--text-3)' }}>
+          {s.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+export default function BodyTab({ goTo }) {
   const [section, setSection] = useState('stats')
+  const available = useHealthLink((s) => s.available)
+  const segment = useHealthLink((s) => s.bodySegment)
+  const setSegment = useHealthLink((s) => s.setBodySegment)
+  const showHealth = HEALTH_BUILD && available
+  if (showHealth && segment !== 'measurements') {
+    return (
+      <div className="space-y-3">
+        <h1 className="text-2xl font-black tracking-tight">Body & Outcomes</h1>
+        <HealthSegments value={segment} onChange={setSegment} />
+        <Suspense fallback={null}><BodyHealthView segment={segment} goTo={goTo} /></Suspense>
+      </div>
+    )
+  }
   return (
     <div className="space-y-3">
       <h1 className="text-2xl font-black tracking-tight">Body & Outcomes</h1>
+      {showHealth && <HealthSegments value="measurements" onChange={setSegment} />}
       <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
         {SECTIONS.map((s) => (
           <button key={s.id} onClick={() => setSection(s.id)}
@@ -47,6 +86,7 @@ export default function BodyTab() {
       <AnimatePresence mode="wait">
         <motion.div key={section} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
           {section === 'stats' && <StatsSection />}
+          {section === 'stats' && showHealth && <Suspense fallback={null}><MeasurementsHealth /></Suspense>}
           {section === 'trends' && <TrendsSection />}
           {section === 'model' && <ModelSection />}
           {section === 'photos' && <PhotosSection />}

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { groupSplit, beforeAfter, journalImpact, directionWords } from './compare'
+import { groupSplit, beforeAfter, sinceStart, journalImpact, directionWords } from './compare'
 import { planBedtime, hhmm, parseHhmm } from './planner'
 import { vo2Percentile, fitnessAge, smoothVo2 } from './fitness'
 import { VO2_NORMS } from './vo2Norms'
@@ -65,6 +65,24 @@ describe('before and after', () => {
     expect(r.after.n).toBe(5)
     expect(r.enough).toBe(false)
     expect(r.diff).toBeNull()
+    expect(r.needsMore).toBe(2)
+  })
+})
+
+describe('since start: 14 days before against the latest 14', () => {
+  const metric = (d: string) => (d < '2026-08-01' ? 70 : 74)
+
+  it('compares the fortnight before the start with the latest fortnight', () => {
+    const r = sinceStart('2026-08-01', '2026-09-30', metric)
+    expect(r.window).toEqual({ beforeFrom: '2026-07-18', beforeTo: '2026-07-31', afterFrom: '2026-09-17', afterTo: '2026-09-30' })
+    expect(r.diff).toBe(4)
+  })
+
+  it('never reaches back before the start when the compound is new', () => {
+    const r = sinceStart('2026-09-25', '2026-09-30', metric)
+    expect(r.window.afterFrom).toBe('2026-09-26')
+    expect(r.after.n).toBe(5)
+    expect(r.enough).toBe(false)
     expect(r.needsMore).toBe(2)
   })
 })

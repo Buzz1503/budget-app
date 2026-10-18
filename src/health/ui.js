@@ -11,3 +11,9 @@ const none = () => null
 
 export const HealthBoot = HEALTH_BUILD ? lazy(() => import('../components/health/HealthBoot')) : none
 export const HealthSettings = HEALTH_BUILD ? lazy(() => import('../components/health/HealthSettings')) : none
+export const HomeHealthCard = HEALTH_BUILD ? lazy(() => import('../components/health/HomeHealthCard')) : none
+export const BodyHealthView = HEALTH_BUILD ? lazy(() => import('../components/health/BodyHealthView')) : none
+export const MeasurementsHealth = HEALTH_BUILD ? lazy(() => import('../components/health/MeasurementsHealth')) : none
+export const DayHealth = HEALTH_BUILD ? lazy(() => import('../components/health/DayHealth')) : none
+export const CompoundHealth = HEALTH_BUILD ? lazy(() => import('../components/health/CompoundHealth')) : none
+export const MarkerHealthOverlay = HEALTH_BUILD ? lazy(() => import('../components/health/MarkerHealthOverlay')) : none

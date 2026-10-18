@@ -82,15 +82,12 @@ export interface BeforeAfter {
   window: { beforeFrom: string; beforeTo: string; afterFrom: string; afterTo: string }
 }
 
-/**
- * The 14 days before an event against the 14 days after it. The event day
- * itself belongs to neither side. Needs 7 values on each side.
- */
-export function beforeAfter(eventDate: string, metric: Lookup, { days = COMPARE.windowDays, min = COMPARE.minPerSide }: { days?: number; min?: number } = {}): BeforeAfter {
-  const window = {
-    beforeFrom: addDays(eventDate, -days), beforeTo: addDays(eventDate, -1),
-    afterFrom: addDays(eventDate, 1), afterTo: addDays(eventDate, days),
-  }
+/** Two date windows (inclusive) compared on one metric. */
+export function compareWindows(
+  windowDates: { beforeFrom: string; beforeTo: string; afterFrom: string; afterTo: string },
+  metric: Lookup,
+  min: number = COMPARE.minPerSide,
+): BeforeAfter {
   const collect = (from: string, to: string) => {
     const out: number[] = []
     for (let d = from; d <= to; d = addDays(d, 1)) {
@@ -99,14 +96,39 @@ export function beforeAfter(eventDate: string, metric: Lookup, { days = COMPARE.
     }
     return out
   }
-  const before = stats(collect(window.beforeFrom, window.beforeTo))
-  const after = stats(collect(window.afterFrom, window.afterTo))
+  const before = stats(collect(windowDates.beforeFrom, windowDates.beforeTo))
+  const after = stats(collect(windowDates.afterFrom, windowDates.afterTo))
   const enough = before.n >= min && after.n >= min
   return {
-    before, after, window, enough,
+    before, after, window: windowDates, enough,
     diff: enough && before.mean != null && after.mean != null ? round(after.mean - before.mean, 2) : null,
     needsMore: Math.max(0, min - Math.min(before.n, after.n)),
   }
+}
+
+/**
+ * The 14 days before an event against the 14 days after it. The event day
+ * itself belongs to neither side. Needs 7 values on each side.
+ */
+export function beforeAfter(eventDate: string, metric: Lookup, { days = COMPARE.windowDays, min = COMPARE.minPerSide }: { days?: number; min?: number } = {}): BeforeAfter {
+  return compareWindows({
+    beforeFrom: addDays(eventDate, -days), beforeTo: addDays(eventDate, -1),
+    afterFrom: addDays(eventDate, 1), afterTo: addDays(eventDate, days),
+  }, metric, min)
+}
+
+/**
+ * The 14 days before a compound was started against the latest 14 days on it
+ * (ending today, or on the day it stopped). The start day belongs to neither
+ * side, and the "latest" window never reaches back before the start.
+ */
+export function sinceStart(startDate: string, endDate: string, metric: Lookup, { days = COMPARE.windowDays, min = COMPARE.minPerSide }: { days?: number; min?: number } = {}): BeforeAfter {
+  const latestFrom = addDays(endDate, -(days - 1))
+  const afterFrom = latestFrom > startDate ? latestFrom : addDays(startDate, 1)
+  return compareWindows({
+    beforeFrom: addDays(startDate, -days), beforeTo: addDays(startDate, -1),
+    afterFrom, afterTo: endDate,
+  }, metric, min)
 }
 
 export interface HabitEffect {

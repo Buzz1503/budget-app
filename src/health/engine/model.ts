@@ -208,3 +208,24 @@ export function rowFor(model: HealthModel, key: 'hrv' | 'rhr' | 'sleep' | 'resp'
     ready: b.ready,
   }
 }
+
+export interface MetricLookup {
+  key: string
+  label: string
+  unit: string
+  dp: number
+  fn: Lookup
+}
+
+/** The day-by-day metrics a compound's health view compares, keyed by the day they belong to. */
+export function metricLookups(model: HealthModel): MetricLookup[] {
+  return [
+    { key: 'rhr', label: 'Resting heart rate', unit: 'bpm', dp: 1, fn: (d) => model.series.rhr.get(d) ?? null },
+    { key: 'hrv', label: 'HRV', unit: 'ms', dp: 0, fn: (d) => model.series.hrv.get(d) ?? null },
+    { key: 'sleep', label: 'Sleep', unit: 'h', dp: 2, fn: (d) => model.series.sleep.get(d) ?? null },
+    { key: 'weight', label: 'Weight', unit: 'kg', dp: 1, fn: (d) => model.bodyBy.get(d)?.weight ?? null },
+    { key: 'fatMass', label: 'Fat mass', unit: 'kg', dp: 1, fn: (d) => model.bodyBy.get(d)?.fatMass ?? null },
+    { key: 'leanMass', label: 'Lean mass', unit: 'kg', dp: 1, fn: (d) => model.bodyBy.get(d)?.leanMass ?? null },
+    { key: 'readiness', label: 'Readiness', unit: '', dp: 0, fn: (d) => model.readiness(d).score },
+  ]
+}
