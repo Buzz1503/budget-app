@@ -60,6 +60,11 @@ describe('native shell configuration', () => {
     expect(cfg.plugins.SplashScreen.launchAutoHide).toBe(false)
     expect(cfg.plugins.SplashScreen.launchFadeOutDuration).toBeLessThanOrEqual(300)
   })
+  it('the app requires a 64-bit iPhone, not the 32-bit armv7 the template shipped with (which no current iPhone can install)', () => {
+    const plist = readFileSync(new URL('../../ios/App/App/Info.plist', import.meta.url), 'utf8')
+    expect(plist).toMatch(/<key>UIRequiredDeviceCapabilities<\/key>\s*<array>\s*<string>arm64<\/string>\s*<\/array>/)
+    expect(plist).not.toContain('armv7')
+  })
   it('the iOS target is dark only and light status-bar content', () => {
     const plist = readFileSync(new URL('../../ios/App/App/Info.plist', import.meta.url), 'utf8')
     expect(plist).toMatch(/<key>UIUserInterfaceStyle<\/key>\s*<string>Dark<\/string>/)
