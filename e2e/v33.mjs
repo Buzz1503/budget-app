@@ -317,7 +317,11 @@ await step('5 · a save from before v30.1 keeps its data and loses only the them
   if (after.doseLogs.length !== seeded.logs) throw new Error(`the migration changed doseLogs: ${seeded.logs} → ${after.doseLogs.length}`)
   if (!after.doseLogs.some((l) => l.id === 'mig-1')) throw new Error('the seeded dose log is gone')
   if (after.symptomLogs.length !== seeded.symptoms) throw new Error('symptom check-ins changed')
-  if (after.measurements.length !== seeded.measurements) throw new Error('measurements changed')
+  // v21 adds the 13 Jan 2025 Evolt scans (adjusted start and original); every
+  // measurement already there stays
+  if (!after.measurements.some((m) => m.id === 'mig-m' && m.weight === 84)) throw new Error('a measurement already there changed')
+  const evolt = after.measurements.filter((m) => String(m.id).startsWith('m-evolt-'))
+  if (evolt.length !== 2 || after.measurements.length !== seeded.measurements + 2) throw new Error(`measurements changed: ${seeded.measurements} → ${after.measurements.length}`)
   // v36 adds Minoxidil and Tretinoin to any older save; nothing already on the
   // shelf may change or go
   if (!after.supplements.some((x) => x.id === 'mig-sup' && x.dose === '400 mg')) throw new Error('a supplement already on the shelf changed')
