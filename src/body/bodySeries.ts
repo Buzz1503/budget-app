@@ -157,9 +157,6 @@ const dayNum = (d: string) => Math.round(Date.parse(`${d}T00:00:00Z`) / 86400000
 export interface Latest extends DayPoint {
   ageDays: number
   stale: boolean
-  first: DayPoint
-  /** latest − first on record; null with a single reading */
-  sinceStart: number | null
   count: number
 }
 
@@ -173,8 +170,6 @@ export function getLatestMeasurement(field: BodyField, input: BodyInput, today: 
     ...last,
     ageDays,
     stale: ageDays > STALE_DAYS,
-    first: s[0],
-    sinceStart: s.length > 1 ? round(last.value - s[0].value) : null,
     count: s.length,
   }
 }

@@ -55,19 +55,10 @@ describe('getLatestMeasurement', () => {
     expect(getLatestMeasurement('weight', { measurements: [{ date: '2026-10-04', weight: 90 }] }, T)).toMatchObject({ stale: true, ageDays: 15 })
   })
 
-  it('since start compares the latest with the first entry on record', () => {
-    const r = getLatestMeasurement('weight', {
-      measurements: [{ date: '2026-06-01', weight: 98 }],
-      health: [{ date: '2026-10-16', weight: 91.7, weightSource: 'Withings' }],
-    }, T)
-    expect(r?.sinceStart).toBe(-6.3)
-    expect(r?.first.date).toBe('2026-06-01')
-  })
-
-  it('returns null with no data, and no since-start for a single reading', () => {
+  it('returns null with no data', () => {
     expect(getLatestMeasurement('weight', {}, T)).toBeNull()
     expect(getLatestMeasurement('bp', { measurements: [{ date: '2026-10-01', weight: 90 }] }, T)).toBeNull()
-    expect(getLatestMeasurement('weight', { measurements: [{ date: '2026-10-01', weight: 90 }] }, T)?.sinceStart).toBeNull()
+    expect(getLatestMeasurement('weight', { measurements: [{ date: '2026-10-01', weight: 90 }] }, T)?.count).toBe(1)
   })
 
   it('blood pressure keeps systolic and diastolic together', () => {

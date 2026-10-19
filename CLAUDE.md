@@ -37,6 +37,9 @@ an iOS app (bundle id com.buzz.pepito). State is one persisted Zustand store,
 - Body values: always `getLatestMeasurement` / `dailySeries` (`src/body/bodySeries.ts`,
   hooks in `src/lib/useBody.js`). Newest day wins; scan > manual > Withings > other
   only within a day. Never read `measurements` directly for a current value.
+- "Since" deltas: always `getStartValue` (`src/body/startPoint.ts`) against the
+  starting point (`bodyStart`, default: first tracked compound start). Same field
+  only; entries with `hiddenFromCharts` are in no series.
 - Charts: one component, `src/components/charts/TrendChart.jsx`, arithmetic in
   `src/body/chartPoints.ts`. Series colours only from `--series-*` tokens.
 - Demo data: `VITE_DEMO_HEALTH=1 npx vite --port 5175` in dev only, then
