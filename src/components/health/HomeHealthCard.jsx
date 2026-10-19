@@ -6,6 +6,7 @@ import { rowFor } from '../../health/engine/model'
 import useHealthModel from './useHealthModel'
 import { ReadinessRing, Delta, minutesWords } from './atoms'
 import { HEALTH_BANDS } from './bands'
+import { saunaLastNight } from '../../sauna/sauna'
 
 /**
  * One compact card at the bottom of Home: this morning's readiness, last
@@ -15,6 +16,7 @@ export default function HomeHealthCard({ goTo }) {
   const available = useHealth((s) => s.available)
   const connected = useStore((s) => s.healthSettings.connected)
   const setBodySegment = useHealthLink((s) => s.setBodySegment)
+  const saunaSessions = useStore((s) => s.saunaSessions)
   const model = useHealthModel()
   const t = todayStr()
   if (!available) return null
@@ -37,6 +39,7 @@ export default function HomeHealthCard({ goTo }) {
   const night = model.nightBy.get(t)
   const rhr = rowFor(model, 'rhr', t)
   const hrv = rowFor(model, 'hrv', t)
+  const chip = r.chip || (saunaLastNight(saunaSessions, t) ? 'Sauna last night' : null)
 
   return (
     <div className="card p-4" data-testid="home-health-card">
@@ -65,11 +68,9 @@ export default function HomeHealthCard({ goTo }) {
         </span>
         <ChevronRight size={18} className="shrink-0" style={{ color: 'var(--text-3)' }} />
       </button>
-      <button onClick={() => goTo?.('sleep')} className="mt-3 flex w-full items-center gap-2 border-t pt-3 text-left" style={{ borderColor: 'var(--border)' }} data-testid="home-sleep-open">
-        <span className="min-w-0 flex-1 text-xs font-bold" style={{ color: 'var(--text-2)' }}>Last night, tonight's plan and sleep trends</span>
-        <span className="text-xs font-bold" style={{ color: 'var(--text)' }}>Sleep</span>
-        <ChevronRight size={16} className="shrink-0" style={{ color: 'var(--text-3)' }} />
-      </button>
+      {chip && (
+        <p className="mt-3 inline-block rounded-full px-2.5 py-1 text-[11px] font-bold" style={{ background: 'var(--surface-sunk)', color: 'var(--text-3)' }} data-testid="home-context-chip">{chip}</p>
+      )}
     </div>
   )
 }

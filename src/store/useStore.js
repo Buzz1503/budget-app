@@ -35,6 +35,7 @@ import { backfillTopicals } from '../lib/topicals'
 import { applyCheck, toAbandon, localDay } from '../lib/reactionCourse'
 import { captureFor, normaliseNeedle, coDrawInfo } from '../lib/injectionCapture'
 import { lastNeedle, rememberNeedle } from '../lib/needle'
+import { DEFAULT_SAUNA_SETTINGS, newSession } from '../sauna/sauna'
 import { vialOnDate } from '../lib/backfill'
 import { DEFAULT_FX_USD_TO_AUD, referenceUsdPerVial } from '../lib/cost'
 
@@ -159,6 +160,11 @@ function initialState() {
     checkins: {},                        // { 'YYYY-MM-DD': { energy, mood, appetite, drive } } — 1 to 5
     habits: DEFAULT_HABITS.map((h) => ({ ...h })),
     habitLogs: {},                       // { 'YYYY-MM-DD': { habitId: true | false } }
+    // Sauna (stage 2D). Sessions travel with the backup like any other log.
+    saunaSessions: [],                   // see SaunaSession in src/sauna/sauna.ts
+    saunaSettings: { ...DEFAULT_SAUNA_SETTINGS, timerNoteSeen: false, notifyAsked: false },
+    saunaTimer: null,                    // { startedAt, targetMin, tempC, rounds } while one runs
+    saunaDismissed: [],                  // Health workout ids answered "not a sauna"
     // Vials that have been used up. Kept as a record rather than deleted: it is
     // the only trace of how long a vial actually lasted.
     finishedVials: [],
@@ -1890,6 +1896,34 @@ const useStore = create(
         return true
       },
 
+      // ---------- sauna ----------
+      addSaunaSession(p) {
+        const id = `sauna-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+        const session = newSession(p, id)
+        set((s) => ({ saunaSessions: [...s.saunaSessions, session] }))
+        return session
+      },
+      updateSaunaSession(id, patch = {}) {
+        set((s) => ({ saunaSessions: s.saunaSessions.map((x) => (x.id === id ? { ...x, ...patch } : x)) }))
+      },
+      deleteSaunaSession(id) {
+        const gone = get().saunaSessions.find((x) => x.id === id)
+        set((s) => ({ saunaSessions: s.saunaSessions.filter((x) => x.id !== id) }))
+        return gone ? () => set((s) => ({ saunaSessions: [...s.saunaSessions, gone] })) : null
+      },
+      setSaunaSettings(patch = {}) {
+        set((s) => ({ saunaSettings: { ...s.saunaSettings, ...patch } }))
+      },
+      startSaunaTimer({ targetMin, tempC, rounds = 1, now = Date.now() }) {
+        set({ saunaTimer: { startedAt: now, targetMin, tempC, rounds } })
+      },
+      clearSaunaTimer() {
+        set({ saunaTimer: null })
+      },
+      dismissSaunaWorkout(workoutId) {
+        set((s) => ({ saunaDismissed: [...new Set([...s.saunaDismissed, workoutId])] }))
+      },
+
       // ---------- health: settings, check-in, journal ----------
       setHealthSettings(patch = {}) {
         set((s) => ({ healthSettings: { ...s.healthSettings, ...patch } }))
@@ -2615,6 +2649,7 @@ const useStore = create(
         // save — fx_usd_to_aud is the first one this actually matters for
         settings: { ...current.settings, ...(persisted?.settings || {}) },
         healthSettings: { ...current.healthSettings, ...(persisted?.healthSettings || {}) },
+        saunaSettings: { ...current.saunaSettings, ...(persisted?.saunaSettings || {}) },
         checkins: persisted?.checkins || current.checkins,
         habits: persisted?.habits || current.habits,
         habitLogs: persisted?.habitLogs || current.habitLogs,

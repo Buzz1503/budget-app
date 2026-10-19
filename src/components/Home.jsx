@@ -1,37 +1,34 @@
 import { useEffect, useMemo, useState, Suspense } from 'react'
 import { HEALTH_BUILD, HomeHealthCard } from '../health/ui'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Check, Info, Clock, AlertTriangle, Sun, Moon, ChevronRight, Syringe, X, ShieldCheck, Layers, Wind, Bell, Zap, SkipForward, Undo2, PackageOpen, MoreHorizontal, RotateCw, CalendarArrowDown, SlidersHorizontal, Pause, Play, PersonStanding } from 'lucide-react'
+import { Check, Info, Clock, AlertTriangle, Sun, Moon, ChevronRight, Syringe, X, ShieldCheck, Layers, Bell, Zap, SkipForward, Undo2, PackageOpen, MoreHorizontal, CalendarArrowDown, SlidersHorizontal, Pause, Play, PersonStanding } from 'lucide-react'
 import useStore, { todayStr } from '../store/useStore'
-import { cyclePhase, currentRung, stepUpDue, addDaysStr, prettyDate } from '../lib/schedule'
-import { isDueToday, slotOf, isDueSlot, currentSlot, slotIsFlexible, needsProtocolSetup } from '../lib/daily'
+import { currentRung, stepUpDue, addDaysStr, prettyDate } from '../lib/schedule'
+import { slotOf, currentSlot } from '../lib/daily'
 import { formatDose, formatUnitsLong, unitsFor, round, isNasal } from '../lib/calc'
 import { displayName } from '../lib/naming'
-import { tenureFor, milestonesFor, cyclePosition } from '../lib/tenure'
+import { tenureFor, milestonesFor } from '../lib/tenure'
 import { loadMatrix, LIB_TO_COMPOUND } from '../lib/mixMatrix'
 import { planShots, MAX_GROUP_ML } from '../lib/grouping'
-import { expiryInfo, runOutInfo } from '../lib/inventory'
+import { expiryInfo } from '../lib/inventory'
 import { backupNudge, countEntries } from '../lib/backup'
-import { deliveryCovers } from '../lib/restock'
 import Modal from './ui/Modal'
 import CoachTip from './ui/CoachTip'
-import Term from './ui/Term'
 import CoDrawModal from './CoDrawModal'
 import { dueInSlot, takenOn, FORM_LABEL, takeVerb } from '../lib/supplements'
 import { skippedOn, supplementsSkippedOn, skipFor, SKIP_REASONS, REASON_LABEL } from '../lib/skips'
 import { dueWithPushes, canPushOn, pushedLabel } from '../lib/pushes'
 import {
-  activePause, pausedDays, reasonWords, scopeWords, pauseEnd, isPausedOn, pauseDates,
+  activePause, pausedDays, reasonWords, scopeWords, pauseEnd, pauseDates,
 } from '../lib/pauses'
-import { activeVialStatus, coverageFor, coverageWords } from '../lib/stock'
 import ReplaceVial from './ReplaceVial'
 import CompoundSheet from './CompoundSheet'
 import DoseChangeSheet from './DoseChangeSheet'
 import PauseSheet, { HeldStepUpSheet } from './PauseSheet'
-import { SafetyBanner, EveningCheckCard } from './reaction/ReactionTracker'
+import { SafetyBanner } from './reaction/ReactionTracker'
 import LogOnBody from './reaction/LogOnBody'
-import RecentSitesCard from './reaction/RecentSitesCard'
-import { OpenReactionsCard } from './reaction/ReactionCourse'
+import SaunaHomeRow from './sauna/SaunaHomeRow'
+import { homeSections } from '../lib/homeLayout'
 import { FormIcon } from './SupplementsTab'
 
 const spring = { type: 'spring', stiffness: 260, damping: 22 }
@@ -42,9 +39,8 @@ export default function Home({ goTo }) {
   const doseLogs = useStore((s) => s.doseLogs)
   const runs = useStore((s) => s.runs)
   const openVials = useStore((s) => s.openVials)
-  const vials = useStore((s) => s.vials)
   const settings = useStore((s) => s.settings)
-  const restock = useStore((s) => s.restock)
+  const sections = homeSections({ health: HEALTH_BUILD, saunaOnHome: useStore((s) => s.saunaSettings?.showOnHome !== false) })
   const updateSettings = useStore((s) => s.updateSettings)
   const pauses = useStore((s) => s.pauses)
 
@@ -76,19 +72,6 @@ export default function Home({ goTo }) {
     () => peptides.filter((p) => dueWithPushes(p, pushes, t)),
     [peptides, pushes, t]
   )
-  /**
-   * Cycled compounds sitting out their off-weeks.
-   *
-   * They are still on the protocol — they have not been stopped — so they stay
-   * on the screen. Vanishing for a fortnight is what makes people think an item
-   * has been lost, and re-add it as a second copy. Shown without a Log button,
-   * because injecting one today would break the rest that is the point of it.
-   */
-  const resting = useMemo(() => peptides
-    .filter((p) => !needsProtocolSetup(p))
-    .map((p) => ({ p, phase: cyclePhase(p, t) }))
-    .filter((r) => r.phase.phase === 'rest')
-    .sort((a, b) => a.phase.daysLeft - b.phase.daysLeft), [peptides, t])
   const slotDue = useMemo(() => scheduledToday.filter((p) => slotOf(p) === slot), [scheduledToday, slot])
   const otherSlot = slot === 'AM' ? 'PM' : 'AM'
   const otherCount = scheduledToday.filter((p) => slotOf(p) === otherSlot).length
@@ -322,7 +305,10 @@ export default function Home({ goTo }) {
         onClose={() => { updateSettings({ disclaimerDismissed: true }); setShowAbout(false) }}
       />
 
-      {/* screen title + alerts + slot toggle */}
+      {/* 1 · readiness, native app only. Tapping it opens Body › Recovery. */}
+      {sections.includes('readiness') && <Suspense fallback={null}><HomeHealthCard goTo={goTo} /></Suspense>}
+
+      {/* 2 · today's log: screen title + alerts + slot toggle */}
       <div>
         <p className="t-caption" style={{ color: 'var(--text-3)' }}>Pepito +</p>
         <h1 className="t-display mt-1">
@@ -370,11 +356,6 @@ export default function Home({ goTo }) {
       <SafetyBanner />
 
       <PausedBanner onAskStepUp={setHeldFor} />
-
-      <OpenReactionsCard />
-      <EveningCheckCard />
-
-      <RecentSitesCard goTo={goTo} />
 
       {/* first-run pointer at the row */}
       <CoachTip id="log-button" when={slotDue.length > 0}>
@@ -472,14 +453,8 @@ export default function Home({ goTo }) {
         <ShotPlan plan={plan} slot={slot} onAccept={acceptGroup} />
       )}
 
-      {/* Still on the protocol, just not today. */}
-      <RestingGroup resting={resting} onOpenSheet={setSheetId} />
-
-      {/* what tomorrow asks for, with the doses */}
-      <Tomorrow />
-
-      {/* native app only: readiness and today's check-in, below everything else */}
-      {HEALTH_BUILD && <Suspense fallback={null}><HomeHealthCard goTo={goTo} /></Suspense>}
+      {/* the end of the log: a sauna row (Settings: "Show sauna on Home") */}
+      {sections.includes('sauna') && <SaunaHomeRow />}
 
       {/* keeps the last card clear of the floating co-draw bar */}
       {selected.size > 0 && <div aria-hidden className="h-20" />}
@@ -1061,107 +1036,6 @@ function ShotPlan({ plan, slot, onAccept }) {
 }
 
 /**
- * Cycled compounds resting through their off-weeks.
- *
- * Deliberately inert: no Log button, no circle to select, no tap target beyond
- * opening the compound's own sheet. A rest is only a rest if the app does not
- * quietly invite you to break it.
- */
-function RestingGroup({ resting, onOpenSheet }) {
-  if (!resting.length) return null
-  return (
-    <div className="space-y-2" data-testid="resting-group">
-      <p className="flex items-center gap-2 px-1 text-xs font-bold uppercase tracking-wide"
-        style={{ color: 'var(--text-3)' }}>
-        <Moon size={12} /> Resting · {resting.length}
-      </p>
-      <div className="card rows overflow-hidden">
-        {resting.map(({ p, phase }) => (
-          <button key={p.id} onClick={() => onOpenSheet(p.id)} data-testid="resting-row"
-            className="flex w-full items-center gap-3 p-3 text-left" style={{ opacity: 0.62 }}>
-            <Moon size={14} className="shrink-0" style={{ color: 'var(--text-3)' }} />
-            <span className="min-w-0 flex-1">
-              <span className="flex items-baseline gap-2">
-                <span className="truncate text-sm font-bold leading-tight">{p.name}</span>
-                <span className="shrink-0 text-xs font-bold tabular-nums" style={{ color: 'var(--text-3)' }}>
-                  day {phase.dayOfPhase}/{phase.phaseLength}
-                </span>
-              </span>
-              {/* wraps rather than truncating: "back in 12 days" is the whole
-                  point of the row, and "back in 12 da…" answers nothing */}
-              <span className="block text-xs font-semibold leading-tight" style={{ color: 'var(--text-3)' }}>
-                part of your stack · resting, back in {phase.daysLeft} day{phase.daysLeft === 1 ? '' : 's'}
-              </span>
-            </span>
-          </button>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-/**
- * Tomorrow, with the doses.
- *
- * A week of numbers told you how many shots and nothing about what they were.
- * One day, named and dosed, is what you can actually act on tonight — whether
- * to reconstitute something, or whether tomorrow is a rest.
- */
-function Tomorrow() {
-  const peptides = useStore((s) => s.peptides)
-  const titration = useStore((s) => s.titration)
-  const supplements = useStore((s) => s.supplements)
-  const tomorrow = addDaysStr(todayStr(), 1)
-
-  const rows = useMemo(() => peptides
-    .filter((p) => isDueToday(p, tomorrow))
-    .map((p) => {
-      const { dose } = currentRung(p, titration[p.id])
-      return {
-        id: p.id,
-        name: p.name,
-        slot: slotOf(p),
-        nasal: isNasal(p),
-        dose: formatDose(dose, p.ladder.unit),
-        units: isNasal(p) ? null : formatUnitsLong(unitsFor(p, dose)),
-      }
-    }), [peptides, titration, tomorrow])
-
-  const orals = useMemo(() => supplements.length, [supplements])
-
-  return (
-    <div className="card p-3" data-testid="tomorrow">
-      <p className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wide"
-        style={{ color: 'var(--text-3)' }}>
-        <ChevronRight size={12} /> Tomorrow · {prettyDate(tomorrow)}
-      </p>
-      {rows.length === 0 ? (
-        <p className="text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
-          Nothing to inject{orals > 0 ? ` — ${orals} daily item${orals === 1 ? '' : 's'} as usual` : ' — a clear day'}
-        </p>
-      ) : (
-        <div className="space-y-1">
-          {rows.map((r) => (
-            <p key={r.id} className="flex items-baseline gap-2 text-xs font-bold leading-snug"
-              data-testid="tomorrow-row">
-              {r.nasal
-                ? <Wind size={11} className="shrink-0 translate-y-0.5" style={{ color: 'var(--text-3)' }} />
-                : <Syringe size={11} className="shrink-0 translate-y-0.5" style={{ color: 'var(--text-3)' }} />}
-              <span className="min-w-0 flex-1 truncate">{r.name}</span>
-              <span className="shrink-0 tabular-nums" style={{ color: 'var(--text)' }}>{r.dose}</span>
-              {r.units && (
-                <span className="shrink-0 tabular-nums font-semibold" style={{ color: 'var(--text-2)' }}>{r.units}</span>
-              )}
-              <span className="shrink-0 text-xs font-semibold" style={{ color: 'var(--text-3)' }}>{r.slot}</span>
-            </p>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-/**
  * One dose, one tap.
  *
  * The whole row is the log button. There used to be a circle on the left for
@@ -1264,7 +1138,6 @@ function DueCard({ peptide: p, index, done, titration, onLog, onLogOnBody, onUnl
                 <span className="min-w-0 truncate">{pushedFrom}</span>
               </span>
             )}
-            <CycleLine peptide={p} onOpen={() => onOpenSheet?.(p.id)} />
           </span>
           {/* Logged, and tappable again to take it back. The tick used to be a
               dead mark: once a row was logged the only way out was the toast,
@@ -1351,34 +1224,6 @@ function DueCard({ peptide: p, index, done, titration, onLog, onLogOnBody, onUnl
         )}
       </AnimatePresence>
     </motion.div>
-  )
-}
-
-/**
- * Where this compound is in its cycle, in one line.
- *
- * Only compounds that actually cycle get one — for everything else there is no
- * cycle to be a day of, and a line saying "ongoing" on every card would be a
- * line nobody reads. It is a control of its own: the number raises the question
- * "what has this been doing", and the compound page is the answer, so tapping
- * it goes there rather than logging a dose you did not mean to log.
- */
-function CycleLine({ peptide, onOpen }) {
-  const t = todayStr()
-  const cyc = cyclePosition(peptide, t)
-  if (!cyc?.cycled || !cyc.short) return null
-  // The only status worth a colour: tomorrow this compound changes state.
-  const tone = cyc.lastDay ? 'var(--warn)' : 'var(--text-3)'
-  return (
-    <button onClick={(e) => { e.stopPropagation(); onOpen?.() }} data-testid="cycle-line"
-      aria-label={`${peptide.name} — ${cyc.words}. Open its compound page.`}
-      className="mt-1 flex w-full min-w-0 items-center gap-1 text-left">
-      <RotateCw size={12} className="shrink-0" style={{ color: tone }} />
-      {/* one line, always: the Log action must not be pushed down by it */}
-      <span className="min-w-0 truncate text-xs font-medium leading-tight tabular-nums" style={{ color: tone }}>
-        {cyc.short}
-      </span>
-    </button>
   )
 }
 

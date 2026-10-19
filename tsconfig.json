@@ -1,5 +1,5 @@
 {
-  // Type-checks the Health layer (src/health) and body series (src/body), both TypeScript. The rest
+  // Type-checks the Health layer (src/health), body series (src/body) and sauna logic (src/sauna), all TypeScript. The rest
   // of the app is plain JSX and is not checked; Vite transpiles both.
   "compilerOptions": {
     "target": "ES2022",
@@ -16,5 +16,5 @@
     "noFallthroughCasesInSwitch": true,
     "types": ["vite/client"]
   },
-  "include": ["src/health/**/*.ts", "src/body/**/*.ts", "src/env.d.ts"]
+  "include": ["src/health/**/*.ts", "src/body/**/*.ts", "src/sauna/**/*.ts", "src/env.d.ts"]
 }

@@ -120,3 +120,21 @@ describe('low-stock dot', () => {
     expect(showLowStockDot({ peptides: [], today: T })).toBe(false)
   })
 })
+
+describe('Home', () => {
+  it('shows only readiness (iPhone app) and the log, with the sauna row unless switched off', async () => {
+    const { homeSections } = await import('./homeLayout')
+    expect(homeSections({ health: true, saunaOnHome: true })).toEqual(['readiness', 'log', 'sauna'])
+    expect(homeSections({ health: true, saunaOnHome: false })).toEqual(['readiness', 'log'])
+    expect(homeSections({ health: false })).toEqual(['log', 'sauna'])
+  })
+
+  it('no longer renders the cards that left Home', () => {
+    const home = src('../components/Home.jsx')
+    for (const gone of ['EveningCheckCard', 'RecentSitesCard', 'OpenReactionsCard', '<Tomorrow', '<RestingGroup', '<CycleLine', 'CheckinRows', 'HabitChips']) {
+      expect(home).not.toContain(gone)
+    }
+    // readiness comes first, before the log's title
+    expect(home.indexOf("sections.includes('readiness')")).toBeLessThan(home.indexOf('Today, {now.getDate()}'))
+  })
+})

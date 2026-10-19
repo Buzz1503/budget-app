@@ -7,9 +7,9 @@ import reactHooks from 'eslint-plugin-react-hooks'
 export default [
   { ignores: ['dist/**', 'dist-native/**', 'ios/**', 'node_modules/**'] },
   js.configs.recommended,
-  ...tseslint.configs.recommended.map((c) => ({ ...c, files: ['src/health/**/*.ts', 'src/body/**/*.ts'] })),
+  ...tseslint.configs.recommended.map((c) => ({ ...c, files: ['src/health/**/*.ts', 'src/body/**/*.ts', 'src/sauna/**/*.ts'] })),
   {
-    files: ['src/health/**/*.ts', 'src/body/**/*.ts'],
+    files: ['src/health/**/*.ts', 'src/body/**/*.ts', 'src/sauna/**/*.ts'],
     rules: {
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
       'no-console': 'error', // no health values in logs
@@ -24,7 +24,7 @@ export default [
     },
   },
   {
-    files: ['src/components/health/**/*.jsx', 'src/components/charts/**/*.jsx', 'src/components/charts/**/*.js', 'src/components/body/**/*.jsx', 'src/health/**/*.jsx'],
+    files: ['src/components/health/**/*.jsx', 'src/components/charts/**/*.jsx', 'src/components/charts/**/*.js', 'src/components/body/**/*.jsx', 'src/components/sauna/**/*.jsx', 'src/health/**/*.jsx'],
     languageOptions: {
       ecmaVersion: 'latest',
       sourceType: 'module',
