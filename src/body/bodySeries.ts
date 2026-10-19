@@ -8,7 +8,17 @@
 // never beats a newer Health reading. Nothing here writes or deletes entries.
 
 export type BodySource = 'scan' | 'manual' | 'withings' | 'other'
-export type BodyField = 'weight' | 'bodyFat' | 'leanMass' | 'fatMass' | 'bp' | 'muscleMass' | 'visceralFat' | 'waist'
+/**
+ * Any numeric field an entry can hold: weight, bodyFat, leanMass, fatMass, bp,
+ * muscleMass, visceralFat, waist, the tape measurements, and the scan-only
+ * fields (skeletalMuscleMass, visceralFatLevel, visceralFatMass,
+ * visceralFatArea, subcutaneousFatMass). A field is only ever compared with
+ * itself: a scan's skeletal muscle mass is not the app's muscle mass.
+ */
+export type BodyField = string
+
+/** Numbers on an entry that describe the scan, not the body. */
+const NOT_MEASURES = new Set(['heightCm', 'ageAtScan'])
 
 export const SOURCE_RANK: Record<BodySource, number> = { scan: 4, manual: 3, withings: 2, other: 1 }
 export const STALE_DAYS = 14
@@ -16,13 +26,12 @@ export const STALE_DAYS = 14
 export interface MeasurementLike {
   date: string
   source?: string | null
+  /** scan device: Evolt 360, DEXA, InBody, Other */
+  device?: string | null
   scanType?: string | null
-  weight?: number | string | null
-  bodyFat?: number | string | null
-  muscleMass?: number | string | null
-  visceralFat?: number | string | null
-  waist?: number | string | null
-  leanMass?: number | string | null
+  /** an entry kept on record but left out of every series (an original scan behind an adjusted one) */
+  hiddenFromCharts?: boolean
+  [field: string]: unknown
 }
 
 export interface HealthBodyLike {
@@ -54,7 +63,7 @@ interface Reading {
   order: number
   source: BodySource
   sourceLabel: string
-  values: Partial<Record<'weight' | 'bodyFat' | 'leanMass' | 'muscleMass' | 'visceralFat' | 'waist' | 'bpSys' | 'bpDia', number>>
+  values: Record<string, number>
 }
 
 const num = (v: unknown): number | null => {
@@ -71,13 +80,16 @@ export const sourceLabel = (source: BodySource, name?: string | null): string =>
 function readingsFrom({ measurements = [], health = [] }: BodyInput): Reading[] {
   const out: Reading[] = []
   measurements.forEach((m, i) => {
+    if (m.hiddenFromCharts) return
     const source: BodySource = m.source === 'scan' ? 'scan' : 'manual'
     const values: Reading['values'] = {}
-    for (const k of ['weight', 'bodyFat', 'muscleMass', 'visceralFat', 'waist', 'leanMass'] as const) {
-      const v = num(m[k])
+    for (const [k, raw] of Object.entries(m)) {
+      if (NOT_MEASURES.has(k) || typeof raw === 'object' || typeof raw === 'boolean') continue
+      if (typeof raw === 'string' && !/^-?\d+(\.\d+)?$/.test(raw.trim())) continue
+      const v = num(raw)
       if (v != null) values[k] = v
     }
-    out.push({ date: m.date, order: i, source, sourceLabel: sourceLabel(source, m.scanType), values })
+    out.push({ date: m.date, order: i, source, sourceLabel: sourceLabel(source, m.device || m.scanType), values })
   })
   health.forEach((h, i) => {
     const source: BodySource = /withings/i.test(h.weightSource || '') ? 'withings' : 'other'
@@ -93,7 +105,7 @@ function readingsFrom({ measurements = [], health = [] }: BodyInput): Reading[] 
 }
 
 /** One value per day for a stored field: the best source that day, the later entry on a tie. */
-function resolveStored(readings: Reading[], key: keyof Reading['values']): Map<string, DayPoint> {
+function resolveStored(readings: Reading[], key: string): Map<string, DayPoint> {
   const best = new Map<string, Reading>()
   for (const r of readings) {
     if (r.values[key] == null) continue
@@ -122,20 +134,20 @@ const sorted = (m: Map<string, DayPoint>) => [...m.values()].sort((a, b) => a.da
 export function dailySeries(field: BodyField, input: BodyInput): DayPoint[] {
   const readings = readingsFrom(input)
   if (field === 'bp') return sorted(resolveStored(readings, 'bpSys'))
-  if (field === 'weight' || field === 'bodyFat' || field === 'muscleMass' || field === 'visceralFat' || field === 'waist') {
-    return sorted(resolveStored(readings, field))
-  }
+  if (field !== 'fatMass' && field !== 'leanMass') return sorted(resolveStored(readings, field))
   const weight = resolveStored(readings, 'weight')
   const fat = resolveStored(readings, 'bodyFat')
-  const fatMass = new Map<string, DayPoint>()
+  // a scan's own fat mass counts as is; otherwise weight × body fat that day
+  const fatMass = resolveStored(readings, 'fatMass')
   for (const [date, f] of fat) {
     const w = weight.get(date)
-    if (w) fatMass.set(date, { date, value: round(w.value * f.value / 100), source: f.source, sourceLabel: f.sourceLabel })
+    if (w && !fatMass.has(date)) fatMass.set(date, { date, value: round(w.value * f.value / 100), source: f.source, sourceLabel: f.sourceLabel })
   }
   if (field === 'fatMass') return sorted(fatMass)
   const lean = resolveStored(readings, 'leanMass')
   for (const [date, fm] of fatMass) {
-    if (!lean.has(date)) lean.set(date, { date, value: round((weight.get(date) as DayPoint).value - fm.value), source: fm.source, sourceLabel: fm.sourceLabel })
+    const w = weight.get(date)
+    if (w && !lean.has(date)) lean.set(date, { date, value: round(w.value - fm.value), source: fm.source, sourceLabel: fm.sourceLabel })
   }
   return sorted(lean)
 }

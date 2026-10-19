@@ -8,6 +8,8 @@ import {
 import { SEED_KNOWN_GOOD } from '../lib/mixing'
 import { canPush } from '../lib/pushes'
 import { pauseEnd } from '../lib/pauses'
+import { EVOLT_START_SCAN, EVOLT_ORIGINAL_SCAN, EVOLT_START_ID } from '../body/scanFields'
+import { entryValues } from '../body/startPoint'
 import { findMixedGroup, severityRank, migrateReactionLab } from '../lib/reactionTracker'
 import { PIN_BY_ID } from '../lib/sitePins'
 import { withIdentity } from '../lib/peptideIdentity'
@@ -63,6 +65,8 @@ function initialState() {
     mixExplored: [], // codex: sorted-pair keys the user has revealed
     symptomLogs: [],
     measurements: [], // body-comp entries (structured; no blobs)
+    // where every "since" delta starts: { date, label, values, entryId, device } or null for the default
+    bodyStart: null,
     photos: [], // progress-photo metadata; blobs live in IndexedDB by blobKey
     bodyGoals: {}, // { metric: targetValue }
     // Fixed distances up a limb, in cm, so every arm/thigh reading is taken at
@@ -2013,9 +2017,12 @@ const useStore = create(
           id: `m-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
           date: data.date || todayStr(), source: data.source || 'manual', ...data,
         }
-        // one entry per date+source replaces the prior one
+        // one entry per date+source replaces the prior one; two scans on one
+        // day from different devices, or one kept off the charts, both stay
+        const sameSlot = (m) => m.date === entry.date && m.source === entry.source
+          && (m.device || null) === (entry.device || null) && !!m.hiddenFromCharts === !!entry.hiddenFromCharts
         const measurements = [
-          ...s.measurements.filter((m) => !(m.date === entry.date && m.source === entry.source)),
+          ...s.measurements.filter((m) => !sameSlot(m)),
           entry,
         ].sort((a, b) => a.date.localeCompare(b.date))
         set({ measurements })
@@ -2046,6 +2053,21 @@ const useStore = create(
           measurements: [...s.measurements.filter((m) => m.id !== entry.id), entry]
             .sort((a, b) => a.date.localeCompare(b.date)),
         }))
+      },
+      /** Set where "since" deltas start from: a date, optional label and values, the entry it came from. */
+      setBodyStart(start) {
+        if (!start?.date) return
+        set({ bodyStart: {
+          date: start.date,
+          label: start.label || null,
+          values: Object.fromEntries(Object.entries(start.values || {}).filter(([, v]) => v != null && v !== '' && Number.isFinite(Number(v))).map(([k, v]) => [k, Number(v)])),
+          entryId: start.entryId || null,
+          device: start.device || null,
+        } })
+      },
+      /** Back to the default: the first tracked compound's start date. */
+      resetBodyStart() {
+        set({ bodyStart: null })
       },
       setBodyGoal(metric, value) {
         set((s) => ({ bodyGoals: { ...s.bodyGoals, [metric]: value } }))
@@ -2236,7 +2258,7 @@ const useStore = create(
     }),
     {
       name: 'peptide-command-center', // storage key is history — renaming it would orphan existing data
-      version: 20,
+      version: 21,
       storage: createJSONStorage(() => safeStorage),
       // Saves written before a release can't pick new library entries up from
       // the seed, so each version bump backfills them here — once. Deleting one
@@ -2261,10 +2283,24 @@ const useStore = create(
       //   v18: a code and a colour on every compound, for the map
       //   v19: supplies and equipment, seeded from the user's own inventory
       //   v20: two nightly topicals, with the nights since each was started
+      //   v21: the user's 13 Jan 2025 Evolt scan (adjusted and original) as the starting point
       migrate: (persisted, from) => {
-        if (!persisted || from >= 20) return persisted
+        if (!persisted || from >= 21) return persisted
         const s = { ...persisted }
         const t = todayStr()
+        if (from < 21) {
+          // added once, never replaced: entries already present (by id) are
+          // left alone, and a starting point already chosen is kept
+          const have = new Set((s.measurements || []).map((m) => m.id))
+          const add = [EVOLT_START_SCAN, EVOLT_ORIGINAL_SCAN].filter((e) => !have.has(e.id)).map((e) => structuredClone(e))
+          s.measurements = [...(s.measurements || []), ...add].sort((a, b) => a.date.localeCompare(b.date))
+          if (!s.bodyStart) {
+            s.bodyStart = {
+              date: EVOLT_START_SCAN.date, label: EVOLT_START_SCAN.label,
+              values: entryValues(EVOLT_START_SCAN), entryId: EVOLT_START_ID, device: EVOLT_START_SCAN.device,
+            }
+          }
+        }
         if (from < 20) {
           // Idempotent: a topical already on the shelf is reused and a night
           // that already has a log is left alone, so running this over a save
