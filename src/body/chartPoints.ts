@@ -151,9 +151,10 @@ const overlaps = (a: LabelBox, b: LabelBox) =>
   Math.abs(a.x - b.x) * 2 < a.w + b.w && Math.abs(a.y - b.y) * 2 < a.h + b.h
 
 /**
- * Which labels to show. First, last, highest, lowest and scan labels always
- * stay; any other label that collides with one already kept is hidden, the
- * later label winning over the earlier.
+ * Which labels to show. First, last, highest and lowest always stay. Scan
+ * labels come next: kept unless they would collide with one already kept
+ * (two scans days apart, the later wins). Any other label is hidden when it
+ * collides, again the later one winning.
  */
 export function pickLabels(boxes: LabelBox[]): Set<number> {
   const keep = new Set<number>()
@@ -162,11 +163,12 @@ export function pickLabels(boxes: LabelBox[]): Set<number> {
   const hi = vals.indexOf(Math.max(...vals))
   const lo = vals.indexOf(Math.min(...vals))
   ;[0, boxes.length - 1, hi, lo].forEach((i) => keep.add(i))
-  boxes.forEach((b, i) => { if (b.scan) keep.add(i) })
-  for (let i = boxes.length - 1; i >= 0; i--) {
-    if (keep.has(i)) continue
+  const tryKeep = (i: number) => {
+    if (keep.has(i)) return
     if ([...keep].every((k) => !overlaps(boxes[i], boxes[k]))) keep.add(i)
   }
+  for (let i = boxes.length - 1; i >= 0; i--) if (boxes[i].scan) tryKeep(i)
+  for (let i = boxes.length - 1; i >= 0; i--) if (!boxes[i].scan) tryKeep(i)
   return keep
 }
 

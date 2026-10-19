@@ -101,7 +101,7 @@ const pointDates = (p) => (p.from === p.to ? shortDate(p.from) : `${shortDate(p.
 export default function TrendChart({
   metric, chartType = metric, title, unit = '', dp = 1, series, current = null, currentCaption = null,
   events = [], wobble: wobbleProp, window: fixed = null, defaultRange = '90D', testid, note = null, onEditDate = null,
-  startLine = null,
+  startLine = null, refBand = null,
 }) {
   const [rangeKey, setRangeKey] = useState(defaultRange)
   const [overlayOpen, setOverlayOpen] = useState(false)
@@ -128,7 +128,8 @@ export default function TrendChart({
   const extra = useMemo(() => [
     ...(band.length ? points.flatMap((p) => [p.value + wobble, p.value - wobble]) : []),
     ...(start ? [start.value] : []),
-  ], [points, band.length, wobble, start])
+    ...(refBand ? [refBand.lo, refBand.hi] : []),
+  ], [points, band.length, wobble, start, refBand])
   const { axis, xFor, yFor } = useChartGeometry({ points, from, to, metric, extraValues: extra })
   const color = colorFor(metric)
 
@@ -207,6 +208,12 @@ export default function TrendChart({
       ) : (
         <svg viewBox={`0 0 ${W} ${H}`} className="mt-2 w-full" role="img" aria-label={`${title} over time`}>
           <Axes axis={axis} yFor={yFor} from={from} to={to} dp={dp} />
+          {refBand && (
+            <g data-testid="chart-ref-band">
+              <rect x={PAD.l} width={W - PAD.l - PAD.r} y={yFor(refBand.hi)} height={Math.max(1, yFor(refBand.lo) - yFor(refBand.hi))} fill="var(--text)" opacity="0.06" />
+              <text x={PAD.l + 3} y={yFor(refBand.hi) + 9} fontSize="8" fontWeight="700" fill="var(--text-3)">{refBand.label || 'Reference range'}</text>
+            </g>
+          )}
           {start && (
             <g data-testid="chart-start-line">
               <line x1={PAD.l} x2={W - PAD.r} y1={yFor(start.value)} y2={yFor(start.value)} stroke="var(--text-3)" strokeDasharray="4 4" strokeWidth="1" opacity="0.7" />

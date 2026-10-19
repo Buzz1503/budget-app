@@ -12,9 +12,10 @@ import {
 } from '../lib/metrics'
 import {
   useLatestMeasurement, useBodyInput, seriesFor, latestCaption, BODY_FIELDS,
-  useBodyStart, useStartValue, sinceStart, sinceWords, useSinceStart,
+  useBodyStart, useStartValue, sinceStart, sinceWords,
 } from '../lib/useBody'
 import StartPointSheet from './StartPointSheet'
+import CompositionView from './body/CompositionView'
 import { SCAN_FIELDS, SCAN_FIELD_BY_KEY, SCAN_DEVICES, groupedScanFields } from '../body/scanFields'
 import TrendChart from './charts/TrendChart'
 import ProgressChart from './charts/ProgressChart'
@@ -64,6 +65,9 @@ function HealthSegments({ value, onChange }) {
 
 export default function BodyTab({ goTo }) {
   const [section, setSection] = useState('stats')
+  const [adding, setAdding] = useState(false)
+  const [startOpen, setStartOpen] = useState(false)
+  const [viewing, setViewing] = useState(null)
   const available = useHealthLink((s) => s.available)
   const segment = useHealthLink((s) => s.bodySegment)
   const setSegment = useHealthLink((s) => s.setBodySegment)
@@ -83,20 +87,27 @@ export default function BodyTab({ goTo }) {
     <div className="space-y-3">
       <h1 className="text-2xl font-black tracking-tight">Body</h1>
       {showHealth && <HealthSegments value="composition" onChange={setSegment} />}
+      <CompositionView onLog={() => setAdding(true)} onOpenStart={() => setStartOpen(true)} />
+
+      {/* the record itself: entries, tape trends, the model, photos, outcomes */}
+      <div className="px-1 pt-6">
+        <h2 className="text-base font-black">Records</h2>
+        <p className="text-xs font-medium" style={{ color: 'var(--text-3)' }}>Your entries and the tools around them.</p>
+      </div>
       <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
         {SECTIONS.map((s) => (
           <button key={s.id} onClick={() => setSection(s.id)} data-testid={`body-section-${s.id}`}
             className="flex shrink-0 items-center gap-2 rounded-full px-3 py-2 text-xs font-bold"
             style={section === s.id
-              ? { background: 'var(--accent)', color: 'var(--accent-fg)' }
-              : { background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
+              ? { background: 'var(--surface2)', color: 'var(--text)', border: '1px solid var(--border)' }
+              : { background: 'var(--surface-sunk)', color: 'var(--text-2)', border: '1px solid transparent' }}>
             <s.icon size={13} /> {s.label}
           </button>
         ))}
       </div>
       <AnimatePresence mode="wait">
         <motion.div key={section} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
-          {section === 'stats' && <StatsSection />}
+          {section === 'stats' && <StatsSection onAdd={() => setAdding(true)} />}
           {section === 'stats' && showHealth && <Suspense fallback={null}><MeasurementsHealth /></Suspense>}
           {section === 'trends' && <TrendsSection />}
           {section === 'model' && <ModelSection />}
@@ -104,73 +115,22 @@ export default function BodyTab({ goTo }) {
           {section === 'outcome' && <OutcomeEngine />}
         </motion.div>
       </AnimatePresence>
+      <MeasurementSheet open={adding} onClose={() => setAdding(false)} />
+      <StartPointSheet open={startOpen} onClose={() => setStartOpen(false)} onViewEntry={setViewing} />
+      <MeasurementSheet open={!!viewing} onClose={() => setViewing(null)} entryId={viewing} />
     </div>
-  )
-}
-
-// One body value: the newest reading from any source, where it came from, and
-// how far it has moved since the starting point. Tapping the change opens the
-// starting point.
-function LatestTile({ field, onStart }) {
-  const m = METRIC_BY_KEY[field]
-  const merged = useLatestMeasurement(field)
-  // body fat (and fat and lean mass) compare one device family with itself
-  const { start, latest, delta: d, family } = useSinceStart(field)
-  const l = family ? latest : merged
-  const good = d != null && (m.better === 'down' ? d < 0 : d > 0)
-  return (
-    <div className="card p-3" data-testid={`tile-${field}`}>
-      <p className="text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-2)' }}>{m.label}</p>
-      <p className="text-2xl font-black tabular-nums">{l ? Number(l.value.toFixed(1)) : '–'}<span className="ml-1 text-xs font-bold" style={{ color: 'var(--text-2)' }}>{m.unit}</span></p>
-      {l && (
-        <p className="text-[11px] font-medium tabular-nums" data-testid={`tile-${field}-source`} data-stale={merged?.stale ? 'true' : 'false'}
-          style={{ color: 'var(--text-3)' }}>
-          <span style={merged?.stale && !family ? { color: 'color-mix(in srgb, var(--warn) 70%, var(--text-3))' } : undefined}>{format(parseISO(l.date), 'd MMM')}</span>, {l.sourceLabel}
-        </p>
-      )}
-      {d != null && (
-        <button onClick={onStart} data-testid={`tile-${field}-delta`} className="block text-left text-xs font-bold tabular-nums" style={{ color: good ? 'var(--good)' : d === 0 ? 'var(--text-2)' : 'var(--danger)' }}>
-          {d > 0 ? '▲' : d < 0 ? '▼' : ''} {Math.abs(Number(d.toFixed(1)))} {m.unit} {sinceWords(start)}
-        </button>
-      )}
-    </div>
-  )
-}
-
-/** The starting point in one row, with the way to change it. */
-function StartRow({ onOpen }) {
-  const start = useBodyStart()
-  const set = useStore((s) => s.bodyStart)
-  return (
-    <button onClick={onOpen} className="card flex w-full items-center gap-3 p-3 text-left" data-testid="edit-start">
-      <span className="min-w-0 flex-1">
-        <span className="block text-sm font-bold">Edit starting point</span>
-        <span className="block truncate text-xs font-medium tabular-nums" style={{ color: 'var(--text-3)' }}>
-          {start ? `${format(parseISO(start.date), 'd MMM yyyy')}${start.label ? `, ${start.label}` : ''}${set ? '' : ' (default)'}` : 'Not set yet'}
-        </span>
-      </span>
-      <Pencil size={14} style={{ color: 'var(--text-3)' }} />
-    </button>
   )
 }
 
 // ---------- Stats: quick entry + latest values ----------
-function StatsSection() {
+function StatsSection({ onAdd }) {
   const measurements = useStore((s) => s.measurements)
-  const [adding, setAdding] = useState(false)
   const [editing, setEditing] = useState(null)
-
-  const [startOpen, setStartOpen] = useState(false)
-  const recent = [...measurements].reverse().slice(0, 6)
+  const recent = [...measurements].reverse().slice(0, 8)
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-2">
-        {['weight', 'bodyFat', 'visceralFat', 'muscleMass'].map((k) => <LatestTile key={k} field={k} onStart={() => setStartOpen(true)} />)}
-      </div>
-      <StartRow onOpen={() => setStartOpen(true)} />
-
-      <button onClick={() => setAdding(true)} className="btn-primary flex w-full items-center justify-center gap-2 rounded-full py-3 text-sm font-black">
+      <button onClick={onAdd} className="btn-primary flex w-full items-center justify-center gap-2 rounded-full py-3 text-sm font-black">
         <Plus size={16} /> Log measurement
       </button>
 
@@ -206,9 +166,7 @@ function StatsSection() {
         </div>
       )}
 
-      <MeasurementSheet open={adding} onClose={() => setAdding(false)} />
       <MeasurementSheet open={!!editing} onClose={() => setEditing(null)} entryId={editing} />
-      <StartPointSheet open={startOpen} onClose={() => setStartOpen(false)} onViewEntry={setEditing} />
     </div>
   )
 }

@@ -68,11 +68,16 @@ describe('value labels', () => {
     expect(labelPlacement([1, 3, 2, 0])).toEqual(['below', 'above', 'above', 'below'])
   })
 
-  it('collisions keep first, last, highest, lowest and scans; otherwise the later label', () => {
+  it('collisions keep first, last, highest and lowest; then scans; otherwise the later label', () => {
     const box = (value: number, x: number, scan = false): LabelBox => ({ x, y: 10, w: 20, h: 10, value, scan })
-    // all stacked on one spot: only the mandatory ones survive
+    // all stacked on one spot: only first, last, highest and lowest survive
     const stacked = [box(5, 0), box(6, 0), box(9, 0), box(2, 0), box(7, 0, true), box(6.5, 0), box(5.5, 0)]
-    expect([...pickLabels(stacked)].sort()).toEqual([0, 2, 3, 4, 6])
+    expect([...pickLabels(stacked)].sort()).toEqual([0, 2, 3, 6])
+    // a scan clear of the others is labelled; two scans on top of each other keep the later
+    const scans = [box(5, 0), box(6, 100, true), box(6.2, 104, true), box(1, 200), box(9, 300), box(5, 400)]
+    const k = pickLabels(scans)
+    expect(k.has(2)).toBe(true)
+    expect(k.has(1)).toBe(false)
     // two free labels colliding only with each other: the later one stays
     const pair = [box(5, 0), box(6, 100), box(6.1, 110), box(1, 300), box(9, 400), box(5, 500)]
     const kept = pickLabels(pair)

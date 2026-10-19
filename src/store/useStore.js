@@ -70,7 +70,8 @@ function initialState() {
     // where every "since" delta starts: { date, label, values, entryId, device } or null for the default
     bodyStart: null,
     photos: [], // progress-photo metadata; blobs live in IndexedDB by blobKey
-    bodyGoals: {}, // { metric: targetValue }
+    bodyGoals: {}, // { metric: targetValue }; weight and bodyFat drive the Composition projection
+    bodyProfile: { heightCm: null }, // height for FFMI; empty uses the latest scan's
     // Fixed distances up a limb, in cm, so every arm/thigh reading is taken at
     // the identical spot. Set once, editable, shown next to the field each time.
     bodyRefs: { ...DEFAULT_BODY_REFS },
@@ -2077,6 +2078,9 @@ const useStore = create(
       resetBodyStart() {
         set({ bodyStart: null })
       },
+      setBodyProfile(patch = {}) {
+        set((s) => ({ bodyProfile: { ...s.bodyProfile, ...patch } }))
+      },
       setBodyGoal(metric, value) {
         set((s) => ({ bodyGoals: { ...s.bodyGoals, [metric]: value } }))
       },
@@ -2578,6 +2582,7 @@ const useStore = create(
         coachMarks: { ...current.coachMarks, ...(persisted?.coachMarks || {}) },
         restock: { ...current.restock, ...(persisted?.restock || {}) },
         bodyRefs: { ...current.bodyRefs, ...(persisted?.bodyRefs || {}) },
+        bodyProfile: { ...current.bodyProfile, ...(persisted?.bodyProfile || {}) },
         // saves written before v19 have neither key
         supplements: persisted?.supplements || current.supplements,
         supplementLogs: persisted?.supplementLogs || current.supplementLogs,

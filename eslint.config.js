@@ -24,7 +24,7 @@ export default [
     },
   },
   {
-    files: ['src/components/health/**/*.jsx', 'src/components/charts/**/*.jsx', 'src/components/charts/**/*.js', 'src/health/**/*.jsx'],
+    files: ['src/components/health/**/*.jsx', 'src/components/charts/**/*.jsx', 'src/components/charts/**/*.js', 'src/components/body/**/*.jsx', 'src/health/**/*.jsx'],
     languageOptions: {
       ecmaVersion: 'latest',
       sourceType: 'module',
