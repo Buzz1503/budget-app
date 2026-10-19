@@ -10,8 +10,9 @@ import useStore, { todayStr } from '../store/useStore'
 import {
   METRICS, METRIC_BY_KEY, ALL_METRIC_BY_KEY, PRIMARY_FIELDS, EXTRA_GROUPS,
   MEASURE_RULES, REF_DISTANCES, refPhrase, legacyMetricsPresent,
-  metricSeries, rollingAverage, latest, delta,
+  rollingAverage,
 } from '../lib/metrics'
+import { useLatestMeasurement, useBodyInput, seriesFor } from '../lib/useBody'
 import { extractPdfText, parseScanText } from '../lib/scanParse'
 import Modal from './ui/Modal'
 import NumberField from './ui/NumberField'
@@ -98,6 +99,32 @@ export default function BodyTab({ goTo }) {
   )
 }
 
+// One body value: the newest reading from any source, where it came from, and
+// how far it has moved since the first entry on record.
+function LatestTile({ field }) {
+  const m = METRIC_BY_KEY[field]
+  const l = useLatestMeasurement(field)
+  const d = l?.sinceStart ?? null
+  const good = d != null && (m.better === 'down' ? d < 0 : d > 0)
+  return (
+    <div className="card p-3" data-testid={`tile-${field}`}>
+      <p className="text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-2)' }}>{m.label}</p>
+      <p className="text-2xl font-black tabular-nums">{l ? Number(l.value.toFixed(1)) : '–'}<span className="ml-1 text-xs font-bold" style={{ color: 'var(--text-2)' }}>{m.unit}</span></p>
+      {l && (
+        <p className="text-[11px] font-medium tabular-nums" data-testid={`tile-${field}-source`} data-stale={l.stale ? 'true' : 'false'}
+          style={{ color: 'var(--text-3)' }}>
+          <span style={l.stale ? { color: 'color-mix(in srgb, var(--warn) 70%, var(--text-3))' } : undefined}>{format(parseISO(l.date), 'd MMM')}</span>, {l.sourceLabel}
+        </p>
+      )}
+      {d != null && (
+        <p className="text-xs font-bold tabular-nums" style={{ color: good ? 'var(--good)' : 'var(--danger)' }}>
+          {d > 0 ? '▲' : '▼'} {Math.abs(Number(d.toFixed(1)))} {m.unit} since start
+        </p>
+      )}
+    </div>
+  )
+}
+
 // ---------- Stats: quick entry + latest values ----------
 function StatsSection() {
   const measurements = useStore((s) => s.measurements)
@@ -109,23 +136,7 @@ function StatsSection() {
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-2">
-        {['weight', 'bodyFat', 'visceralFat', 'muscleMass'].map((k) => {
-          const m = METRIC_BY_KEY[k]
-          const val = latest(measurements, k)
-          const d = delta(measurements, k)
-          const good = d != null && (m.better === 'down' ? d < 0 : d > 0)
-          return (
-            <div key={k} className="card p-3">
-              <p className="text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-2)' }}>{m.label}</p>
-              <p className="text-2xl font-black tabular-nums">{val != null ? val : '—'}<span className="ml-1 text-xs font-bold" style={{ color: 'var(--text-2)' }}>{m.unit}</span></p>
-              {d != null && (
-                <p className="text-xs font-bold" style={{ color: good ? 'var(--good)' : 'var(--danger)' }}>
-                  {d > 0 ? '▲' : '▼'} {Math.abs(d)} {m.unit} since start
-                </p>
-              )}
-            </div>
-          )
-        })}
+        {['weight', 'bodyFat', 'visceralFat', 'muscleMass'].map((k) => <LatestTile key={k} field={k} />)}
       </div>
 
       <button onClick={() => setAdding(true)} className="btn-primary flex w-full items-center justify-center gap-2 rounded-full py-3 text-sm font-black">
@@ -521,6 +532,7 @@ function LinkedPhoto({ photos, date, value, onPick }) {
 // ---------- Trends ----------
 function TrendsSection() {
   const measurements = useStore((s) => s.measurements)
+  const bodyInput = useBodyInput()
   const [key, setKey] = useState('weight')
   // Pre-split arm/thigh readings are still real data, so they stay chartable —
   // they just aren't offered for new entries.
@@ -530,7 +542,7 @@ function TrendsSection() {
   const [editing, setEditing] = useState(null)
 
   const { data, hasData } = useMemo(() => {
-    const raw = metricSeries(measurements, key)
+    const raw = seriesFor(key, bodyInput)
     if (raw.length === 0) return { data: [], hasData: false }
     const roll = key === 'weight' ? rollingAverage(raw, 7) : null
     const rollByDate = roll ? Object.fromEntries(roll.map((p) => [p.date, p.value])) : {}
@@ -546,7 +558,7 @@ function TrendsSection() {
         id: idByDate[p.date] || null,
       })),
     }
-  }, [measurements, key])
+  }, [measurements, bodyInput, key])
 
   return (
     <div className="space-y-3">
@@ -603,9 +615,9 @@ function TrendsSection() {
 
 // ---------- Interactive body model ----------
 function ModelSection() {
-  const measurements = useStore((s) => s.measurements)
-  const bfSeries = useMemo(() => metricSeries(measurements, 'bodyFat'), [measurements])
-  const waistSeries = useMemo(() => metricSeries(measurements, 'waist'), [measurements])
+  const bodyInput = useBodyInput()
+  const bfSeries = useMemo(() => seriesFor('bodyFat', bodyInput), [bodyInput])
+  const waistSeries = useMemo(() => seriesFor('waist', bodyInput), [bodyInput])
   const [idx, setIdx] = useState(Math.max(0, bfSeries.length - 1))
 
   // fall back to waist-derived estimate if no body-fat entries

@@ -6,7 +6,7 @@ import { readinessFor, bandFor } from './readiness'
 import type { ReadinessSeries } from './readiness'
 import { sleepPerformance, sleepDebtH, consistencySd, nightsEnding, clockFromNoon } from './sleep'
 import { zoneMinutes, trimp, dedupeWorkouts, dailyLoad, loadVsUsual, defaultMaxHR, ageOn, sessionsWithLoad, weeklyMeans } from './training'
-import { pickDaily, movingAverage, weeklyChange } from './bodyComp'
+import { movingAverage } from './bodyComp'
 import { isGlp1, isTestosterone, defaultAffectsBaseline, affectsBaseline, relevantEvents, glp1NoteDue } from './protocol'
 import { BASELINE, READINESS } from './config'
 import { makeTz, addDays, dateRange } from '../tz'
@@ -347,25 +347,6 @@ describe('training load', () => {
 // ------------------------------------------------------------- body comp
 
 describe('body composition', () => {
-  it('scan beats manual beats Health, measure by measure', () => {
-    const out = pickDaily([
-      { date: '2026-10-01', source: 'health', sourceLabel: 'Withings', weight: 90, bodyFatPct: 20, leanMass: 72 },
-      { date: '2026-10-01', source: 'manual', weight: 89.5 },
-      { date: '2026-10-02', source: 'health', weight: 89.9, bodyFatPct: 21 },
-      { date: '2026-10-02', source: 'scan', weight: 89.0, bodyFatPct: 18.5 },
-    ])
-    expect(out[0]).toMatchObject({ weight: 89.5, weightSource: 'manual', bodyFatPct: 20, bodyFatSource: 'health', leanMass: 72 })
-    expect(out[1]).toMatchObject({ weight: 89, weightSource: 'scan', bodyFatPct: 18.5 })
-    expect(out[1].fatMass).toBeCloseTo(16.47, 1)
-    expect(out[1].leanMass).toBeCloseTo(72.54, 1)
-  })
-
-  it('fat mass = weight × fat %; lean = reported lean mass, else weight − fat mass', () => {
-    const [d] = pickDaily([{ date: '2026-10-01', source: 'health', weight: 100, bodyFatPct: 25 }])
-    expect(d.fatMass).toBe(25)
-    expect(d.leanMass).toBe(75)
-  })
-
   it('7-day moving average uses whatever readings fall in the window', () => {
     const s = [
       { date: '2026-10-01', value: 90 }, { date: '2026-10-03', value: 92 },
@@ -374,12 +355,6 @@ describe('body composition', () => {
     const ma = movingAverage(s)
     // 9 Oct has no reading of its own but still has an average: 3 Oct and 8 Oct
     expect(ma.map((p) => p.value)).toEqual([90, 91, 90, 90])
-  })
-
-  it('weekly change over 4 weeks from the 7-day average', () => {
-    const ma = days(29, '2026-09-01').map((d, i) => ({ date: d, value: 92 - i * 0.1 }))
-    expect(weeklyChange(ma, '2026-09-29')).toBeCloseTo(-0.7, 6)
-    expect(weeklyChange(ma.slice(-5), '2026-09-29')).toBeNull()
   })
 })
 

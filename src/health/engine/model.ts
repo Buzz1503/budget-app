@@ -18,8 +18,9 @@ import type { SleepPerformance } from './sleep'
 import { sleepPerformance, nightsEnding, sleepDebtH } from './sleep'
 import type { Session, LoadVsUsual } from './training'
 import { sessionsWithLoad, dailyLoad, loadVsUsual, ageOn, defaultMaxHR } from './training'
-import type { BodyReading, BodyDay } from './bodyComp'
-import { pickDaily } from './bodyComp'
+import type { BodyDay } from './bodyComp'
+import { dailySeries } from '../../body/bodySeries'
+import type { BodyInput } from '../../body/bodySeries'
 import type { CompoundLike, TimelinePoint } from './protocol'
 import { relevantEvents } from './protocol'
 import type { Lookup } from './compare'
@@ -34,7 +35,7 @@ export interface HealthSettingsLike {
 export interface ProtocolInput {
   compounds: Array<CompoundLike & { points: TimelinePoint[]; runs: Array<{ startedOn: string; endedOn?: string | null }> }>
   doseLogs: Array<{ peptideId: string; date: string }>
-  measurements: Array<{ date: string; source?: string; weight?: number | null; bodyFat?: number | null }>
+  measurements: Array<{ date: string; source?: string; weight?: number | null; bodyFat?: number | null; muscleMass?: number | null; visceralFat?: number | null; waist?: number | null }>
   checkins: Record<string, Record<string, number>>
   habitLogs: Record<string, Record<string, boolean>>
   habits: Array<{ id: string; name: string }>
@@ -78,6 +79,20 @@ export interface HealthModel {
 
 function mapOf<T>(rows: T[], key: (r: T) => string): Map<string, T> {
   return new Map(rows.map((r) => [key(r), r]))
+}
+
+/** Weight, body fat, fat mass and lean mass by day, each resolved on its own. */
+function bodyDays(input: BodyInput): BodyDay[] {
+  const rows = new Map<string, BodyDay>()
+  const row = (date: string) => {
+    if (!rows.has(date)) rows.set(date, { date, weight: null, weightSource: null, weightLabel: null, bodyFatPct: null, bodyFatSource: null, fatMass: null, leanMass: null })
+    return rows.get(date) as BodyDay
+  }
+  for (const p of dailySeries('weight', input)) Object.assign(row(p.date), { weight: p.value, weightSource: p.source, weightLabel: p.sourceLabel })
+  for (const p of dailySeries('bodyFat', input)) Object.assign(row(p.date), { bodyFatPct: p.value, bodyFatSource: p.source })
+  for (const p of dailySeries('fatMass', input)) row(p.date).fatMass = p.value
+  for (const p of dailySeries('leanMass', input)) row(p.date).leanMass = p.value
+  return [...rows.values()].sort((a, b) => a.date.localeCompare(b.date))
 }
 
 function seriesFrom(rows: HealthDaily[], pick: (r: HealthDaily) => number | null): Map<string, number> {
@@ -137,23 +152,11 @@ export function buildModel({
     return sleepCache.get(date) as SleepPerformance | null
   }
 
-  const readings: BodyReading[] = [
-    ...protocol.measurements
-      .filter((m) => isNum(m.weight) || isNum(m.bodyFat))
-      .map((m) => ({
-        date: m.date,
-        source: (m.source === 'scan' ? 'scan' : 'manual') as BodyReading['source'],
-        weight: m.weight ?? null,
-        bodyFatPct: m.bodyFat ?? null,
-      })),
-    ...daily
-      .filter((r) => isNum(r.weight) || isNum(r.bodyFatPct) || isNum(r.leanMass))
-      .map((r) => ({
-        date: r.date, source: 'health' as const, sourceLabel: r.weightSource,
-        weight: r.weight, bodyFatPct: r.bodyFatPct, leanMass: r.leanMass,
-      })),
-  ]
-  const body = pickDaily(readings)
+  const bodyInput = {
+    measurements: protocol.measurements,
+    health: daily.map((r) => ({ date: r.date, weight: r.weight, weightSource: r.weightSource, bodyFatPct: r.bodyFatPct, leanMass: r.leanMass })),
+  }
+  const body = bodyDays(bodyInput)
   const bodyBy = mapOf(body, (b) => b.date)
 
   const sessionsOn = (d: string) => sessions.filter((s) => s.date === d)

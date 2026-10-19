@@ -1,7 +1,8 @@
 import { useMemo } from 'react'
 import { format, parseISO } from 'date-fns'
-import { todayStr } from '../../store/useStore'
-import { movingAverage, weeklyChange } from '../../health/engine/bodyComp'
+import { movingAverage } from '../../health/engine/bodyComp'
+import { weeklyChange, sevenDayAverage } from '../../body/bodySeries'
+import { useBodySeries } from '../../lib/useBody'
 import { round } from '../../health/engine/stats'
 import useHealthModel from './useHealthModel'
 import HealthChart from './HealthChart'
@@ -17,18 +18,19 @@ const sourceLabel = (name) => (!name ? 'Apple Health' : /withings/i.test(name) ?
  */
 export default function MeasurementsHealth() {
   const model = useHealthModel()
-  const t = todayStr()
   const fromHealth = useMemo(() => model.daily
     .filter((r) => r.weight != null || r.bodyFatPct != null || r.leanMass != null)
     .slice(-6).reverse(), [model.daily])
-  const weight = useMemo(() => model.body.filter((b) => b.weight != null).map((b) => ({ date: b.date, value: b.weight })), [model.body])
+  // one merged daily series (manual, scans and Apple Health) for every weight number here
+  const weightDays = useBodySeries('weight')
+  const weight = useMemo(() => weightDays.map((p) => ({ date: p.date, value: p.value })), [weightDays])
   const ma = useMemo(() => movingAverage(weight), [weight])
-  const change = weeklyChange(ma, t)
+  const change = weeklyChange(weightDays)
+  const avg7 = sevenDayAverage(weightDays)
   const fat = model.body.filter((b) => b.fatMass != null).map((b) => ({ date: b.date, value: b.fatMass }))
   const lean = model.body.filter((b) => b.leanMass != null).map((b) => ({ date: b.date, value: b.leanMass }))
   const sys = model.daily.filter((r) => r.bpSys != null).map((r) => ({ date: r.date, value: r.bpSys }))
   const dia = model.daily.filter((r) => r.bpDia != null).map((r) => ({ date: r.date, value: r.bpDia }))
-  const latestMa = ma.filter((p) => p.value != null).at(-1)
 
   if (!weight.length && !fromHealth.length && !sys.length) return null
 
@@ -59,8 +61,8 @@ export default function MeasurementsHealth() {
       {weight.length > 0 && (
         <>
           <div className="grid grid-cols-2 gap-2">
-            <Stat testid="weight-ma" label="Weight, 7-day average" value={latestMa ? `${round(latestMa.value, 1)} kg` : '—'} />
-            <Stat testid="weight-weekly" label="Change per week" value={change != null ? `${change > 0 ? '+' : ''}${round(change, 2)} kg` : '—'} sub={change != null ? 'Average of the last 4 weeks' : 'Needs 4 weeks of weigh-ins'} />
+            <Stat testid="weight-ma" label="Weight, 7-day average" value={avg7 != null ? `${round(avg7, 1)} kg` : '–'} />
+            <Stat testid="weight-weekly" label="Change per week" value={change != null ? `${change > 0 ? '+' : ''}${round(change, 2)} kg` : '–'} sub={change != null ? 'Trend over the last 4 weeks, all sources' : 'Needs 4 weigh-ins across 2 weeks'} />
           </div>
           <HealthChart chartType="weight" title="Weight" unit="kg" series={weight} secondary={ma} secondaryLabel="Bold line: 7-day average" dp={1} />
         </>

@@ -5,12 +5,13 @@ import {
 import { format, parseISO } from 'date-fns'
 import useStore, { todayStr } from '../store/useStore'
 import {
-  METRICS, METRIC_BY_KEY, metricSeries, rollingAverage, subjectiveSeries,
+  METRICS, METRIC_BY_KEY, rollingAverage, subjectiveSeries,
   peptideDoseSeries, peptideEvents,
 } from '../lib/metrics'
 import { addDaysStr, daysBetween } from '../lib/schedule'
 import { formatDose } from '../lib/calc'
 import { tenureFor } from '../lib/tenure'
+import { useBodyInput, seriesFor } from '../lib/useBody'
 
 const OUTCOME_OPTIONS = [
   { key: 'subjective', label: 'Wellbeing (symptoms)', unit: '', color: 'var(--good)' },
@@ -20,7 +21,7 @@ const OUTCOME_OPTIONS = [
 export default function OutcomeEngine() {
   const peptides = useStore((s) => s.peptides)
   const titration = useStore((s) => s.titration)
-  const measurements = useStore((s) => s.measurements)
+  const bodyInput = useBodyInput()
   const symptomLogs = useStore((s) => s.symptomLogs)
   const doseEvents = useStore((s) => s.doseEvents)
   const runs = useStore((s) => s.runs)
@@ -50,7 +51,7 @@ export default function OutcomeEngine() {
     let outSeries
     if (metricKey === 'subjective') outSeries = subjectiveSeries(symptomLogs)
     else {
-      const raw = metricSeries(measurements, metricKey)
+      const raw = seriesFor(metricKey, bodyInput)
       outSeries = metricKey === 'weight' ? rollingAverage(raw, 7) : raw
     }
     const outByDate = Object.fromEntries(outSeries.filter((p) => p.date >= from).map((p) => [p.date, p.value]))
@@ -70,7 +71,7 @@ export default function OutcomeEngine() {
     })
     const events = peptideEvents(peptide, titration[peptide.id], from, t, { doseEvents })
     return { data, events, hasOutcome: Object.keys(outByDate).length > 0, tenure: ten, since }
-  }, [peptide, titration, measurements, symptomLogs, doseEvents, runs, metricKey, t, pauses])
+  }, [peptide, titration, bodyInput, symptomLogs, doseEvents, runs, metricKey, t, pauses])
 
   if (!peptide) return null
 

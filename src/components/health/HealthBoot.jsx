@@ -14,12 +14,19 @@ export default function HealthBoot() {
   useEffect(() => { if (available) void load() }, [available, load])
 
   const workouts = useHealth((s) => s.data.workouts)
+  const daily = useHealth((s) => s.data.daily)
 
   // tell the always-present screens what they may show
   useEffect(() => { useHealthLink.setState({ available }) }, [available])
   useEffect(() => {
     useHealthLink.getState().setWorkoutDates(new Set(workouts.map((w) => w.date)))
   }, [workouts])
+  // body readings only: the selector in src/body merges them with manual entries
+  useEffect(() => {
+    useHealthLink.getState().setBodyDaily(daily
+      .filter((r) => r.weight != null || r.bodyFatPct != null || r.leanMass != null || r.bpSys != null)
+      .map((r) => ({ date: r.date, weight: r.weight, weightSource: r.weightSource, bodyFatPct: r.bodyFatPct, leanMass: r.leanMass, bpSys: r.bpSys, bpDia: r.bpDia })))
+  }, [daily])
 
   useEffect(() => {
     if (!available || !connected) return undefined

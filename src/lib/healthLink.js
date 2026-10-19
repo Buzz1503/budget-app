@@ -12,4 +12,7 @@ export const useHealthLink = create((set) => ({
   bodySegment: 'measurements',
   setBodySegment: (bodySegment) => set({ bodySegment }),
   setWorkoutDates: (workoutDates) => set({ workoutDates }),
+  /** Body readings from Apple Health, one row per day (weight, body fat, lean mass, blood pressure). */
+  bodyDaily: [],
+  setBodyDaily: (bodyDaily) => set({ bodyDaily }),
 }))
