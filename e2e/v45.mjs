@@ -52,6 +52,9 @@ const reload = async () => {
   await gotIt()
 }
 const nav = async (label) => {
+  // v46: Symptoms and Bloods moved into More
+  if (label === 'Symptoms' || label === 'Bloods') { await closeAll(); await page.click('nav button[aria-label="More"]'); await page.waitForTimeout(500); await page.click(`[data-testid="more-${label.toLowerCase()}"]`); await page.waitForTimeout(700); return }
+
   await closeAll()
   await page.click(`nav button[aria-label="${label}"]`)
   await page.waitForTimeout(650)

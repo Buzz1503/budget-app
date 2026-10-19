@@ -1,0 +1,12 @@
+{
+  "name": "pepito-health",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Pepito+ local Capacitor plugin: the Apple Health reads @capgo/capacitor-health does not cover (one authorization sheet for everything, characteristics, lean mass, heart rate recovery, daylight, protein). Read only.",
+  "main": "index.js",
+  "capacitor": {
+    "ios": {
+      "src": "ios"
+    }
+  }
+}

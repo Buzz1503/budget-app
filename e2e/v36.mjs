@@ -42,6 +42,9 @@ const closeAll = async () => {
   }
 }
 const nav = async (label) => {
+  // v46: Symptoms and Bloods moved into More
+  if (label === 'Symptoms' || label === 'Bloods') { await closeAll(); await page.click('nav button[aria-label="More"]'); await page.waitForTimeout(500); await page.click(`[data-testid="more-${label.toLowerCase()}"]`); await page.waitForTimeout(700); return }
+
   await closeAll()
   await page.click(`nav button[aria-label="${label}"]`)
   await page.waitForTimeout(700)
@@ -219,7 +222,10 @@ await step('1b · Other opens a free-text reason, and an end date is optional', 
   const save = page.locator('[data-testid="pause-save"]')
   if (!(await save.isDisabled())) throw new Error('an empty "Other" was accepted')
   await free.fill('moving house')
-  await page.fill('[data-testid="pause-ends-on"]', iso(6))
+  await page.locator('[data-testid="pause-ends-on"]').first().click()
+  await page.waitForTimeout(300)
+  await page.fill('[data-testid="pause-ends-on-input"]', iso(6))
+  await page.click('[data-testid="pause-ends-on-done"]')
   await page.waitForTimeout(300)
   await page.click('[data-testid="pause-save"]')
   await page.waitForTimeout(900)

@@ -40,6 +40,9 @@ const MORE_LINK = {
     Wizard: 'text=Add, remove or edit anything I take',
 }
 const nav = async (label) => {
+  // v46: Symptoms and Bloods moved into More
+  if (label === 'Symptoms' || label === 'Bloods') { await page.click('nav button[aria-label="More"]'); await page.waitForTimeout(500); await page.click(`[data-testid="more-${label.toLowerCase()}"]`); await page.waitForTimeout(700); return }
+
   if (PRIMARY_TABS.has(label)) {
     await page.click(`nav button[aria-label="${label}"]`)
   } else {
@@ -62,10 +65,10 @@ await page.goto(BASE, { waitUntil: 'networkidle' })
 await page.evaluate(() => localStorage.clear())
 await page.reload({ waitUntil: 'networkidle' })
 
-await step('Home: disclaimer + ring + 6-tab bar', async () => {
+await step('Home: disclaimer + ring + 4-tab bar', async () => {
   await waitText(/not medical advice/)
   const tabs = await page.locator('nav button').count()
-  if (tabs !== 6) throw new Error(`expected 6 primary tabs, got ${tabs}`)
+  if (tabs !== 4) throw new Error(`expected 4 primary tabs, got ${tabs}`)
   await page.click('text=Got it')
 })
 

@@ -66,7 +66,7 @@ async function open(W, H) {
 const SCREENS = {
   tracker: {
     go: async (page) => {
-      await page.tap('nav button[aria-label="Symptoms"]'); await page.waitForTimeout(600)
+      await page.tap('nav button[aria-label="More"]'); await page.waitForTimeout(500); await page.tap('[data-testid="more-symptoms"]'); await page.waitForTimeout(600)
       await page.tap('[data-testid="symptom-tab-reactions"]'); await page.waitForTimeout(1000)
     },
     view: (v) => `[data-testid="map-view-${v}"]`,

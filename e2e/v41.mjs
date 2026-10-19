@@ -51,6 +51,9 @@ const closeAll = async () => {
   }
 }
 const nav = async (label) => {
+  // v46: Symptoms and Bloods moved into More
+  if (label === 'Symptoms' || label === 'Bloods') { await closeAll(); await page.click('nav button[aria-label="More"]'); await page.waitForTimeout(500); await page.click(`[data-testid="more-${label.toLowerCase()}"]`); await page.waitForTimeout(700); return }
+
   await closeAll()
   await page.click(`nav button[aria-label="${label}"]`)
   await page.waitForTimeout(650)
@@ -219,7 +222,7 @@ await step('8 · nothing else on Home moved', async () => {
   const buttons = await page.locator('[data-testid="log-on-body"]').count()
   if (buttons !== due) throw new Error(`${buttons} Log on body buttons for ${due} due row(s)`)
   const nav6 = await page.locator('nav button').count()
-  if (nav6 !== 6) throw new Error(`${nav6} nav buttons`)
+  if (nav6 !== 4) throw new Error(`${nav6} nav buttons`)
   if (!(await page.locator('[data-testid="recent-sites-card"]').count())) throw new Error('no recent sites card after logging on the body')
   console.log(`  ${due} due row(s) with the button, recent sites card present, six tabs`)
 })

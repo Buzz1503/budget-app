@@ -54,6 +54,12 @@
   /* v20's primary action was the lime gradient with near-black text */
   --accent: var(--lime);
   --accent-fg: #0c1200;
+  /* the only series colours a chart uses: four for body, one for sleep */
+  --series-weight: var(--text);
+  --series-lean: var(--accent);
+  --series-fat: var(--amber);
+  --series-muscle: #8db7ff;
+  --series-sleep: var(--indigo);
   --tint: 16%;
 
   --r-sm: 10px;
@@ -182,6 +188,20 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
 input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 
 select.input option { background: var(--surface-solid); color: var(--text); }
+
+/* A text box never pushes past its card. iOS gives date and time inputs an
+   intrinsic width that ignores width: 100% unless their own appearance is off
+   and they are allowed to shrink. */
+.input { box-sizing: border-box; max-width: 100%; min-width: 0; }
+input[type="date"].input,
+input[type="time"].input {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  min-height: 2.5rem;
+}
+input[type="date"].input::-webkit-date-and-time-value,
+input[type="time"].input::-webkit-date-and-time-value { text-align: left; }
 
 /* --- semantic ------------------------------------------------------------ */
 

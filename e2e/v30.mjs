@@ -70,6 +70,9 @@ const closeAll = async () => {
   await page.waitForTimeout(200)
 }
 const nav = async (label) => {
+  // v46: Symptoms and Bloods moved into More
+  if (label === 'Symptoms' || label === 'Bloods') { await closeAll(); await page.click('nav button[aria-label="More"]'); await page.waitForTimeout(500); await page.click(`[data-testid="more-${label.toLowerCase()}"]`); await page.waitForTimeout(700); return }
+
   await closeAll()
   await page.click(`nav button:has-text("${label}")`)
   await page.waitForTimeout(500)
@@ -199,7 +202,7 @@ await step('typing into the batch form keeps the field it is typing in on screen
   await closeKeyboard()
   await page.locator('[data-testid="stock-results"] > button').first().click()
   await page.waitForTimeout(600)
-  const field = page.locator('input[aria-label="Sealed expiry"]')
+  const field = page.locator('input[aria-label="Lot number"]')
   await field.click()
   await openKeyboard()
   await page.waitForTimeout(700)

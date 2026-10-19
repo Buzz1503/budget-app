@@ -5,7 +5,8 @@ import { format, parseISO } from 'date-fns'
 import { currentRung } from './schedule'
 import { slotOf, scheduledWeekdaySet, needsProtocolSetup, WEEKDAYS } from './daily'
 import { formatDose } from './calc'
-import { metricSeries, rollingAverage, METRIC_BY_KEY } from './metrics'
+import { rollingAverage, METRIC_BY_KEY } from './metrics'
+import { dailySeries } from '../body/bodySeries'
 import { tenureFor, cumulativeExposure, cyclePosition, doseTenure } from './tenure'
 import { isReaction, statusOf, openedOn, timeToResolve, peakSeverity, daysOpen, severityWord, checksOf } from './reactionCourse'
 import { PIN_BY_ID } from './sitePins'
@@ -24,7 +25,7 @@ function weekdayLabel(peptide) {
 }
 
 export function buildSummaryHtml({
-  peptides, titration, doseLogs, doseEvents = [], measurements, summary, from, to, runs = {},
+  peptides, titration, doseLogs, doseEvents = [], measurements, healthBody = [], summary, from, to, runs = {},
   reactions = [], injectionRecords = [],
   framed = false,
 }) {
@@ -91,7 +92,8 @@ export function buildSummaryHtml({
 
   // key body-comp trends over the window
   const trendRows = ['weight', 'bodyFat', 'visceralFat', 'muscleMass'].map((key) => {
-    const raw = metricSeries(measurements, key).filter((p) => p.date >= from && p.date <= to)
+    // merged across manual, scan and Apple Health, one value per day
+    const raw = dailySeries(key, { measurements, health: healthBody }).filter((p) => p.date >= from && p.date <= to)
     if (raw.length < 1) return ''
     const series = key === 'weight' ? rollingAverage(raw, 7) : raw
     const first = series[0], last = series[series.length - 1]

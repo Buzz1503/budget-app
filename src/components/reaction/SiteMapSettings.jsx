@@ -9,6 +9,7 @@ import { WINDOW_CHOICES, DEFAULT_WINDOW_DAYS } from '../../lib/siteRotation'
 import { PINS, checkPins, MIN_SPACING_PX, SCREEN_WIDTH } from '../../lib/sitePins'
 import AdjustPins from './AdjustPins'
 import { useMapPhoto } from './SiteMap'
+import PickerField from '../ui/PickerField'
 
 /**
  * Settings &gt; Site map.
@@ -169,13 +170,10 @@ export default function SiteMapSettings() {
 
       <div className="flex items-center justify-between gap-3">
         <span className="text-sm font-semibold">Evening check time</span>
-        <input
-          type="time"
-          data-testid="check-time"
-          value={settings?.checkTime || DEFAULT_CHECK_TIME}
-          onChange={(e) => updateSettings({ checkTime: e.target.value })}
-          className="input w-32 text-center"
-        />
+        <div className="w-32 shrink-0">
+          <PickerField kind="time" label="Evening check time" value={settings?.checkTime || DEFAULT_CHECK_TIME}
+            clearable={false} testid="check-time" onChange={(v) => v && updateSettings({ checkTime: v })} />
+        </div>
       </div>
 
       <div>

@@ -123,6 +123,9 @@ const reload = async () => {
   await gotIt()
 }
 const nav = async (label) => {
+  // v46: Symptoms and Bloods moved into More
+  if (label === 'Symptoms' || label === 'Bloods') { await closeAll(); await page.click('nav button[aria-label="More"]'); await page.waitForTimeout(500); await page.click(`[data-testid="more-${label.toLowerCase()}"]`); await page.waitForTimeout(700); return }
+
   await closeAll()
   await page.click(`nav button[aria-label="${label}"]`)
   await page.waitForTimeout(650)
@@ -176,7 +179,10 @@ await step('1 · a measurement entry can be edited, undone, and is marked Edited
   await noOverflow('edit sheet')
 
   // every field editable: date, time, a value, notes
-  await page.fill('[data-testid="entry-time"]', '07:15')
+  await page.locator('[data-testid="entry-time"]').first().click()
+  await page.waitForTimeout(300)
+  await page.fill('[data-testid="entry-time-input"]', '07:15')
+  await page.click('[data-testid="entry-time-done"]')
   await page.fill('[data-testid="entry-note"]', 'after a fast')
   const weight = page.locator('input[aria-label="Weight in kg"]').first()
   await weight.fill('79.5')
@@ -212,9 +218,9 @@ await step('1b · changing the date re-sorts, and the chart follows immediately'
   if (s.measurements[0].id !== 'm-b') throw new Error('the array did not re-sort after the date changed')
 
   await body('Trends')
-  const labels = await page.locator('.recharts-xAxis text').allInnerTexts()
-  if (!labels.length) throw new Error('the chart rendered no points')
-  console.log(`  re-sorted, chart shows ${labels.length} x labels`)
+  const points = await page.locator('[data-testid="trends-chart"] [data-testid="chart-point"], [data-testid="trends-chart"] [data-testid="chart-scan"]').count()
+  if (!points) throw new Error('the chart rendered no points')
+  console.log(`  re-sorted, chart shows ${points} points`)
 })
 
 await step('1c · delete asks first, then offers undo', async () => {
@@ -507,6 +513,9 @@ await step('10 · the anatomical side is right in both views', async () => {
 
 await step('11 · every tap selects exactly one pin, with a label and Confirm', async () => {
   await tracker()
+  // reached through More the map sits lower; centre it so every tap is on screen
+  await page.locator('[data-testid="site-map"]').first().evaluate((el) => el.scrollIntoView({ block: 'center' }))
+  await page.waitForTimeout(300)
   const box = await page.locator('[data-testid="site-map"]').first().boundingBox()
   const seen = new Set()
   for (const [fx, fy] of [[0.1, 0.1], [0.5, 0.2], [0.9, 0.5], [0.3, 0.75], [0.7, 0.95], [0.5, 0.5]]) {
@@ -1124,7 +1133,7 @@ await step('21 · every tab still opens and the untouched data is intact', async
   for (const label of ['Home', 'Calendar', 'Symptoms', 'Body', 'Bloods', 'More']) {
     await nav(label)
     const count = await page.locator('nav button').count()
-    if (count !== 6) throw new Error(`${label} left ${count} nav buttons`)
+    if (count !== 4) throw new Error(`${label} left ${count} nav buttons`)
     await noOverflow(label)
   }
   const after = await state()

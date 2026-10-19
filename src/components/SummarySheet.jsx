@@ -2,6 +2,7 @@ import { useMemo, useRef } from 'react'
 import { Printer, Download } from 'lucide-react'
 import { format } from 'date-fns'
 import useStore, { todayStr } from '../store/useStore'
+import { useHealthLink } from '../lib/healthLink'
 import Modal from './ui/Modal'
 import { buildSummaryHtml } from '../lib/summaryDoc'
 
@@ -25,6 +26,7 @@ export default function SummarySheet({ open, onClose, from, to, summary }) {
   const doseLogs = useStore((s) => s.doseLogs)
   const doseEvents = useStore((s) => s.doseEvents)
   const measurements = useStore((s) => s.measurements)
+  const healthBody = useHealthLink((s) => s.bodyDaily)
   const runs = useStore((s) => s.runs)
   const reactions = useStore((s) => s.reactions)
   const injectionRecords = useStore((s) => s.injectionRecords)
@@ -33,12 +35,12 @@ export default function SummarySheet({ open, onClose, from, to, summary }) {
   const html = useMemo(() => {
     if (!open) return ''
     return buildSummaryHtml({
-      peptides, titration, doseLogs, doseEvents, measurements, summary, from, to, runs, reactions, injectionRecords,
+      peptides, titration, doseLogs, doseEvents, measurements, healthBody, summary, from, to, runs, reactions, injectionRecords,
       // the sheet supplies the print action, so the document needs no script of
       // its own and the frame can stay sandboxed without one
       framed: true,
     })
-  }, [open, peptides, titration, doseLogs, doseEvents, measurements, summary, from, to, runs, reactions, injectionRecords])
+  }, [open, peptides, titration, doseLogs, doseEvents, measurements, healthBody, summary, from, to, runs, reactions, injectionRecords])
 
   const print = () => {
     const win = frame.current?.contentWindow

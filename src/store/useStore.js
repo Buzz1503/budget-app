@@ -8,6 +8,10 @@ import {
 import { SEED_KNOWN_GOOD } from '../lib/mixing'
 import { canPush } from '../lib/pushes'
 import { pauseEnd } from '../lib/pauses'
+import { applyScanHistory } from '../body/scanHistory'
+import { applyScanImport } from '../body/scanImport'
+import { validWakeTarget } from '../health/engine/planner'
+import EVOLT_HISTORY from '../data/evolt_scans.json'
 import { findMixedGroup, severityRank, migrateReactionLab } from '../lib/reactionTracker'
 import { PIN_BY_ID } from '../lib/sitePins'
 import { withIdentity } from '../lib/peptideIdentity'
@@ -26,6 +30,7 @@ import { toMg, doseToUnits, concentration, isNasal, convertLadderForRoute } from
 import { DEFAULT_BODY_REFS } from '../lib/metrics'
 import { attributeSymptom, attributionSnapshot } from '../lib/attribution'
 import { slotForCategory } from '../lib/supplements'
+import { DEFAULT_HABITS } from '../lib/healthDefaults'
 import { backfillTopicals } from '../lib/topicals'
 import { applyCheck, toAbandon, localDay } from '../lib/reactionCourse'
 import { captureFor, normaliseNeedle, coDrawInfo } from '../lib/injectionCapture'
@@ -62,8 +67,11 @@ function initialState() {
     mixExplored: [], // codex: sorted-pair keys the user has revealed
     symptomLogs: [],
     measurements: [], // body-comp entries (structured; no blobs)
+    // where every "since" delta starts: { date, label, values, entryId, device } or null for the default
+    bodyStart: null,
     photos: [], // progress-photo metadata; blobs live in IndexedDB by blobKey
-    bodyGoals: {}, // { metric: targetValue }
+    bodyGoals: {}, // { metric: targetValue }; weight and bodyFat drive the Composition projection
+    bodyProfile: { heightCm: null }, // height for FFMI; empty uses the latest scan's
     // Fixed distances up a limb, in cm, so every arm/thigh reading is taken at
     // the identical spot. Set once, editable, shown next to the field each time.
     bodyRefs: { ...DEFAULT_BODY_REFS },
@@ -132,6 +140,24 @@ function initialState() {
     gearItems: seedGear(),
     gearSwaps: [],             // one dated record per finished box
     gearOptions: {},           // dropdown values the user has added, by option key
+    /**
+     * Apple Health (native app only). The health data itself is never kept
+     * here — it lives in its own IndexedDB cache (src/health/cache.ts), is
+     * rebuilt from Health, and is left out of backups. What is kept here is
+     * what the user chose and entered: settings, daily check-ins and habits.
+     */
+    healthSettings: {
+      connected: false,                  // the first-run screen was completed
+      sleepPriority: ['watch', 'withings', 'phone', 'other'],
+      sleepNeedH: 8,
+      maxHR: null,                       // null: 208 − 0.7 × age
+      wakeTarget: null,                  // 'HH:MM'; null: median of the last 14 nights
+      checkinEnabled: true,
+      overlays: {},                      // per chart type: { ticks, changes, tenure, compounds, bloods }
+    },
+    checkins: {},                        // { 'YYYY-MM-DD': { energy, mood, appetite, drive } } — 1 to 5
+    habits: DEFAULT_HABITS.map((h) => ({ ...h })),
+    habitLogs: {},                       // { 'YYYY-MM-DD': { habitId: true | false } }
     // Vials that have been used up. Kept as a record rather than deleted: it is
     // the only trace of how long a vial actually lasted.
     finishedVials: [],
@@ -1862,6 +1888,79 @@ const useStore = create(
         return true
       },
 
+      // ---------- health: settings, check-in, journal ----------
+      setHealthSettings(patch = {}) {
+        set((s) => ({ healthSettings: { ...s.healthSettings, ...patch } }))
+      },
+      setChartOverlay(chartType, patch = {}) {
+        set((s) => ({
+          healthSettings: {
+            ...s.healthSettings,
+            overlays: {
+              ...s.healthSettings.overlays,
+              [chartType]: { ...(s.healthSettings.overlays?.[chartType] || {}), ...patch },
+            },
+          },
+        }))
+      },
+      /** One 1–5 answer. Tapping the same value again clears it. */
+      setCheckin(date, key, value) {
+        set((s) => {
+          const day = { ...(s.checkins[date] || {}) }
+          if (day[key] === value || value == null) delete day[key]
+          else day[key] = value
+          const checkins = { ...s.checkins }
+          if (Object.keys(day).length) checkins[date] = day
+          else delete checkins[date]
+          return { checkins }
+        })
+      },
+      addHabit(name) {
+        const clean = String(name || '').trim()
+        if (!clean) return null
+        const id = `habit-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`
+        set((s) => ({ habits: [...s.habits, { id, name: clean }] }))
+        return id
+      },
+      renameHabit(id, name) {
+        const clean = String(name || '').trim()
+        if (!clean) return
+        set((s) => ({ habits: s.habits.map((h) => (h.id === id ? { ...h, name: clean } : h)) }))
+      },
+      /** Removing a habit keeps its past answers out of every comparison too. */
+      removeHabit(id) {
+        set((s) => ({
+          habits: s.habits.filter((h) => h.id !== id),
+          habitLogs: Object.fromEntries(Object.entries(s.habitLogs).map(([d, row]) => {
+            const { [id]: _gone, ...rest } = row
+            return [d, rest]
+          }).filter(([, row]) => Object.keys(row).length)),
+        }))
+      },
+      /** Yes, no, or unanswered (null). */
+      setHabit(date, id, value) {
+        set((s) => {
+          const day = { ...(s.habitLogs[date] || {}) }
+          if (value == null) delete day[id]
+          else day[id] = !!value
+          const habitLogs = { ...s.habitLogs }
+          if (Object.keys(day).length) habitLogs[date] = day
+          else delete habitLogs[date]
+          return { habitLogs }
+        })
+      },
+      /** Whether the Effects view draws phases at this compound's starts, stops and dose changes. */
+      setTrackEffects(peptideId, on) {
+        set((s) => ({
+          peptides: s.peptides.map((p) => (p.id === peptideId ? { ...p, trackEffects: !!on } : p)),
+        }))
+      },
+      setAffectsRecoveryBaseline(peptideId, on) {
+        set((s) => ({
+          peptides: s.peptides.map((p) => (p.id === peptideId ? { ...p, affectsRecoveryBaseline: !!on } : p)),
+        }))
+      },
+
       // ---------- symptoms ----------
       /**
        * A check-in, for today or for a day that has already been.
@@ -1921,9 +2020,12 @@ const useStore = create(
           id: `m-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
           date: data.date || todayStr(), source: data.source || 'manual', ...data,
         }
-        // one entry per date+source replaces the prior one
+        // one entry per date+source replaces the prior one; two scans on one
+        // day from different devices, or one kept off the charts, both stay
+        const sameSlot = (m) => m.date === entry.date && m.source === entry.source
+          && (m.device || null) === (entry.device || null) && !!m.hiddenFromCharts === !!entry.hiddenFromCharts
         const measurements = [
-          ...s.measurements.filter((m) => !(m.date === entry.date && m.source === entry.source)),
+          ...s.measurements.filter((m) => !sameSlot(m)),
           entry,
         ].sort((a, b) => a.date.localeCompare(b.date))
         set({ measurements })
@@ -1954,6 +2056,30 @@ const useStore = create(
           measurements: [...s.measurements.filter((m) => m.id !== entry.id), entry]
             .sort((a, b) => a.date.localeCompare(b.date)),
         }))
+      },
+      /** Write a planned scan import; returns Undo, which puts the entries back as they were. */
+      importScans(plan) {
+        const before = get().measurements
+        set({ measurements: applyScanImport(before, plan) })
+        return () => set({ measurements: before })
+      },
+      /** Set where "since" deltas start from: a date, optional label and values, the entry it came from. */
+      setBodyStart(start) {
+        if (!start?.date) return
+        set({ bodyStart: {
+          date: start.date,
+          label: start.label || null,
+          values: Object.fromEntries(Object.entries(start.values || {}).filter(([, v]) => v != null && v !== '' && Number.isFinite(Number(v))).map(([k, v]) => [k, Number(v)])),
+          entryId: start.entryId || null,
+          device: start.device || null,
+        } })
+      },
+      /** Back to the default: the first tracked compound's start date. */
+      resetBodyStart() {
+        set({ bodyStart: null })
+      },
+      setBodyProfile(patch = {}) {
+        set((s) => ({ bodyProfile: { ...s.bodyProfile, ...patch } }))
       },
       setBodyGoal(metric, value) {
         set((s) => ({ bodyGoals: { ...s.bodyGoals, [metric]: value } }))
@@ -2144,7 +2270,7 @@ const useStore = create(
     }),
     {
       name: 'peptide-command-center', // storage key is history — renaming it would orphan existing data
-      version: 20,
+      version: 22,
       storage: createJSONStorage(() => safeStorage),
       // Saves written before a release can't pick new library entries up from
       // the seed, so each version bump backfills them here — once. Deleting one
@@ -2169,10 +2295,24 @@ const useStore = create(
       //   v18: a code and a colour on every compound, for the map
       //   v19: supplies and equipment, seeded from the user's own inventory
       //   v20: two nightly topicals, with the nights since each was started
+      //   v21: the user's 13 Jan 2025 Evolt scan (adjusted and original) as the starting point
+      //   v22: the full Evolt history (15 scans), scan fields first-class, a bad wake target cleared
       migrate: (persisted, from) => {
-        if (!persisted || from >= 20) return persisted
+        if (!persisted || from >= 22) return persisted
         const s = { ...persisted }
         const t = todayStr()
+        if (from < 22) {
+          // v21/v22: the Evolt history and the estimated starting scan. Scans
+          // already on record are left alone; an untimed copy of a scan is
+          // replaced by the timed import; a starting point chosen by hand stays.
+          const next = applyScanHistory(s.measurements || [], s.bodyStart, EVOLT_HISTORY)
+          s.measurements = next.measurements
+          s.bodyStart = next.bodyStart
+          // a target wake time outside 03:00 to 12:00 was stored by mistake
+          if (s.healthSettings?.wakeTarget && !validWakeTarget(s.healthSettings.wakeTarget)) {
+            s.healthSettings = { ...s.healthSettings, wakeTarget: null }
+          }
+        }
         if (from < 20) {
           // Idempotent: a topical already on the shelf is reused and a night
           // that already has a log is left alone, so running this over a save
@@ -2442,6 +2582,7 @@ const useStore = create(
         coachMarks: { ...current.coachMarks, ...(persisted?.coachMarks || {}) },
         restock: { ...current.restock, ...(persisted?.restock || {}) },
         bodyRefs: { ...current.bodyRefs, ...(persisted?.bodyRefs || {}) },
+        bodyProfile: { ...current.bodyProfile, ...(persisted?.bodyProfile || {}) },
         // saves written before v19 have neither key
         supplements: persisted?.supplements || current.supplements,
         supplementLogs: persisted?.supplementLogs || current.supplementLogs,
@@ -2471,6 +2612,10 @@ const useStore = create(
         // arrives with its default instead of being undefined on every existing
         // save — fx_usd_to_aud is the first one this actually matters for
         settings: { ...current.settings, ...(persisted?.settings || {}) },
+        healthSettings: { ...current.healthSettings, ...(persisted?.healthSettings || {}) },
+        checkins: persisted?.checkins || current.checkins,
+        habits: persisted?.habits || current.habits,
+        habitLogs: persisted?.habitLogs || current.habitLogs,
       }),
       onRehydrateStorage: () => (state) => {
         state?.enrichLibraryFromReference?.()

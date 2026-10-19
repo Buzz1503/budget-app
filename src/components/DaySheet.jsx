@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, Suspense } from 'react'
 import { format, parseISO } from 'date-fns'
 import {
   Check, SkipForward, AlertCircle, Pause, Syringe as SyringeIcon, Wind, Sun, Moon,
@@ -12,6 +12,7 @@ import { useCalendarRange } from '../lib/useCalendarRange'
 import { prettyDate } from '../lib/schedule'
 import { formatDose, formatUnitsLong } from '../lib/calc'
 import { SYMPTOM_TAGS, TAG_BY_ID, SEVERITY } from '../lib/symptoms'
+import { HEALTH_BUILD, DayHealth } from '../health/ui'
 
 /**
  * One day, and everything that can be said or changed about it.
@@ -256,6 +257,8 @@ function DayBody({
           Correct this day
         </button>
       )}
+
+      {HEALTH_BUILD && editable && <Suspense fallback={null}><DayHealth date={date} /></Suspense>}
 
       {isPast && (
         <p className="px-1 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-3)' }}>

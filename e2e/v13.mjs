@@ -36,6 +36,9 @@ const TAB_MARK = {
   Body: /How to measure/, More: /Build \/ rebuild my protocol/,
 }
 const nav = async (label) => {
+  // v46: Symptoms and Bloods moved into More
+  if (label === 'Symptoms' || label === 'Bloods') { await page.click('nav button[aria-label="More"]'); await page.waitForTimeout(500); await page.click(`[data-testid="more-${label.toLowerCase()}"]`); await page.waitForTimeout(700); return }
+
   await page.click(`nav button[aria-label="${label}"]`)
   await waitText(TAB_MARK[label])
   await page.waitForTimeout(250)
@@ -66,10 +69,12 @@ if (await modal().count()) {
 }
 
 // ---------- 1. five-tab nav ----------
-await step('bottom nav shows exactly Home · Calendar · Symptoms · Body · Bloods · More', async () => {
+// Stage 2C: Symptoms and Bloods moved to the top of More; Sleep is a tab in
+// the native build only, so the web build shows four
+await step('bottom nav shows exactly Home · Body · Calendar · More', async () => {
   const labels = await page.locator('nav button span:not(:has(svg))').allTextContents()
   const got = labels.map((s) => s.trim())
-  if (got.join('|') !== 'Home|Calendar|Symptoms|Body|Bloods|More') {
+  if (got.join('|') !== 'Home|Body|Calendar|More') {
     throw new Error(`nav is [${got.join(', ')}]`)
   }
 })
@@ -275,7 +280,10 @@ await step('order quantity and delivery date still work on the merged screen', a
   if (Object.keys(st.restock.qty || {}).length === 0) throw new Error('quantity override did not persist')
   const delivery = page.locator('button:has-text("Add expected delivery")').first()
   await delivery.click()
-  await page.locator('input[aria-label="Expected delivery date"]').first().fill('2026-12-01')
+  await page.locator('[data-testid="delivery-date"]').first().click()
+  await page.waitForTimeout(300)
+  await page.fill('[data-testid="delivery-date-input"]', '2026-12-01')
+  await page.click('[data-testid="delivery-date-done"]')
   await page.waitForTimeout(250)
   const st2 = await state()
   if (!Object.values(st2.restock.delivery || {}).includes('2026-12-01')) throw new Error('delivery date did not persist')

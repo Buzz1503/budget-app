@@ -99,6 +99,20 @@ describe('what each build writes', { timeout: 240000 }, () => {
     }
   })
 
+  it('web: no Apple Health code at all (no plugins, no cache, no demo data)', () => {
+    const js = bundle(dirs.web).join('\n')
+    expect(js).not.toContain('PepitoHealth')
+    expect(js).not.toContain('capgo')
+    expect(js).not.toContain('pepito-health')
+    expect(js).not.toContain('demo-hevy')
+  })
+
+  it('native: the Health screens are there, the demo generator is not', () => {
+    const js = bundle(dirs.native).join('\n')
+    expect(js).toContain('PepitoHealth')
+    expect(js).not.toContain('demo-hevy')
+  })
+
   it('native: no service worker, no manifest, no registration in the bundle', () => {
     const files = readdirSync(dirs.native)
     expect(files.filter((f) => /^(sw|workbox)/.test(f))).toEqual([])

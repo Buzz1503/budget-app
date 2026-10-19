@@ -47,7 +47,7 @@ const reload = async () => {
   await gotIt()
 }
 const bloodsTab = async () => {
-  await page.click('nav button[aria-label="Bloods"]'); await page.waitForTimeout(700)
+  await page.click('nav button[aria-label="More"]'); await page.waitForTimeout(500); await page.click('[data-testid="more-bloods"]'); await page.waitForTimeout(700)
 }
 const noOverflow = async (where) => {
   const w = await page.evaluate(() => document.documentElement.scrollWidth)

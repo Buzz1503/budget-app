@@ -1,24 +1,35 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, Suspense } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Ruler, Images, PersonStanding, LineChart as LineChartIcon, Plus, FileText, Trash2, Play,
   Info, Pencil,
 } from 'lucide-react'
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
 import { format, parseISO } from 'date-fns'
 import useStore, { todayStr } from '../store/useStore'
 import {
   METRICS, METRIC_BY_KEY, ALL_METRIC_BY_KEY, PRIMARY_FIELDS, EXTRA_GROUPS,
   MEASURE_RULES, REF_DISTANCES, refPhrase, legacyMetricsPresent,
-  metricSeries, rollingAverage, latest, delta,
 } from '../lib/metrics'
+import {
+  useLatestMeasurement, useBodyInput, seriesFor, latestCaption, BODY_FIELDS,
+  useBodyStart, useStartValue, sinceStart, sinceWords,
+} from '../lib/useBody'
+import StartPointSheet from './StartPointSheet'
+import CompositionView from './body/CompositionView'
+import { SCAN_FIELDS, SCAN_FIELD_BY_KEY, SCAN_DEVICES, groupedScanFields } from '../body/scanFields'
+import TrendChart from './charts/TrendChart'
+import ProgressChart from './charts/ProgressChart'
+import useChartEvents from './charts/useChartEvents'
 import { extractPdfText, parseScanText } from '../lib/scanParse'
 import Modal from './ui/Modal'
 import NumberField from './ui/NumberField'
+import PickerField from './ui/PickerField'
 import BodyModel from './BodyModel'
 import MeasureGuide from './MeasureGuide'
 import PhotosSection from './PhotosSection'
 import OutcomeEngine from './OutcomeEngine'
+import { useHealthLink } from '../lib/healthLink'
+import { HEALTH_BUILD, BodyHealthView, MeasurementsHealth, EffectsView } from '../health/ui'
 
 const SECTIONS = [
   { id: 'stats', label: 'Stats', icon: Ruler },
@@ -28,66 +39,98 @@ const SECTIONS = [
   { id: 'outcome', label: 'Outcomes', icon: LineChartIcon },
 ]
 
-export default function BodyTab() {
+const SEGMENTS = [
+  { id: 'composition', label: 'Composition' },
+  { id: 'effects', label: 'Effects' },
+  { id: 'recovery', label: 'Recovery' },
+  { id: 'training', label: 'Training' },
+]
+
+// Composition | Effects | Recovery | Training. Only in the native app once
+// Apple Health is there; on the web the Body tab is Composition alone. Sleep
+// has its own tab.
+function HealthSegments({ value, onChange }) {
+  return (
+    <div className="flex gap-1 rounded-full p-1" style={{ background: 'var(--surface-sunk)' }} role="tablist" data-testid="body-segments">
+      {SEGMENTS.map((s) => (
+        <button key={s.id} role="tab" aria-selected={value === s.id} onClick={() => onChange(s.id)} data-testid={`body-seg-${s.id}`}
+          className="min-h-[34px] flex-1 rounded-full text-xs font-bold"
+          style={value === s.id ? { background: 'var(--surface2)', color: 'var(--text)' } : { color: 'var(--text-3)' }}>
+          {s.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+export default function BodyTab({ goTo }) {
   const [section, setSection] = useState('stats')
+  const [adding, setAdding] = useState(false)
+  const [startOpen, setStartOpen] = useState(false)
+  const [viewing, setViewing] = useState(null)
+  const available = useHealthLink((s) => s.available)
+  const segment = useHealthLink((s) => s.bodySegment)
+  const setSegment = useHealthLink((s) => s.setBodySegment)
+  const showHealth = HEALTH_BUILD && available
+  if (showHealth && segment !== 'composition') {
+    return (
+      <div className="space-y-3">
+        <h1 className="text-2xl font-black tracking-tight">Body</h1>
+        <HealthSegments value={segment} onChange={setSegment} />
+        <Suspense fallback={null}>
+          {segment === 'effects' ? <EffectsView /> : <BodyHealthView segment={segment} goTo={goTo} />}
+        </Suspense>
+      </div>
+    )
+  }
   return (
     <div className="space-y-3">
-      <h1 className="text-2xl font-black tracking-tight">Body & Outcomes</h1>
+      <h1 className="text-2xl font-black tracking-tight">Body</h1>
+      {showHealth && <HealthSegments value="composition" onChange={setSegment} />}
+      <CompositionView onLog={() => setAdding(true)} onOpenStart={() => setStartOpen(true)} />
+
+      {/* the record itself: entries, tape trends, the model, photos, outcomes */}
+      <div className="px-1 pt-6">
+        <h2 className="text-base font-black">Records</h2>
+        <p className="text-xs font-medium" style={{ color: 'var(--text-3)' }}>Your entries and the tools around them.</p>
+      </div>
       <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
         {SECTIONS.map((s) => (
-          <button key={s.id} onClick={() => setSection(s.id)}
+          <button key={s.id} onClick={() => setSection(s.id)} data-testid={`body-section-${s.id}`}
             className="flex shrink-0 items-center gap-2 rounded-full px-3 py-2 text-xs font-bold"
             style={section === s.id
-              ? { background: 'var(--accent)', color: 'var(--accent-fg)' }
-              : { background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
+              ? { background: 'var(--surface2)', color: 'var(--text)', border: '1px solid var(--border)' }
+              : { background: 'var(--surface-sunk)', color: 'var(--text-2)', border: '1px solid transparent' }}>
             <s.icon size={13} /> {s.label}
           </button>
         ))}
       </div>
       <AnimatePresence mode="wait">
         <motion.div key={section} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
-          {section === 'stats' && <StatsSection />}
+          {section === 'stats' && <StatsSection onAdd={() => setAdding(true)} />}
+          {section === 'stats' && showHealth && <Suspense fallback={null}><MeasurementsHealth /></Suspense>}
           {section === 'trends' && <TrendsSection />}
           {section === 'model' && <ModelSection />}
           {section === 'photos' && <PhotosSection />}
           {section === 'outcome' && <OutcomeEngine />}
         </motion.div>
       </AnimatePresence>
+      <MeasurementSheet open={adding} onClose={() => setAdding(false)} />
+      <StartPointSheet open={startOpen} onClose={() => setStartOpen(false)} onViewEntry={setViewing} />
+      <MeasurementSheet open={!!viewing} onClose={() => setViewing(null)} entryId={viewing} />
     </div>
   )
 }
 
 // ---------- Stats: quick entry + latest values ----------
-function StatsSection() {
+function StatsSection({ onAdd }) {
   const measurements = useStore((s) => s.measurements)
-  const [adding, setAdding] = useState(false)
   const [editing, setEditing] = useState(null)
-
-  const recent = [...measurements].reverse().slice(0, 6)
+  const recent = [...measurements].reverse().slice(0, 8)
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-2">
-        {['weight', 'bodyFat', 'visceralFat', 'muscleMass'].map((k) => {
-          const m = METRIC_BY_KEY[k]
-          const val = latest(measurements, k)
-          const d = delta(measurements, k)
-          const good = d != null && (m.better === 'down' ? d < 0 : d > 0)
-          return (
-            <div key={k} className="card p-3">
-              <p className="text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-2)' }}>{m.label}</p>
-              <p className="text-2xl font-black tabular-nums">{val != null ? val : '—'}<span className="ml-1 text-xs font-bold" style={{ color: 'var(--text-2)' }}>{m.unit}</span></p>
-              {d != null && (
-                <p className="text-xs font-bold" style={{ color: good ? 'var(--good)' : 'var(--danger)' }}>
-                  {d > 0 ? '▲' : '▼'} {Math.abs(d)} {m.unit} since start
-                </p>
-              )}
-            </div>
-          )
-        })}
-      </div>
-
-      <button onClick={() => setAdding(true)} className="btn-primary flex w-full items-center justify-center gap-2 rounded-full py-3 text-sm font-black">
+      <button onClick={onAdd} className="btn-primary flex w-full items-center justify-center gap-2 rounded-full py-3 text-sm font-black">
         <Plus size={16} /> Log measurement
       </button>
 
@@ -110,7 +153,8 @@ function StatsSection() {
                 <span className="flex-1 truncate leading-tight">
                   {m.weight != null && `${m.weight}kg `}
                   {m.bodyFat != null && `· ${m.bodyFat}% BF `}
-                  {m.source === 'scan' && '· scan'}
+                  {m.source === 'scan' && `· ${m.device || 'scan'}`}
+                  {m.label && <span style={{ color: 'var(--text-3)' }}> · {m.label}</span>}
                   {m.editedAt && (
                     <span data-testid={`edited-${m.id}`} className="ml-1 font-black" style={{ color: 'var(--text-3)' }}>· Edited</span>
                   )}
@@ -122,8 +166,100 @@ function StatsSection() {
         </div>
       )}
 
-      <MeasurementSheet open={adding} onClose={() => setAdding(false)} />
       <MeasurementSheet open={!!editing} onClose={() => setEditing(null)} entryId={editing} />
+    </div>
+  )
+}
+
+// A scan's own details: the device, whether the values are estimated, whether
+// it is drawn on charts, the scan-only fields (kept apart from muscle mass and
+// visceral fat) and everything else it reported, grouped.
+function ScanDetails({ form, set }) {
+  const isScan = form.source === 'scan'
+  const groups = groupedScanFields(form)
+  return (
+    <div className="space-y-3 rounded-[14px] p-3" style={{ background: 'var(--surface-sunk)' }} data-testid="scan-details">
+      <label className="flex items-center justify-between gap-3">
+        <span className="text-xs font-bold">Body composition scan</span>
+        <input type="checkbox" checked={isScan} onChange={(e) => set('source', e.target.checked ? 'scan' : 'manual')} data-testid="entry-is-scan" className="h-5 w-5" />
+      </label>
+      {isScan && (
+        <>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block min-w-0">
+              <span className="mb-1 block text-xs font-bold" style={{ color: 'var(--text-2)' }}>Device</span>
+              <select className="input" value={form.device || ''} onChange={(e) => set('device', e.target.value || null)} data-testid="entry-device" aria-label="Scan device">
+                <option value="">Not set</option>
+                {SCAN_DEVICES.map((d) => <option key={d} value={d}>{d}</option>)}
+              </select>
+            </label>
+            <label className="block min-w-0">
+              <span className="mb-1 block text-xs font-bold" style={{ color: 'var(--text-2)' }}>Label</span>
+              <input className="input" value={form.label || ''} onChange={(e) => set('label', e.target.value)} data-testid="entry-label" aria-label="Label" />
+            </label>
+          </div>
+          <label className="flex items-center justify-between gap-3">
+            <span className="text-xs font-bold">Values are estimated</span>
+            <input type="checkbox" checked={!!form.estimated} onChange={(e) => set('estimated', e.target.checked)} data-testid="entry-estimated" className="h-5 w-5" />
+          </label>
+          {form.estimated && (
+            <textarea className="input min-h-16 text-xs" value={form.estimateNote || ''} onChange={(e) => set('estimateNote', e.target.value)}
+              placeholder="How the values were estimated" data-testid="entry-estimate-note" aria-label="Estimate note" />
+          )}
+          <label className="flex items-center justify-between gap-3">
+            <span className="min-w-0">
+              <span className="block text-xs font-bold">Show on charts</span>
+              <span className="block text-[11px] font-medium" style={{ color: 'var(--text-3)' }}>Off keeps it on record without a second point on the day.</span>
+            </span>
+            <input type="checkbox" checked={!form.hiddenFromCharts} onChange={(e) => set('hiddenFromCharts', !e.target.checked)} data-testid="entry-on-charts" className="h-5 w-5" />
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            {SCAN_FIELDS.map((f) => (
+              <label key={f.key} className="block min-w-0">
+                <span className="mb-1 block text-xs font-bold" style={{ color: 'var(--text-2)' }}>{f.label}{f.unit ? ` (${f.unit})` : ''}</span>
+                <NumberField allowEmpty min={0} value={form[f.key]} onChange={(n) => set(f.key, n)} aria-label={f.label} data-testid={`entry-${f.key}`} />
+              </label>
+            ))}
+          </div>
+          {(form.heightCm || form.ageAtScan) && (
+            <p className="text-xs font-medium tabular-nums" style={{ color: 'var(--text-3)' }}>
+              {[form.heightCm && `Height ${form.heightCm} cm`, form.ageAtScan && `age at scan ${form.ageAtScan}`].filter(Boolean).join(', ')}
+            </p>
+          )}
+          {form.time && <p className="text-xs font-medium tabular-nums" style={{ color: 'var(--text-3)' }}>Scanned at {form.time}</p>}
+          {groups.map((g) => (
+            <div key={g.group} data-testid={`extras-${g.group}`}>
+              <p className="t-caption mb-1" style={{ color: 'var(--text-3)' }}>{g.group}</p>
+              <div className="rows">
+                {g.rows.map((r) => (
+                  <div key={r.key} className="flex items-baseline gap-2 py-1.5 text-xs">
+                    <span className="min-w-0 flex-1 font-medium" style={{ color: 'var(--text-2)' }}>
+                      {r.label}{r.range ? <span style={{ color: 'var(--text-3)' }}> · range {r.range[0]} to {r.range[1]}</span> : null}
+                    </span>
+                    {r.status && <span className="rounded-full px-2 py-0.5 text-[11px] font-bold" style={{ background: 'var(--surface2)', color: 'var(--text-2)' }}>{r.status}</span>}
+                    <span className="font-bold tabular-nums">{Number(r.value.toFixed(r.dp))}{r.unit ? ` ${r.unit}` : ''}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+          {form.balance && (
+            <p className="text-xs font-medium" style={{ color: 'var(--text-2)' }} data-testid="scan-balance">
+              Balance: upper and lower {String(form.balance.upperLower || 'not given').toLowerCase()}, left and right {String(form.balance.leftRight || 'not given').toLowerCase()}
+            </p>
+          )}
+          {form.recommendations && (
+            <div data-testid="scan-recommendations">
+              <p className="t-caption mb-1" style={{ color: 'var(--text-3)' }}>{form.device || 'Device'} recommendations</p>
+              <p className="text-xs font-medium tabular-nums" style={{ color: 'var(--text-2)' }}>
+                {[['caloriesKcal', 'Calories', 'kcal'], ['proteinG', 'Protein', 'g'], ['carbsG', 'Carbs', 'g'], ['fatG', 'Fat', 'g']]
+                  .filter(([k]) => form.recommendations[k]).map(([k, label, unit]) => `${label} ${form.recommendations[k][0]} to ${form.recommendations[k][1]} ${unit}`).join(' · ')}
+              </p>
+              <p className="mt-0.5 text-[11px] font-medium" style={{ color: 'var(--text-3)' }}>As printed on the scan, not advice from this app.</p>
+            </div>
+          )}
+        </>
+      )}
     </div>
   )
 }
@@ -303,7 +439,7 @@ function MeasurementSheet({ open, onClose, entryId = null }) {
     }
   }
 
-  const hasAny = METRICS.some((m) => form[m.key] != null)
+  const hasAny = METRICS.some((m) => form[m.key] != null) || SCAN_FIELDS.some((f) => form[f.key] != null)
 
   const submit = () => {
     if (!hasAny) return
@@ -337,10 +473,11 @@ function MeasurementSheet({ open, onClose, entryId = null }) {
             <span className="mb-1 block text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-2)' }}>Date</span>
             <input type="date" className="input" data-testid="entry-date" value={form.date} onChange={(e) => e.target.value && set('date', e.target.value)} />
           </label>
-          <label className="block">
+          <div className="block min-w-0">
             <span className="mb-1 block text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-2)' }}>Time</span>
-            <input type="time" className="input" data-testid="entry-time" value={form.time || ''} onChange={(e) => set('time', e.target.value)} />
-          </label>
+            <PickerField kind="time" label="Time" value={form.time || null} fallback="08:00" emptyText="No time"
+              clearText="Clear time" testid="entry-time" onChange={(v) => set('time', v || '')} />
+          </div>
         </div>
 
         {/* scan import */}
@@ -368,6 +505,8 @@ function MeasurementSheet({ open, onClose, entryId = null }) {
         </div>
 
         <div className="grid grid-cols-2 gap-3">{PRIMARY_FIELDS.map(field)}</div>
+
+        <ScanDetails form={form} set={set} />
 
         <button onClick={() => setShowExtra(!showExtra)} className="text-xs font-bold" style={{ color: 'var(--text-2)' }}>
           {showExtra ? '− Hide' : '+ More'} measurements (neck, chest, hips, arms, forearms, thighs, calves)
@@ -479,38 +618,36 @@ function LinkedPhoto({ photos, date, value, onPick }) {
 // ---------- Trends ----------
 function TrendsSection() {
   const measurements = useStore((s) => s.measurements)
+  const bodyInput = useBodyInput()
+  const events = useChartEvents()
   const [key, setKey] = useState('weight')
-  // Pre-split arm/thigh readings are still real data, so they stay chartable —
+  // Pre-split arm/thigh readings are still real data, so they stay chartable;
   // they just aren't offered for new entries.
   const bodyRefs = useStore((s) => s.bodyRefs)
-  const chips = useMemo(() => [...METRICS, ...legacyMetricsPresent(measurements)], [measurements])
-  const m = ALL_METRIC_BY_KEY[key] || METRIC_BY_KEY.weight
+  // scan-only fields get a chip once a scan has them (fat and lean mass also come from scales)
+  const chips = useMemo(() => [
+    ...METRICS,
+    ...SCAN_FIELDS.filter((f) => seriesFor(f.key, bodyInput).length > 0),
+    ...legacyMetricsPresent(measurements),
+  ], [measurements, bodyInput])
+  const m = ALL_METRIC_BY_KEY[key] || SCAN_FIELD_BY_KEY[key] || METRIC_BY_KEY.weight
   const [editing, setEditing] = useState(null)
-
-  const { data, hasData } = useMemo(() => {
-    const raw = metricSeries(measurements, key)
-    if (raw.length === 0) return { data: [], hasData: false }
-    const roll = key === 'weight' ? rollingAverage(raw, 7) : null
-    const rollByDate = roll ? Object.fromEntries(roll.map((p) => [p.date, p.value])) : {}
-    // the entry id rides along on each point so a tap on the chart can open the
-    // same edit sheet the list does — the point and the row are one entry
-    const idByDate = Object.fromEntries(measurements.map((x) => [x.date, x.id]))
-    return {
-      hasData: true,
-      data: raw.map((p) => ({
-        label: format(parseISO(p.date), 'd MMM'),
-        value: p.value,
-        roll: rollByDate[p.date] ?? null,
-        id: idByDate[p.date] || null,
-      })),
-    }
-  }, [measurements, key])
+  const series = useMemo(() => seriesFor(key, bodyInput), [key, bodyInput])
+  const startValue = useStartValue(key)
+  const latest = useLatestMeasurement(BODY_FIELDS.has(key) ? key : 'weight')
+  const latestHere = BODY_FIELDS.has(key) ? latest : null
+  // a point that is one day's manual entry opens the same edit sheet the list does
+  const editDate = (date) => {
+    const hit = [...measurements].reverse().find((x) => x.date === date && x[key] != null)
+    if (hit) setEditing(hit.id)
+  }
 
   return (
     <div className="space-y-3">
+      <ProgressChart />
       <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
         {chips.map((mm) => (
-          <button key={mm.key} onClick={() => setKey(mm.key)}
+          <button key={mm.key} onClick={() => setKey(mm.key)} data-testid={`trend-chip-${mm.key}`}
             className="shrink-0 rounded-full px-3 py-2 text-xs font-bold"
             style={key === mm.key
               ? { background: 'var(--accent)', color: 'var(--accent-fg)' }
@@ -519,41 +656,22 @@ function TrendsSection() {
           </button>
         ))}
       </div>
-      <div className="card p-3">
-        <p className="text-sm font-bold">{m.label} {m.unit && `(${m.unit})`}{key === 'weight' && <span className="ml-1 text-xs font-medium" style={{ color: 'var(--text-2)' }}>· 7-day avg</span>}</p>
-        {m.how && (
-          <p className="mb-2 mt-1 text-xs font-medium leading-snug" style={{ color: 'var(--text-2)' }}>
-            {m.how}
-            {m.refKey && <span className="font-black" style={{ color: 'var(--good)' }}> ({refPhrase(bodyRefs, m.refKey)})</span>}
-          </p>
-        )}
-        {!m.how && <div className="mb-2" />}
-        {!hasData ? (
-          <p className="py-10 text-center text-xs font-semibold" style={{ color: 'var(--text-2)' }}>No {m.label.toLowerCase()} entries yet — log a measurement to see the trend.</p>
-        ) : (
-          <div className="h-52">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart
-                data={data}
-                margin={{ top: 8, right: 8, bottom: 0, left: -20 }}
-                onClick={(e) => {
-                  const id = e?.activePayload?.[0]?.payload?.id
-                  if (id) setEditing(id)
-                }}
-              >
-                <XAxis dataKey="label" tick={{ fontSize: 9, fill: 'var(--text-2)' }} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={26} />
-                <YAxis tick={{ fontSize: 9, fill: 'var(--text-2)' }} tickLine={false} axisLine={false} domain={['dataMin - 1', 'dataMax + 1']} />
-                <Tooltip contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, fontSize: 12 }} labelStyle={{ color: 'var(--text-2)' }} />
-                <Line type="monotone" dataKey="value" name={m.label} stroke={m.color} strokeWidth={2.5} dot={{ r: 3.5 }} activeDot={{ r: 6 }} isAnimationActive />
-                {key === 'weight' && <Line type="monotone" dataKey="roll" name="7-day avg" stroke="var(--info)" strokeWidth={2} strokeDasharray="4 3" dot={false} connectNulls isAnimationActive />}
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        )}
-        {hasData && (
-          <p className="mt-1 text-xs font-medium" style={{ color: 'var(--text-2)' }}>Tap a point to correct that entry.</p>
-        )}
-      </div>
+      {m.how && (
+        <p className="px-1 text-xs font-medium leading-snug" style={{ color: 'var(--text-2)' }}>
+          {m.how}
+          {m.refKey && <span className="font-black" style={{ color: 'var(--good)' }}> ({refPhrase(bodyRefs, m.refKey)})</span>}
+        </p>
+      )}
+      {series.length === 0 ? (
+        <div className="card p-4">
+          <p className="py-6 text-center text-xs font-semibold" style={{ color: 'var(--text-2)' }}>No {m.label.toLowerCase()} entries yet. Log a measurement to see the trend.</p>
+        </div>
+      ) : (
+        <TrendChart key={key} metric={key} chartType={`body-${key}`} title={m.label} unit={m.unit}
+          dp={m.unit === 'kg' || m.unit === '%' || m.unit === 'cm' ? 1 : 0} series={series} events={events}
+          current={latestHere ? latestHere.value : null} currentCaption={latestHere ? latestCaption(latestHere) : null}
+          startLine={startValue} onEditDate={editDate} testid="trends-chart" />
+      )}
       <MeasurementSheet open={!!editing} onClose={() => setEditing(null)} entryId={editing} />
     </div>
   )
@@ -561,13 +679,18 @@ function TrendsSection() {
 
 // ---------- Interactive body model ----------
 function ModelSection() {
-  const measurements = useStore((s) => s.measurements)
-  const bfSeries = useMemo(() => metricSeries(measurements, 'bodyFat'), [measurements])
-  const waistSeries = useMemo(() => metricSeries(measurements, 'waist'), [measurements])
-  const [idx, setIdx] = useState(Math.max(0, bfSeries.length - 1))
+  const bodyInput = useBodyInput()
+  const bfSeries = useMemo(() => seriesFor('bodyFat', bodyInput), [bodyInput])
+  const waistSeries = useMemo(() => seriesFor('waist', bodyInput), [bodyInput])
+  const start = useBodyStart()
+  const bfStart = useStartValue('bodyFat')
+  const [idx, setIdx] = useState(Number.MAX_SAFE_INTEGER)
 
-  // fall back to waist-derived estimate if no body-fat entries
-  const points = bfSeries.length ? bfSeries : waistSeries.map((w) => ({ date: w.date, value: Math.min(40, Math.max(12, (w.value - 60) * 0.6 + 18)) }))
+  // fall back to waist-derived estimate if no body-fat entries; the scrubber
+  // runs from the starting point, not from the oldest reading on record
+  const all = bfSeries.length ? bfSeries : waistSeries.map((w) => ({ date: w.date, value: Math.min(40, Math.max(12, (w.value - 60) * 0.6 + 18)) }))
+  const fromStart = start ? all.filter((p) => p.date >= start.date) : all
+  const points = fromStart.length ? fromStart : all
   const clampedIdx = Math.min(idx, Math.max(0, points.length - 1))
   const cur = points[clampedIdx]
   const bf = cur ? cur.value : 25
@@ -581,6 +704,11 @@ function ModelSection() {
         {cur ? (
           <>
             <p className="text-center text-sm font-black">{format(parseISO(cur.date), 'd MMM yyyy')} · {bf}% body fat</p>
+            {bfSeries.length > 0 && sinceStart(bf, bfStart) != null && (
+              <p className="text-center text-xs font-medium tabular-nums" style={{ color: 'var(--text-3)' }} data-testid="model-since">
+                {(() => { const d = sinceStart(bf, bfStart); return `${d > 0 ? 'up' : d < 0 ? 'down' : 'no change,'} ${Math.abs(d).toFixed(1)} points ${sinceWords(bfStart)}` })()}
+              </p>
+            )}
             {points.length > 1 && (
               <div className="mt-3">
                 <div className="flex items-center gap-2">

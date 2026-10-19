@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import {
   ChevronLeft, ChevronRight, CalendarDays, CalendarRange, Sun, Moon, Layers,
-  CalendarPlus, Zap, Wind, Syringe as SyringeIcon, Check, AlertCircle, SkipForward,
+  CalendarPlus, Zap, Wind, Syringe as SyringeIcon, Check, AlertCircle, SkipForward, Dumbbell,
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import useStore, { todayStr } from '../store/useStore'
@@ -12,6 +12,7 @@ import {
   monthGridRange, addMonths, EVENT_META, ADHERENCE_TONE, ADHERENCE_WORDS,
 } from '../lib/calendarView'
 import { useCalendarRange } from '../lib/useCalendarRange'
+import { useHealthLink } from '../lib/healthLink'
 import { entryState } from '../lib/backfill'
 import { formatDose, formatUnitsLong } from '../lib/calc'
 import { buildIcs } from '../lib/calendar'
@@ -150,6 +151,7 @@ function WeekView({ cal, onOpenDay }) {
 
 function DayRow({ day: d, index, onOpen }) {
   const empty = d.scheduled === 0 && d.events.length === 0
+  const hasWorkout = useHealthLink((s) => s.workoutDates.has(d.date))
 
   return (
     <motion.button layout onClick={onOpen}
@@ -173,6 +175,11 @@ function DayRow({ day: d, index, onOpen }) {
             {d.scheduled > 0 && (
               <span className="ml-2 font-bold" style={{ color: 'var(--text-2)' }}>
                 · {d.shots} shot{d.shots === 1 ? '' : 's'}
+              </span>
+            )}
+            {hasWorkout && (
+              <span className="ml-2 inline-flex items-center gap-0.5 font-bold" style={{ color: 'var(--text-3)' }} data-testid="day-workout-marker">
+                <Dumbbell size={10} /> workout
               </span>
             )}
           </span>

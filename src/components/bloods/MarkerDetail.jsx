@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, Suspense } from 'react'
 import { Pencil, RotateCcw } from 'lucide-react'
 import useStore, { todayStr } from '../../store/useStore'
 import Modal from '../ui/Modal'
@@ -11,6 +11,7 @@ import {
 } from '../../lib/bloods'
 import { RangeBar } from './RangeBar'
 import MarkerChart from './MarkerChart'
+import { HEALTH_BUILD, MarkerHealthOverlay } from '../../health/ui'
 
 /**
  * One marker, over everything that has been recorded of it.
@@ -120,6 +121,8 @@ export default function MarkerDetail({ name, open, onClose }) {
             </p>
           </div>
         )}
+
+        {HEALTH_BUILD && <Suspense fallback={null}><MarkerHealthOverlay series={series} unit={marker.unit} /></Suspense>}
 
         {/* ------------------------------------------------ every value */}
         {series.length > 0 && (

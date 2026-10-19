@@ -39,6 +39,9 @@ const MORE_LINK = {
     Wizard: 'text=Add, remove or edit anything I take',
 }
 const nav = async (label) => {
+  // v46: Symptoms and Bloods moved into More
+  if (label === 'Symptoms' || label === 'Bloods') { await page.click('nav button[aria-label="More"]'); await page.waitForTimeout(500); await page.click(`[data-testid="more-${label.toLowerCase()}"]`); await page.waitForTimeout(700); return }
+
   if (PRIMARY_TABS.has(label)) {
     await page.click(`nav button[aria-label="${label}"]`)
   } else {
@@ -270,7 +273,10 @@ await step('an expected delivery silences the low-stock alert and reaches the ca
     const d = new Date(); d.setDate(d.getDate() + 3)
     return d.toISOString().slice(0, 10)
   })
-  await row.locator('input[aria-label="Expected delivery date"]').fill(soon)
+  await row.locator('[data-testid="delivery-date"]').first().click()
+  await page.waitForTimeout(300)
+  await page.fill('[data-testid="delivery-date-input"]', soon)
+  await page.click('[data-testid="delivery-date-done"]')
   await page.waitForTimeout(500)
   const s = await state()
   if (s.restock.delivery['vial:tesamorelin'] !== soon) throw new Error('delivery date did not persist')
