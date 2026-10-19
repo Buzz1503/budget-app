@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react'
-import { Check } from 'lucide-react'
+import { Check, Layers } from 'lucide-react'
 import { todayStr } from '../../store/useStore'
 import { rangeBounds, bucketFor, bucketPoints, groupEvents, shortDate, rangeChangeWords } from '../../body/chartPoints'
 import { FAMILY_LABEL } from '../../body/bodySeries'
 import { RangeChips, Axes, colorFor, useChartGeometry, W, PAD, PLOT_H } from './TrendChart'
+import { useLanes, LaneMenu, LaneRows, laneChangeWords, LANE_H } from './Lanes'
 
 const fmt = (v, dp) => Number(v).toFixed(dp)
 
@@ -32,15 +33,31 @@ export default function FamilyChart({
   const extra = [...(refBand ? [refBand.lo, refBand.hi] : []), ...(start ? [start.value] : [])]
   const { axis, xFor, yFor } = useChartGeometry({ points: lines.flatMap((l) => l.points), from, to, metric, extraValues: extra })
   const groups = groupEvents(events.filter((e) => e.date >= from && e.date <= to))
+  const [laneOpen, setLaneOpen] = useState(false)
+  const [laneChange, setLaneChange] = useState(null)
+  const { compounds: laneCompounds, chosen: laneIds, lanes, toggle: toggleLane } = useLanes(`family-${metric}`, from, to)
   const plotBottom = PAD.t + PLOT_H
-  const H = plotBottom + PAD.b + (groups.length ? 24 : 0)
+  const laneTop = plotBottom + PAD.b
+  const pinTop = laneTop + lanes.length * LANE_H
+  const H = pinTop + (groups.length ? 24 : 0)
   const color = colorFor(metric)
   const toggle = (k) => setHidden((h) => { const n = new Set(h); if (n.has(k)) n.delete(k); else n.add(k); return n })
 
   return (
     <div className="card p-3" data-testid={testid || `family-chart-${metric}`} data-range={rangeKey}>
-      <p className="t-caption" style={{ color: 'var(--text-2)' }}>{title}</p>
+      <div className="flex items-center gap-2">
+        <p className="t-caption min-w-0 flex-1" style={{ color: 'var(--text-2)' }}>{title}</p>
+        <button onClick={() => setLaneOpen((v) => !v)} data-testid="overlay-button" aria-expanded={laneOpen}
+          className="flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold" style={{ background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
+          <Layers size={12} /> Overlay
+        </button>
+      </div>
       <div className="mt-2"><RangeChips value={rangeKey} onChange={setRangeKey} /></div>
+      {laneOpen && (
+        <div className="mt-2 space-y-2 rounded-[14px] p-3" style={{ background: 'var(--surface-sunk)' }} data-testid="overlay-panel">
+          <LaneMenu compounds={laneCompounds} chosen={laneIds} toggle={toggleLane} />
+        </div>
+      )}
       {lines.every((l) => l.points.length === 0) ? (
         <p className="mt-3 text-xs font-medium" style={{ color: 'var(--text-2)' }}>No data in this range yet.</p>
       ) : (
@@ -79,13 +96,18 @@ export default function FamilyChart({
               ))}
             </g>
           ))}
+          {laneChange && <line x1={xFor(laneChange.date)} x2={xFor(laneChange.date)} y1={PAD.t} y2={pinTop} stroke="var(--text-2)" strokeDasharray="3 3" data-testid="lane-guide" />}
+          <LaneRows lanes={lanes} top={laneTop} xFor={xFor} left={PAD.l} right={W - PAD.r} picked={laneChange} onPick={setLaneChange} />
           {groups.map((g, i) => (
             <g key={`pin${g.date}`} onClick={() => setPin(pin === i ? null : i)} style={{ cursor: 'pointer' }} data-testid="chart-pin">
-              <circle cx={xFor(g.date)} cy={plotBottom + PAD.b + 9} r="8" fill="var(--surface2)" stroke="var(--border)" />
-              <text x={xFor(g.date)} y={plotBottom + PAD.b + 12} fontSize="9" fontWeight="800" textAnchor="middle" fill="var(--text)">{i + 1}</text>
+              <circle cx={xFor(g.date)} cy={pinTop + 9} r="8" fill="var(--surface2)" stroke="var(--border)" />
+              <text x={xFor(g.date)} y={pinTop + 12} fontSize="9" fontWeight="800" textAnchor="middle" fill="var(--text)">{i + 1}</text>
             </g>
           ))}
         </svg>
+      )}
+      {laneChange && (
+        <div className="mt-2 rounded-[10px] p-2.5 text-xs font-medium" style={{ background: 'var(--surface-sunk)', color: 'var(--text-2)' }} data-testid="lane-popover">{laneChangeWords(laneChange)}</div>
       )}
       {pin != null && groups[pin] && (
         <div className="mt-2 space-y-0.5 rounded-[10px] p-2.5 text-xs font-medium" style={{ background: 'var(--surface-sunk)', color: 'var(--text-2)' }} data-testid="pin-popover">

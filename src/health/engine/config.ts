@@ -95,10 +95,14 @@ export const PHASES = {
   // when there are fewer than 10 points. Readiness and waist were not in the
   // brief's list; 8 points and 1 cm are calls made here.
   wobbleFallback: {
-    weight: 0.6, fatMass: 0.6, leanMass: 0.8, bodyFat: 0.8, waist: 1,
-    rhr: 2, hrv: 6, sleep: 0.5, readiness: 8,
+    weight: 0.6, fatMass: 0.6, leanMass: 0.8, bodyFat: 0.8, waist: 1, visceralFatLevel: 1,
+    rhr: 2, hrv: 6, sleep: 0.5, deepSleep: 15, sleepScore: 8, readiness: 8,
   },
   combinedNote: 'These changes started together. This shows their combined effect and cannot be split by compound.',
+  overlapDays: 14,         // another compound changing within this many days of a start shares its effects
+  cleanWindowDays: 14,     // a dose change with nothing else within 14 days either side: 14 days before vs after
+  beforeMaxDays: 90,       // "since starting": the period before is as long as the period on, at most 90 days
+  beforeMinDays: 28,       // and at least 28
 } as const
 
 // Compounds whose effects are tracked by default, besides those flagged as

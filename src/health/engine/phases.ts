@@ -115,7 +115,7 @@ export function buildPhases(events: ChangeEvent[], firstDataDate: string | null,
 
 // --------------------------------------------------------------- wobble
 
-export type MetricKey = 'weight' | 'fatMass' | 'leanMass' | 'bodyFat' | 'waist' | 'rhr' | 'hrv' | 'sleep' | 'readiness'
+export type MetricKey = 'weight' | 'fatMass' | 'leanMass' | 'bodyFat' | 'waist' | 'visceralFatLevel' | 'rhr' | 'hrv' | 'sleep' | 'deepSleep' | 'sleepScore' | 'readiness'
 export interface Point { date: string; value: number }
 
 /**
@@ -139,8 +139,8 @@ export function wobble(series: Point[], metric: MetricKey, today: string): { val
 // ------------------------------------------------------------- per phase
 
 export type ChangeLabel = 'Clear change' | 'Possible change' | 'Within normal fluctuation' | 'Too early'
-export const BODY_METRICS: MetricKey[] = ['weight', 'fatMass', 'leanMass', 'bodyFat', 'waist']
-export const DAILY_METRICS: MetricKey[] = ['rhr', 'hrv', 'sleep', 'readiness']
+export const BODY_METRICS: MetricKey[] = ['weight', 'fatMass', 'leanMass', 'bodyFat', 'waist', 'visceralFatLevel']
+export const DAILY_METRICS: MetricKey[] = ['rhr', 'hrv', 'sleep', 'deepSleep', 'sleepScore', 'readiness']
 
 export const METRIC_INFO: Record<MetricKey, { label: string; unit: string; rateUnit: string; dp: number }> = {
   weight: { label: 'Weight', unit: 'kg', rateUnit: 'kg', dp: 1 },
@@ -148,9 +148,12 @@ export const METRIC_INFO: Record<MetricKey, { label: string; unit: string; rateU
   leanMass: { label: 'Lean mass', unit: 'kg', rateUnit: 'kg', dp: 1 },
   bodyFat: { label: 'Body fat', unit: '%', rateUnit: 'points', dp: 1 },
   waist: { label: 'Waist', unit: 'cm', rateUnit: 'cm', dp: 1 },
+  visceralFatLevel: { label: 'Visceral fat level', unit: '', rateUnit: 'levels', dp: 1 },
   rhr: { label: 'Resting heart rate', unit: 'bpm', rateUnit: 'bpm', dp: 0 },
   hrv: { label: 'HRV', unit: 'ms', rateUnit: 'ms', dp: 0 },
-  sleep: { label: 'Sleep', unit: 'h', rateUnit: 'h', dp: 1 },
+  sleep: { label: 'Sleep duration', unit: 'h', rateUnit: 'h', dp: 1 },
+  deepSleep: { label: 'Deep sleep', unit: 'min', rateUnit: 'min', dp: 0 },
+  sleepScore: { label: 'Sleep score', unit: '', rateUnit: '', dp: 0 },
   readiness: { label: 'Readiness', unit: '', rateUnit: '', dp: 0 },
 }
 
@@ -227,7 +230,11 @@ export function rowSentence(row: Pick<MetricRow, 'metric' | 'kind' | 'now' | 'be
 /** "Fat mass: falling 0.25 kg a week (before: rising 0.1 kg a week). Clear change." */
 export const fullSentence = (row: MetricRow) => `${row.text}. ${row.label}.`
 
-export function metricRow(metric: MetricKey, series: Point[], phase: Phase, prev: Phase | null, wob: number): MetricRow {
+export const LABEL_RANK = { 'Clear change': 0, 'Possible change': 1, 'Within normal fluctuation': 2, 'Too early': 3 } as const
+
+export interface Window { from: string; to: string; days: number }
+
+export function metricRow(metric: MetricKey, series: Point[], phase: Window, prev: Window | null, wob: number): MetricRow {
   const kind = BODY_METRICS.includes(metric) ? 'body' : 'daily'
   const now = kind === 'body' ? bodyRate(series, phase) : dailyMean(series, phase)
   const before = prev ? (kind === 'body' ? bodyRate(series, prev) : dailyMean(series, prev)) : null
@@ -238,33 +245,4 @@ export function metricRow(metric: MetricKey, series: Point[], phase: Phase, prev
   const label: ChangeLabel = magnitude == null ? 'Too early' : changeLabel(magnitude, wob)
   const row = { metric, kind, now, before, magnitude, wobble: wob, label } as Omit<MetricRow, 'text'>
   return { ...row, text: rowSentence(row) }
-}
-
-const LABEL_ORDER: Record<ChangeLabel, number> = { 'Clear change': 0, 'Possible change': 1, 'Within normal fluctuation': 2, 'Too early': 3 }
-
-export interface PhaseView extends Phase {
-  rows: MetricRow[]
-}
-
-/**
- * Every phase with a row for each metric that has any reading in it, clear
- * changes first. Newest phase first.
- */
-export function phaseViews({ compounds, series, today }: {
-  compounds: TrackedCompound[]
-  series: Partial<Record<MetricKey, Point[]>>
-  today: string
-}): PhaseView[] {
-  const all = Object.values(series).flatMap((s) => s || [])
-  const first = all.length ? all.reduce((m, p) => (p.date < m ? p.date : m), all[0].date) : null
-  const phases = buildPhases(trackedEvents(compounds), first, today)
-  const wob = Object.fromEntries((Object.keys(series) as MetricKey[]).map((k) => [k, wobble(series[k] || [], k, today).value])) as Record<MetricKey, number>
-  return phases.map((p, i) => {
-    const prev = i > 0 ? phases[i - 1] : null
-    const rows = (Object.keys(series) as MetricKey[])
-      .filter((k) => inPhase(series[k] || [], p).length > 0)
-      .map((k) => metricRow(k, series[k] || [], p, prev, wob[k]))
-      .sort((a, b) => LABEL_ORDER[a.label] - LABEL_ORDER[b.label])
-    return { ...p, rows }
-  }).reverse()
 }

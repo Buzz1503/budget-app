@@ -1,21 +1,24 @@
-import { COMPARE } from '../../health/engine/config'
+import { useMemo } from 'react'
+import { todayStr } from '../../store/useStore'
+import { compoundEffects } from '../../health/engine/compoundEffects'
 import { useCompounds } from './useHealthModel'
-import EffectsView from './EffectsView'
+import { CompoundEffectsDetail, useEffectInput } from './EffectsView'
 
 /**
- * A compound's Health view, inside History › compound: the same phase cards
- * as Body › Effects, kept to the phases where this compound started, stopped
- * or changed dose.
+ * History › compound: the same page as Body › Effects › compound, for this
+ * one, whether or not it is tracked.
  */
 export default function CompoundHealth({ peptideId }) {
   const compounds = useCompounds()
+  const input = useEffectInput()
+  const t = todayStr()
   const c = compounds.find((x) => x.id === peptideId)
-  if (!c) return null
+  const fx = useMemo(() => (c ? compoundEffects(c, compounds, input, t) : null), [c, compounds, input, t])
+  if (!c || !fx) return null
   return (
-    <div className="space-y-2" data-testid="compound-health">
-      <p className="px-1 t-caption" style={{ color: 'var(--text-2)' }}>Effects, phases where {c.name} changed</p>
-      <EffectsView compoundId={peptideId} compact />
-      <p className="px-1 text-xs font-medium leading-snug" style={{ color: 'var(--text-3)' }}>{COMPARE.caveat}</p>
+    <div data-testid="compound-health">
+      <p className="t-caption mb-2 px-1" style={{ color: 'var(--text-2)' }}>Effects</p>
+      <CompoundEffectsDetail compound={c} fx={fx} input={input} />
     </div>
   )
 }

@@ -7,6 +7,7 @@ import {
 } from '../../body/chartPoints'
 import { bloodPoints, shortName } from '../../health/engine/overlay'
 import { wobble as wobbleOf } from '../../health/engine/phases'
+import { useLanes, LaneMenu, LaneRows, laneChangeWords, LANE_H } from './Lanes'
 import { PHASES } from '../../health/engine/config'
 
 /** The four series colours; every other line is drawn in the primary text colour. */
@@ -142,9 +143,12 @@ export default function TrendChart({
   const keep = pickLabels(boxes)
 
   const groups = ov.pins ? groupEvents(events.filter((e) => e.date >= from && e.date <= to)) : []
+  const { compounds: laneCompounds, chosen: laneIds, lanes, toggle: toggleLane } = useLanes(chartType, from, to)
   const blood = ov.bloods.length ? bloodPoints(tests, ov.bloods, from, to) : []
   const plotBottom = PAD.t + PLOT_H
-  const H = plotBottom + PAD.b + (groups.length ? PIN_ROW : 0)
+  const laneTop = plotBottom + PAD.b
+  const pinTop = laneTop + lanes.length * LANE_H
+  const H = pinTop + (groups.length ? PIN_ROW : 0)
   const shownValue = current ?? (points.length ? points[points.length - 1].value : null)
   const change = rangeChangeWords(line.length ? line : points, unit, dp, from, to)
 
@@ -157,6 +161,7 @@ export default function TrendChart({
 
   const sel = selected?.type === 'point' ? points[selected.i] : null
   const pin = selected?.type === 'pin' ? groups[selected.i] : null
+  const laneChange = selected?.type === 'lane' ? selected.change : null
 
   return (
     <div className="card p-3" data-testid={testid || `trend-chart-${chartType}`} data-range={fixed ? 'window' : rangeKey} data-bucket={bucket}>
@@ -186,6 +191,7 @@ export default function TrendChart({
             <Chip on={ov.pins} onClick={() => setOv({ pins: !ov.pins })} testid="ov-pins">Pins</Chip>
             {wobble != null && <Chip on={ov.wobble} onClick={() => setOv({ wobble: !ov.wobble })} testid="ov-wobble">Normal wobble band</Chip>}
           </div>
+          <LaneMenu compounds={laneCompounds} chosen={laneIds} toggle={toggleLane} />
           {markerNames.length > 0 && (
             <>
               <p className="t-caption" style={{ color: 'var(--text-3)' }}>Bloods</p>
@@ -248,10 +254,15 @@ export default function TrendChart({
               <circle cx={xFor(p.x)} cy={yFor(p.value)} r="11" fill="transparent" onClick={() => setSelected({ type: 'point', i })} data-testid="chart-hit" style={{ cursor: 'pointer' }} />
             </g>
           ))}
+          {laneChange && (
+            <line x1={xFor(laneChange.date)} x2={xFor(laneChange.date)} y1={PAD.t} y2={laneTop + lanes.length * LANE_H} stroke="var(--text-2)" strokeDasharray="3 3" data-testid="lane-guide" />
+          )}
+          <LaneRows lanes={lanes} top={laneTop} xFor={xFor} left={PAD.l} right={W - PAD.r} picked={laneChange}
+            onPick={(change) => setSelected({ type: 'lane', change })} />
           {groups.map((g, i) => (
             <g key={`pin${g.date}`} onClick={() => setSelected({ type: 'pin', i })} style={{ cursor: 'pointer' }} data-testid="chart-pin">
-              <circle cx={xFor(g.date)} cy={plotBottom + PAD.b + 9} r="8" fill="var(--surface2)" stroke="var(--border)" />
-              <text x={xFor(g.date)} y={plotBottom + PAD.b + 12} fontSize="9" fontWeight="800" textAnchor="middle" fill="var(--text)">{i + 1}</text>
+              <circle cx={xFor(g.date)} cy={pinTop + 9} r="8" fill="var(--surface2)" stroke="var(--border)" />
+              <text x={xFor(g.date)} y={pinTop + 12} fontSize="9" fontWeight="800" textAnchor="middle" fill="var(--text)">{i + 1}</text>
             </g>
           ))}
         </svg>
@@ -274,6 +285,12 @@ export default function TrendChart({
           <div className="min-w-0 flex-1 space-y-0.5 text-xs font-medium tabular-nums" style={{ color: 'var(--text-2)' }}>
             {pin.events.map((e, i) => <p key={i}><b style={{ color: 'var(--text)' }}>{shortDate(e.date)}</b> · {e.text}</p>)}
           </div>
+          <button onClick={() => setSelected(null)} aria-label="Close" className="shrink-0 p-0.5" style={{ color: 'var(--text-3)' }}><X size={14} /></button>
+        </div>
+      )}
+      {laneChange && (
+        <div className="mt-2 flex items-start gap-2 rounded-[10px] p-2.5" style={{ background: 'var(--surface-sunk)' }} data-testid="lane-popover">
+          <p className="min-w-0 flex-1 text-xs font-medium" style={{ color: 'var(--text-2)' }}>{laneChangeWords(laneChange)}</p>
           <button onClick={() => setSelected(null)} aria-label="Close" className="shrink-0 p-0.5" style={{ color: 'var(--text-3)' }}><X size={14} /></button>
         </div>
       )}

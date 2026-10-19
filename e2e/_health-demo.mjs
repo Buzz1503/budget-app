@@ -138,7 +138,7 @@ await step('Calendar day sheet has the Health snapshot', async () => {
   }
 })
 
-await step('History › compound shows its phase cards', async () => {
+await step('History › compound shows its Effects page', async () => {
   await tab('More')
   await page.click('[data-testid="more-history"]')
   await page.waitForTimeout(600)
@@ -146,7 +146,7 @@ await step('History › compound shows its phase cards', async () => {
   if (!(await row.count())) { console.log('  (no compounds in this profile; skipped)'); return }
   await row.click()
   await seen('[data-testid="compound-detail"]')
-  await seen('[data-testid="compound-health"]')
+  await seen('[data-testid="compound-health"] [data-testid="effects-since"]')
   await noOverflow('Compound detail')
   await closeSheet()
 })
@@ -169,17 +169,40 @@ await step('Trends: overall progress chart and the metric chart', async () => {
   await noOverflow('Trends')
 })
 
-await step('Effects: phase cards newest first, a row opens its chart', async () => {
+await step('Effects: one row per tracked compound, each opening its own page', async () => {
   await page.click('[data-testid="body-seg-effects"]')
-  await seen('[data-testid="phase-card"]')
-  const titles = await page.locator('[data-testid="phase-title"]').allInnerTexts()
-  if (titles.at(-1) !== 'Before tracking') throw new Error(`last card is "${titles.at(-1)}"`)
-  const text = await page.locator('[data-testid="effects-view"]').innerText()
+  await seen('[data-testid="effects-compound"]')
+  if (await page.locator('[data-testid="phase-card"]').count()) throw new Error('the old combined phase cards are still there')
+  await page.locator('[data-testid="effects-compound"]').first().click()
+  await seen('[data-testid="compound-effects"]')
+  await seen('[data-testid="effects-since"]')
+  await seen('[data-testid="effects-clean"]')
+  await seen('[data-testid="dose-strip"]')
+  const text = await page.locator('[data-testid="compound-effects"]').innerText()
   if (/caused|improved|worked/i.test(text)) throw new Error('causal wording in Effects')
-  await page.locator('[data-testid="phase-row"]').first().click()
-  await seen('[data-testid="effects-chart"] [data-testid="chart-point"]')
-  await closeSheet()
-  await noOverflow('Effects')
+  // the demo protocol starts every compound on the same day: the overlap is named
+  if (!/Changes in this section are shared with/.test(text)) throw new Error('no overlap warning for compounds started together')
+  await noOverflow('Effects compound page')
+  await page.click('[data-testid="effects-back"]')
+  await seen('[data-testid="effects-view"]')
+})
+
+await step('Charts: a compound lane under the axis, a tapped change draws a guide', async () => {
+  await page.click('[data-testid="body-seg-recovery"]')
+  const hrv = page.locator('[data-testid="trend-chart-hrv"]')
+  await hrv.locator('[data-testid="overlay-button"]').click()
+  const toggles = hrv.locator('[data-testid^="lane-toggle-"]')
+  if ((await toggles.count()) < 1) throw new Error('no compounds in the Overlay menu')
+  await toggles.first().click()
+  await hrv.locator('[data-testid^="lane-"] path').first().waitFor({ timeout: 5000 })
+  const change = hrv.locator('[data-testid="lane-change"]').first()
+  if (await change.count()) {
+    await change.click()
+    await hrv.locator('[data-testid="lane-guide"]').waitFor({ state: 'attached', timeout: 3000 }) // a vertical line has no width, so 'visible' never holds
+    await hrv.locator('[data-testid="lane-popover"]').waitFor({ timeout: 3000 })
+  }
+  if (await hrv.locator('[data-testid="ov-ticks"]').count()) throw new Error('dose tick rows came back')
+  await noOverflow('Recovery with a lane')
 })
 
 await step('Target wake time: set, then reset to auto', async () => {

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   trackedEvents, groupEvents, buildPhases, describeChanges, wobble, bodyRate, dailyMean,
-  changeLabel, metricRow, fullSentence, rowSentence, phaseViews, defaultTrackEffects, tracksEffects,
+  changeLabel, metricRow, fullSentence, rowSentence, defaultTrackEffects, tracksEffects,
 } from './phases'
 import type { TrackedCompound, Point, Phase } from './phases'
 import { PHASES } from './config'
@@ -133,23 +133,5 @@ describe('change labels and sentences', () => {
     expect(rowSentence({ ...base, now: { ok: false, value: null, n: 4 } })).toBe('Resting heart rate: too early to say (needs 10 days with data in this phase)')
     const all = [rowSentence({ ...base, now: { ok: true, value: 55, n: 12 } })].join(' ')
     expect(all).not.toMatch(/caused|improved|worked/)
-  })
-})
-
-describe('phase views', () => {
-  it('newest phase first, with a clear fall in fat mass after a start', () => {
-    const days = dateRange('2026-06-01', T)
-    const fat = days.filter((_, i) => i % 2 === 0).map((d) => ({
-      date: d, value: d < '2026-08-01' ? 30 + (days.indexOf(d) * 0.01) : 30.6 - (days.indexOf(d) - 61) * 0.05,
-    }))
-    const views = phaseViews({
-      compounds: [reta([{ date: '2026-08-01', kind: 'start', to: 1.5, unit: 'mg' }])],
-      series: { fatMass: fat },
-      today: T,
-    })
-    expect(views.map((v) => v.title)).toEqual(['Started Reta 1.5 mg', 'Before tracking'])
-    expect(views[0].rows[0]).toMatchObject({ metric: 'fatMass', label: 'Clear change' })
-    expect(views[0].rows[0].text).toMatch(/^Fat mass: falling 0\.35 kg a week \(before: rising 0\.07 kg a week\)$/)
-    expect(views[1].rows[0].label).toBe('Too early')
   })
 })
