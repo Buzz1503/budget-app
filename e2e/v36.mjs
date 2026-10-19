@@ -509,16 +509,16 @@ await step('4b · paused days are treated differently across the whole cell', as
   console.log(`  "${label}"`)
 })
 
-await step('4c · symptom and blood markers are there, and distinct from doses', async () => {
+await step('4c · the blood marker is there and distinct from doses; no symptom marker since 2D', async () => {
   await showing(iso(-4))
   const cell = page.locator(`[data-testid="cal-cell-${iso(-4)}"]`)
-  if (!(await cell.locator('[data-testid="day-symptom"]').count())) throw new Error('no symptom marker')
+  if (await cell.locator('[data-testid="day-symptom"]').count()) throw new Error('a symptom marker is still drawn')
   if (!(await cell.locator('[data-testid="day-blood"]').count())) throw new Error('no blood-test marker')
   // they are not dots — a dot means a dose
   const dots = await cell.locator('[data-testid="day-dot"]').evaluateAll(
     (els) => els.map((e) => e.getAttribute('data-kind')))
   if (dots.includes('symptom') || dots.includes('blood')) throw new Error('markers were drawn as dose dots')
-  console.log(`  symptom + blood markers, ${dots.length} dose dot(s) beside them`)
+  console.log(`  blood marker, ${dots.length} dose dot(s) beside it`)
 })
 
 await step('4d · the legend exists and is folded away', async () => {
@@ -567,11 +567,12 @@ await step('5 · a day opens to everything that happened on it', async () => {
   if (supps > 0 && !(await sheet.locator('[data-testid="day-supplements"]').count())) {
     throw new Error('supplements exist but the day does not list them')
   }
-  if (!(await sheet.locator('[data-testid="day-symptom-entry"]').count())) throw new Error('the symptom entry is not shown')
+  // stage 2D: the day's symptom check-in is kept in storage but no longer shown
+  if (await sheet.locator('[data-testid="day-symptom-entry"]').count()) throw new Error('the symptom entry is still shown')
   if (!(await sheet.locator('[data-testid="day-bloods"]').count())) throw new Error('the blood test is not shown')
   await noOverflow('the day sheet')
   await page.screenshot({ path: `${SHOT}/v36-day.png` })
-  console.log(`  ${compounds} compounds, supplements, symptoms and a blood test`)
+  console.log(`  ${compounds} compounds, supplements and a blood test`)
 })
 
 // ========================================================== 6 · backdating
@@ -638,35 +639,14 @@ await step('6c · a dose can be marked skipped on a past day, with a reason', as
   console.log(`  ${id} skipped on ${k.date} — "${k.reason}"`)
 })
 
-await step('6d · symptoms can be added to a past day and edited', async () => {
+// stage 2D: symptoms can no longer be added; what was stored stays
+await step('6d · a past day offers no symptom check-in, and the stored one is kept', async () => {
   await closeAll()
   await monthView()
-  await openDay(iso(-3))
-  await page.click('[data-testid="day-edit-symptoms"]')
-  await page.waitForTimeout(700)
-  await page.locator('[data-testid="symptom-tag"][data-tag="great-energy"]').click()
-  await page.fill('[data-testid="symptom-note"]', 'felt good')
-  await page.click('[data-testid="symptom-save"]')
-  await page.waitForTimeout(900)
-  let s = await state()
-  const entry = s.symptomLogs.find((l) => l.date === iso(-3))
-  if (!entry) throw new Error('the check-in was not saved against that day')
-  if (entry.note !== 'felt good') throw new Error('the note was not kept')
-
-  // and editing it replaces rather than duplicating
-  await closeAll()
-  await monthView()
-  await openDay(iso(-3))
-  await page.click('[data-testid="day-edit-symptoms"]')
-  await page.waitForTimeout(700)
-  await page.fill('[data-testid="symptom-note"]', 'felt good, mild headache later')
-  await page.click('[data-testid="symptom-save"]')
-  await page.waitForTimeout(900)
-  s = await state()
-  const forDay = s.symptomLogs.filter((l) => l.date === iso(-3))
-  if (forDay.length !== 1) throw new Error(`${forDay.length} check-ins on one day`)
-  if (!/headache later/.test(forDay[0].note)) throw new Error('the edit did not stick')
-  console.log(`  one check-in on ${iso(-3)}, edited in place`)
+  await openDay(iso(-4))
+  if (await page.locator('[data-testid="day-edit-symptoms"]').count()) throw new Error('the day sheet still offers symptoms')
+  const s = await state()
+  if (!s.symptomLogs.some((l) => l.date === iso(-4))) throw new Error('the stored check-in for that day was lost')
 })
 
 await step('6e · a recorded dose can be corrected and deleted', async () => {
