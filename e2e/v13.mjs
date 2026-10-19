@@ -233,17 +233,11 @@ await step('.ics export downloads from the Calendar', async () => {
 
 // v31 replaced the seven-day strip with a "Tomorrow" section: one day, named
 // and dosed, instead of a week of bare shot counts.
-await step('Home looks one day ahead, with the doses', async () => {
+// stage 2D: Home is the readiness card and today's log only; tomorrow lives in the calendar
+await step('Home no longer carries the Tomorrow card or a seven-day strip', async () => {
   await nav('Home')
-  const tm = page.locator('[data-testid="tomorrow"]')
-  await tm.waitFor({ timeout: 8000 })
-  if (await page.locator('[data-testid="next-7-days"]').count()) {
-    throw new Error('the seven-day strip is still on Home')
-  }
-  const rows = tm.locator('[data-testid="tomorrow-row"]')
-  if ((await rows.count()) === 0) throw new Error('Tomorrow lists nothing')
-  const first = await rows.first().textContent()
-  if (!/\d/.test(first)) throw new Error(`a Tomorrow row carries no dose: ${first}`)
+  await page.waitForTimeout(500)
+  if (await page.locator('[data-testid="tomorrow"], [data-testid="next-7-days"]').count()) throw new Error('a look-ahead card is still on Home')
 })
 
 // ---------- 3. merged stock + restock ----------
