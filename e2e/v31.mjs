@@ -228,7 +228,7 @@ await step('either profile logging a draw moves the same vial', async () => {
 
 // ================================================ FEATURE 3 · cycle rest
 
-await step('a compound in its rest phase stays on Home, muted and unloggable', async () => {
+await step('a compound in its rest phase is not in today\'s log', async () => {
   // push Semax (6 on / 2 off) into its off-stretch by backdating the start
   await page.evaluate(() => {
     const raw = JSON.parse(localStorage.getItem('peptide-command-center'))
@@ -239,17 +239,14 @@ await step('a compound in its rest phase stays on Home, muted and unloggable', a
   })
   await page.reload({ waitUntil: 'networkidle' })
   await page.waitForTimeout(1200)
-  const group = page.locator('[data-testid="resting-group"]')
-  if (!(await group.count())) throw new Error('no resting group on Home')
-  const row = group.locator('[data-testid="resting-row"]').filter({ hasText: 'Semax' }).first()
-  if (!(await row.count())) throw new Error('Semax is not shown while resting')
-  const txt = await row.textContent()
-  if (!/resting, back in \d+ days?/.test(txt)) throw new Error(`resting row reads: ${txt}`)
-  if (!/part of your stack/.test(txt)) throw new Error('the row does not say it is still on the protocol')
-  if (await row.locator('button:has-text("Log")').count()) throw new Error('a resting row offers a Log button')
-  const opacity = await row.evaluate((el) => getComputedStyle(el).opacity)
-  if (Number(opacity) >= 0.9) throw new Error(`resting row is not muted (opacity ${opacity})`)
-  console.log(`  ${txt.trim()} · opacity ${opacity}`)
+  // stage 2D: Home is today's log only; a resting compound is simply not in it
+  if (await page.locator('[data-testid="resting-group"]').count()) throw new Error('the resting group is still on Home')
+  for (const slot of ['AM', 'PM']) {
+    await page.click(`button[aria-label="${slot}"]`).catch(() => {})
+    await page.waitForTimeout(400)
+    const rows = await page.locator('[data-testid="log-row"]').allTextContents()
+    if (rows.some((r) => /Semax/.test(r))) throw new Error(`Semax is in the ${slot} log while resting`)
+  }
   await page.screenshot({ path: `${SHOT}/v31-resting.png` })
 })
 
@@ -265,17 +262,9 @@ await step('and comes back to the due list on its own when the rest ends', async
   await page.waitForTimeout(1200)
   await page.click('button[aria-label="AM"]').catch(() => {})
   await page.waitForTimeout(700)
-  const resting = page.locator('[data-testid="resting-row"]').filter({ hasText: 'Semax' })
-  if (await resting.count()) throw new Error('Semax is still listed as resting after the rest ended')
-  const body = await page.textContent('body')
-  if (!/Semax/.test(body)) throw new Error('Semax did not come back onto Home')
-  const card = page.locator('main div.p-4').filter({ hasText: 'Semax' }).first()
-  const cycleLine = await card.locator('[data-testid="cycle-line"]').first().textContent()
-  // v30.1 restated this line as "Day 11 of 28" — see the brief
-  if (!/Day \d+ of \d+/.test(cycleLine)) {
-    throw new Error(`Semax's active cycle line reads: ${cycleLine}`)
-  }
-  console.log(`  back on the due list · ${cycleLine.trim()}`)
+  const rows = await page.locator('[data-testid="log-row"]').allTextContents()
+  if (!rows.some((r) => /Semax/.test(r))) throw new Error('Semax did not come back into the log')
+  console.log('  back in the log')
 })
 
 // ============================================== HOME CLEANUP
@@ -332,20 +321,8 @@ await step('the co-draw row sits below the inject cards and lists no compound na
   console.log(`  at y=${Math.round(rowBox.y)} (cards start y=${Math.round(cardBox.y)}) · ${txt.trim()}`)
 })
 
-await step('"Tomorrow" replaces the seven-day strip, and carries the doses', async () => {
-  if (await page.locator('[data-testid="next-7-days"]').count()) {
-    throw new Error('the 7-day lookahead is still on Home')
-  }
-  const tm = page.locator('[data-testid="tomorrow"]')
-  if (!(await tm.count())) throw new Error('no Tomorrow section')
-  const rows = tm.locator('[data-testid="tomorrow-row"]')
-  const n = await rows.count()
-  if (n === 0) throw new Error('Tomorrow lists nothing at all')
-  for (let i = 0; i < Math.min(n, 3); i++) {
-    const txt = await rows.nth(i).textContent()
-    if (!/\d/.test(txt)) throw new Error(`a Tomorrow row carries no dose: ${txt}`)
-    console.log(`  ${txt.trim()}`)
-  }
+await step('Home has no look-ahead: no Tomorrow card and no seven-day strip', async () => {
+  if (await page.locator('[data-testid="next-7-days"], [data-testid="tomorrow"]').count()) throw new Error('a look-ahead card is still on Home')
 })
 
 await step('the INJECT header is clear of the rule above it', async () => {
