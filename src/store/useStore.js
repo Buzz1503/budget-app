@@ -1942,6 +1942,12 @@ const useStore = create(
           return { habitLogs }
         })
       },
+      /** Whether the Effects view draws phases at this compound's starts, stops and dose changes. */
+      setTrackEffects(peptideId, on) {
+        set((s) => ({
+          peptides: s.peptides.map((p) => (p.id === peptideId ? { ...p, trackEffects: !!on } : p)),
+        }))
+      },
       setAffectsRecoveryBaseline(peptideId, on) {
         set((s) => ({
           peptides: s.peptides.map((p) => (p.id === peptideId ? { ...p, affectsRecoveryBaseline: !!on } : p)),

@@ -80,3 +80,27 @@ export const BODY = {
   maDays: 7,
   weeklyChangeWeeks: 4,
 } as const
+
+export const PHASES = {
+  mergeDays: 7,            // changes this close together are one boundary (and one chart pin)
+  bodyMinDays: 14,         // a body trend needs this long a phase
+  bodyMinReadings: 4,      // and this many readings in it
+  dailyMinDays: 10,        // a daily average needs this many days with data
+  steadyPerWeek: 0.05,     // slower than this (per week) reads as "steady"
+  clearX: 2,               // change of at least 2 × normal wobble: clear
+  possibleX: 1,            // at least 1 × wobble: possible
+  wobbleDays: 90,          // wobble is measured over the last 90 days
+  wobbleMinPoints: 10,
+  wobbleMaDays: 7,         // around each value's trailing 7-day average
+  // when there are fewer than 10 points. Readiness and waist were not in the
+  // brief's list; 8 points and 1 cm are calls made here.
+  wobbleFallback: {
+    weight: 0.6, fatMass: 0.6, leanMass: 0.8, bodyFat: 0.8, waist: 1,
+    rhr: 2, hrv: 6, sleep: 0.5, readiness: 8,
+  },
+  combinedNote: 'These changes started together. This shows their combined effect and cannot be split by compound.',
+} as const
+
+// Compounds whose effects are tracked by default, besides those flagged as
+// affecting the recovery baseline (GLP-1 class, testosterone esters).
+export const TRACK_DEFAULT = /(tesamorelin|\bhgh\b|somatropin|growth hormone|cjc[\s-]?1295|\bcjc\b|ipamorelin|aod[\s-]?9604|\baod\b|mots[\s-]?c|cagrilintide|\bcagri)/i

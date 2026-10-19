@@ -19,6 +19,7 @@ export function useCompounds() {
     name: displayName(p),
     libraryId: p.libraryId || null,
     affectsRecoveryBaseline: p.affectsRecoveryBaseline,
+    trackEffects: p.trackEffects,
     points: doseTimeline(p, { doseEvents, runs, todayStr: t }).points,
     runs: runsFor(p, runs),
   })), [peptides, doseEvents, runs, t])
