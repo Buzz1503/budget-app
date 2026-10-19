@@ -101,6 +101,7 @@ const pointDates = (p) => (p.from === p.to ? shortDate(p.from) : `${shortDate(p.
 export default function TrendChart({
   metric, chartType = metric, title, unit = '', dp = 1, series, current = null, currentCaption = null,
   events = [], wobble: wobbleProp, window: fixed = null, defaultRange = '90D', testid, note = null, onEditDate = null,
+  startLine = null,
 }) {
   const [rangeKey, setRangeKey] = useState(defaultRange)
   const [overlayOpen, setOverlayOpen] = useState(false)
@@ -121,7 +122,13 @@ export default function TrendChart({
   const bucket = fixed ? bucketForSpan(fixed.from, fixed.to) : bucketFor(rangeKey)
   const points = useMemo(() => bucketPoints(series || [], bucket, from, to), [series, bucket, from, to])
   const band = ov.wobble && wobble ? [wobble, -wobble] : []
-  const extra = useMemo(() => (band.length ? points.flatMap((p) => [p.value + wobble, p.value - wobble]) : []), [points, band.length, wobble])
+  // the starting value, drawn when the start is inside or before the range
+  // shown (and kept on the axis so the line is always in view)
+  const start = startLine && startLine.date <= to && points.length ? startLine : null
+  const extra = useMemo(() => [
+    ...(band.length ? points.flatMap((p) => [p.value + wobble, p.value - wobble]) : []),
+    ...(start ? [start.value] : []),
+  ], [points, band.length, wobble, start])
   const { axis, xFor, yFor } = useChartGeometry({ points, from, to, metric, extraValues: extra })
   const color = colorFor(metric)
 
@@ -200,6 +207,12 @@ export default function TrendChart({
       ) : (
         <svg viewBox={`0 0 ${W} ${H}`} className="mt-2 w-full" role="img" aria-label={`${title} over time`}>
           <Axes axis={axis} yFor={yFor} from={from} to={to} dp={dp} />
+          {start && (
+            <g data-testid="chart-start-line">
+              <line x1={PAD.l} x2={W - PAD.r} y1={yFor(start.value)} y2={yFor(start.value)} stroke="var(--text-3)" strokeDasharray="4 4" strokeWidth="1" opacity="0.7" />
+              <text x={W - PAD.r} y={yFor(start.value) - 3} fontSize="8" fontWeight="700" textAnchor="end" fill="var(--text-3)">Start</text>
+            </g>
+          )}
           {band.length > 0 && line.length > 1 && (
             <polygon data-testid="wobble-band" fill={color} opacity="0.08"
               points={[...line.map((p) => `${xFor(p.x)},${yFor(p.value + wobble)}`), ...[...line].reverse().map((p) => `${xFor(p.x)},${yFor(p.value - wobble)}`)].join(' ')} />

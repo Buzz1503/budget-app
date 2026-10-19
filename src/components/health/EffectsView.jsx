@@ -4,7 +4,8 @@ import useStore, { todayStr } from '../../store/useStore'
 import Modal from '../ui/Modal'
 import { phaseViews, METRIC_INFO, describeChanges, tracksEffects } from '../../health/engine/phases'
 import { dailySeries } from '../../body/bodySeries'
-import { useBodyInput } from '../../lib/useBody'
+import { useBodyInput, useBodyStart } from '../../lib/useBody'
+import { getStartValue } from '../../body/startPoint'
 import { useCompounds } from '../../lib/useCompounds'
 import TrendChart from '../charts/TrendChart'
 import useHealthModel from './useHealthModel'
@@ -81,6 +82,8 @@ export default function EffectsView({ compoundId = null, compact = false }) {
   const series = useEffectSeries()
   const t = todayStr()
   const [open, setOpen] = useState(null)
+  const bodyStart = useBodyStart()
+  const bodyInput = useBodyInput()
   const views = useMemo(() => phaseViews({ compounds, series, today: t }), [compounds, series, t])
   const shown = compoundId ? views.filter((v) => v.events.some((e) => e.compoundId === compoundId)) : views
   const tracked = compounds.filter(tracksEffects)
@@ -124,7 +127,8 @@ export default function EffectsView({ compoundId = null, compact = false }) {
             </p>
             <TrendChart metric={open.metric} chartType={`effects-${open.metric}`} title={info.label} unit={info.unit}
               dp={info.dp === 0 ? 0 : 1} series={series[open.metric] || []} events={pins}
-              window={{ from: prev ? prev.from : openPhase.from, to: openPhase.to }} />
+              window={{ from: prev ? prev.from : openPhase.from, to: openPhase.to }}
+              startLine={BODY_KEYS.includes(open.metric) ? getStartValue(open.metric, bodyStart, bodyInput) : null} />
           </div>
         )}
       </Modal>

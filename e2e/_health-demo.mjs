@@ -20,7 +20,7 @@ page.on('pageerror', (e) => errors.push('pageerror: ' + e.message))
 let failures = 0
 const step = async (name, fn) => {
   try { await fn(); console.log('PASS', name) }
-  catch (e) { failures++; console.log('FAIL', name, '—', e.message.split('\n')[0]) }
+  catch (e) { failures++; console.log('FAIL', name, '—', e.message.split('\n').slice(0, process.env.VERBOSE ? 8 : 1).join(' | ')) }
 }
 const gotIt = async () => {
   const b = page.locator('button:has-text("Got it")')
@@ -198,6 +198,83 @@ await step('Target wake time: set, then reset to auto', async () => {
   if (box.x + box.width > 390) throw new Error('wake time field overflows')
   await seen('[data-testid="health-track-effects"]')
   await noOverflow('More › Health')
+})
+
+await step('Starting point: v21 adds the Evolt scans and every "since" counts from 13 Jan 2025', async () => {
+  // make this profile look like one saved before v21, then reopen the app
+  await page.evaluate(() => {
+    const raw = JSON.parse(localStorage.getItem('peptide-command-center'))
+    raw.version = 20
+    raw.state.bodyStart = null
+    raw.state.measurements = (raw.state.measurements || []).filter((m) => !String(m.id).startsWith('m-evolt'))
+    localStorage.setItem('peptide-command-center', JSON.stringify(raw))
+  })
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await page.waitForSelector('nav button')
+  await page.waitForTimeout(1500)
+  const st = await page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state)
+  if (st.bodyStart?.date !== '2025-01-13' || st.bodyStart?.values?.weight !== 105.6) throw new Error('the Evolt start was not set')
+  if (st.measurements.filter((m) => String(m.id).startsWith('m-evolt')).length !== 2) throw new Error('the two Evolt entries were not added')
+  await tab('Body')
+  await page.click('[data-testid="body-seg-measurements"]')
+  await page.click('[data-testid="body-section-stats"]')
+  const delta = await page.locator('[data-testid="tile-weight-delta"]').innerText()
+  if (!/since 13 Jan 2025/.test(delta) || !/▼/.test(delta)) throw new Error(`weight delta reads "${delta}"`)
+  if (!(await page.locator('[data-testid="tile-devices-note"]').count())) throw new Error('no different-devices note on body fat (Evolt start, Withings latest)')
+  await noOverflow('Stats with starting point')
+})
+
+await step('Starting point sheet: use an entry, enter manually, reset to default', async () => {
+  await page.click('[data-testid="tile-weight-delta"]')
+  await seen('[data-testid="start-sheet"]')
+  await seen('[data-testid="start-entry"]')
+  // newest first
+  const dates = await page.locator('[data-testid="start-entry"] span.w-\\[84px\\]').allInnerTexts()
+  if (dates.length > 1 && new Date(dates[0]) < new Date(dates.at(-1))) throw new Error('entries are not newest first')
+  await page.click('[data-testid="start-reset"]')
+  await page.waitForTimeout(400)
+  let st = await page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state.bodyStart)
+  if (st !== null) throw new Error('reset did not clear the starting point')
+  await page.click('[data-testid="edit-start"]')
+  await page.click('[data-testid="start-mode-manual"]')
+  await page.click('[data-testid="start-date"]')
+  await page.fill('[data-testid="start-date-input"]', '2025-02-01')
+  await page.click('[data-testid="start-date-done"]')
+  await page.fill('[data-testid="start-field-weight"]', '104')
+  await page.click('[data-testid="start-save"]')
+  await page.waitForTimeout(400)
+  st = await page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state.bodyStart)
+  if (st?.date !== '2025-02-01' || st.values.weight !== 104) throw new Error(`manual start stored as ${JSON.stringify(st)}`)
+  if (!/since 1 Feb 2025/.test(await page.locator('[data-testid="tile-weight-delta"]').innerText())) throw new Error('tile did not follow the manual start')
+  // back to the Evolt scan, from the list
+  await page.click('[data-testid="edit-start"]')
+  await page.click('[data-testid="start-kind-scan"]')
+  await page.click('[data-testid="start-entry"][data-entry="m-evolt-2025-01-13-start"]')
+  await page.waitForTimeout(400)
+  st = await page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state.bodyStart)
+  if (st?.entryId !== 'm-evolt-2025-01-13-start' || st.values.skeletalMuscleMass !== 35.6) throw new Error('picking the Evolt entry did not set it')
+})
+
+await step('Scan detail shows the device, estimate note and grouped extras', async () => {
+  await page.click('[data-testid="edit-start"]')
+  await page.click('[data-testid="start-view-entry"]')
+  await seen('[data-testid="scan-details"]')
+  if ((await page.locator('[data-testid="entry-device"]').inputValue()) !== 'Evolt 360') throw new Error('device not shown')
+  await seen('[data-testid="entry-estimate-note"]')
+  for (const g of ['Composition', 'Segmental', 'Energy', 'Scores']) await seen(`[data-testid="extras-${g}"]`)
+  await page.click('[data-testid="entry-cancel"]')
+  await page.waitForTimeout(400)
+})
+
+await step('Trends: Start line on the weight chart, one weight on 13 Jan 2025', async () => {
+  await page.click('[data-testid="body-section-trends"]')
+  await page.click('[data-testid="trend-chip-weight"]')
+  const chart = page.locator('[data-testid="trends-chart"]')
+  await chart.locator('[data-testid="chart-start-line"]').waitFor({ timeout: 5000 })
+  await page.locator('[data-testid="legend-since"]').first().waitFor({ timeout: 5000 })
+  const st = await page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state.measurements.filter((m) => m.date === '2025-01-13'))
+  if (st.length !== 2 || !st.some((m) => m.hiddenFromCharts)) throw new Error('both Evolt entries should be on record, one off the charts')
+  await noOverflow('Trends with start line')
 })
 
 await browser.close()

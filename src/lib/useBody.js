@@ -8,10 +8,15 @@ import { format, parseISO } from 'date-fns'
 import useStore, { todayStr } from '../store/useStore'
 import { useHealthLink } from './healthLink'
 import { getLatestMeasurement, dailySeries } from '../body/bodySeries'
-import { metricSeries } from './metrics'
+import { getStartValue, effectiveStart, sinceStart } from '../body/startPoint'
+import { trackedEvents } from '../health/engine/phases'
+import { useCompounds } from './useCompounds'
 
-/** Fields bodySeries resolves across sources; anything else is a manual tape measurement. */
-export const BODY_FIELDS = new Set(['weight', 'bodyFat', 'leanMass', 'fatMass', 'bp', 'muscleMass', 'visceralFat', 'waist'])
+/** Fields with a current value worth showing in a chart header (not the tape measurements). */
+export const BODY_FIELDS = new Set([
+  'weight', 'bodyFat', 'leanMass', 'fatMass', 'bp', 'muscleMass', 'visceralFat', 'waist',
+  'skeletalMuscleMass', 'visceralFatLevel', 'visceralFatMass', 'visceralFatArea', 'subcutaneousFatMass',
+])
 
 export function useBodyInput() {
   const measurements = useStore((s) => s.measurements)
@@ -26,15 +31,44 @@ export function useLatestMeasurement(field) {
   return useMemo(() => getLatestMeasurement(field, input, t), [field, input, t])
 }
 
-/** Dated values for a metric: merged across sources for body fields, manual otherwise. */
+/** Dated values for a metric, one per day, merged across sources (entries kept off the charts left out). */
 export function seriesFor(key, input) {
-  return BODY_FIELDS.has(key) ? dailySeries(key, input) : metricSeries(input.measurements || [], key)
+  return dailySeries(key, input)
 }
 
 export function useBodySeries(field) {
   const input = useBodyInput()
   return useMemo(() => seriesFor(field, input), [field, input])
 }
+
+/**
+ * The starting point in force: the one set in Measurements, or by default the
+ * start date of the first tracked compound.
+ */
+export function useBodyStart() {
+  const bodyStart = useStore((s) => s.bodyStart)
+  const compounds = useCompounds()
+  const input = useBodyInput()
+  return useMemo(() => {
+    const starts = trackedEvents(compounds).filter((e) => e.kind === 'start').map((e) => e.date)
+    return effectiveStart(bodyStart, starts, input)
+  }, [bodyStart, compounds, input])
+}
+
+/** Where a field's "since" delta starts, or null to hide it. */
+export function useStartValue(field) {
+  const start = useBodyStart()
+  const input = useBodyInput()
+  return useMemo(() => getStartValue(field, start, input), [field, start, input])
+}
+
+/** The latest reading's device, or null for a typed-in value. */
+export const latestDevice = (l) => (!l || l.source === 'manual' ? null : l.sourceLabel)
+
+/** "since 13 Jan 2025" */
+export const sinceWords = (start) => (start ? `since ${format(parseISO(start.date), 'd MMM yyyy')}` : '')
+
+export { sinceStart }
 
 /** "16 Oct, Withings" */
 export const latestCaption = (l) => (l ? `${format(parseISO(l.date), 'd MMM')}, ${l.sourceLabel}` : '')

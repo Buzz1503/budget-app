@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react'
 import { todayStr } from '../../store/useStore'
 import { rangeBounds, bucketFor, bucketPoints, rangeChangeWords, groupEvents, shortDate } from '../../body/chartPoints'
 import { dailySeries, getLatestMeasurement } from '../../body/bodySeries'
-import { useBodyInput } from '../../lib/useBody'
+import { useBodyInput, useBodyStart, sinceWords } from '../../lib/useBody'
+import { getStartValue, sinceStart } from '../../body/startPoint'
 import { RangeChips, Axes, colorFor, useChartGeometry, W, PAD, PLOT_H } from './TrendChart'
 import useChartEvents from './useChartEvents'
 
@@ -20,6 +21,7 @@ const SERIES = [
  */
 export default function ProgressChart() {
   const input = useBodyInput()
+  const bodyStart = useBodyStart()
   const events = useChartEvents()
   const t = todayStr()
   const [rangeKey, setRangeKey] = useState('6M')
@@ -89,10 +91,19 @@ export default function ProgressChart() {
           const latest = getLatestMeasurement(l.key, input, t)
           const line = l.points.filter((p) => !p.scan)
           const change = rangeChangeWords(line.length > 1 ? line : l.points, 'kg', 1, from, to, false)
+          const startV = getStartValue(l.key, bodyStart, input)
+          const since = sinceStart(latest?.value, startV)
           return (
             <div key={l.key} className="flex items-center gap-2 py-2" data-testid="legend-row">
               <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: colorFor(l.key) }} />
-              <span className="min-w-0 flex-1 text-sm font-semibold">{l.label}</span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-semibold">{l.label}</span>
+                {since != null && (
+                  <span className="block text-[11px] font-medium tabular-nums" style={{ color: 'var(--text-3)' }} data-testid="legend-since">
+                    {since > 0 ? 'up' : since < 0 ? 'down' : 'no change'} {since !== 0 ? `${Math.abs(since).toFixed(1)} kg ` : ''}{sinceWords(startV)}
+                  </span>
+                )}
+              </span>
               <span className="text-sm font-black tabular-nums">{latest ? `${latest.value.toFixed(1)} kg` : '–'}</span>
               <span className="w-[92px] shrink-0 text-right text-xs font-medium tabular-nums" style={{ color: 'var(--text-3)' }}>{change || 'no change yet'}</span>
             </div>
