@@ -320,11 +320,18 @@ await step('5 · a save from before v30.1 keeps its data and loses only the them
   if (after.doseLogs.length !== seeded.logs) throw new Error(`the migration changed doseLogs: ${seeded.logs} → ${after.doseLogs.length}`)
   if (!after.doseLogs.some((l) => l.id === 'mig-1')) throw new Error('the seeded dose log is gone')
   if (after.symptomLogs.length !== seeded.symptoms) throw new Error('symptom check-ins changed')
-  // v21 adds the 13 Jan 2025 Evolt scans (adjusted start and original); every
-  // measurement already there stays
+  // v22 imports the 15 bundled Evolt scans (23 Aug 2024 to 12 Oct 2026) and
+  // keeps one estimated starting entry for 13 Jan 2025; the untimed 13 Jan
+  // scan from v21 is replaced by its timed import. Every measurement already
+  // there stays.
   if (!after.measurements.some((m) => m.id === 'mig-m' && m.weight === 84)) throw new Error('a measurement already there changed')
-  const evolt = after.measurements.filter((m) => String(m.id).startsWith('m-evolt-'))
-  if (evolt.length !== 2 || after.measurements.length !== seeded.measurements + 2) throw new Error(`measurements changed: ${seeded.measurements} → ${after.measurements.length}`)
+  const start = after.measurements.filter((m) => String(m.id).startsWith('m-evolt-'))
+  const scans = after.measurements.filter((m) => String(m.id).startsWith('scan-'))
+  if (start.length !== 1 || scans.length !== 15 || after.measurements.length !== seeded.measurements + 16) {
+    throw new Error(`measurements changed: ${seeded.measurements} → ${after.measurements.length} (${start.length} start, ${scans.length} scans)`)
+  }
+  const dates = scans.map((m) => m.date).sort()
+  if (dates[0] !== '2024-08-23' || dates.at(-1) !== '2026-10-12') throw new Error(`scan dates ${dates[0]} to ${dates.at(-1)}`)
   // v36 adds Minoxidil and Tretinoin to any older save; nothing already on the
   // shelf may change or go
   if (!after.supplements.some((x) => x.id === 'mig-sup' && x.dose === '400 mg')) throw new Error('a supplement already on the shelf changed')
