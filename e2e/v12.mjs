@@ -264,7 +264,7 @@ await step('quantities are editable and tick off as ordered', async () => {
 })
 await page.screenshot({ path: `${SHOT}/v12-01-restock.png`, fullPage: true })
 
-await step('an expected delivery silences the low-stock alert and reaches the calendar', async () => {
+await step('an expected delivery answers low stock and reaches the calendar export', async () => {
   // Tesamorelin is the soonest to run out, so it drives a Home alert
   const row = rowFor('Tesamorelin')
   await row.locator('button:has-text("Add expected delivery")').click()
@@ -281,24 +281,11 @@ await step('an expected delivery silences the low-stock alert and reaches the ca
   const s = await state()
   if (s.restock.delivery['vial:tesamorelin'] !== soon) throw new Error('delivery date did not persist')
 
+  // stage 2D: low stock is a dot on More and on the Stock row, not a Home alert;
+  // an order arriving in time answers it, so Tesamorelin no longer counts as low
   await nav('Home')
-  // v15 moved the standing alerts off the main column into the bell
-  const bell = page.locator('[data-testid="alert-bell"]')
-  await bell.waitFor({ timeout: 15000 })
-  await bell.click()
-  await page.waitForTimeout(500)
-  // v21 reworded this off the sealed shelf: "~N weeks of X left across your
-  // vials — reorder", with the delivery line replacing it once one is expected.
-  await waitText(/of Tesamorelin left|delivery expected/, 15000)
   const home = await page.textContent('body')
-  if (!new RegExp(`delivery expected ${soon}`).test(home)) {
-    const shown = await page.evaluate(() => [...document.querySelectorAll('[data-testid="alert-panel"] button')]
-      .map((b) => b.textContent.trim()).filter((x) => /runs out|expire|delivery/i.test(x)))
-    throw new Error(`no delivery on the Home alert (eta ${soon}) — alerts read: ${JSON.stringify(shown)}`)
-  }
-  if (/of Tesamorelin left across your vials — reorder/.test(home)) throw new Error('the plain restock nag is still there')
-  await page.keyboard.press('Escape')
-  await page.waitForTimeout(400)
+  if (/of Tesamorelin left/.test(home)) throw new Error('a low-stock alert is still on Home')
 
   // and it rides along in the calendar export
   await nav('Settings')
@@ -315,7 +302,7 @@ await step('an expected delivery silences the low-stock alert and reaches the ca
   if (!new RegExp(`DTSTART;VALUE=DATE:${soon.replace(/-/g, '')}`).test(text)) {
     throw new Error('the delivery event is on the wrong date')
   }
-  console.log(`  delivery ${soon} shows on Home and in the .ics`)
+  console.log(`  delivery ${soon} is in the .ics`)
 })
 
 // ================= 2 · WIZARD =================
