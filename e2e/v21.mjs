@@ -261,7 +261,7 @@ await step('the backup sweeps COA files in with everything else', async () => {
 // claim kept here is the one that still has a home — a shelf inside the lead
 // time raises an alert that names the runway.
 
-await step('a low shelf raises an alert on Home naming the runway', async () => {
+await step('a low shelf puts a dot on More and on the Stock row, not an alert on Home', async () => {
   await page.evaluate(() => {
     const K = 'peptide-command-center'
     const raw = JSON.parse(localStorage.getItem(K))
@@ -274,20 +274,15 @@ await step('a low shelf raises an alert on Home naming the runway', async () => 
   })
   await page.reload({ waitUntil: 'networkidle' })
   await page.waitForTimeout(1000)
-  await nav('Home')
-  await page.waitForTimeout(700)
-  const bell = page.locator('[data-testid="alert-bell"]')
-  if (!(await bell.count())) throw new Error('no alert bell despite a shelf inside the lead time')
-  await bell.click()
-  await page.waitForTimeout(600)
-  const body = await page.textContent('body')
-  if (!/left across your vials — reorder|No sealed .* left across your vials/.test(body)) {
-    throw new Error('no low-stock alert wording on Home')
-  }
-  // v30.2 made the panel a proper overlay, so the bell itself is behind the
-  // backdrop while it is open — it closes by its own ✕, not by tapping through
-  await page.click('[data-testid="alert-close"]')
+  // stage 2D: low stock is a small dot on the More tab and on the Stock row,
+  // and no longer an alert on Home
+  await page.waitForSelector('[data-testid="more-low-dot"]', { timeout: 8000 })
+  await page.click('nav button[aria-label="More"]')
   await page.waitForTimeout(500)
+  if (!(await page.locator('[data-testid="more-supplies"] [data-testid="stock-low-dot"]').count())) throw new Error('no dot on the Stock row')
+  await nav('Home')
+  await page.waitForTimeout(500)
+  if (/left across your vials/.test(await page.textContent('body'))) throw new Error('a low-stock alert is still on Home')
 })
 
 // ================================================= 4 · the finished-vial flow
