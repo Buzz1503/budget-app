@@ -14,6 +14,7 @@ import { formatDose, round } from '../lib/calc'
 import CoachTip from './ui/CoachTip'
 import StockRoom from './StockRoom'
 import NumberField from './ui/NumberField'
+import PickerField from './ui/PickerField'
 
 const money = (n) => `$${(Math.round((n || 0) * 100) / 100).toFixed(2)}`
 
@@ -222,12 +223,14 @@ function DeliveryField({ value, onChange }) {
     )
   }
   return (
-    <label className="flex items-center gap-2 text-xs font-bold" style={{ color: 'var(--text-2)' }}>
-      <Truck size={12} className="shrink-0" />
-      <input type="date" className="input !py-1 !text-xs" value={value || ''}
-        aria-label="Expected delivery date"
-        onChange={(e) => { onChange(e.target.value); if (!e.target.value) setOpen(false) }} />
-    </label>
+    <div className="flex min-w-0 items-start gap-2 text-xs font-bold" style={{ color: 'var(--text-2)' }}>
+      <Truck size={12} className="mt-3.5 shrink-0" />
+      <div className="min-w-0 flex-1">
+        <PickerField kind="date" label="Expected delivery date" value={value || null} emptyText="No date yet"
+          clearText="Remove delivery date" testid="delivery-date"
+          onChange={(v) => { onChange(v || ''); if (!v) setOpen(false) }} />
+      </div>
+    </div>
   )
 }
 

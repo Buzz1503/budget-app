@@ -199,7 +199,7 @@ await step('typing into the batch form keeps the field it is typing in on screen
   await closeKeyboard()
   await page.locator('[data-testid="stock-results"] > button').first().click()
   await page.waitForTimeout(600)
-  const field = page.locator('input[aria-label="Sealed expiry"]')
+  const field = page.locator('input[aria-label="Lot number"]')
   await field.click()
   await openKeyboard()
   await page.waitForTimeout(700)

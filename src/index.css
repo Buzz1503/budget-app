@@ -183,6 +183,20 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 
 select.input option { background: var(--surface-solid); color: var(--text); }
 
+/* A text box never pushes past its card. iOS gives date and time inputs an
+   intrinsic width that ignores width: 100% unless their own appearance is off
+   and they are allowed to shrink. */
+.input { box-sizing: border-box; max-width: 100%; min-width: 0; }
+input[type="date"].input,
+input[type="time"].input {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  min-height: 2.5rem;
+}
+input[type="date"].input::-webkit-date-and-time-value,
+input[type="time"].input::-webkit-date-and-time-value { text-align: left; }
+
 /* --- semantic ------------------------------------------------------------ */
 
 .is-good   { color: var(--lime); }

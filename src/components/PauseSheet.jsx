@@ -5,6 +5,7 @@ import Modal from './ui/Modal'
 import { prettyDate, addDaysStr } from '../lib/schedule'
 import { displayName } from '../lib/naming'
 import { PAUSE_REASONS } from '../lib/pauses'
+import PickerField from './ui/PickerField'
 
 /**
  * Stopping for a while, and saying why.
@@ -106,18 +107,8 @@ export default function PauseSheet({ open, onClose }) {
         {/* until when */}
         <div>
           <p className="mb-1.5 t-caption" style={{ color: 'var(--text-2)' }}>Until</p>
-          <div className="flex items-center gap-2">
-            <input type="date" className="input" value={endsOn} min={addDaysStr(t, 1)}
-              aria-label="End date" data-testid="pause-ends-on"
-              onChange={(e) => setEndsOn(e.target.value)} />
-            {endsOn && (
-              <button onClick={() => setEndsOn('')} data-testid="pause-clear-end"
-                className="shrink-0 rounded-full px-3 py-2 text-xs font-black"
-                style={{ background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
-                Clear
-              </button>
-            )}
-          </div>
+          <PickerField kind="date" label="End date" value={endsOn || null} min={addDaysStr(t, 1)} fallback={addDaysStr(t, 7)}
+            emptyText="Until I resume" testid="pause-ends-on" onChange={(v) => setEndsOn(v || '')} />
           <p className="mt-1 flex items-start gap-1.5 text-xs font-medium leading-relaxed"
             style={{ color: 'var(--text-3)' }}>
             <CalendarClock size={12} className="mt-px shrink-0" />

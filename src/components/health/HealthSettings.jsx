@@ -4,6 +4,7 @@ import { format, parseISO } from 'date-fns'
 import useStore from '../../store/useStore'
 import { useHealth } from '../../health/state'
 import NumberField from '../ui/NumberField'
+import PickerField from '../ui/PickerField'
 import { affectsBaseline } from '../../health/engine/protocol'
 import { useCompounds } from './useHealthModel'
 
@@ -141,11 +142,13 @@ function Numbers() {
         <NumberField value={hs.maxHR ?? ''} allowEmpty emptyValue={null} integer min={0} max={240} onChange={(v) => setHealthSettings({ maxHR: v || null })} className="input mt-1" data-testid="health-max-hr" aria-label="Max heart rate" placeholder="Estimated from age" />
         <span className="mt-1 block text-xs font-medium" style={{ color: 'var(--text-3)' }}>Leave empty to use 208 − 0.7 × age.</span>
       </label>
-      <label className="block">
-        <span className="t-label">Target wake time</span>
-        <input type="time" value={hs.wakeTarget || ''} onChange={(e) => setHealthSettings({ wakeTarget: e.target.value || null })} className="input mt-1" data-testid="health-wake-target" aria-label="Target wake time" />
-        <span className="mt-1 block text-xs font-medium" style={{ color: 'var(--text-3)' }}>Empty: your usual wake time from the last 14 nights.</span>
-      </label>
+      <div className="min-w-0">
+        <span className="t-label mb-1 block">Target wake time</span>
+        <PickerField kind="time" label="Target wake time" value={hs.wakeTarget || null} fallback="07:00"
+          emptyText="Auto (your usual wake time)" clearText="Reset to auto" testid="health-wake-target"
+          onChange={(v) => setHealthSettings({ wakeTarget: v || null })} />
+        <span className="mt-1 block text-xs font-medium" style={{ color: 'var(--text-3)' }}>Auto uses the middle of your wake times over the last 14 nights.</span>
+      </div>
     </div>
   )
 }

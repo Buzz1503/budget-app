@@ -30,6 +30,19 @@ beforeAll(async () => {
 })
 
 describe('health settings, check-ins and habits in the store', () => {
+  it('target wake time resets to auto (null) and stays null after the app is reopened', async () => {
+    const { setHealthSettings } = useStore.getState()
+    setHealthSettings({ wakeTarget: '06:30' })
+    expect(useStore.getState().healthSettings.wakeTarget).toBe('06:30')
+    setHealthSettings({ wakeTarget: null })
+    const saved = JSON.parse(localStorage.getItem('peptide-command-center')).state.healthSettings
+    expect(saved.wakeTarget).toBeNull()
+    useStore.setState({ healthSettings: { ...useStore.getState().healthSettings, wakeTarget: 'stale' } }, false)
+    localStorage.setItem('peptide-command-center', JSON.stringify({ state: { ...JSON.parse(localStorage.getItem('peptide-command-center')).state, healthSettings: saved }, version: useStore.persist.getOptions().version }))
+    await useStore.persist.rehydrate()
+    expect(useStore.getState().healthSettings.wakeTarget).toBeNull()
+  })
+
   it('has sensible defaults', () => {
     const s = useStore.getState()
     expect(s.healthSettings).toMatchObject({ connected: false, sleepNeedH: 8, maxHR: null, checkinEnabled: true })

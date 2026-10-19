@@ -176,7 +176,10 @@ await step('1 · a measurement entry can be edited, undone, and is marked Edited
   await noOverflow('edit sheet')
 
   // every field editable: date, time, a value, notes
-  await page.fill('[data-testid="entry-time"]', '07:15')
+  await page.locator('[data-testid="entry-time"]').first().click()
+  await page.waitForTimeout(300)
+  await page.fill('[data-testid="entry-time-input"]', '07:15')
+  await page.click('[data-testid="entry-time-done"]')
   await page.fill('[data-testid="entry-note"]', 'after a fast')
   const weight = page.locator('input[aria-label="Weight in kg"]').first()
   await weight.fill('79.5')

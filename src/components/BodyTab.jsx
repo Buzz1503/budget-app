@@ -15,6 +15,7 @@ import {
 import { extractPdfText, parseScanText } from '../lib/scanParse'
 import Modal from './ui/Modal'
 import NumberField from './ui/NumberField'
+import PickerField from './ui/PickerField'
 import BodyModel from './BodyModel'
 import MeasureGuide from './MeasureGuide'
 import PhotosSection from './PhotosSection'
@@ -377,10 +378,11 @@ function MeasurementSheet({ open, onClose, entryId = null }) {
             <span className="mb-1 block text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-2)' }}>Date</span>
             <input type="date" className="input" data-testid="entry-date" value={form.date} onChange={(e) => e.target.value && set('date', e.target.value)} />
           </label>
-          <label className="block">
+          <div className="block min-w-0">
             <span className="mb-1 block text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-2)' }}>Time</span>
-            <input type="time" className="input" data-testid="entry-time" value={form.time || ''} onChange={(e) => set('time', e.target.value)} />
-          </label>
+            <PickerField kind="time" label="Time" value={form.time || null} fallback="08:00" emptyText="No time"
+              clearText="Clear time" testid="entry-time" onChange={(v) => set('time', v || '')} />
+          </div>
         </div>
 
         {/* scan import */}

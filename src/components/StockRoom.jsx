@@ -17,6 +17,7 @@ import CompoundSheet from './CompoundSheet'
 import NumberField from './ui/NumberField'
 import { useMoney } from '../lib/useMoney'
 import { sizesFor, referencePrice } from '../lib/cost'
+import PickerField from './ui/PickerField'
 
 /**
  * The stock room: every vial you physically own, grouped by peptide.
@@ -708,8 +709,8 @@ function AddBatchModal({ open, onClose }) {
             </Field>
           </div>
           <Field label="Sealed expiry (optional)">
-            <input type="date" className="input" value={draft.sealedExpiry} aria-label="Sealed expiry"
-              onChange={(e) => setDraft({ ...draft, sealedExpiry: e.target.value })} />
+            <PickerField kind="date" label="Sealed expiry" value={draft.sealedExpiry || null} emptyText="None"
+              testid="sealed-expiry" onChange={(v) => setDraft({ ...draft, sealedExpiry: v || '' })} />
           </Field>
 
           <input ref={fileRef} type="file" accept="application/pdf,image/*" className="hidden"
