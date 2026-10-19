@@ -96,7 +96,7 @@ export const MIN_SPAN: Record<string, number> = {
   weight: 6, fatMass: 4, leanMass: 4, bodyFat: 4, muscleMass: 4, visceralFat: 2,
   rhr: 10, hrv: 20, sleep: 3, readiness: 40,
   vo2max: 4, bp: 20, waist: 4, // not in the brief's list: calls made here
-  sleepScore: 30, deepSleep: 40, remSleep: 40, sleepHR: 10, bedtime: 60,
+  sleepScore: 30, deepSleep: 40, remSleep: 40, sleepHR: 10, bedtime: 60, saunaLength: 10, saunaTemp: 10,
 }
 const STEPS = [0.1, 0.2, 0.25, 0.5, 1, 2, 2.5, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000]
 

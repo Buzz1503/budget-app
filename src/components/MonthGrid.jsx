@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { format, parseISO } from 'date-fns'
-import { ChevronDown, ChevronRight, Droplet, Dumbbell } from 'lucide-react'
+import { ChevronDown, ChevronRight, Droplet, Dumbbell, Flame } from 'lucide-react'
+import useStore from '../store/useStore'
 import { monthSummary } from '../lib/calendarView'
 import { useHealthLink } from '../lib/healthLink'
 
@@ -147,6 +148,7 @@ function DayCell({ day: d, muted, onOpen }) {
   const { dots, extra } = dotsFor(d)
   const owed = d.owed ?? d.scheduled
   const hasBlood = !!d.bloodTests?.length
+  const hasSauna = useStore((s) => s.saunaSessions.some((x) => x.date === d.date))
   // filled in only by the native app's Apple Health; empty everywhere else
   const hasWorkout = useHealthLink((s) => s.workoutDates.has(d.date))
 
@@ -157,6 +159,7 @@ function DayCell({ day: d, muted, onOpen }) {
       : owed > 0 ? `${d.done} of ${owed} logged` : 'nothing scheduled',
     d.missed > 0 ? `${d.missed} missed` : null,
     hasBlood ? 'blood test' : null,
+    hasSauna ? 'sauna' : null,
     hasWorkout ? 'workout' : null,
   ].filter(Boolean).join(', ')
 
@@ -204,9 +207,10 @@ function DayCell({ day: d, muted, onOpen }) {
       </span>
 
       {/* not doses, so deliberately not dots — they sit in the corner instead */}
-      {(hasBlood || hasWorkout) && (
+      {(hasBlood || hasWorkout || hasSauna) && (
         <span className="absolute right-0.5 top-0.5 flex gap-px">
           {hasWorkout && <Dumbbell size={8} data-testid="day-workout-marker" style={{ color: 'var(--text-3)' }} />}
+          {hasSauna && <Flame size={8} data-testid="day-sauna-marker" style={{ color: 'var(--text-3)' }} />}
           {hasBlood && <Droplet size={8} data-testid="day-blood" style={{ color: 'var(--info)' }} />}
         </span>
       )}

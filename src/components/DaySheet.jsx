@@ -12,6 +12,7 @@ import { useCalendarRange } from '../lib/useCalendarRange'
 import { prettyDate } from '../lib/schedule'
 import { formatDose, formatUnitsLong } from '../lib/calc'
 import { HEALTH_BUILD, DayHealth } from '../health/ui'
+import DaySauna from './sauna/DaySauna'
 
 /**
  * One day, and everything that can be said or changed about it.
@@ -170,6 +171,9 @@ function DayBody({
           ))}
         </div>
       )}
+
+      {/* ------------------------------------------------------- the sauna */}
+      <DaySauna date={date} />
 
       {/* ----------------------------------------------------- the events */}
       {day.events.length > 0 && (

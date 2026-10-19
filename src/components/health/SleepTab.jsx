@@ -18,6 +18,8 @@ import {
   windDownAt, debtNights, durationWords, sleepFactors, lateWorkoutDay, higherLoadDay,
 } from '../../health/engine/sleepView'
 import useHealthModel, { tz, useCompounds } from './useHealthModel'
+import { dayFlags } from '../../sauna/saunaEffects'
+import { minutesOf } from '../../sauna/sauna'
 import { NotConnected, EmptyState } from './BodyHealthView'
 import { HEALTH_BANDS } from './bands'
 import { Hypnogram, Chronogram, DebtBars, NightCalendar } from './SleepCharts'
@@ -352,15 +354,23 @@ function DebtAndPlan({ model, t }) {
 
 function Factors({ model, t }) {
   const habits = useStore((s) => s.habits)
+  const saunaSessions = useStore((s) => s.saunaSessions)
   const habitLogs = useStore((s) => s.habitLogs)
   const doseLogs = useStore((s) => s.doseLogs)
   const compounds = useCompounds()
   const rows = useMemo(() => {
     const days = dateRange(addDays(t, -365), addDays(t, -1))
     const next = (d) => addDays(d, 1)
+    const sauna = dayFlags(saunaSessions,
+      (wake) => { const n = model.nightBy.get(wake); return n ? { start: n.start, score: null, deepMin: null, sleepingHR: null } : null },
+      (date, hhmm) => tz.startOfDay(date) + minutesOf(hhmm) * 60000)
     const factors = [
       { key: 'late', label: 'Late workouts', phrase: 'days with a workout ending within 3 h of bedtime', inGroup: lateWorkoutDay(model.sessions, model.nightBy) },
       { key: 'load', label: 'Higher-load training days', phrase: 'higher-load training days', inGroup: (d) => higherLoadDay(model.load, d) },
+      // sauna: any session, a longer one (over 30 min), and one ending within 3 h of bedtime
+      { key: 'sauna', label: 'Sauna', phrase: 'days with a sauna', inGroup: sauna.has },
+      { key: 'saunaLong', label: 'Sauna over 30 min', phrase: 'days with a sauna over 30 min', inGroup: (d) => sauna.minutes(d) > 30 },
+      { key: 'saunaLate', label: 'Late sauna', phrase: 'days with a sauna ending within 3 h of bedtime', inGroup: sauna.late },
       ...compounds.filter((c) => doseLogs.some((l) => l.peptideId === c.id)).map((c) => {
         const dosed = new Set(doseLogs.filter((l) => l.peptideId === c.id).map((l) => l.date))
         const onIt = (d) => (c.runs || []).some((r) => r.startedOn <= d && (!r.endedOn || r.endedOn >= d))
@@ -380,7 +390,7 @@ function Factors({ model, t }) {
       { key: 'hrv', label: 'Next-morning HRV', unit: 'ms', dp: 0, wobble: wobbleOf(hrvPts, 'hrv', t).value, fn: (d) => model.series.hrv.get(next(d)) ?? null },
     ]
     return sleepFactors({ days, factors, outcomes })
-  }, [model, t, habits, habitLogs, doseLogs, compounds])
+  }, [model, t, habits, habitLogs, doseLogs, compounds, saunaSessions])
   return (
     <>
       <SectionTitle sub={`Nights after each, against nights without. Needs ${SLEEP_VIEW.minPerGroup} nights in each group.`}>What goes with your sleep</SectionTitle>

@@ -15,6 +15,7 @@ export const SERIES_COLOR = {
   weight: 'var(--series-weight)', leanMass: 'var(--series-lean)', fatMass: 'var(--series-fat)', muscleMass: 'var(--series-muscle)',
   sleep: 'var(--series-sleep)', sleepScore: 'var(--series-sleep)', deepSleep: 'var(--series-sleep)', remSleep: 'var(--series-sleep)',
   sleepHR: 'var(--series-sleep)', bedtime: 'var(--series-sleep)',
+  saunaLength: 'var(--series-sauna)', saunaTemp: 'var(--series-sauna)',
 }
 export const colorFor = (metric) => SERIES_COLOR[metric] || 'var(--series-weight)'
 

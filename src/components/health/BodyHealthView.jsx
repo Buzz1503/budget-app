@@ -8,6 +8,8 @@ import { rowFor } from '../../health/engine/model'
 import { glp1NoteDue, GLP1_RHR_NOTE } from '../../health/engine/protocol'
 import { round } from '../../health/engine/stats'
 import useHealthModel, { useCompounds } from './useHealthModel'
+import useSaunaInput from './useSaunaInput'
+import { recoveryLine } from '../../sauna/saunaEffects'
 import TrendChart from '../charts/TrendChart'
 import useChartEvents from '../charts/useChartEvents'
 import { ReadinessRing, Sparkline, Delta, Stat } from './atoms'
@@ -89,6 +91,15 @@ function RecoveryRow({ label, unit, row, spark, dp = 0, note = null, testid }) {
   )
 }
 
+/** One line, once there are 7 mornings after sauna and 7 without. */
+function SaunaRecoveryLine() {
+  const hasSauna = useStore((s) => s.saunaSessions.length > 0)
+  const { input } = useSaunaInput()
+  const line = useMemo(() => (hasSauna ? recoveryLine(input) : null), [hasSauna, input])
+  if (!line) return null
+  return <p className="px-1 text-sm font-medium" style={{ color: 'var(--text-2)' }} data-testid="recovery-sauna-line">{line}</p>
+}
+
 function RecoveryView({ model }) {
   const t = todayStr()
   const compounds = useCompounds()
@@ -134,6 +145,8 @@ function RecoveryView({ model }) {
         <RecoveryRow testid="row-sleep" label="Sleep" unit="h" dp={1} row={rowFor(model, 'sleep', t)} spark={spark('sleep')} />
         {showResp && <RecoveryRow testid="row-resp" label="Respiratory rate" unit="/min" dp={1} row={rowFor(model, 'resp', t)} spark={spark('resp')} />}
       </div>
+
+      <SaunaRecoveryLine />
 
       <TrendChart metric="readiness" title="Readiness" series={clean(readinessSeries)} dp={0} events={events} />
       <TrendChart metric="hrv" title="Heart rate variability" unit="ms" series={clean(series('hrv'))} dp={0} events={events}

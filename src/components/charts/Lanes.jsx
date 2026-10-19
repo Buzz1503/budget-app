@@ -4,6 +4,9 @@ import useStore from '../../store/useStore'
 import { useCompounds } from '../../lib/useCompounds'
 import { laneFor, MAX_LANES } from '../../body/lanes'
 import { shortDate } from '../../body/chartPoints'
+import { saunaLaneDots } from '../../sauna/sauna'
+
+export const SAUNA_LANE = 'sauna'
 
 export const LANE_H = 24
 
@@ -13,13 +16,16 @@ export const LANE_H = 24
  */
 export function useLanes(chartType, from, to) {
   const compounds = useCompounds()
+  const sessions = useStore((s) => s.saunaSessions)
   const saved = useStore((s) => s.healthSettings?.overlays?.[chartType]?.lanes)
   const setChartOverlay = useStore((s) => s.setChartOverlay)
-  const chosen = useMemo(() => (saved || []).filter((id) => compounds.some((c) => c.id === id)).slice(0, MAX_LANES), [saved, compounds])
+  // sauna is one more lane, under the same rules: remembered per chart, four at most
+  const chosen = useMemo(() => (saved || []).filter((id) => id === SAUNA_LANE || compounds.some((c) => c.id === id)).slice(0, MAX_LANES), [saved, compounds])
   const lanes = useMemo(() => chosen.map((id) => {
+    if (id === SAUNA_LANE) return { id, name: 'Sauna', kind: 'dots', dots: saunaLaneDots(sessions, from, to), segments: [], changes: [], spans: [] }
     const c = compounds.find((x) => x.id === id)
     return { id, name: c.name, ...laneFor(c.points, c.runs, from, to) }
-  }), [chosen, compounds, from, to])
+  }), [chosen, compounds, sessions, from, to])
   const toggle = (id) => {
     const on = chosen.includes(id)
     if (!on && chosen.length >= MAX_LANES) return
@@ -30,13 +36,13 @@ export function useLanes(chartType, from, to) {
 
 /** The Compounds list in a chart's Overlay menu. */
 export function LaneMenu({ compounds, chosen, toggle }) {
-  if (!compounds.length) return null
   const full = chosen.length >= MAX_LANES
+  const items = [...compounds, { id: SAUNA_LANE, name: 'Sauna' }]
   return (
     <>
-      <p className="t-caption" style={{ color: 'var(--text-3)' }}>Compounds (up to {MAX_LANES})</p>
+      <p className="t-caption" style={{ color: 'var(--text-3)' }}>Lanes (up to {MAX_LANES})</p>
       <div className="flex flex-wrap gap-1.5" data-testid="lane-menu">
-        {compounds.map((c) => {
+        {items.map((c) => {
           const on = chosen.includes(c.id)
           return (
             <button key={c.id} onClick={() => toggle(c.id)} aria-pressed={on} disabled={!on && full} data-testid={`lane-toggle-${c.id}`}
@@ -59,6 +65,18 @@ export function LaneMenu({ compounds, chosen, toggle }) {
 export function LaneRows({ lanes, top, xFor, left, right, onPick, picked }) {
   return lanes.map((l, i) => {
     const y0 = top + i * LANE_H
+    if (l.kind === 'dots') {
+      return (
+        <g key={l.id} data-testid={`lane-${l.id}`}>
+          <text x={left - 4} y={y0 + LANE_H / 2 + 3} fontSize="7" fontWeight="800" textAnchor="end" fill="var(--text-3)">Sauna</text>
+          <line x1={left} x2={right} y1={y0 + LANE_H / 2} y2={y0 + LANE_H / 2} stroke="var(--border)" />
+          {l.dots.map((d) => (
+            <circle key={d.date} cx={xFor(d.date)} cy={y0 + LANE_H / 2} r={d.r} fill="var(--series-sauna)" opacity={picked && picked.id === l.id && picked.date === d.date ? 1 : 0.75}
+              onClick={() => onPick({ id: l.id, name: l.name, date: d.date, kind: 'sauna', label: `${d.minutes} min` })} style={{ cursor: 'pointer' }} data-testid="lane-sauna-dot" />
+          ))}
+        </g>
+      )
+    }
     const yFor = (dose) => y0 + LANE_H - 5 - (l.maxDose ? (dose / l.maxDose) * (LANE_H - 13) : 0)
     let path = ''
     for (const s of l.segments) path += `M${xFor(s.from).toFixed(1)},${yFor(s.dose).toFixed(1)} H${xFor(s.to).toFixed(1)} `
@@ -88,4 +106,5 @@ export function LaneRows({ lanes, top, xFor, left, right, onPick, picked }) {
 }
 
 /** Popover text for a tapped lane change. */
-export const laneChangeWords = (p) => (p.kind === 'stop' ? `${p.name} stopped on ${shortDate(p.date)}` : `${p.name} to ${p.label} on ${shortDate(p.date)}`)
+export const laneChangeWords = (p) => (p.kind === 'sauna' ? `Sauna, ${p.label} on ${shortDate(p.date)}`
+  : p.kind === 'stop' ? `${p.name} stopped on ${shortDate(p.date)}` : `${p.name} to ${p.label} on ${shortDate(p.date)}`)

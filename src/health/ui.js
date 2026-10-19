@@ -19,3 +19,6 @@ export const CompoundHealth = HEALTH_BUILD ? lazy(() => import('../components/he
 export const MarkerHealthOverlay = HEALTH_BUILD ? lazy(() => import('../components/health/MarkerHealthOverlay')) : none
 export const EffectsView = HEALTH_BUILD ? lazy(() => import('../components/health/EffectsView')) : none
 export const SleepTab = HEALTH_BUILD ? lazy(() => import('../components/health/SleepTab')) : none
+export const SaunaSessionHR = HEALTH_BUILD ? lazy(() => import('../components/health/SaunaSessionHR')) : none
+export const SaunaWatchCards = HEALTH_BUILD ? lazy(() => import('../components/health/SaunaWatchCards')) : none
+export const SaunaEffectsView = HEALTH_BUILD ? lazy(() => import('../components/health/SaunaEffectsView')) : none

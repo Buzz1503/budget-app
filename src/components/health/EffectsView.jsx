@@ -14,6 +14,7 @@ import { useBodyInput } from '../../lib/useBody'
 import { useCompounds } from '../../lib/useCompounds'
 import TrendChart from '../charts/TrendChart'
 import useHealthModel from './useHealthModel'
+import SaunaEffectsView from './SaunaEffectsView'
 
 const pretty = (d) => format(parseISO(d), 'd MMM yyyy')
 const short = (d) => format(parseISO(d), 'd MMM')
@@ -210,14 +211,24 @@ export default function EffectsView() {
   const input = useEffectInput()
   const t = todayStr()
   const [openId, setOpenId] = useState(null)
+  const saunaCount = useStore((s) => s.saunaSessions.length)
   const list = useMemo(() => trackedForEffects(compounds)
     .map((c) => ({ c, fx: compoundEffects(c, compounds, input, t) }))
     .sort((a, b) => (b.fx?.run.start || '').localeCompare(a.fx?.run.start || '')), [compounds, input, t])
 
   const picked = list.find((x) => x.c.id === openId)
   if (picked?.fx) return <CompoundEffectsDetail compound={picked.c} fx={picked.fx} input={input} onBack={() => setOpenId(null)} />
+  if (openId === 'sauna') {
+    return (
+      <div className="space-y-4" data-testid="effects-sauna">
+        <button onClick={() => setOpenId(null)} className="flex items-center gap-1 text-sm font-bold" style={{ color: 'var(--text-2)' }} data-testid="effects-back"><ChevronLeft size={16} /> All</button>
+        <h2 className="text-2xl font-black tracking-tight">Sauna</h2>
+        <SaunaEffectsView />
+      </div>
+    )
+  }
 
-  if (!list.length) {
+  if (!list.length && !saunaCount) {
     return (
       <div className="card p-5" data-testid="effects-empty">
         <p className="text-base font-black">No compounds are tracked yet</p>
@@ -232,6 +243,15 @@ export default function EffectsView() {
         For each compound, the time before it against the time on it. Shared changes are called out; descriptive only.
       </p>
       <Stagger className="card rows overflow-hidden">
+        {saunaCount > 0 && (
+          <StaggerItem as="button" onClick={() => setOpenId('sauna')} className="flex w-full items-center gap-3 p-4 text-left" data-testid="effects-compound" data-compound="sauna">
+            <span className="min-w-0 flex-1">
+              <span className="block text-base font-black">Sauna</span>
+              <span className="block text-xs font-medium tabular-nums" style={{ color: 'var(--text-3)' }}>{saunaCount} session{saunaCount === 1 ? '' : 's'} · sauna days against days without</span>
+            </span>
+            <ChevronRight size={16} className="shrink-0" style={{ color: 'var(--text-3)' }} />
+          </StaggerItem>
+        )}
         {list.map(({ c, fx }) => {
           const dose = fx ? laneFor(c.points, c.runs, fx.run.start, fx.run.end).segments.at(-1) : null
           return (

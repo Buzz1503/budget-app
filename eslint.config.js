@@ -24,14 +24,14 @@ export default [
     },
   },
   {
-    files: ['src/components/health/**/*.jsx', 'src/components/charts/**/*.jsx', 'src/components/charts/**/*.js', 'src/components/body/**/*.jsx', 'src/components/sauna/**/*.jsx', 'src/health/**/*.jsx'],
+    files: ['src/components/health/**/*.jsx', 'src/components/charts/**/*.jsx', 'src/components/charts/**/*.js', 'src/components/body/**/*.jsx', 'src/components/sauna/**/*.jsx', 'src/components/sauna/**/*.js', 'src/health/**/*.jsx'],
     languageOptions: {
       ecmaVersion: 'latest',
       sourceType: 'module',
       parserOptions: { ecmaFeatures: { jsx: true } },
       globals: {
         window: 'readonly', document: 'readonly', navigator: 'readonly', console: 'readonly',
-        requestAnimationFrame: 'readonly', setTimeout: 'readonly', clearTimeout: 'readonly',
+        requestAnimationFrame: 'readonly', setTimeout: 'readonly', clearTimeout: 'readonly', setInterval: 'readonly', clearInterval: 'readonly',
         localStorage: 'readonly', __NATIVE__: 'readonly',
       },
     },

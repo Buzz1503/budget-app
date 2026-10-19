@@ -52,11 +52,15 @@ await step('More › Health first run explains the reads, then connects', async 
   await noOverflow('More › Health')
 })
 
-await step('Home card shows readiness and opens Recovery', async () => {
+await step('Home is the readiness card, then the log, then the sauna row', async () => {
   await tab('Home')
   await seen('[data-testid="home-health-card"]')
-  await page.click('[data-testid="home-checkin-toggle"]')
-  await page.click('[data-testid="checkin-energy-4"]')
+  if (await page.locator('[data-testid="home-checkin-toggle"]').count()) throw new Error('the check-in is still on Home')
+  const order = await page.evaluate(() => {
+    const y = (sel) => document.querySelector(sel)?.getBoundingClientRect().top ?? null
+    return { card: y('[data-testid="home-health-card"]'), log: y('h1'), sauna: y('[data-testid="home-sauna-row"]') }
+  })
+  if (!(order.card < order.log && order.log < order.sauna)) throw new Error(`Home order ${JSON.stringify(order)}`)
   await page.click('[data-testid="home-health-open"]')
   await seen('[data-testid="recovery-view"]')
 })
@@ -139,12 +143,10 @@ await step('Sleep: hero, hypnogram, breakdown, stages, vitals, timing, plan, fac
   await closeSheet()
 })
 
-await step('Training: sessions, load, HRR trend', async () => {
+await step('Body has Composition, Effects and Recovery; no Training', async () => {
   await tab('Body')
-  await page.click('[data-testid="body-seg-training"]')
-  await seen('[data-testid="training-view"]')
-  await seen('[data-testid="hrr-trend"]')
-  await noOverflow('Training')
+  const segs = await page.locator('[data-testid^="body-seg-"]').allTextContents()
+  if (segs.join('|') !== 'Composition|Effects|Recovery') throw new Error(`segments ${segs}`)
 })
 
 await step('Measurements keeps its chips and adds the scale readings', async () => {
@@ -156,7 +158,9 @@ await step('Measurements keeps its chips and adds the scale readings', async () 
 })
 
 await step('Calendar day sheet has the Health snapshot', async () => {
-  await tab('Calendar')
+  await tab('More')
+  await page.click('[data-testid="more-calendar"]')
+  await page.waitForTimeout(600)
   const today = await page.evaluate(() => {
     const d = new Date()
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -370,6 +374,126 @@ await step('Composition: all metrics, body map, scan compare, goal and device ch
   if (await page.locator('[data-testid="family-chart-bodyFat"] [data-testid="family-line-evolt"]').count()) throw new Error('turning Evolt off left its line')
   await seen('[data-testid="weekly-bars"]')
   await noOverflow('Composition')
+})
+
+
+const todayIso = () => page.evaluate(() => {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+})
+
+await step('Sauna: a normal session is two taps, and the hero counts it', async () => {
+  await tab('Sauna')
+  await seen('[data-testid="sauna-hero"]')
+  await page.click('[data-testid="sauna-log"]')
+  await seen('[data-testid="sauna-log-sheet"]')
+  if ((await page.textContent('[data-testid="sauna-length-value"]')).trim() !== '20min') throw new Error('length is not the usual 20')
+  await page.click('[data-testid="sauna-save"]')
+  await page.waitForTimeout(500)
+  if ((await page.getAttribute('[data-testid="sauna-week-ring"]', 'data-count')) !== '1') throw new Error('the ring did not count the session')
+  if (!/^Today, 20 min at 60 C$/.test(await page.textContent('[data-testid="sauna-last"]'))) throw new Error('last session line')
+  await noOverflow('Sauna')
+})
+
+await step('Sauna timer: elapsed time, the phone note, stop opens the log prefilled', async () => {
+  await page.click('[data-testid="sauna-timer"]')
+  await seen('[data-testid="sauna-timer-sheet"]')
+  await page.click('[data-testid="timer-rounds-plus"]')
+  await page.click('[data-testid="timer-start"]')
+  await seen('[data-testid="sauna-running"]')
+  await seen('[data-testid="timer-note"]')
+  if (await page.locator('[data-testid="round-marker"]').count() !== 1) throw new Error('round marker')
+  await page.waitForTimeout(1300)
+  if (!/^00:0[1-9]$/.test(await page.textContent('[data-testid="timer-elapsed"]'))) throw new Error('timer is not counting')
+  // a reload keeps the time: it is worked out from the stored start
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await page.waitForSelector('nav button')
+  await tab('Sauna')
+  await seen('[data-testid="sauna-running"]')
+  await page.click('[data-testid="timer-stop"]')
+  await seen('[data-testid="sauna-log-sheet"]')
+  if ((await page.textContent('[data-testid="sauna-length-value"]')).trim() !== '1min') throw new Error('stopped timer did not prefill one minute')
+  await page.click('[data-testid="sauna-save"]')
+  await page.waitForTimeout(400)
+  if ((await page.getAttribute('[data-testid="sauna-week-ring"]', 'data-count')) !== '2') throw new Error('timer session not saved')
+})
+
+await step('Sauna: Apple Watch "Was this a sauna?" asks only the temperature', async () => {
+  await seen('[data-testid="sauna-watch-card"]', 15000)
+  const before = await page.locator('[data-testid="sauna-watch-card"]').count()
+  await page.locator('[data-testid="sauna-watch-confirm"]').first().click()
+  await seen('[data-testid="sauna-log-sheet"]')
+  if (await page.locator('[data-testid="sauna-length"]').count()) throw new Error('confirm asked for more than the temperature')
+  await page.click('[data-testid="sauna-temp-plus"]')
+  await page.click('[data-testid="sauna-save"]')
+  await page.waitForTimeout(500)
+  const after = await page.locator('[data-testid="sauna-watch-card"]').count()
+  if (after > before - 1 && after === 3 && before === 3) console.log('  (more candidates waiting)')
+  if (await page.locator('[data-testid="sauna-watch-dismiss"]').count()) await page.locator('[data-testid="sauna-watch-dismiss"]').first().click()
+})
+
+await step('Sauna history, session detail with heart rate, effects and the info sheet', async () => {
+  await seen('[data-testid="sauna-heatmap"]')
+  if ((await page.locator('[data-testid="heat-cell"]').count()) !== 84) throw new Error('heatmap is not 12 weeks')
+  await seen('[data-testid="sauna-totals"]')
+  // the Watch-confirmed session is the one with heart rate
+  const rows = page.locator('[data-testid="sauna-list-row"]')
+  let hr = false
+  for (let i = 0; i < await rows.count(); i++) {
+    await rows.nth(i).click()
+    await seen('[data-testid="sauna-session-sheet"]')
+    await page.waitForTimeout(400)
+    if (await page.locator('[data-testid="sauna-hr"]').count()) { hr = true; await seen('[data-testid="sauna-zones"]') }
+    await closeSheet()
+    if (hr) break
+  }
+  if (!hr) throw new Error('no session showed Watch heart rate')
+  await seen('[data-testid="trend-chart-saunaLength"]')
+  await seen('[data-testid="sauna-effects"]')
+  await seen('[data-testid="sauna-vs-none"]')
+  await seen('[data-testid="sauna-timing"]')
+  const fx = await page.textContent('[data-testid="sauna-effects"]')
+  if (/caused|improved|worked/i.test(fx)) throw new Error('causal wording')
+  if (!/Too early/.test(fx)) throw new Error('three sessions should still read too early')
+  await page.click('[data-testid="sauna-info-open"]')
+  await seen('[data-testid="sauna-info"]')
+  await closeSheet()
+  await noOverflow('Sauna')
+})
+
+await step('Sauna everywhere: chart lane, Effects entry, sleep factors, calendar day sheet', async () => {
+  await tab('Body')
+  await page.click('[data-testid="body-seg-recovery"]')
+  const chart = page.locator('[data-testid="trend-chart-hrv"]').first()
+  await chart.locator('[data-testid="overlay-button"]').click()
+  await chart.locator('[data-testid="lane-toggle-sauna"]').click()
+  await page.waitForTimeout(400)
+  await chart.locator('[data-testid="lane-sauna"]').waitFor({ state: 'attached' })
+  if (!(await chart.locator('[data-testid="lane-sauna-dot"]').count())) throw new Error('no sauna dots on the lane')
+  await page.click('[data-testid="body-seg-effects"]')
+  await page.click('[data-testid="effects-compound"][data-compound="sauna"]')
+  await seen('[data-testid="effects-sauna"]')
+  await page.click('[data-testid="effects-back"]')
+  await tab('Sleep')
+  await seen('[data-testid="sleep-factor"]', 15000)
+  const factors = await page.locator('[data-testid="sleep-factor"]').allTextContents()
+  if (!factors.some((f) => f.startsWith('Sauna')) || !factors.some((f) => f.startsWith('Late sauna'))) throw new Error(`sauna factors missing: ${factors.slice(0, 12).map((f) => f.slice(0, 24)).join(' / ')}`)
+  await tab('More')
+  await page.click('[data-testid="more-calendar"]')
+  await page.waitForTimeout(600)
+  const t = await todayIso()
+  await page.locator(`[data-testid="cal-cell-${t}"], [data-testid="cal-day-${t}"]`).first().click()
+  await seen('[data-testid="day-sauna"]')
+  await closeSheet()
+})
+
+await step('Sauna settings: switching off "Show sauna on Home" removes the row', async () => {
+  await tab('Sauna')
+  await page.click('[data-testid="sauna-settings-open"]')
+  await page.click('[data-testid="sauna-show-home"]')
+  await closeSheet()
+  await tab('Home')
+  if (await page.locator('[data-testid="home-sauna-row"]').count()) throw new Error('the sauna row is still on Home')
 })
 
 await browser.close()

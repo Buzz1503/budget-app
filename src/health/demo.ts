@@ -143,6 +143,15 @@ export function generateDemo({ now, tz, days = DEMO_DAYS, seed = 42 }: { now: nu
         q.heartRate.push({ value: Math.round(bpm), start: start + x, end: start + x, ...WATCH })
       }
     }
+    // an evening sauna the watch records as "Other" every third day
+    if (i % 3 === 0 && !isToday) {
+      const start = at(18.2)
+      const dur = 24 * MIN
+      workouts.push({ id: `demo-other-${date}`, type: 'other', title: null, start, end: start + dur, durationSec: dur / 1000, energyKcal: 90, ...WATCH })
+      for (let x = 0; x < dur; x += 20000) {
+        q.heartRate.push({ value: Math.round(92 + 30 * (x / dur) + gauss() * 3), start: start + x, end: start + x, ...WATCH })
+      }
+    }
     if (rnd() < 0.55 && !(isToday && now < at(13))) {
       const start = at(12 + rnd() * 1.5)
       const dur = (30 + rnd() * 25) * MIN
