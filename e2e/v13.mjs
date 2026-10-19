@@ -69,10 +69,12 @@ if (await modal().count()) {
 }
 
 // ---------- 1. five-tab nav ----------
-await step('bottom nav shows exactly Home · Calendar · Symptoms · Body · Bloods · More', async () => {
+// Stage 2C: Symptoms and Bloods moved to the top of More; Sleep is a tab in
+// the native build only, so the web build shows four
+await step('bottom nav shows exactly Home · Body · Calendar · More', async () => {
   const labels = await page.locator('nav button span:not(:has(svg))').allTextContents()
   const got = labels.map((s) => s.trim())
-  if (got.join('|') !== 'Home|Calendar|Symptoms|Body|Bloods|More') {
+  if (got.join('|') !== 'Home|Body|Calendar|More') {
     throw new Error(`nav is [${got.join(', ')}]`)
   }
 })
