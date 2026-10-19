@@ -63,12 +63,23 @@ await step('Home card shows readiness and opens Recovery', async () => {
 
 await step('Recovery: rows, charts, info, overlay', async () => {
   await seen('[data-testid="row-hrv"]')
-  await seen('[data-testid="health-chart-readiness"]')
+  await seen('[data-testid="trend-chart-readiness"] [data-testid="chart-point"]')
   await page.click('[data-testid="readiness-info-button"]')
   await seen('[data-testid="readiness-info"]')
   await closeSheet()
-  await page.locator('[data-testid="health-chart-hrv"] [data-testid="overlay-button"]').click()
-  await page.locator('[data-testid="health-chart-hrv"] [data-testid="ov-ticks"]').click()
+  const hrv = page.locator('[data-testid="trend-chart-hrv"]')
+  await hrv.locator('[data-testid="overlay-button"]').click()
+  await hrv.locator('[data-testid="ov-wobble"]').click()
+  await hrv.locator('[data-testid="wobble-band"]').waitFor({ timeout: 5000 })
+  if (await hrv.locator('[data-testid="ov-ticks"]').count()) throw new Error('dose tick rows are still offered')
+  await hrv.locator('[data-testid="range-30D"]').click()
+  if ((await hrv.getAttribute('data-bucket')) !== 'day') throw new Error('30 days is not daily')
+  await hrv.locator('[data-testid="range-6M"]').click()
+  if ((await hrv.getAttribute('data-bucket')) !== 'week') throw new Error('6 months is not weekly')
+  await hrv.locator('[data-testid="chart-hit"]').last().click()
+  await hrv.locator('[data-testid="point-popover"]').waitFor({ timeout: 3000 })
+  const pin = hrv.locator('[data-testid="chart-pin"]').first()
+  if (await pin.count()) { await pin.click(); await hrv.locator('[data-testid="pin-popover"]').waitFor({ timeout: 3000 }) }
   await noOverflow('Recovery')
 })
 
@@ -114,7 +125,8 @@ await step('Calendar day sheet has the Health snapshot', async () => {
     const d = new Date()
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
   })
-  await seen('[data-testid="day-workout-marker"]')
+  // the default view is this week; on a Monday it may hold no workout yet
+  console.log(`  workout markers in view: ${await page.locator('[data-testid="day-workout-marker"]').count()}`)
   const cell = page.locator(`[data-testid="cal-cell-${today}"], [data-testid="cal-day-${today}"]`).first()
   if (await cell.count()) {
     await cell.click()
@@ -125,7 +137,7 @@ await step('Calendar day sheet has the Health snapshot', async () => {
   }
 })
 
-await step('History › compound shows its Health before and after', async () => {
+await step('History › compound shows its phase cards', async () => {
   await tab('More')
   await page.click('[data-testid="more-history"]')
   await page.waitForTimeout(600)
@@ -136,6 +148,56 @@ await step('History › compound shows its Health before and after', async () =>
   await seen('[data-testid="compound-health"]')
   await noOverflow('Compound detail')
   await closeSheet()
+})
+
+await step('Stats tiles show the newest reading from any source, with date and source', async () => {
+  await tab('Body')
+  await page.click('[data-testid="body-seg-measurements"]')
+  await page.click('[data-testid="body-section-stats"]')
+  const src = await page.locator('[data-testid="tile-weight-source"]').innerText()
+  if (!/, (Withings|Manual|Scan|Apple Health)/.test(src)) throw new Error(`weight tile source reads "${src}"`)
+  const weekly = await page.locator('[data-testid="weight-weekly"]').innerText()
+  if (/Needs/.test(weekly)) throw new Error('change per week still says it needs weigh-ins')
+})
+
+await step('Trends: overall progress chart and the metric chart', async () => {
+  await page.click('[data-testid="body-section-trends"]')
+  await seen('[data-testid="progress-chart"] [data-testid="legend-row"]')
+  await seen('[data-testid="trends-chart"] [data-testid="chart-label"]')
+  await noOverflow('Trends')
+})
+
+await step('Effects: phase cards newest first, a row opens its chart', async () => {
+  await page.click('[data-testid="body-section-effects"]')
+  await seen('[data-testid="phase-card"]')
+  const titles = await page.locator('[data-testid="phase-title"]').allInnerTexts()
+  if (titles.at(-1) !== 'Before tracking') throw new Error(`last card is "${titles.at(-1)}"`)
+  const text = await page.locator('[data-testid="effects-view"]').innerText()
+  if (/caused|improved|worked/i.test(text)) throw new Error('causal wording in Effects')
+  await page.locator('[data-testid="phase-row"]').first().click()
+  await seen('[data-testid="effects-chart"] [data-testid="chart-point"]')
+  await closeSheet()
+  await noOverflow('Effects')
+})
+
+await step('Target wake time: set, then reset to auto', async () => {
+  await tab('More')
+  await page.click('[data-testid="more-health"]')
+  const field = page.locator('[data-testid="health-wake-target"]')
+  if (!/Auto/.test(await field.innerText())) throw new Error('unset wake time does not read Auto')
+  await field.click()
+  await page.fill('[data-testid="health-wake-target-input"]', '06:30')
+  await page.click('[data-testid="health-wake-target-done"]')
+  await page.waitForTimeout(300)
+  if (!/06:30/.test(await field.innerText())) throw new Error('wake time did not save')
+  await page.click('[data-testid="health-wake-target-clear"]')
+  await page.waitForTimeout(300)
+  const st = await page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state.healthSettings.wakeTarget)
+  if (st !== null) throw new Error(`wake time stored as ${st}`)
+  const box = await field.boundingBox()
+  if (box.x + box.width > 390) throw new Error('wake time field overflows')
+  await seen('[data-testid="health-track-effects"]')
+  await noOverflow('More › Health')
 })
 
 await browser.close()

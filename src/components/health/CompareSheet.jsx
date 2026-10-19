@@ -17,7 +17,7 @@ const PRESETS = [
   { match: /mots/i, label: 'MOTS-c and workouts', outcomes: ['workoutAvgHR'] },
 ]
 
-const fmtV = (v, dp) => (v == null ? '—' : round(v, dp))
+const fmtV = (v, dp) => (v == null ? '–' : round(v, dp))
 
 function Pill({ on, onClick, children, testid }) {
   return (

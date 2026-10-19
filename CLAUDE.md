@@ -7,7 +7,7 @@ an iOS app (bundle id com.buzz.pepito). State is one persisted Zustand store,
 ## Commands
 
 - `npm test` — vitest, run once (never watch mode)
-- `npm run typecheck`, `npm run lint` — TypeScript and ESLint, Health code only
+- `npm run typecheck`, `npm run lint` — TypeScript and ESLint, Health, body and chart code
 - `npm run build:web` — Pages build (`base /budget-app/`, service worker)
 - `npm run build:native` — iOS build into `dist-native` (`base /`, no service worker)
 - `npm run cap:sync` — native build, then `cap sync ios`
@@ -17,7 +17,7 @@ an iOS app (bundle id com.buzz.pepito). State is one persisted Zustand store,
 
 - Never commit `/dev-assets` or any body photo.
 - Never run a dev server in the foreground.
-- Plain, calm wording. No medical advice, no diagnosis, no causal claims.
+- Plain, calm wording. No medical advice, no diagnosis, no causal claims, no em dashes in UI copy.
 - Design: dark only, Inter, tabular numbers, spacing 4/8/12/16/20/24/32/40/56,
   radii 10/14/20/pill, colour only where it carries meaning, no coloured icon tiles.
 
@@ -33,7 +33,12 @@ an iOS app (bundle id com.buzz.pepito). State is one persisted Zustand store,
   → Dexie cache `pepito-health` (`cache.ts`). The cache is not in the backup;
   settings, check-ins and habits are (in the Zustand store).
 - Engines: `src/health/engine/*`, pure functions, every constant in `config.ts`.
-  `model.ts` wires them together for the screens.
+  `model.ts` wires them together for the screens; `phases.ts` feeds Body › Effects.
+- Body values: always `getLatestMeasurement` / `dailySeries` (`src/body/bodySeries.ts`,
+  hooks in `src/lib/useBody.js`). Newest day wins; scan > manual > Withings > other
+  only within a day. Never read `measurements` directly for a current value.
+- Charts: one component, `src/components/charts/TrendChart.jsx`, arithmetic in
+  `src/body/chartPoints.ts`. Series colours only from `--series-*` tokens.
 - Demo data: `VITE_DEMO_HEALTH=1 npx vite --port 5175` in dev only, then
   `BASE_URL=http://localhost:5175/budget-app/ node e2e/_health-demo.mjs`.
 - Nothing with health values goes to the network or to the console.

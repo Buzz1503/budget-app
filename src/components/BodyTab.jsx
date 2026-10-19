@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, Suspense } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Ruler, Images, PersonStanding, LineChart as LineChartIcon, Plus, FileText, Trash2, Play,
-  Info, Pencil,
+  Info, Pencil, GitCommitHorizontal,
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import useStore, { todayStr } from '../store/useStore'
@@ -23,10 +23,12 @@ import MeasureGuide from './MeasureGuide'
 import PhotosSection from './PhotosSection'
 import OutcomeEngine from './OutcomeEngine'
 import { useHealthLink } from '../lib/healthLink'
-import { HEALTH_BUILD, BodyHealthView, MeasurementsHealth } from '../health/ui'
+import { HEALTH_BUILD, BodyHealthView, MeasurementsHealth, EffectsView } from '../health/ui'
 
 const SECTIONS = [
   { id: 'stats', label: 'Stats', icon: Ruler },
+  // what changed between protocol changes; reads Health, so native only
+  ...(HEALTH_BUILD ? [{ id: 'effects', label: 'Effects', icon: GitCommitHorizontal }] : []),
   { id: 'trends', label: 'Trends', icon: LineChartIcon },
   { id: 'model', label: 'Model', icon: PersonStanding },
   { id: 'photos', label: 'Photos', icon: Images },
@@ -77,7 +79,7 @@ export default function BodyTab({ goTo }) {
       {showHealth && <HealthSegments value="measurements" onChange={setSegment} />}
       <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
         {SECTIONS.map((s) => (
-          <button key={s.id} onClick={() => setSection(s.id)}
+          <button key={s.id} onClick={() => setSection(s.id)} data-testid={`body-section-${s.id}`}
             className="flex shrink-0 items-center gap-2 rounded-full px-3 py-2 text-xs font-bold"
             style={section === s.id
               ? { background: 'var(--accent)', color: 'var(--accent-fg)' }
@@ -90,6 +92,7 @@ export default function BodyTab({ goTo }) {
         <motion.div key={section} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
           {section === 'stats' && <StatsSection />}
           {section === 'stats' && showHealth && <Suspense fallback={null}><MeasurementsHealth /></Suspense>}
+          {section === 'effects' && <Suspense fallback={null}><EffectsView /></Suspense>}
           {section === 'trends' && <TrendsSection />}
           {section === 'model' && <ModelSection />}
           {section === 'photos' && <PhotosSection />}

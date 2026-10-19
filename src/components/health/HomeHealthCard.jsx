@@ -58,13 +58,13 @@ export default function HomeHealthCard({ goTo }) {
             <span className="block text-sm font-bold" data-testid="home-health-insufficient">Not enough data from last night</span>
           )}
           <span className="mt-1 block text-xs font-medium tabular-nums" style={{ color: 'var(--text-2)' }}>
-            Sleep {night ? minutesWords(night.asleepMin) : '—'}
+            Sleep {night ? minutesWords(night.asleepMin) : '–'}
           </span>
           <span className="block text-xs font-medium tabular-nums" style={{ color: 'var(--text-2)' }}>
-            RHR {rhr.value != null ? Math.round(rhr.value) : '—'} · <Delta value={rhr.delta} dp={1} />
+            RHR {rhr.value != null ? Math.round(rhr.value) : '–'} · <Delta value={rhr.delta} dp={1} />
           </span>
           <span className="block text-xs font-medium tabular-nums" style={{ color: 'var(--text-2)' }}>
-            HRV {hrv.value != null ? Math.round(hrv.value) : '—'} ms · <Delta value={hrv.delta} />
+            HRV {hrv.value != null ? Math.round(hrv.value) : '–'} ms · <Delta value={hrv.delta} />
           </span>
         </span>
         <ChevronRight size={18} className="shrink-0" style={{ color: 'var(--text-3)' }} />

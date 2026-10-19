@@ -42,6 +42,7 @@ export default function ProgressChart() {
   return (
     <div className="card p-3" data-testid="progress-chart">
       <p className="t-caption" style={{ color: 'var(--text-2)' }}>Overall progress</p>
+      <p className="text-xs font-medium" style={{ color: 'var(--text-3)' }}>Current value, and change over the range shown.</p>
       <div className="mt-2"><RangeChips value={rangeKey} onChange={setRangeKey} /></div>
       {values.length === 0 ? (
         <p className="mt-3 text-xs font-medium" style={{ color: 'var(--text-2)' }}>No data in this range yet.</p>
@@ -87,13 +88,13 @@ export default function ProgressChart() {
         {lines.map((l) => {
           const latest = getLatestMeasurement(l.key, input, t)
           const line = l.points.filter((p) => !p.scan)
-          const change = rangeChangeWords(line.length > 1 ? line : l.points, 'kg', 1, from, to)
+          const change = rangeChangeWords(line.length > 1 ? line : l.points, 'kg', 1, from, to, false)
           return (
             <div key={l.key} className="flex items-center gap-2 py-2" data-testid="legend-row">
               <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: colorFor(l.key) }} />
               <span className="min-w-0 flex-1 text-sm font-semibold">{l.label}</span>
               <span className="text-sm font-black tabular-nums">{latest ? `${latest.value.toFixed(1)} kg` : '–'}</span>
-              <span className="w-[120px] shrink-0 text-right text-xs font-medium tabular-nums" style={{ color: 'var(--text-3)' }}>{change || 'no change yet'}</span>
+              <span className="w-[92px] shrink-0 text-right text-xs font-medium tabular-nums" style={{ color: 'var(--text-3)' }}>{change || 'no change yet'}</span>
             </div>
           )
         })}

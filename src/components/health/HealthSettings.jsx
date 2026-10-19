@@ -6,6 +6,7 @@ import { useHealth } from '../../health/state'
 import NumberField from '../ui/NumberField'
 import PickerField from '../ui/PickerField'
 import { affectsBaseline } from '../../health/engine/protocol'
+import { tracksEffects } from '../../health/engine/phases'
 import { useCompounds } from './useHealthModel'
 
 /** What is read, and why — said before the system sheet asks. */
@@ -185,6 +186,25 @@ function HabitRow({ habit: h, onRename, onRemove }) {
   )
 }
 
+function TrackEffects() {
+  const compounds = useCompounds()
+  const setTrack = useStore((s) => s.setTrackEffects)
+  if (!compounds.length) return null
+  return (
+    <div className="card p-4" data-testid="health-track-effects">
+      <p className="t-label">Track effects</p>
+      <p className="text-xs font-medium leading-snug" style={{ color: 'var(--text-3)' }}>
+        Starts, stops and dose changes of these compounds mark the phases in Body › Effects and the pins on charts. Supplements are not tracked.
+      </p>
+      <div className="mt-1 rows">
+        {compounds.map((c) => (
+          <Switch key={c.id} label={c.name} on={tracksEffects(c)} onChange={(on) => setTrack(c.id, on)} testId={`track-${c.id}`} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function Habits() {
   const habits = useStore((s) => s.habits)
   const addHabit = useStore((s) => s.addHabit)
@@ -276,6 +296,7 @@ export default function HealthSettings() {
           <BaselineCompounds />
         </>
       )}
+      <TrackEffects />
       <Habits />
       <CheckinToggle />
       <p className="px-1 text-xs font-medium leading-snug" style={{ color: 'var(--text-3)' }}>

@@ -74,6 +74,12 @@ export function bucketPoints(series: SeriesPoint[], bucket: Bucket, from: string
       t = addDays(next, -1)
       x = `${k}-15`
     }
+    // a week or month cut off by the range is drawn at the middle of the part shown
+    if (bucket !== 'day' && (f < from || t > to)) {
+      const a = f < from ? from : f
+      const b = t > to ? to : t
+      x = fromNum(Math.round((dayNum(a) + dayNum(b)) / 2))
+    }
     out.push({
       x, from: f, to: t, n: pts.length, scan: false,
       value: round(pts.reduce((s, p) => s + p.value, 0) / pts.length),
@@ -218,12 +224,13 @@ export function groupEvents<E extends { date: string }>(events: E[], days = 7): 
 
 // ------------------------------------------------------------------ header
 
-/** "down 2.0 kg over 90 days" */
-export function rangeChangeWords(points: PlotPoint[], unit: string, dp: number, from: string, to: string): string | null {
+/** "down 2.0 kg over 90 days" (or just "down 2.0 kg" without the days) */
+export function rangeChangeWords(points: PlotPoint[], unit: string, dp: number, from: string, to: string, withDays = true): string | null {
   if (points.length < 2) return null
   const d = points[points.length - 1].value - points[0].value
   const days = dayNum(to) - dayNum(from) + 1
   const v = Math.abs(d).toFixed(dp)
-  if (Number(v) === 0) return `about the same over ${days} days`
-  return `${d > 0 ? 'up' : 'down'} ${v}${unit ? ` ${unit}` : ''} over ${days} days`
+  const over = withDays ? ` over ${days} days` : ''
+  if (Number(v) === 0) return `about the same${over}`
+  return `${d > 0 ? 'up' : 'down'} ${v}${unit ? ` ${unit}` : ''}${over}`
 }

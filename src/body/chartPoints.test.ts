@@ -25,11 +25,11 @@ describe('bucketing', () => {
     expect(p[0].sources).toEqual(['Manual', 'Withings'])
   })
 
-  it('months average their days and sit on the 15th', () => {
+  it('months average their days and sit on the 15th, or mid-way through the part in range', () => {
     const s: SeriesPoint[] = [{ date: '2026-09-02', value: 90 }, { date: '2026-09-29', value: 92 }, { date: '2026-10-01', value: 88 }]
     const p = bucketPoints(s, 'month', '2026-01-01', '2026-10-19')
     expect(p.map((x) => [x.x, x.from, x.to, x.value])).toEqual([
-      ['2026-09-15', '2026-09-01', '2026-09-30', 91], ['2026-10-15', '2026-10-01', '2026-10-31', 88],
+      ['2026-09-15', '2026-09-01', '2026-09-30', 91], ['2026-10-10', '2026-10-01', '2026-10-31', 88],
     ])
   })
 
@@ -101,5 +101,6 @@ describe('x axis and pins', () => {
   it('header change over the range in words', () => {
     const pts = [{ x: 'a', from: 'a', to: 'a', value: 93, n: 1, sources: [], scan: false }, { x: 'b', from: 'b', to: 'b', value: 91, n: 1, sources: [], scan: false }]
     expect(rangeChangeWords(pts, 'kg', 1, '2026-07-22', '2026-10-19')).toBe('down 2.0 kg over 90 days')
+    expect(rangeChangeWords(pts, 'kg', 1, '2026-07-22', '2026-10-19', false)).toBe('down 2.0 kg')
   })
 })

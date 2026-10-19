@@ -85,7 +85,7 @@ function RecoveryRow({ label, unit, row, spark, dp = 0, note = null, testid }) {
         </div>
         <Sparkline values={spark} />
         <div className="w-[96px] shrink-0 text-right">
-          <p className="text-base font-black tabular-nums">{row.value != null ? round(row.value, dp) : '—'}<span className="ml-1 text-xs font-bold" style={{ color: 'var(--text-3)' }}>{unit}</span></p>
+          <p className="text-base font-black tabular-nums">{row.value != null ? round(row.value, dp) : '–'}<span className="ml-1 text-xs font-bold" style={{ color: 'var(--text-3)' }}>{unit}</span></p>
           <p className="text-xs font-medium"><Delta value={row.delta} dp={dp} /></p>
         </div>
       </div>
@@ -244,7 +244,7 @@ function SleepView({ model }) {
           </div>
           <div className="mt-1 flex items-end gap-3">
             <p className="text-3xl font-black tabular-nums" data-testid="asleep-duration">{minutesWords(shown.asleepMin)}</p>
-            <p className="pb-1 text-sm font-bold tabular-nums" style={{ color: 'var(--text-2)' }} data-testid="sleep-score">Score {perf?.score ?? '—'}</p>
+            <p className="pb-1 text-sm font-bold tabular-nums" style={{ color: 'var(--text-2)' }} data-testid="sleep-score">Score {perf?.score ?? '–'}</p>
           </div>
           <p className="text-xs font-medium tabular-nums" style={{ color: 'var(--text-2)' }}>
             In bed {minutesWords(shown.inBedMin)} · {clock(shown.start)} to {clock(shown.end)}
@@ -257,7 +257,7 @@ function SleepView({ model }) {
       )}
 
       <div className="grid grid-cols-2 gap-2">
-        <Stat testid="sleep-consistency" label="Consistency" value={sdMin != null ? `±${Math.round(sdMin)} min` : '—'} sub={recent7.length >= 3 ? 'Bed and wake time, last 7 nights' : 'Needs 3 nights'} />
+        <Stat testid="sleep-consistency" label="Consistency" value={sdMin != null ? `±${Math.round(sdMin)} min` : '–'} sub={recent7.length >= 3 ? 'Bed and wake time, last 7 nights' : 'Needs 3 nights'} />
         <Stat testid="sleep-debt" label="7-night debt" value={`${round(debt, 1)} h`} sub={`Against ${model.needH} h a night`} />
       </div>
 
@@ -365,8 +365,8 @@ function TrainingView({ model }) {
       </div>
 
       <div className="grid grid-cols-2 gap-2">
-        <Stat testid="steps-avg" label="Steps, 7-day average" value={avg('steps') != null ? Number(avg('steps')).toLocaleString() : '—'} />
-        <Stat testid="energy-avg" label="Active energy, 7-day avg" value={avg('activeEnergy') != null ? `${avg('activeEnergy')} kcal` : '—'} />
+        <Stat testid="steps-avg" label="Steps, 7-day average" value={avg('steps') != null ? Number(avg('steps')).toLocaleString() : '–'} />
+        <Stat testid="energy-avg" label="Active energy, 7-day avg" value={avg('activeEnergy') != null ? `${avg('activeEnergy')} kcal` : '–'} />
         {daylightAvg != null && <Stat testid="daylight-avg" label="Daylight, 7-day avg" value={`${daylightAvg} min`} />}
         {latestVo2 && (
           <Stat testid="vo2-now" label="VO2 max (estimate)" value={`${latestVo2.value}`}
@@ -381,7 +381,7 @@ function TrainingView({ model }) {
 
       {(today?.dietProtein != null || proteinAvg != null) && (
         <p className="px-1 text-xs font-medium tabular-nums" style={{ color: 'var(--text-3)' }} data-testid="protein-line">
-          Protein today {today?.dietProtein != null ? `${today.dietProtein} g` : '—'} · 7-day average {proteinAvg != null ? `${proteinAvg} g` : '—'}
+          Protein today {today?.dietProtein != null ? `${today.dietProtein} g` : '–'} · 7-day average {proteinAvg != null ? `${proteinAvg} g` : '–'}
         </p>
       )}
     </div>

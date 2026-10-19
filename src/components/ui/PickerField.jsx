@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { format, parseISO } from 'date-fns'
 import { Clock, CalendarDays } from 'lucide-react'
 import Modal from './Modal'
@@ -37,7 +38,9 @@ export default function PickerField({
           {clearText}
         </button>
       )}
-      <Modal open={open} onClose={() => setOpen(false)} title={label || (kind === 'time' ? 'Time' : 'Date')}>
+      {/* through a portal: a card with a backdrop blur is its own stacking
+          context, and a sheet left inside one sits behind the cards after it */}
+      {createPortal(<Modal open={open} onClose={() => setOpen(false)} title={label || (kind === 'time' ? 'Time' : 'Date')}>
         <div className="space-y-3">
           <input type={kind} className="input" value={draft} min={min} max={max} autoFocus
             aria-label={label || kind} data-testid={testid ? `${testid}-input` : undefined}
@@ -47,7 +50,7 @@ export default function PickerField({
             Done
           </button>
         </div>
-      </Modal>
+      </Modal>, document.body)}
     </div>
   )
 }

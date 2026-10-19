@@ -44,7 +44,7 @@ export function Delta({ value, unit = '', dp = 0 }) {
 }
 
 export function minutesWords(min) {
-  if (min == null) return '—'
+  if (min == null) return '–'
   const h = Math.floor(min / 60)
   const m = Math.round(min % 60)
   return h ? `${h} h ${String(m).padStart(2, '0')} m` : `${m} m`
