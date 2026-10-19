@@ -18,3 +18,4 @@ export const DayHealth = HEALTH_BUILD ? lazy(() => import('../components/health/
 export const CompoundHealth = HEALTH_BUILD ? lazy(() => import('../components/health/CompoundHealth')) : none
 export const MarkerHealthOverlay = HEALTH_BUILD ? lazy(() => import('../components/health/MarkerHealthOverlay')) : none
 export const EffectsView = HEALTH_BUILD ? lazy(() => import('../components/health/EffectsView')) : none
+export const SleepTab = HEALTH_BUILD ? lazy(() => import('../components/health/SleepTab')) : none

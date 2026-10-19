@@ -1,7 +1,7 @@
 import { useState, useEffect, useLayoutEffect, useRef, Suspense } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Sun, CalendarDays, HeartPulse, LayoutGrid, ChevronLeft, PersonStanding, Droplet,
+  Sun, CalendarDays, LayoutGrid, ChevronLeft, PersonStanding, Moon,
 } from 'lucide-react'
 
 import useStore, { onStorageError } from './store/useStore'
@@ -26,7 +26,7 @@ import MoreHub from './components/MoreHub'
 import Toast from './components/Toast'
 import UpdatePrompt from './components/UpdatePrompt'
 import ImportScans from './components/ImportScans'
-import { HEALTH_BUILD, HealthBoot, HealthSettings } from './health/ui'
+import { HEALTH_BUILD, HealthBoot, HealthSettings, SleepTab } from './health/ui'
 
 // full registry of every screen
 const SCREENS = {
@@ -47,16 +47,17 @@ const SCREENS = {
   supplements: SupplementsTab,
   scans: ImportScans,
   // native app only: compiled out of the web build
-  ...(HEALTH_BUILD ? { health: HealthSettings } : {}),
+  ...(HEALTH_BUILD ? { health: HealthSettings, sleep: SleepTab } : {}),
 }
 
-// Six primary tabs in the bottom bar; everything else lives under More.
+// Primary tabs in the bottom bar; everything else lives under More (Symptoms
+// and Bloods are its first two rows). Sleep reads Apple Health, so it is only
+// in the iPhone app; the web build has four tabs.
 const PRIMARY = [
   { id: 'today', label: 'Home', icon: Sun },
-  { id: 'calendar', label: 'Calendar', icon: CalendarDays },
-  { id: 'symptoms', label: 'Symptoms', icon: HeartPulse },
   { id: 'body', label: 'Body', icon: PersonStanding },
-  { id: 'bloods', label: 'Bloods', icon: Droplet },
+  ...(HEALTH_BUILD ? [{ id: 'sleep', label: 'Sleep', icon: Moon }] : []),
+  { id: 'calendar', label: 'Calendar', icon: CalendarDays },
   { id: 'more', label: 'More', icon: LayoutGrid },
 ]
 const PRIMARY_IDS = new Set(PRIMARY.map((t) => t.id))
@@ -64,7 +65,7 @@ const PRIMARY_IDS = new Set(PRIMARY.map((t) => t.id))
 const SUB_TITLES = {
   now: 'Right Now', protocol: 'My protocol', supplies: 'Stock', calc: 'Calculator',
   mix: 'Mix', settings: 'Settings', history: 'History', supplements: 'Supplements', gear: 'Supplies',
-  health: 'Health', scans: 'Import scans',
+  health: 'Health', scans: 'Import scans', symptoms: 'Symptoms', bloods: 'Bloods',
 }
 
 // Screens that were their own destination in an earlier version. Old deep links
@@ -182,7 +183,7 @@ export default function App() {
           pointerEvents: vp.keyboardOpen ? 'none' : undefined,
         }}
       >
-        <div className="mx-auto grid max-w-3xl grid-cols-6 px-1 pb-[max(env(safe-area-inset-bottom),6px)] pt-2">
+        <div className="mx-auto grid max-w-3xl px-1 pb-[max(env(safe-area-inset-bottom),6px)] pt-2" style={{ gridTemplateColumns: `repeat(${PRIMARY.length}, minmax(0, 1fr))` }}>
           {PRIMARY.map(({ id, label, icon: Icon }) => {
             const active = tab === id || (id === 'more' && isSub)
             return (
@@ -194,8 +195,8 @@ export default function App() {
                 style={{ color: active ? 'var(--lime)' : 'var(--muted)' }}
                 aria-label={label}
               >
-                {/* six across a 390px phone leaves ~63px a column, so the icon
-                    comes down a notch and the label is sized never to wrap */}
+                {/* five across a 390px phone leaves ~76px a column; the label
+                    is sized never to wrap */}
                 <Icon size={28} strokeWidth={active ? 2.5 : 2} />
                 <span className="max-w-full truncate text-[10px] font-bold leading-none">{label}</span>
                 {active && <motion.div layoutId="tab-dot" className="mt-0.5 h-1 w-1 rounded-full" style={{ background: 'var(--lime)' }} />}

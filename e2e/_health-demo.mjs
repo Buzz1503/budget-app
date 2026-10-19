@@ -95,7 +95,7 @@ await step('Compare: dose timing, before and after, habits', async () => {
 })
 
 await step('Sleep: last night with stages, planner, 14 nights', async () => {
-  await page.click('[data-testid="body-seg-sleep"]')
+  await tab('Sleep')
   await seen('[data-testid="last-night"]')
   await seen('[data-testid="stage-deep"]')
   await page.click('[data-testid="sleep-planner"]')
@@ -105,6 +105,7 @@ await step('Sleep: last night with stages, planner, 14 nights', async () => {
 })
 
 await step('Training: sessions, load, HRR trend', async () => {
+  await tab('Body')
   await page.click('[data-testid="body-seg-training"]')
   await seen('[data-testid="training-view"]')
   await seen('[data-testid="hrr-trend"]')
@@ -112,7 +113,7 @@ await step('Training: sessions, load, HRR trend', async () => {
 })
 
 await step('Measurements keeps its chips and adds the scale readings', async () => {
-  await page.click('[data-testid="body-seg-measurements"]')
+  await page.click('[data-testid="body-seg-composition"]')
   await seen('[data-testid="measurements-health"]')
   await seen('[data-testid="health-entry-source"]')
   await seen('[data-testid="bodyfat-footnote"]')
@@ -152,7 +153,7 @@ await step('History › compound shows its phase cards', async () => {
 
 await step('Stats tiles show the newest reading from any source, with date and source', async () => {
   await tab('Body')
-  await page.click('[data-testid="body-seg-measurements"]')
+  await page.click('[data-testid="body-seg-composition"]')
   await page.click('[data-testid="body-section-stats"]')
   const src = await page.locator('[data-testid="tile-weight-source"]').innerText()
   if (!/, (Withings|Manual|Scan|Apple Health)/.test(src)) throw new Error(`weight tile source reads "${src}"`)
@@ -168,7 +169,7 @@ await step('Trends: overall progress chart and the metric chart', async () => {
 })
 
 await step('Effects: phase cards newest first, a row opens its chart', async () => {
-  await page.click('[data-testid="body-section-effects"]')
+  await page.click('[data-testid="body-seg-effects"]')
   await seen('[data-testid="phase-card"]')
   const titles = await page.locator('[data-testid="phase-title"]').allInnerTexts()
   if (titles.at(-1) !== 'Before tracking') throw new Error(`last card is "${titles.at(-1)}"`)
@@ -200,13 +201,13 @@ await step('Target wake time: set, then reset to auto', async () => {
   await noOverflow('More › Health')
 })
 
-await step('Starting point: v21 adds the Evolt scans and every "since" counts from 13 Jan 2025', async () => {
+await step('Starting point: v22 imports the Evolt history and every "since" counts from 13 Jan 2025', async () => {
   // make this profile look like one saved before v21, then reopen the app
   await page.evaluate(() => {
     const raw = JSON.parse(localStorage.getItem('peptide-command-center'))
-    raw.version = 20
+    raw.version = 21
     raw.state.bodyStart = null
-    raw.state.measurements = (raw.state.measurements || []).filter((m) => !String(m.id).startsWith('m-evolt'))
+    raw.state.measurements = (raw.state.measurements || []).filter((m) => m.source !== 'scan')
     localStorage.setItem('peptide-command-center', JSON.stringify(raw))
   })
   await page.reload({ waitUntil: 'domcontentloaded' })
@@ -214,13 +215,17 @@ await step('Starting point: v21 adds the Evolt scans and every "since" counts fr
   await page.waitForTimeout(1500)
   const st = await page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state)
   if (st.bodyStart?.date !== '2025-01-13' || st.bodyStart?.values?.weight !== 105.6) throw new Error('the Evolt start was not set')
-  if (st.measurements.filter((m) => String(m.id).startsWith('m-evolt')).length !== 2) throw new Error('the two Evolt entries were not added')
+  const scans = st.measurements.filter((m) => m.source === 'scan' && !m.estimated)
+  if (scans.length !== 15) throw new Error(`${scans.length} Evolt scans imported, expected 15`)
+  if (!st.measurements.some((m) => m.id === 'm-evolt-2025-01-13-start' && m.hiddenFromCharts)) throw new Error('the adjusted start scan is missing or on the charts')
   await tab('Body')
-  await page.click('[data-testid="body-seg-measurements"]')
+  await page.click('[data-testid="body-seg-composition"]')
   await page.click('[data-testid="body-section-stats"]')
   const delta = await page.locator('[data-testid="tile-weight-delta"]').innerText()
   if (!/since 13 Jan 2025/.test(delta) || !/▼/.test(delta)) throw new Error(`weight delta reads "${delta}"`)
-  if (!(await page.locator('[data-testid="tile-devices-note"]').count())) throw new Error('no different-devices note on body fat (Evolt start, Withings latest)')
+  // body fat compares Evolt with Evolt
+  const bfSource = await page.locator('[data-testid="tile-bodyFat-source"]').innerText()
+  if (!/Evolt 360/.test(bfSource)) throw new Error(`body fat tile reads "${bfSource}", expected the latest Evolt scan`)
   await noOverflow('Stats with starting point')
 })
 
@@ -273,7 +278,7 @@ await step('Trends: Start line on the weight chart, one weight on 13 Jan 2025', 
   await chart.locator('[data-testid="chart-start-line"]').waitFor({ timeout: 5000 })
   await page.locator('[data-testid="legend-since"]').first().waitFor({ timeout: 5000 })
   const st = await page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state.measurements.filter((m) => m.date === '2025-01-13'))
-  if (st.length !== 2 || !st.some((m) => m.hiddenFromCharts)) throw new Error('both Evolt entries should be on record, one off the charts')
+  if (st.length !== 2 || st.filter((m) => m.hiddenFromCharts).length !== 1) throw new Error('13 Jan should hold the real scan and the hidden adjusted start')
   await noOverflow('Trends with start line')
 })
 

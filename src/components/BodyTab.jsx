@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, Suspense } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Ruler, Images, PersonStanding, LineChart as LineChartIcon, Plus, FileText, Trash2, Play,
-  Info, Pencil, GitCommitHorizontal,
+  Info, Pencil,
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import useStore, { todayStr } from '../store/useStore'
@@ -32,8 +32,6 @@ import { HEALTH_BUILD, BodyHealthView, MeasurementsHealth, EffectsView } from '.
 
 const SECTIONS = [
   { id: 'stats', label: 'Stats', icon: Ruler },
-  // what changed between protocol changes; reads Health, so native only
-  ...(HEALTH_BUILD ? [{ id: 'effects', label: 'Effects', icon: GitCommitHorizontal }] : []),
   { id: 'trends', label: 'Trends', icon: LineChartIcon },
   { id: 'model', label: 'Model', icon: PersonStanding },
   { id: 'photos', label: 'Photos', icon: Images },
@@ -41,14 +39,15 @@ const SECTIONS = [
 ]
 
 const SEGMENTS = [
-  { id: 'measurements', label: 'Measurements' },
+  { id: 'composition', label: 'Composition' },
+  { id: 'effects', label: 'Effects' },
   { id: 'recovery', label: 'Recovery' },
-  { id: 'sleep', label: 'Sleep' },
   { id: 'training', label: 'Training' },
 ]
 
-// Measurements | Recovery | Sleep | Training. Only in the native app once Apple
-// Health is there; everywhere else the Body tab is exactly what it was.
+// Composition | Effects | Recovery | Training. Only in the native app once
+// Apple Health is there; on the web the Body tab is Composition alone. Sleep
+// has its own tab.
 function HealthSegments({ value, onChange }) {
   return (
     <div className="flex gap-1 rounded-full p-1" style={{ background: 'var(--surface-sunk)' }} role="tablist" data-testid="body-segments">
@@ -69,19 +68,21 @@ export default function BodyTab({ goTo }) {
   const segment = useHealthLink((s) => s.bodySegment)
   const setSegment = useHealthLink((s) => s.setBodySegment)
   const showHealth = HEALTH_BUILD && available
-  if (showHealth && segment !== 'measurements') {
+  if (showHealth && segment !== 'composition') {
     return (
       <div className="space-y-3">
-        <h1 className="text-2xl font-black tracking-tight">Body & Outcomes</h1>
+        <h1 className="text-2xl font-black tracking-tight">Body</h1>
         <HealthSegments value={segment} onChange={setSegment} />
-        <Suspense fallback={null}><BodyHealthView segment={segment} goTo={goTo} /></Suspense>
+        <Suspense fallback={null}>
+          {segment === 'effects' ? <EffectsView /> : <BodyHealthView segment={segment} goTo={goTo} />}
+        </Suspense>
       </div>
     )
   }
   return (
     <div className="space-y-3">
-      <h1 className="text-2xl font-black tracking-tight">Body & Outcomes</h1>
-      {showHealth && <HealthSegments value="measurements" onChange={setSegment} />}
+      <h1 className="text-2xl font-black tracking-tight">Body</h1>
+      {showHealth && <HealthSegments value="composition" onChange={setSegment} />}
       <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
         {SECTIONS.map((s) => (
           <button key={s.id} onClick={() => setSection(s.id)} data-testid={`body-section-${s.id}`}
@@ -97,7 +98,6 @@ export default function BodyTab({ goTo }) {
         <motion.div key={section} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
           {section === 'stats' && <StatsSection />}
           {section === 'stats' && showHealth && <Suspense fallback={null}><MeasurementsHealth /></Suspense>}
-          {section === 'effects' && <Suspense fallback={null}><EffectsView /></Suspense>}
           {section === 'trends' && <TrendsSection />}
           {section === 'model' && <ModelSection />}
           {section === 'photos' && <PhotosSection />}

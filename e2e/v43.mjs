@@ -538,7 +538,7 @@ await step('8 · the other tabs are untouched', async () => {
   await closeAll()
   for (const label of ['Home', 'Calendar', 'Symptoms', 'Body', 'Bloods', 'More']) {
     await page.click(`nav button[aria-label="${label}"]`); await page.waitForTimeout(500)
-    if ((await page.locator('nav button').count()) !== 6) throw new Error(`${label} broke the nav`)
+    if ((await page.locator('nav button').count()) !== 4) throw new Error(`${label} broke the nav`)
     await noOverflow(label)
   }
   await page.click('[data-testid="more-supplies"]'); await page.waitForTimeout(700)

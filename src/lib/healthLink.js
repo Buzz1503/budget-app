@@ -8,8 +8,8 @@ export const useHealthLink = create((set) => ({
   available: false,
   /** Dates (YYYY-MM-DD) with at least one workout, for the calendar marker. */
   workoutDates: new Set(),
-  /** The Body tab's segment: measurements | recovery | sleep | training. */
-  bodySegment: 'measurements',
+  /** The Body tab's segment: composition | effects | recovery | training. */
+  bodySegment: 'composition',
   setBodySegment: (bodySegment) => set({ bodySegment }),
   setWorkoutDates: (workoutDates) => set({ workoutDates }),
   /** Body readings from Apple Health, one row per day (weight, body fat, lean mass, blood pressure). */

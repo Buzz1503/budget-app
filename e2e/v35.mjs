@@ -48,6 +48,9 @@ const closeAll = async () => {
   }
 }
 const nav = async (label) => {
+  // v46: Symptoms and Bloods moved into More
+  if (label === 'Symptoms' || label === 'Bloods') { await page.click('nav button[aria-label="More"]'); await page.waitForTimeout(500); await page.click(`[data-testid="more-${label.toLowerCase()}"]`); await page.waitForTimeout(700); return }
+
   await closeAll()
   await page.click(`nav button[aria-label="${label}"]`)
   await page.waitForTimeout(700)
@@ -598,10 +601,10 @@ await step('6b · an older install migrates without losing anything', async () =
   console.log(`  upgraded from v12: ${after.bloods.tests.length} tests seeded, everything else intact`)
 })
 
-await step('6c · the tab bar fits six across at 390px', async () => {
+await step('6c · the tab bar fits across at 390px', async () => {
   await nav('Home')
   const buttons = await page.locator('nav button').count()
-  if (buttons !== 6) throw new Error(`${buttons} tabs in the bar`)
+  if (buttons !== 4) throw new Error(`${buttons} tabs in the bar`)
   const clipped = await page.locator('nav button').evaluateAll(
     (els) => els.filter((e) => e.scrollWidth > e.clientWidth + 1).map((e) => e.getAttribute('aria-label')))
   if (clipped.length) throw new Error(`clipped labels: ${clipped.join(', ')}`)

@@ -64,7 +64,7 @@ await page.goto(BASE, { waitUntil: 'networkidle' })
 
 await step('loads from the root: the app renders, not a white screen', async () => {
   await page.waitForSelector('nav button', { timeout: 15000 })
-  if ((await page.locator('nav button').count()) !== 6) throw new Error('the tab bar did not render')
+  if ((await page.locator('nav button').count()) !== 5) throw new Error('the tab bar did not render')
   const text = (await page.locator('body').innerText()).trim()
   if (text.length < 50) throw new Error(`the page is nearly empty: "${text}"`)
   const bg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor)

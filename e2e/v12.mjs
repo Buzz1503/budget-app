@@ -39,6 +39,9 @@ const MORE_LINK = {
     Wizard: 'text=Add, remove or edit anything I take',
 }
 const nav = async (label) => {
+  // v46: Symptoms and Bloods moved into More
+  if (label === 'Symptoms' || label === 'Bloods') { await page.click('nav button[aria-label="More"]'); await page.waitForTimeout(500); await page.click(`[data-testid="more-${label.toLowerCase()}"]`); await page.waitForTimeout(700); return }
+
   if (PRIMARY_TABS.has(label)) {
     await page.click(`nav button[aria-label="${label}"]`)
   } else {

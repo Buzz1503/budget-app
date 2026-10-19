@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import {
   Package, Settings, ChevronRight, Activity, History, Wand2, FlaskConical,
-  Combine, Pill, ClipboardList, CalendarPlus, Syringe, HeartPulse, Upload,
+  Combine, Pill, ClipboardList, CalendarPlus, Syringe, HeartPulse, Upload, Droplet,
 } from 'lucide-react'
 import { HEALTH_BUILD } from '../health/ui'
 import BackfillSheet from './BackfillSheet'
@@ -16,6 +16,14 @@ import BackfillSheet from './BackfillSheet'
  * colour.
  */
 const SECTIONS = [
+  {
+    id: 'track',
+    title: 'Track',
+    links: [
+      { id: 'symptoms', label: 'Symptoms', desc: 'Check-ins, reactions and the site map', icon: HeartPulse },
+      { id: 'bloods', label: 'Bloods', desc: 'Results, ranges and trends', icon: Droplet },
+    ],
+  },
   {
     id: 'protocol',
     title: 'My protocol',

@@ -69,6 +69,11 @@ export default function HomeHealthCard({ goTo }) {
         </span>
         <ChevronRight size={18} className="shrink-0" style={{ color: 'var(--text-3)' }} />
       </button>
+      <button onClick={() => goTo?.('sleep')} className="mt-3 flex w-full items-center gap-2 border-t pt-3 text-left" style={{ borderColor: 'var(--border)' }} data-testid="home-sleep-open">
+        <span className="min-w-0 flex-1 text-xs font-bold" style={{ color: 'var(--text-2)' }}>Last night, tonight's plan and sleep trends</span>
+        <span className="text-xs font-bold" style={{ color: 'var(--text)' }}>Sleep</span>
+        <ChevronRight size={16} className="shrink-0" style={{ color: 'var(--text-3)' }} />
+      </button>
 
       {checkinEnabled && (
         <div className="mt-3 border-t pt-3" style={{ borderColor: 'var(--border)' }}>

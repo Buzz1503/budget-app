@@ -123,6 +123,9 @@ const reload = async () => {
   await gotIt()
 }
 const nav = async (label) => {
+  // v46: Symptoms and Bloods moved into More
+  if (label === 'Symptoms' || label === 'Bloods') { await page.click('nav button[aria-label="More"]'); await page.waitForTimeout(500); await page.click(`[data-testid="more-${label.toLowerCase()}"]`); await page.waitForTimeout(700); return }
+
   await closeAll()
   await page.click(`nav button[aria-label="${label}"]`)
   await page.waitForTimeout(650)
@@ -1127,7 +1130,7 @@ await step('21 · every tab still opens and the untouched data is intact', async
   for (const label of ['Home', 'Calendar', 'Symptoms', 'Body', 'Bloods', 'More']) {
     await nav(label)
     const count = await page.locator('nav button').count()
-    if (count !== 6) throw new Error(`${label} left ${count} nav buttons`)
+    if (count !== 4) throw new Error(`${label} left ${count} nav buttons`)
     await noOverflow(label)
   }
   const after = await state()
