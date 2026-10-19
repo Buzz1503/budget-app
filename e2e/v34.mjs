@@ -212,7 +212,9 @@ await step('1 · the pushed dose lands on the next day with a marker', async () 
   })
   if (shape) {
     if (shape.lines > 1) throw new Error('the marker wraps onto a second line')
-    if (shape.mine > shape.max + 2) throw new Error(`the marked row is ${shape.mine}px against ${shape.max}px for the rest`)
+    // stage 2D took the cycle line off every row, so the marker is the only
+    // extra line now: one short line (under 18 px) is all it may add
+    if (shape.mine > shape.max + 18) throw new Error(`the marked row is ${shape.mine}px against ${shape.max}px for the rest`)
   }
   await page.screenshot({ path: `${SHOT}/v34-pushed-marker.png` })
 })
