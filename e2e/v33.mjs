@@ -50,59 +50,11 @@ if (await gotIt.count()) { await gotIt.click(); await page.waitForTimeout(700) }
 
 // ================================================== 1 · the cycle line
 
-await step('1 · cycled compounds carry a cycle line, uncycled ones do not', async () => {
-  const rows = await page.evaluate(() => {
-    const s = JSON.parse(localStorage.getItem('peptide-command-center')).state
-    const cycled = new Set(s.peptides.filter((p) => p.cycleOnDays && p.cycleOffDays).map((p) => p.name))
-    return [...document.querySelectorAll('[data-testid="log-row"]')].map((r) => ({
-      name: r.getAttribute('aria-label').replace(/^Log |^| logged$/g, '').trim(),
-      hasLine: !!r.querySelector('[data-testid="cycle-line"]'),
-      line: r.querySelector('[data-testid="cycle-line"]')?.textContent?.trim() || null,
-      cycledNames: [...cycled],
-    }))
-  })
-  if (!rows.length) throw new Error('no dose rows on Home')
-  const withLine = rows.filter((r) => r.hasLine)
-  if (!withLine.length) throw new Error('not one card shows a cycle line')
-  for (const r of withLine) {
-    if (!/^(Day \d+ of \d+|Off · |Starts )/.test(r.line)) throw new Error(`unexpected cycle line: "${r.line}"`)
-  }
-  // an uncycled compound must show nothing extra
-  const uncycled = rows.filter((r) => !r.cycledNames.includes(r.name))
-  for (const r of uncycled) {
-    if (r.hasLine) throw new Error(`${r.name} has no cycle but shows a cycle line`)
-  }
-  console.log(`  ${withLine.length}/${rows.length} cards cycled · e.g. "${withLine[0].line}"`)
-})
-
-await step('1 · the cycle line never wraps and never pushes Log down', async () => {
-  const bad = await page.evaluate(() => {
-    const out = []
-    for (const line of document.querySelectorAll('[data-testid="cycle-line"]')) {
-      const span = line.querySelector('span')
-      if (!span) continue
-      // one line of text, and nothing clipped off the end of it
-      const lines = Math.round(span.getBoundingClientRect().height / parseFloat(getComputedStyle(span).lineHeight))
-      if (lines > 1) out.push(`wraps: ${span.textContent}`)
-      if (span.scrollWidth > span.clientWidth + 1) out.push(`clipped: ${span.textContent}`)
-    }
-    return out
-  })
-  if (bad.length) throw new Error(bad.join(' | '))
+// stage 2D: the cycle line left Home's rows (the compound page still has the cycle)
+await step('1 · Home rows carry no cycle line, and nothing overflows', async () => {
+  if (await page.locator('[data-testid="cycle-line"]').count()) throw new Error('a cycle line is still on a Home row')
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth)
   if (overflow > 391) throw new Error(`horizontal overflow: ${overflow}px`)
-})
-
-await step('1 · tapping the cycle line opens the compound, not a dose', async () => {
-  const line = page.locator('[data-testid="cycle-line"]').first()
-  const before = (await state()).doseLogs.length
-  await line.click()
-  await page.waitForTimeout(900)
-  if (!(await page.locator('[data-testid="compound-sheet"]').count())) {
-    throw new Error('the compound page did not open')
-  }
-  if ((await state()).doseLogs.length !== before) throw new Error('tapping the cycle line logged a dose')
-  await closeAll()
 })
 
 await step('1 · tapping anywhere else still logs', async () => {
