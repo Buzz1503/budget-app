@@ -513,6 +513,9 @@ await step('10 · the anatomical side is right in both views', async () => {
 
 await step('11 · every tap selects exactly one pin, with a label and Confirm', async () => {
   await tracker()
+  // reached through More the map sits lower; centre it so every tap is on screen
+  await page.locator('[data-testid="site-map"]').first().evaluate((el) => el.scrollIntoView({ block: 'center' }))
+  await page.waitForTimeout(300)
   const box = await page.locator('[data-testid="site-map"]').first().boundingBox()
   const seen = new Set()
   for (const [fx, fy] of [[0.1, 0.1], [0.5, 0.2], [0.9, 0.5], [0.3, 0.75], [0.7, 0.95], [0.5, 0.5]]) {
