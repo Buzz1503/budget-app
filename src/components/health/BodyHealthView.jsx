@@ -13,7 +13,8 @@ import { weeklyMeans } from '../../health/engine/training'
 import { vo2Percentile, fitnessAge, smoothVo2 } from '../../health/engine/fitness'
 import { mean, round } from '../../health/engine/stats'
 import useHealthModel, { tz, useCompounds } from './useHealthModel'
-import HealthChart from './HealthChart'
+import TrendChart from '../charts/TrendChart'
+import useChartEvents from '../charts/useChartEvents'
 import { ReadinessRing, Sparkline, Delta, minutesWords, Stat } from './atoms'
 import { HEALTH_BANDS } from './bands'
 import { SyncLine } from './HealthSettings'
@@ -21,6 +22,7 @@ import { SyncLine } from './HealthSettings'
 const CompareSheet = lazy(() => import('./CompareSheet'))
 
 const lastDays = (t, n) => dateRange(addDays(t, -(n - 1)), t)
+const clean = (rows) => rows.filter((r) => r.value != null)
 
 /** Shown instead of a screen when nothing has been read yet. */
 function EmptyState() {
@@ -105,6 +107,7 @@ function RecoveryView({ model }) {
   const series = (key) => year.map((d) => ({ date: d, value: model.series[key].get(d) ?? null }))
   const showResp = model.series.resp.size > 0
   const glp1 = glp1NoteDue(t, model.events, compounds)
+  const events = useChartEvents()
 
   return (
     <div className="space-y-3" data-testid="recovery-view">
@@ -137,9 +140,10 @@ function RecoveryView({ model }) {
         {showResp && <RecoveryRow testid="row-resp" label="Respiratory rate" unit="/min" dp={1} row={rowFor(model, 'resp', t)} spark={spark('resp')} />}
       </div>
 
-      <HealthChart chartType="readiness" title="Readiness" series={readinessSeries} dp={0} />
-      <HealthChart chartType="hrv" title="Heart rate variability" unit="ms (SDNN)" series={series('hrv')} />
-      <HealthChart chartType="rhr" title="Resting heart rate" unit="bpm" series={series('rhr')} dp={1} />
+      <TrendChart metric="readiness" title="Readiness" series={clean(readinessSeries)} dp={0} events={events} />
+      <TrendChart metric="hrv" title="Heart rate variability" unit="ms" series={clean(series('hrv'))} dp={0} events={events}
+        note="Apple Watch measures HRV as SDNN." />
+      <TrendChart metric="rhr" title="Resting heart rate" unit="bpm" series={clean(series('rhr'))} dp={0} events={events} />
 
       <button onClick={() => setCompare(true)} className="w-full rounded-full py-3 text-sm font-bold" style={{ background: 'var(--surface-sunk)', color: 'var(--text-2)' }} data-testid="open-compare">
         Compare
@@ -227,6 +231,8 @@ function SleepView({ model }) {
   const naps = lastDays(t, 7).flatMap((d) => (model.nightBy.get(d)?.naps || []).map((n) => ({ ...n, date: d })))
   const sdMin = perf?.consistencySdMin
   const clock = (ms) => hhmm(tz.hourOf(ms) * 60)
+  const events = useChartEvents()
+  const sleepSeries = useMemo(() => [...model.nightBy.values()].map((n) => ({ date: n.date, value: n.asleepMin / 60 })).sort((a, b) => a.date.localeCompare(b.date)), [model])
 
   return (
     <div className="space-y-3" data-testid="sleep-view">
@@ -268,6 +274,7 @@ function SleepView({ model }) {
       </button>
 
       <DurationBars model={model} />
+      <TrendChart metric="sleep" title="Time asleep" unit="h" dp={1} series={sleepSeries} events={events} />
 
       {naps.length > 0 && (
         <div className="card p-4" data-testid="naps">
@@ -368,7 +375,7 @@ function TrainingView({ model }) {
       </div>
 
       {vo2Smooth.length >= 2 && (
-        <HealthChart chartType="vo2max" title="VO2 max, smoothed" unit="mL/kg/min" series={vo2Smooth} dp={1} defaultRange="1Y"
+        <TrendChart metric="vo2max" title="VO2 max, smoothed" unit="mL/kg/min" series={vo2Smooth} dp={1} defaultRange="1Y"
           note="Apple estimates VO2 max from outdoor walks and runs; percentile and fitness age use FRIEND registry norms and are estimates" />
       )}
 

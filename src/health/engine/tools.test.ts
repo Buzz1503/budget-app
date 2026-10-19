@@ -3,7 +3,7 @@ import { groupSplit, beforeAfter, sinceStart, journalImpact, directionWords } fr
 import { planBedtime, hhmm, parseHhmm } from './planner'
 import { vo2Percentile, fitnessAge, smoothVo2 } from './fitness'
 import { VO2_NORMS } from './vo2Norms'
-import { doseTicks, doseChanges, tenureSpans, bloodPoints, shortName } from './overlay'
+import { doseChanges, bloodPoints, shortName } from './overlay'
 import { buildModel, rowFor } from './model'
 import { daySnapshot } from './snapshot'
 import { makeTz, addDays, dateRange } from '../tz'
@@ -207,25 +207,10 @@ describe('overlays', () => {
     { id: 'bpc', name: 'BPC-157', points: [{ date: '2026-09-05', kind: 'start', to: 250, unit: 'mcg' }, { date: '2026-09-25', kind: 'stop' }], runs: [{ startedOn: '2026-09-05', endedOn: '2026-09-25' }] },
   ]
 
-  it('dose ticks per compound, inside the range only', () => {
-    const logs = [{ peptideId: 'reta', date: '2026-08-31' }, { peptideId: 'reta', date: '2026-09-07' }, { peptideId: 'reta', date: '2026-09-07' }, { peptideId: 'bpc', date: '2026-09-08' }]
-    expect(doseTicks(logs, ['reta', 'bpc'], '2026-09-01', '2026-09-30')).toEqual([
-      { compoundId: 'reta', dates: ['2026-09-07'] }, { compoundId: 'bpc', dates: ['2026-09-08'] },
-    ])
-  })
-
   it('dose-change lines with a short label, inside the range', () => {
     expect(doseChanges(compounds, '2026-09-01', '2026-09-30').map((l) => l.label)).toEqual(['BPC 250 mcg', 'Reta 4 mg', 'BPC stopped'])
     expect(doseChanges(compounds, '2026-09-01', '2026-09-30', ['reta']).map((l) => l.date)).toEqual(['2026-09-10'])
     expect(shortName('Testosterone Enanthate')).toBe('Test')
-  })
-
-  it('tenure spans clipped to the range; an open run runs to the end', () => {
-    expect(tenureSpans(compounds, '2026-09-01', '2026-09-30')).toEqual([
-      { compoundId: 'reta', from: '2026-09-01', to: '2026-09-30' },
-      { compoundId: 'bpc', from: '2026-09-05', to: '2026-09-25' },
-    ])
-    expect(tenureSpans(compounds, '2026-10-01', '2026-10-31', ['bpc'])).toEqual([])
   })
 
   it('blood results for chosen markers at their test dates', () => {

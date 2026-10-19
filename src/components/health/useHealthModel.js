@@ -3,27 +3,11 @@ import useStore, { todayStr } from '../../store/useStore'
 import { useHealth } from '../../health/state'
 import { buildModel } from '../../health/engine/model'
 import { makeTz } from '../../health/tz'
-import { doseTimeline, runsFor } from '../../lib/tenure'
-import { displayName } from '../../lib/naming'
+import { useCompounds } from '../../lib/useCompounds'
 
 const tz = makeTz()
 
-/** Compounds with their dose timeline points and runs, the shape the engines take. */
-export function useCompounds() {
-  const peptides = useStore((s) => s.peptides)
-  const doseEvents = useStore((s) => s.doseEvents)
-  const runs = useStore((s) => s.runs)
-  const t = todayStr()
-  return useMemo(() => peptides.filter((p) => !p.archived).map((p) => ({
-    id: p.id,
-    name: displayName(p),
-    libraryId: p.libraryId || null,
-    affectsRecoveryBaseline: p.affectsRecoveryBaseline,
-    trackEffects: p.trackEffects,
-    points: doseTimeline(p, { doseEvents, runs, todayStr: t }).points,
-    runs: runsFor(p, runs),
-  })), [peptides, doseEvents, runs, t])
-}
+export { useCompounds }
 
 /** The Health model for today, rebuilt when the cache or the protocol changes. */
 export default function useHealthModel() {

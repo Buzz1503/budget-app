@@ -215,9 +215,9 @@ await step('1b · changing the date re-sorts, and the chart follows immediately'
   if (s.measurements[0].id !== 'm-b') throw new Error('the array did not re-sort after the date changed')
 
   await body('Trends')
-  const labels = await page.locator('.recharts-xAxis text').allInnerTexts()
-  if (!labels.length) throw new Error('the chart rendered no points')
-  console.log(`  re-sorted, chart shows ${labels.length} x labels`)
+  const points = await page.locator('[data-testid="trends-chart"] [data-testid="chart-point"], [data-testid="trends-chart"] [data-testid="chart-scan"]').count()
+  if (!points) throw new Error('the chart rendered no points')
+  console.log(`  re-sorted, chart shows ${points} points`)
 })
 
 await step('1c · delete asks first, then offers undo', async () => {

@@ -1,20 +1,21 @@
 import { useMemo } from 'react'
 import { format, parseISO } from 'date-fns'
-import { movingAverage } from '../../health/engine/bodyComp'
 import { weeklyChange, sevenDayAverage } from '../../body/bodySeries'
 import { useBodySeries } from '../../lib/useBody'
 import { round } from '../../health/engine/stats'
 import useHealthModel from './useHealthModel'
-import HealthChart from './HealthChart'
+import TrendChart from '../charts/TrendChart'
+import useChartEvents from '../charts/useChartEvents'
 import { Stat } from './atoms'
 
 const sourceLabel = (name) => (!name ? 'Apple Health' : /withings/i.test(name) ? 'Withings' : name)
 
 /**
- * The Health side of Body › Measurements: scale readings from Apple Health
- * listed with their source, and weight, fat mass, lean mass and blood pressure
- * over time. Readings typed or scanned into the app always win on the same
- * day; the scale's numbers are kept, never written over them.
+ * The Health side of Body › Measurements › Stats: scale readings from Apple
+ * Health listed with their source, the 7-day average and change per week, and
+ * blood pressure. Weight, fat mass and lean mass are charted under Trends,
+ * from the same merged series. Readings typed or scanned into the app win on
+ * the same day; the scale's numbers are kept, never written over them.
  */
 export default function MeasurementsHealth() {
   const model = useHealthModel()
@@ -23,16 +24,14 @@ export default function MeasurementsHealth() {
     .slice(-6).reverse(), [model.daily])
   // one merged daily series (manual, scans and Apple Health) for every weight number here
   const weightDays = useBodySeries('weight')
-  const weight = useMemo(() => weightDays.map((p) => ({ date: p.date, value: p.value })), [weightDays])
-  const ma = useMemo(() => movingAverage(weight), [weight])
+  const bp = useBodySeries('bp')
+  const events = useChartEvents()
   const change = weeklyChange(weightDays)
   const avg7 = sevenDayAverage(weightDays)
-  const fat = model.body.filter((b) => b.fatMass != null).map((b) => ({ date: b.date, value: b.fatMass }))
-  const lean = model.body.filter((b) => b.leanMass != null).map((b) => ({ date: b.date, value: b.leanMass }))
-  const sys = model.daily.filter((r) => r.bpSys != null).map((r) => ({ date: r.date, value: r.bpSys }))
-  const dia = model.daily.filter((r) => r.bpDia != null).map((r) => ({ date: r.date, value: r.bpDia }))
+  const hasFat = model.body.some((b) => b.fatMass != null)
+  const lastBp = bp.at(-1)
 
-  if (!weight.length && !fromHealth.length && !sys.length) return null
+  if (!weightDays.length && !fromHealth.length && !bp.length) return null
 
   return (
     <div className="mt-3 space-y-3" data-testid="measurements-health">
@@ -58,21 +57,20 @@ export default function MeasurementsHealth() {
         </div>
       )}
 
-      {weight.length > 0 && (
+      {weightDays.length > 0 && (
         <>
           <div className="grid grid-cols-2 gap-2">
             <Stat testid="weight-ma" label="Weight, 7-day average" value={avg7 != null ? `${round(avg7, 1)} kg` : '–'} />
             <Stat testid="weight-weekly" label="Change per week" value={change != null ? `${change > 0 ? '+' : ''}${round(change, 2)} kg` : '–'} sub={change != null ? 'Trend over the last 4 weeks, all sources' : 'Needs 4 weigh-ins across 2 weeks'} />
           </div>
-          <HealthChart chartType="weight" title="Weight" unit="kg" series={weight} secondary={ma} secondaryLabel="Bold line: 7-day average" dp={1} />
+          <p className="px-1 text-xs font-medium" style={{ color: 'var(--text-3)' }}>Weight, fat mass and lean mass charts are under Trends.</p>
         </>
       )}
-      {fat.length > 1 && <HealthChart chartType="fatMass" title="Fat mass" unit="kg" series={fat} dp={1} />}
-      {lean.length > 1 && <HealthChart chartType="leanMass" title="Lean mass" unit="kg" series={lean} dp={1} />}
-      {sys.length > 0 && (
-        <HealthChart chartType="bp" title="Blood pressure" unit="mmHg" series={dia} secondary={sys} secondaryLabel="Bold: systolic, thin: diastolic" />
+      {bp.length > 0 && (
+        <TrendChart metric="bp" title="Blood pressure, systolic" unit="mmHg" dp={0} series={bp} events={events}
+          currentCaption={lastBp?.extra != null ? `Latest ${lastBp.value}/${lastBp.extra}` : null} />
       )}
-      {(fat.length > 0 || fromHealth.some((r) => r.bodyFatPct != null)) && (
+      {(hasFat || fromHealth.some((r) => r.bodyFatPct != null)) && (
         <p className="px-1 text-xs font-medium leading-snug" style={{ color: 'var(--text-3)' }} data-testid="bodyfat-footnote">
           Scale body fat is an estimate that moves with hydration. Read trends over weeks, not days.
         </p>

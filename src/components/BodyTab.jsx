@@ -4,15 +4,16 @@ import {
   Ruler, Images, PersonStanding, LineChart as LineChartIcon, Plus, FileText, Trash2, Play,
   Info, Pencil,
 } from 'lucide-react'
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
 import { format, parseISO } from 'date-fns'
 import useStore, { todayStr } from '../store/useStore'
 import {
   METRICS, METRIC_BY_KEY, ALL_METRIC_BY_KEY, PRIMARY_FIELDS, EXTRA_GROUPS,
   MEASURE_RULES, REF_DISTANCES, refPhrase, legacyMetricsPresent,
-  rollingAverage,
 } from '../lib/metrics'
-import { useLatestMeasurement, useBodyInput, seriesFor } from '../lib/useBody'
+import { useLatestMeasurement, useBodyInput, seriesFor, latestCaption, BODY_FIELDS } from '../lib/useBody'
+import TrendChart from './charts/TrendChart'
+import ProgressChart from './charts/ProgressChart'
+import useChartEvents from './charts/useChartEvents'
 import { extractPdfText, parseScanText } from '../lib/scanParse'
 import Modal from './ui/Modal'
 import NumberField from './ui/NumberField'
@@ -533,38 +534,29 @@ function LinkedPhoto({ photos, date, value, onPick }) {
 function TrendsSection() {
   const measurements = useStore((s) => s.measurements)
   const bodyInput = useBodyInput()
+  const events = useChartEvents()
   const [key, setKey] = useState('weight')
-  // Pre-split arm/thigh readings are still real data, so they stay chartable —
+  // Pre-split arm/thigh readings are still real data, so they stay chartable;
   // they just aren't offered for new entries.
   const bodyRefs = useStore((s) => s.bodyRefs)
   const chips = useMemo(() => [...METRICS, ...legacyMetricsPresent(measurements)], [measurements])
   const m = ALL_METRIC_BY_KEY[key] || METRIC_BY_KEY.weight
   const [editing, setEditing] = useState(null)
-
-  const { data, hasData } = useMemo(() => {
-    const raw = seriesFor(key, bodyInput)
-    if (raw.length === 0) return { data: [], hasData: false }
-    const roll = key === 'weight' ? rollingAverage(raw, 7) : null
-    const rollByDate = roll ? Object.fromEntries(roll.map((p) => [p.date, p.value])) : {}
-    // the entry id rides along on each point so a tap on the chart can open the
-    // same edit sheet the list does — the point and the row are one entry
-    const idByDate = Object.fromEntries(measurements.map((x) => [x.date, x.id]))
-    return {
-      hasData: true,
-      data: raw.map((p) => ({
-        label: format(parseISO(p.date), 'd MMM'),
-        value: p.value,
-        roll: rollByDate[p.date] ?? null,
-        id: idByDate[p.date] || null,
-      })),
-    }
-  }, [measurements, bodyInput, key])
+  const series = useMemo(() => seriesFor(key, bodyInput), [key, bodyInput])
+  const latest = useLatestMeasurement(BODY_FIELDS.has(key) ? key : 'weight')
+  const latestHere = BODY_FIELDS.has(key) ? latest : null
+  // a point that is one day's manual entry opens the same edit sheet the list does
+  const editDate = (date) => {
+    const hit = [...measurements].reverse().find((x) => x.date === date && x[key] != null)
+    if (hit) setEditing(hit.id)
+  }
 
   return (
     <div className="space-y-3">
+      <ProgressChart />
       <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
         {chips.map((mm) => (
-          <button key={mm.key} onClick={() => setKey(mm.key)}
+          <button key={mm.key} onClick={() => setKey(mm.key)} data-testid={`trend-chip-${mm.key}`}
             className="shrink-0 rounded-full px-3 py-2 text-xs font-bold"
             style={key === mm.key
               ? { background: 'var(--accent)', color: 'var(--accent-fg)' }
@@ -573,41 +565,22 @@ function TrendsSection() {
           </button>
         ))}
       </div>
-      <div className="card p-3">
-        <p className="text-sm font-bold">{m.label} {m.unit && `(${m.unit})`}{key === 'weight' && <span className="ml-1 text-xs font-medium" style={{ color: 'var(--text-2)' }}>· 7-day avg</span>}</p>
-        {m.how && (
-          <p className="mb-2 mt-1 text-xs font-medium leading-snug" style={{ color: 'var(--text-2)' }}>
-            {m.how}
-            {m.refKey && <span className="font-black" style={{ color: 'var(--good)' }}> ({refPhrase(bodyRefs, m.refKey)})</span>}
-          </p>
-        )}
-        {!m.how && <div className="mb-2" />}
-        {!hasData ? (
-          <p className="py-10 text-center text-xs font-semibold" style={{ color: 'var(--text-2)' }}>No {m.label.toLowerCase()} entries yet — log a measurement to see the trend.</p>
-        ) : (
-          <div className="h-52">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart
-                data={data}
-                margin={{ top: 8, right: 8, bottom: 0, left: -20 }}
-                onClick={(e) => {
-                  const id = e?.activePayload?.[0]?.payload?.id
-                  if (id) setEditing(id)
-                }}
-              >
-                <XAxis dataKey="label" tick={{ fontSize: 9, fill: 'var(--text-2)' }} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={26} />
-                <YAxis tick={{ fontSize: 9, fill: 'var(--text-2)' }} tickLine={false} axisLine={false} domain={['dataMin - 1', 'dataMax + 1']} />
-                <Tooltip contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, fontSize: 12 }} labelStyle={{ color: 'var(--text-2)' }} />
-                <Line type="monotone" dataKey="value" name={m.label} stroke={m.color} strokeWidth={2.5} dot={{ r: 3.5 }} activeDot={{ r: 6 }} isAnimationActive />
-                {key === 'weight' && <Line type="monotone" dataKey="roll" name="7-day avg" stroke="var(--info)" strokeWidth={2} strokeDasharray="4 3" dot={false} connectNulls isAnimationActive />}
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        )}
-        {hasData && (
-          <p className="mt-1 text-xs font-medium" style={{ color: 'var(--text-2)' }}>Tap a point to correct that entry.</p>
-        )}
-      </div>
+      {m.how && (
+        <p className="px-1 text-xs font-medium leading-snug" style={{ color: 'var(--text-2)' }}>
+          {m.how}
+          {m.refKey && <span className="font-black" style={{ color: 'var(--good)' }}> ({refPhrase(bodyRefs, m.refKey)})</span>}
+        </p>
+      )}
+      {series.length === 0 ? (
+        <div className="card p-4">
+          <p className="py-6 text-center text-xs font-semibold" style={{ color: 'var(--text-2)' }}>No {m.label.toLowerCase()} entries yet. Log a measurement to see the trend.</p>
+        </div>
+      ) : (
+        <TrendChart key={key} metric={key} chartType={`body-${key}`} title={m.label} unit={m.unit}
+          dp={m.unit === 'kg' || m.unit === '%' || m.unit === 'cm' ? 1 : 0} series={series} events={events}
+          current={latestHere ? latestHere.value : null} currentCaption={latestHere ? latestCaption(latestHere) : null}
+          onEditDate={editDate} testid="trends-chart" />
+      )}
       <MeasurementSheet open={!!editing} onClose={() => setEditing(null)} entryId={editing} />
     </div>
   )

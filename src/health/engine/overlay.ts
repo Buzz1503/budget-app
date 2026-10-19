@@ -1,25 +1,7 @@
-// What a health chart can draw behind its line: doses, dose changes, time on a
-// compound and blood results — each clipped to the chart's date range.
+// Labels for dose changes, and blood results for a chart's Bloods overlay,
+// each clipped to the chart's date range.
 
 import type { TimelinePoint } from './protocol'
-
-export interface DoseLogLike {
-  peptideId: string
-  date: string
-}
-
-export interface DoseTickRow {
-  compoundId: string
-  dates: string[]
-}
-
-/** One row per selected compound: the dates a dose was logged, inside the range. */
-export function doseTicks(doseLogs: DoseLogLike[], compoundIds: string[], from: string, to: string): DoseTickRow[] {
-  return compoundIds.map((id) => ({
-    compoundId: id,
-    dates: [...new Set(doseLogs.filter((l) => l.peptideId === id && l.date >= from && l.date <= to).map((l) => l.date))].sort(),
-  }))
-}
 
 /** "Reta", "Tirz", "BPC" — the first word of the name, at most four letters. */
 export function shortName(name: string): string {
@@ -56,31 +38,6 @@ export function doseChanges(
     }
   }
   return out.sort((a, b) => a.date.localeCompare(b.date))
-}
-
-export interface TenureSpan {
-  compoundId: string
-  from: string
-  to: string
-}
-
-/** Time on each compound, clipped to the range. An open run runs to `to`. */
-export function tenureSpans(
-  compounds: Array<{ id: string; runs: Array<{ startedOn: string; endedOn?: string | null }> }>,
-  from: string,
-  to: string,
-  only?: string[],
-): TenureSpan[] {
-  const out: TenureSpan[] = []
-  for (const c of compounds) {
-    if (only && !only.includes(c.id)) continue
-    for (const r of c.runs) {
-      const end = r.endedOn || to
-      if (end < from || r.startedOn > to) continue
-      out.push({ compoundId: c.id, from: r.startedOn < from ? from : r.startedOn, to: end > to ? to : end })
-    }
-  }
-  return out
 }
 
 export interface BloodPoint {
