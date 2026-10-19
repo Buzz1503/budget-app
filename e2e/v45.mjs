@@ -52,8 +52,8 @@ const reload = async () => {
   await gotIt()
 }
 const nav = async (label) => {
-  // v46: Symptoms and Bloods moved into More
-  if (label === 'Symptoms' || label === 'Bloods') { await closeAll(); await page.click('nav button[aria-label="More"]'); await page.waitForTimeout(500); await page.click(`[data-testid="more-${label.toLowerCase()}"]`); await page.waitForTimeout(700); return }
+  // v46: Symptoms and Bloods moved into More; 2D: Calendar too, and Symptoms is now Reactions
+  if (['Symptoms', 'Bloods', 'Calendar', 'Reactions'].includes(label)) { await closeAll(); await page.click('nav button[aria-label="More"]'); await page.waitForTimeout(500); await page.click(`[data-testid="more-${label === 'Symptoms' ? 'reactions' : label.toLowerCase()}"]`); await page.waitForTimeout(700); return }
 
   await closeAll()
   await page.click(`nav button[aria-label="${label}"]`)
@@ -420,7 +420,6 @@ await step('2d · the calendar shows them from their start day and not before', 
 
 const tracker = async () => {
   await nav('Symptoms')
-  await page.click('[data-testid="symptom-tab-reactions"]')
   await page.waitForTimeout(900)
 }
 
@@ -557,10 +556,11 @@ await step('3d · Gone resolves it on the spot', async () => {
   if (await page.locator('[data-testid="open-reaction-row"][data-record="o2"]').count()) throw new Error('a resolved reaction is still on Home')
 })
 
-await step('3e · peptide, co-draw, site, dose and needle are captured at log time, pre-filled and editable', async () => {
+// stage 2D: Supplies is gone; the needle is two plain pickers that start from the last one used
+await step('3e · peptide, co-draw, site, dose and needle are captured at log time; the needle remembers the last one', async () => {
   await setState(`
     s.injectionRecords = []; s.reactions = []
-    s.gearItems = s.gearItems.map((g) => g.category === 'Syringe needles' ? g : g)
+    s.settings = { ...s.settings, lastNeedle: { gauge: '31G', lengthMm: 8 } }
   `)
   await reload()
   await nav('Home')
@@ -572,16 +572,13 @@ await step('3e · peptide, co-draw, site, dose and needle are captured at log ti
   const picker = page.locator('[data-testid="needle-picker"]')
   if (!(await picker.count())) throw new Error('no needle on the log screen')
   const prefilled = await picker.getAttribute('data-needle')
-  if (!prefilled) throw new Error('the needle is not pre-filled from Supplies')
-  const choices = await picker.locator('[data-testid="needle-choice"]').count()
-  // pick a different in-use needle than the pre-filled one, if there is one
-  let chosen = prefilled
-  if (choices > 1) {
-    const other = picker.locator('[data-testid="needle-choice"][data-on="false"]').first()
-    await other.click(); await page.waitForTimeout(250)
-    chosen = await picker.getAttribute('data-needle')
-    if (chosen === prefilled) throw new Error('the needle could not be changed at log time')
-  }
+  if (prefilled !== '31G|8') throw new Error(`the needle is not the last one used (${prefilled})`)
+  // change it at log time: 32G, 6 mm
+  await picker.locator('[data-testid="cf-gauge"]').selectOption('32G')
+  await picker.locator('[data-testid="cf-length"]').selectOption('6')
+  await page.waitForTimeout(250)
+  const chosen = await picker.getAttribute('data-needle')
+  if (chosen !== '32G|6') throw new Error(`the needle could not be changed at log time (${chosen})`)
   await page.click('[data-testid="lob-log-here"]'); await page.waitForTimeout(800)
   const s = await state()
   if (s.injectionRecords.length !== before + 1) throw new Error('no injection record was written')
@@ -589,9 +586,7 @@ await step('3e · peptide, co-draw, site, dose and needle are captured at log ti
   if (!r.peptideId || !r.pinId || r.dose == null || !r.units) throw new Error(`captured ${JSON.stringify({ p: r.peptideId, pin: r.pinId, dose: r.dose, units: r.units })}`)
   if (r.coDraw !== false || !Array.isArray(r.coDrawPeptideIds)) throw new Error('the co-draw flag was not captured')
   if (`${r.needle?.gauge}|${r.needle?.lengthMm}` !== chosen) throw new Error(`stored needle ${JSON.stringify(r.needle)} but chose ${chosen}`)
-  // the in-use list in Supplies is where it came from
-  const inUse = s.gearItems.filter((g) => g.category === 'Syringe needles' && g.status === 'in_use').map((g) => `${g.gauge}|${g.lengthMm}`)
-  if (!inUse.includes(chosen)) throw new Error(`${chosen} is not In use in Supplies (${inUse})`)
+  if (`${s.settings.lastNeedle?.gauge}|${s.settings.lastNeedle?.lengthMm}` !== '32G|6') throw new Error('the choice did not become the next default')
   console.log(`  ${r.peptideId} · ${r.pinId} · ${r.dose} ${r.units} · ${r.needle.gauge} × ${r.needle.lengthMm} mm (pre-filled ${prefilled})`)
 })
 

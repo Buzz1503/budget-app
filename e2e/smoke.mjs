@@ -40,8 +40,8 @@ const MORE_LINK = {
     Wizard: 'text=Add, remove or edit anything I take',
 }
 const nav = async (label) => {
-  // v46: Symptoms and Bloods moved into More
-  if (label === 'Symptoms' || label === 'Bloods') { await page.click('nav button[aria-label="More"]'); await page.waitForTimeout(500); await page.click(`[data-testid="more-${label.toLowerCase()}"]`); await page.waitForTimeout(700); return }
+  // v46: Symptoms and Bloods moved into More; 2D: Calendar too, and Symptoms is now Reactions
+  if (['Symptoms', 'Bloods', 'Calendar', 'Reactions'].includes(label)) { await page.click('nav button[aria-label="More"]'); await page.waitForTimeout(500); await page.click(`[data-testid="more-${label === 'Symptoms' ? 'reactions' : label.toLowerCase()}"]`); await page.waitForTimeout(700); return }
 
   if (PRIMARY_TABS.has(label)) {
     await page.click(`nav button[aria-label="${label}"]`)
@@ -156,23 +156,11 @@ await step('Mix: browse all 86 compounds', async () => {
   await page.click('button:has-text("All 86")') // toggle back → my stack
 })
 
-await step('Symptoms: check-in logs and shows on the timeline', async () => {
+// stage 2D: the "how I feel" Symptoms screen left the app; Reactions has its own row
+await step('Symptoms is gone: More has Reactions instead, and no feelings check-in anywhere', async () => {
   await nav('Symptoms')
-  // v18: search-first, and the submit counts what you picked
-  await waitText(/How are you feeling/i)
-  for (const label of ['More energy', 'Better / deeper sleep']) {
-    await page.fill('input[placeholder*="Search" i]', label)
-    await page.waitForTimeout(350)
-    await page.locator(`[data-testid="symptom-search-results"] button:has-text("${label}")`).first().click()
-    await page.waitForTimeout(250)
-  }
-  await page.fill('input[placeholder*="Search" i]', '')
-  await page.waitForTimeout(300)
-  await page.locator('main button').filter({ hasText: /^(Log \d|Update check-in)$/ }).last().click()
-  await page.waitForTimeout(900)
-  const store = await page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state)
-  if (!store.symptomLogs.length) throw new Error('symptom log not saved')
-  if (!store.symptomLogs[0].activePeptides.length) throw new Error('active peptides not captured')
+  await page.waitForSelector('[data-testid="reactions-screen"]', { timeout: 8000 })
+  if (await page.locator('text=How are you feeling').count()) throw new Error('the feelings check-in is still reachable')
 })
 await page.screenshot({ path: `${SHOT}/v2-06-symptoms.png` })
 

@@ -25,247 +25,73 @@ const waitText = async (re, timeout = 20000) => {
   }
   throw new Error('timeout waiting for ' + re)
 }
-const body = () => page.textContent('body')
 const state = () => page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state)
-const TAB_MARK = {
-  Home: /Pepito \+/, Calendar: /This week|Adherence this month/,
-  Symptoms: /How are you feeling/, Body: /How to measure/, More: /Build \/ rebuild my protocol/,
-}
-const nav = async (label) => {
-  // v46: Symptoms and Bloods moved into More
-  if (label === 'Symptoms' || label === 'Bloods') { await page.click('nav button[aria-label="More"]'); await page.waitForTimeout(500); await page.click(`[data-testid="more-${label.toLowerCase()}"]`); await page.waitForTimeout(700); return }
 
-  await page.click(`nav button[aria-label="${label}"]`)
-  await waitText(TAB_MARK[label])
-  await page.waitForTimeout(250)
-}
-// v18 replaced the flat chip wall with search + collapsed categories, so a chip
-// is now reached by searching for it — the fastest path, and the one a user
-// takes. The search results replace the browse UI but leave the selected and
-// attribution panels on screen, so everything below still reads the same.
-const chip = (label) => {
-  const find = async () => {
-    await page.fill('input[placeholder*="Search" i]', label)
-    await page.waitForTimeout(350)
-    return page.locator(`[data-testid="symptom-search-results"] button:has-text("${label}")`).first()
-  }
-  return { click: async () => (await find()).click() }
-}
-const clearSearch = async () => {
-  await page.fill('input[placeholder*="Search" i]', '')
-  await page.waitForTimeout(300)
-}
-// v18 renamed the submit: it counts what you picked, or updates today's entry.
-const logCheckin = async () => {
-  await page.locator('main button').filter({ hasText: /^(Log \d|Update check-in)$/ }).last().click()
-  await page.waitForTimeout(900)
-}
-// log the first due shot in the current slot, and clear the confirmation sheet
-// that otherwise covers the nav
-const logFirstShot = async () => {
-  await page.locator('[aria-label^="Log "]').first().click()
-  await waitText(/INJECT HERE/, 10000)
-  await page.locator('button:has-text("Log here")').first().click()
-  await page.waitForTimeout(1000)
-}
-const closeSitePicker = async () => {
-  const done = page.locator('button:text-is("Done")').first()
-  if (await done.count()) await done.click()
-  await page.waitForTimeout(400)
-}
-
+// v14 tested the Symptoms "how I feel" screen. Stage 2D removed it, the daily
+// check-in and Supplies from the app; this suite now checks they stay
+// unreachable and that everything they stored is kept.
 await page.goto(BASE, { waitUntil: 'networkidle' })
 await page.evaluate(() => localStorage.clear())
 await page.reload({ waitUntil: 'networkidle' })
 await waitText(/not medical advice/)
-await page.click('text=Got it')
+const gotIt = page.locator('button:has-text("Got it")')
+if (await gotIt.count()) await gotIt.first().click().catch(() => {})
 
-// ---------- 1 · stack-relevant symptom list ----------
-// v18 deliberately reversed half of the v14 rule here. Negatives are now the
-// whole review-of-systems catalogue, because a symptom you are actually feeling
-// is worth recording even when nothing you run is a known cause. Positives are
-// still stack-scoped — claiming a benefit no compound of yours is associated
-// with is the wishful logging this app should not invite.
-await step('Issues is the whole catalogue; Good effects stays stack-relevant', async () => {
-  await nav('Symptoms')
-  const txt = await body()
-  if (!txt.includes('Good effects')) throw new Error('no positive group')
-  if (!txt.includes('Issues')) throw new Error('no negative group')
-  const matches = async (label) => {
-    await page.fill('input[placeholder*="Search" i]', label)
-    await page.waitForTimeout(350)
-    return page.locator(`[data-testid="symptom-search-results"] button:has-text("${label}")`).count()
-  }
-  // seed stack: BPC-157, Retatrutide, Semax, Selank, KPV, SS-31, DSIP, MOTS-c,
-  // GHK-Cu, NAD+, Tesamorelin, Testosterone E
-  for (const w of ['Faster soft-tissue recovery', 'Gut symptom relief', 'Acne / oily skin', 'Morning grogginess']) {
-    if ((await matches(w)) === 0) throw new Error(`missing stack symptom "${w}"`)
-  }
-  // a negative no stack compound causes is still offered
-  for (const w of ['Prolonged / unwanted erections', 'Waking to urinate at night', 'Wheezing']) {
-    if ((await matches(w)) === 0) throw new Error(`"${w}" should be loggable from the full catalogue`)
-  }
-  // but a positive tied to a compound that is NOT in the stack is not
-  if ((await matches('Tanning / darker skin')) > 0) {
-    throw new Error('a good effect is offered that no stack compound is associated with')
-  }
-  await clearSearch()
-})
-
-await step('labels are plain language, not raw ids', async () => {
-  // every category expanded, so this reads the real rendered labels
-  for (const h of await page.locator('[data-testid="symptom-categories"] > div > button').all()) {
-    await h.click()
-    await page.waitForTimeout(120)
-  }
-  await page.waitForTimeout(400)
-  const txt = await page.locator('[data-testid="symptom-categories"]').textContent()
-  for (const raw of ['inj_reaction', 'high_hct', 'appetite_suppression', 'better_sleep']) {
-    if (txt.includes(raw)) throw new Error(`raw id "${raw}" leaked into the UI`)
-  }
-})
-
-// ---------- 2 · attribution ----------
-await step('ticking a symptom headlines the most likely compound', async () => {
-  await chip('Morning grogginess').click()
-  await page.waitForTimeout(500)
-  const panel = page.locator('[data-testid="attribution-panel"]')
-  await panel.waitFor({ timeout: 8000 })
-  const txt = await panel.textContent()
-  if (!/Most likely/.test(txt)) throw new Error('no headline candidate')
-  if (!/DSIP/.test(txt)) throw new Error(`grogginess should point at DSIP, got: ${txt.slice(0, 200)}`)
-  if (!/High/.test(txt)) throw new Error('no likelihood on the headline')
-  if (!/T[1-5]/.test(txt)) throw new Error('no evidence tier on the headline')
-})
-
-await step('the "candidates, not a diagnosis" caveat is shown', async () => {
-  const txt = await page.locator('[data-testid="attribution-panel"]').textContent()
-  if (!/candidates, not a diagnosis/i.test(txt)) throw new Error('caveat missing')
-  if (!/more than one thing can contribute/i.test(txt)) throw new Error('multi-compound warning missing')
-})
-
-await step('other candidates are listed with likelihood and tier', async () => {
-  // fatigue is claimed by Retatrutide, Selank and TB-500; the seed stack has two
-  await chip('Fatigue / low energy').click()
-  await page.waitForTimeout(500)
-  const panel = page.locator('[data-testid="attribution-panel"]')
-  const more = panel.locator('button', { hasText: /could contribute/ }).first()
-  if (!(await more.count())) throw new Error('no "others could contribute" control')
-  await more.click()
-  await page.waitForTimeout(400)
-  const txt = await panel.textContent()
-  // Likelihood is relative, so two genuinely near-equal candidates can BOTH read
-  // High — that's the honest answer, not a bug. What must hold is that every
-  // listed candidate carries a likelihood word and a tier.
-  // NB: no \b anchors — textContent concatenates adjacent elements with no
-  // separator ("…todayHighT4…"), so a word boundary never appears.
-  const likelihoods = txt.match(/(High|Medium|Low)/g) || []
-  if (likelihoods.length < 2) throw new Error(`only ${likelihoods.length} likelihood label(s) shown`)
-  const tiers = txt.match(/T[1-5]/g) || []
-  if (tiers.length < 2) throw new Error('runners-up carry no evidence tier')
-})
-
-await step('evidence tiers are tap-to-explain, not bare jargon', async () => {
-  const tierBtn = page.locator('[data-testid="attribution-panel"] button[aria-label^="What does evidence tier"]').first()
-  if (!(await tierBtn.count())) throw new Error('tier is not tappable')
-  await tierBtn.click()
-  await page.waitForTimeout(350)
-  if (!/well established|one person's report/i.test(await body())) throw new Error('no plain explanation')
-  await tierBtn.click()
-  await page.waitForTimeout(300)
-})
-
-await step('Testosterone E is attributed for its own known effects', async () => {
-  // clear the current selection first
-  await chip('Morning grogginess').click()
-  await chip('Fatigue / low energy').click()
-  await page.waitForTimeout(400)
-  for (const [label, expected] of [
-    ['Acne / oily skin', 'Testosterone Enanthate'],
-    ['Thick blood / high haematocrit', 'Testosterone Enanthate'],
-    // v18's catalogue splits the old combined chip into two distinct symptoms
-    ['Mood swings', 'Testosterone Enanthate'],
-  ]) {
-    await chip(label).click()
-    await page.waitForTimeout(450)
-    const txt = await page.locator('[data-testid="attribution-panel"]').textContent()
-    if (!txt.includes(expected)) throw new Error(`${label} did not attribute to ${expected}`)
-    await chip(label).click()
-    await page.waitForTimeout(300)
-  }
-})
-
-await step('a compound started recently outranks a long-running one', async () => {
-  // back-date the whole stack, then "restart" Selank two days ago
+await step('an older save keeps its symptom check-ins, daily check-ins and Supplies', async () => {
   await page.evaluate(() => {
     const raw = JSON.parse(localStorage.getItem('peptide-command-center'))
-    const old = new Date(Date.now() - 200 * 86400000).toISOString().slice(0, 10)
-    const fresh = new Date(Date.now() - 2 * 86400000).toISOString().slice(0, 10)
-    raw.state.peptides = raw.state.peptides.map((p) => ({ ...p, startDate: old, startedOn: old }))
-    for (const k of Object.keys(raw.state.titration)) raw.state.titration[k] = { level: 0, levelStartDate: old }
-    raw.state.peptides = raw.state.peptides.map((p) => (p.id === 'selank' ? { ...p, startDate: fresh, startedOn: fresh } : p))
-    raw.state.titration.selank = { level: 0, levelStartDate: fresh }
+    raw.state.symptomLogs = [{ id: 'sym-1', date: '2026-10-01', tags: [{ id: 'nausea', severity: 'mild' }], note: 'kept', activePeptides: [] }]
+    raw.state.checkins = { '2026-10-01': { energy: 4, mood: 3 } }
+    raw.state.gearItems = [{ id: 'g-keep', category: 'Syringe needles', gauge: '31G', lengthMm: 8, status: 'in_use', qty: 100 }]
     localStorage.setItem('peptide-command-center', JSON.stringify(raw))
   })
   await page.reload({ waitUntil: 'networkidle' })
-  await nav('Symptoms')
-  await chip('Fatigue / low energy').click()
-  await page.waitForTimeout(600)
-  const panel = page.locator('[data-testid="attribution-panel"]')
-  const txt = await panel.textContent()
-  const headline = txt.split('Most likely')[1] || ''
-  if (!/Selank/.test(headline.slice(0, 120))) {
-    throw new Error(`the recently restarted compound is not headlined: ${headline.slice(0, 160)}`)
-  }
-  if (!/started or stepped up 2 days ago/.test(txt)) throw new Error('the recency reason is not stated')
+  await page.waitForTimeout(800)
+  const st = await state()
+  if (st.symptomLogs?.[0]?.note !== 'kept') throw new Error('symptom check-ins were dropped')
+  if (st.checkins?.['2026-10-01']?.energy !== 4) throw new Error('daily check-ins were dropped')
+  if (st.gearItems?.[0]?.id !== 'g-keep') throw new Error('Supplies items were dropped')
 })
 
-await step('the attribution is stored on the check-in and shown in history', async () => {
-  await logCheckin()
-  const st = await state()
-  const log = st.symptomLogs.at(-1)
-  const tag = log.tags.find((t) => t.id === 'fatigue')
-  if (!tag?.attribution?.top?.name) throw new Error('no attribution snapshot on the log')
-  if (tag.attribution.top.name !== 'Selank') throw new Error(`snapshot headlines ${tag.attribution.top.name}`)
-  if (!tag.attribution.top.tier) throw new Error('snapshot drops the evidence tier')
-  // and it reads back in the 14-day timeline, which v18 moved to History
+await step('the bottom bar is Home, Body, Sauna, More on the web', async () => {
+  const labels = (await page.locator('nav button span:not(:has(svg))').allTextContents()).map((x) => x.trim())
+  if (labels.join('|') !== 'Home|Body|Sauna|More') throw new Error(`nav is [${labels.join(', ')}]`)
+})
+
+await step('More starts with Calendar, Reactions, Bloods, Stock; no Symptoms or Supplies', async () => {
   await page.click('nav button[aria-label="More"]')
-  await page.waitForTimeout(400)
-  await page.click('button:has-text("History & adherence")')
-  await waitText(/last 14 days/i)
-  const bars = page.locator('[data-testid="symptom-history"] button')
-  await bars.nth(13).click()
-  await page.waitForTimeout(500)
-  if (!/Candidates recorded at the time/.test(await body())) throw new Error('history does not show the attribution')
+  await page.waitForTimeout(600)
+  const ids = await page.locator('[data-testid^="more-"]').evaluateAll((els) => els.map((e) => e.dataset.testid))
+  if (ids.slice(0, 4).join(',') !== 'more-calendar,more-reactions,more-bloods,more-supplies') throw new Error(`More starts ${ids.slice(0, 4)}`)
+  if (ids.includes('more-symptoms') || ids.includes('more-gear')) throw new Error('a removed row is still in More')
 })
 
-// ---------- 4 · layout + persistence ----------
-await step('no horizontal overflow at 390px on any tab', async () => {
-  for (const tab of ['Home', 'Calendar', 'Symptoms', 'Body', 'More']) {
-    await nav(tab)
-    await page.waitForTimeout(450)
-    const over = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
-    if (over > 1) throw new Error(`${tab} overflows by ${over}px`)
+await step('no feelings check-in on Home, in Reactions, the calendar or History', async () => {
+  for (const go of [
+    async () => page.click('nav button[aria-label="Home"]'),
+    async () => { await page.click('nav button[aria-label="More"]'); await page.click('[data-testid="more-reactions"]') },
+    async () => { await page.click('nav button[aria-label="More"]'); await page.click('[data-testid="more-history"]') },
+  ]) {
+    await go()
+    await page.waitForTimeout(700)
+    const text = await page.textContent('body')
+    if (/How are you feeling|Today.s check-in|How the day felt|Energy, mood/i.test(text)) throw new Error('a feelings check-in is still on screen')
   }
-})
-
-// v15 removed this suite's dose-logging section along with the motivation
-// feature it existed to exercise, so only the symptom data is seeded here.
-await step('symptom data persists across a reload', async () => {
+  await page.click('nav button[aria-label="More"]')
+  await page.click('[data-testid="more-calendar"]')
+  await page.waitForTimeout(800)
+  const cell = page.locator('[data-testid^="cal-cell-"], [data-testid^="cal-day-"]').first()
+  if (await cell.count()) {
+    await cell.click()
+    await page.waitForTimeout(600)
+    if (await page.locator('[data-testid="day-edit-symptoms"]').count()) throw new Error('the day sheet still offers symptoms')
+    await page.keyboard.press('Escape')
+  }
   const st = await state()
-  if (!st.symptomLogs.length) throw new Error('symptom check-in lost')
-  if (!st.symptomLogs.at(-1).tags?.length) throw new Error('check-in tags lost')
+  if (st.symptomLogs.length !== 1 || !st.checkins['2026-10-01']) throw new Error('browsing changed the kept data')
 })
 
-await nav('Symptoms')
-await page.locator('button', { hasText: 'Acne / oily skin' }).first().click()
-await page.waitForTimeout(600)
-await page.screenshot({ path: `${SHOT}/v14-symptoms.png`, fullPage: true })
-
+const noise = errors.filter((e) => e.startsWith('console') || e.startsWith('pageerror'))
+console.log(noise.length ? `FAIL console clean — ${noise.slice(0, 3).join(' | ')}` : 'PASS console clean')
 await browser.close()
-if (errors.length) {
-  console.log('\n--- FAILURES ---')
-  for (const e of errors) console.log(e)
-  process.exit(1)
-}
-console.log('\nv14 e2e: all green')
+process.exit(errors.length ? 1 : 0)

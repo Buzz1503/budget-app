@@ -7,7 +7,7 @@ an iOS app (bundle id com.buzz.pepito). State is one persisted Zustand store,
 ## Commands
 
 - `npm test` — vitest, run once (never watch mode)
-- `npm run typecheck`, `npm run lint` — TypeScript and ESLint, Health, body and chart code
+- `npm run typecheck`, `npm run lint` — TypeScript and ESLint, Health, body, sauna and chart code
 - `npm run build:web` — Pages build (`base /budget-app/`, service worker)
 - `npm run build:native` — iOS build into `dist-native` (`base /`, no service worker)
 - `npm run cap:sync` — native build, then `cap sync ios`
@@ -18,8 +18,12 @@ an iOS app (bundle id com.buzz.pepito). State is one persisted Zustand store,
 - Never commit `/dev-assets` or any body photo.
 - Never run a dev server in the foreground.
 - Plain, calm wording. No medical advice, no diagnosis, no causal claims, no em dashes in UI copy.
-- Tabs: Home, Body (Composition, Effects, Recovery, Training), Sleep (native
-  only), Calendar, More (Symptoms and Bloods are its first two rows).
+- Tabs: Home, Body (Composition, Effects, Recovery), Sleep (native only), Sauna,
+  More (Calendar, Reactions, Bloods, Stock first; low-stock dot on More and Stock).
+- Home is exactly: readiness card (native), today's log, sauna row (`homeSections`).
+- Removed in 2D, data kept in store and backup: Symptoms "how I feel", the daily
+  check-in, Supplies (gear), Body › Training. Never delete stored data when
+  removing a feature. Needles: `src/lib/needle.js` remembers the last one.
 - Design: dark only, Inter, tabular numbers, spacing 4/8/12/16/20/24/32/40/56,
   radii 10/14/20/pill, colour only where it carries meaning, no coloured icon tiles.
 
@@ -53,11 +57,16 @@ an iOS app (bundle id com.buzz.pepito). State is one persisted Zustand store,
   by the v22 migration (`scanHistory.ts`); More › Data › Import scans uses
   `scanImport.ts` (dedupe on date + time + device).
 - Charts: one component, `src/components/charts/TrendChart.jsx`, arithmetic in
-  `src/body/chartPoints.ts` (FamilyChart for device lines). Compound lanes
+  `src/body/chartPoints.ts` (FamilyChart for device lines). Compound and sauna lanes
   (`Lanes.jsx`, `src/body/lanes.ts`) sit under every chart. Series colours only
   from `--series-*` tokens.
 - Demo data: `VITE_DEMO_HEALTH=1 npx vite --port 5175` in dev only, then
   `BASE_URL=http://localhost:5175/budget-app/ node e2e/_health-demo.mjs`.
+- Sauna: `saunaSessions`, `saunaSettings`, `saunaTimer` in the store (in the backup);
+  pure logic in `src/sauna` (`sauna.ts`, `saunaEffects.ts` on the compare engine;
+  session on day D = night D, morning D+1). Screens in `src/components/sauna`; the
+  Health parts (Watch detection, HR, effects) are lazy in `src/health/ui.js`.
+  Timer: elapsed from the stored start; one local notification at the target.
 - Nothing with health values goes to the network or to the console.
 - iOS: HealthKit entitlement in `ios/App/App/App.entitlements`; the read prompt
   text is `NSHealthShareUsageDescription` in Info.plist.

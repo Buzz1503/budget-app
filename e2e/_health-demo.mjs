@@ -487,6 +487,16 @@ await step('Sauna everywhere: chart lane, Effects entry, sleep factors, calendar
   await closeSheet()
 })
 
+await step('Sleep: "Log today\'s habits" opens the habits sheet, today and past days', async () => {
+  await tab('Sleep')
+  await page.click('[data-testid="log-habits"]')
+  await seen('[data-testid="habits-sheet"]')
+  await page.locator('[data-testid^="habit-"]').first().click()
+  await page.click('[data-testid="habits-prev"]')
+  if ((await page.textContent('[data-testid="habits-date"]')) !== 'Yesterday') throw new Error('past days')
+  await closeSheet()
+})
+
 await step('Sauna settings: switching off "Show sauna on Home" removes the row', async () => {
   await tab('Sauna')
   await page.click('[data-testid="sauna-settings-open"]')

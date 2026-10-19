@@ -36,8 +36,8 @@ const TAB_MARK = {
   Body: /How to measure/, More: /Build \/ rebuild my protocol/,
 }
 const nav = async (label) => {
-  // v46: Symptoms and Bloods moved into More
-  if (label === 'Symptoms' || label === 'Bloods') { await page.click('nav button[aria-label="More"]'); await page.waitForTimeout(500); await page.click(`[data-testid="more-${label.toLowerCase()}"]`); await page.waitForTimeout(700); return }
+  // v46: Symptoms and Bloods moved into More; 2D: Calendar too, and Symptoms is now Reactions
+  if (['Symptoms', 'Bloods', 'Calendar', 'Reactions'].includes(label)) { await page.click('nav button[aria-label="More"]'); await page.waitForTimeout(500); await page.click(`[data-testid="more-${label === 'Symptoms' ? 'reactions' : label.toLowerCase()}"]`); await page.waitForTimeout(700); return }
 
   await page.click(`nav button[aria-label="${label}"]`)
   await waitText(TAB_MARK[label])
@@ -71,10 +71,10 @@ if (await modal().count()) {
 // ---------- 1. five-tab nav ----------
 // Stage 2C: Symptoms and Bloods moved to the top of More; Sleep is a tab in
 // the native build only, so the web build shows four
-await step('bottom nav shows exactly Home · Body · Calendar · More', async () => {
+await step('bottom nav shows exactly Home · Body · Sauna · More', async () => {
   const labels = await page.locator('nav button span:not(:has(svg))').allTextContents()
   const got = labels.map((s) => s.trim())
-  if (got.join('|') !== 'Home|Body|Calendar|More') {
+  if (got.join('|') !== 'Home|Body|Sauna|More') {
     throw new Error(`nav is [${got.join(', ')}]`)
   }
 })

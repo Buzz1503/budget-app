@@ -51,8 +51,8 @@ const closeAll = async () => {
   }
 }
 const nav = async (label) => {
-  // v46: Symptoms and Bloods moved into More
-  if (label === 'Symptoms' || label === 'Bloods') { await closeAll(); await page.click('nav button[aria-label="More"]'); await page.waitForTimeout(500); await page.click(`[data-testid="more-${label.toLowerCase()}"]`); await page.waitForTimeout(700); return }
+  // v46: Symptoms and Bloods moved into More; 2D: Calendar too, and Symptoms is now Reactions
+  if (['Symptoms', 'Bloods', 'Calendar', 'Reactions'].includes(label)) { await closeAll(); await page.click('nav button[aria-label="More"]'); await page.waitForTimeout(500); await page.click(`[data-testid="more-${label === 'Symptoms' ? 'reactions' : label.toLowerCase()}"]`); await page.waitForTimeout(700); return }
 
   await closeAll()
   await page.click(`nav button[aria-label="${label}"]`)
@@ -155,7 +155,6 @@ await step('2b · a quick log records an unsited injection, and Add site attache
   // attaching a site must not create a second record
   const n = after.injectionRecords.length
   await nav('Symptoms')
-  await page.click('[data-testid="symptom-tab-reactions"]')
   await page.waitForTimeout(900)
   await page.click('[data-testid="open-check"]')
   await page.waitForTimeout(800)
@@ -187,7 +186,6 @@ await step('3 · unsited doses count per peptide and not per site', async () => 
 
 await step('6 · the map colours pins and drops colliding chips', async () => {
   await nav('Symptoms')
-  await page.click('[data-testid="symptom-tab-reactions"]')
   await page.waitForTimeout(1000)
   const coloured = await page.locator('[data-testid="site-map"] [data-peptide]:not([data-peptide=""])').count()
   if (!coloured) throw new Error('no pin carries a peptide')

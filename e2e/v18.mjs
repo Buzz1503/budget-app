@@ -32,8 +32,8 @@ const main = () => page.locator('main').textContent()
 const state = () => page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state)
 const modal = () => page.locator('div.fixed.inset-0.z-50 > div.card')
 const nav = async (label) => {
-  // v46: Symptoms and Bloods moved into More
-  if (label === 'Symptoms' || label === 'Bloods') { await page.click('nav button[aria-label="More"]'); await page.waitForTimeout(500); await page.click(`[data-testid="more-${label.toLowerCase()}"]`); await page.waitForTimeout(700); return }
+  // v46: Symptoms and Bloods moved into More; 2D: Calendar too, and Symptoms is now Reactions
+  if (['Symptoms', 'Bloods', 'Calendar', 'Reactions'].includes(label)) { await page.click('nav button[aria-label="More"]'); await page.waitForTimeout(500); await page.click(`[data-testid="more-${label === 'Symptoms' ? 'reactions' : label.toLowerCase()}"]`); await page.waitForTimeout(700); return }
 
   await page.click(`nav button:has-text("${label}")`)
   await page.waitForTimeout(500)
@@ -133,219 +133,9 @@ await step('the BAC field is editable and the concentration follows it', async (
   if ((await main()) === before) throw new Error('changing the BAC volume changed nothing on screen')
 })
 
-// =========================================================== 3 · Symptoms UI
-
-await step('the Symptoms tab opens search-first', async () => {
-  await symptoms()
-  await waitText(/How are you feeling/i)
-  if (!(await page.locator('input[placeholder*="Search" i]').count())) {
-    throw new Error('no search box')
-  }
-})
-
-await step('Issues is the FULL negative catalogue, not just the stack', async () => {
-  await symptoms()
-  const cats = page.locator('[data-testid="symptom-categories"] > div > button')
-  const heads = (await cats.allInnerTexts()).map((t) => t.split('\n')[0].trim())
-  for (const want of ['Sleep', 'General & energy', 'Mood', 'Focus & memory', 'Head & nerves',
-    'Gut & digestion', 'Heart & blood', 'Breathing', 'Skin & hair', 'Hormonal & sexual',
-    'Muscles & joints', 'Injection site', 'Urinary', 'Blood sugar & weight', 'Other']) {
-    if (!heads.includes(want)) throw new Error(`missing category "${want}" — got [${heads.join(', ')}]`)
-  }
-  // the counts across the categories should add up to the whole catalogue
-  const total = (await cats.allInnerTexts())
-    .map((t) => parseInt(t.split('\n')[1] || '0', 10)).reduce((a, b) => a + b, 0)
-  if (total < 100) throw new Error(`only ${total} negative symptoms on offer — expected 100+`)
-})
-
-await step('general symptoms no stack compound causes are still loggable', async () => {
-  await symptoms()
-  for (const label of ['Trouble falling asleep', 'Waking through the night',
-    'Dizziness / light-headed', 'Bloating', 'Back pain', 'Blurred vision']) {
-    await page.fill('input[placeholder*="Search" i]', label)
-    await page.waitForTimeout(320)
-    const n = await page.locator(`[data-testid="symptom-search-results"] button:has-text("${label}")`).count()
-    if (n === 0) throw new Error(`"${label}" is not in the catalogue`)
-  }
-  await page.fill('input[placeholder*="Search" i]', '')
-  await page.waitForTimeout(300)
-})
-
-await step('Good effects stays tied to the stack', async () => {
-  await symptoms()
-  await page.click('button:has-text("Good effects")')
-  await page.waitForTimeout(500)
-  const txt = await page.locator('[data-testid="symptom-categories"]').textContent()
-  // the positive list must be far shorter than 100 and must not be a review of systems
-  for (const bad of ['Sleep', 'Urinary', 'Breathing']) {
-    if (new RegExp(`\\b${bad}\\b`).test(txt.split('\n')[0] || '')) {
-      throw new Error(`Good effects is showing the negative categories (${bad})`)
-    }
-  }
-  await page.click('button:has-text("Issues")')
-  await page.waitForTimeout(400)
-})
-
-await step('an unassociated symptom logs anyway, with a soft note instead of a false cause', async () => {
-  await symptoms()
-  await page.fill('input[placeholder*="Search" i]', 'Waking through the night')
-  await page.waitForTimeout(350)
-  await page.locator('[data-testid="symptom-search-results"] button').first().click()
-  await page.waitForTimeout(600)
-  const note = page.locator('[data-testid="unattributed-note"]')
-  if (!(await note.count())) throw new Error('no soft note for an unattributed symptom')
-  const t = await note.textContent()
-  if (!/not a known effect of my current protocol/i.test(t)) throw new Error('the note does not say so plainly')
-  if (!/logged anyway/i.test(t)) throw new Error('the note does not say it was logged regardless')
-  await page.fill('input[placeholder*="Search" i]', '')
-  await page.waitForTimeout(300)
-  // and it really does save
-  await page.locator('main button').filter({ hasText: /^(Log \d|Update check-in)$/ }).last().click()
-  await page.waitForTimeout(900)
-  const st = await state()
-  const ids = (st.symptomLogs.at(-1)?.tags || []).map((x) => x.id)
-  if (!ids.includes('broken_sleep')) throw new Error(`the unattributed symptom was not saved — got [${ids}]`)
-})
-
-await step('search filters the stack-relevant list', async () => {
-  await symptoms()
-  await page.fill('input[placeholder*="Search" i]', 'sleep')
-  await page.waitForTimeout(400)
-  const results = page.locator('[data-testid="symptom-search-results"]')
-  if (!(await results.count())) throw new Error('no results block appeared')
-  const chips = await results.locator('button').count()
-  if (chips === 0) throw new Error('search for "sleep" matched nothing')
-  await page.fill('input[placeholder*="Search" i]', '')
-  await page.waitForTimeout(300)
-})
-
-await step('"Likely for you right now" is stack-weighted and present', async () => {
-  await symptoms()
-  const likely = page.locator('[data-testid="likely-now"]')
-  if (!(await likely.count())) throw new Error('no likely-now row')
-  if ((await likely.locator('button').count()) === 0) throw new Error('likely-now is empty')
-})
-
-await step('Issues / Good effects is a segmented toggle that switches the list', async () => {
-  await symptoms()
-  const before = await page.locator('[data-testid="symptom-categories"]').textContent()
-  await page.click('button:has-text("Good effects")')
-  await page.waitForTimeout(500)
-  const after = await page.locator('[data-testid="symptom-categories"]').textContent()
-  if (before === after) throw new Error('switching polarity did not change the list')
-  await page.click('button:has-text("Issues")')
-  await page.waitForTimeout(400)
-})
-
-await step('categories are collapsed by default and expand on tap', async () => {
-  await symptoms()
-  const cats = page.locator('[data-testid="symptom-categories"]')
-  const headings = cats.locator('button')
-  const n = await headings.count()
-  if (n < 5) throw new Error(`expected ~10 categories, found ${n}`)
-  const collapsedLen = (await cats.textContent()).length
-  await headings.first().click()
-  await page.waitForTimeout(450)
-  const expandedLen = (await cats.textContent()).length
-  if (expandedLen <= collapsedLen) throw new Error('tapping a category revealed nothing')
-})
-
-await step('chips carry no emoji — categories use monochrome icons', async () => {
-  await symptoms()
-  const text = await page.locator('[data-testid="symptom-categories"]').textContent()
-  const emoji = text.match(/\p{Extended_Pictographic}/gu)
-  if (emoji) throw new Error(`emoji still on the symptom list: ${[...new Set(emoji)].join(' ')}`)
-})
-
-await step('severity is visible as mild / moderate / strong, not hidden', async () => {
-  await symptoms()
-  await page.locator('[data-testid="likely-now"] button').first().click()
-  await page.waitForTimeout(450)
-  const panel = page.locator('[data-testid="selected-panel"]')
-  if (!(await panel.count())) throw new Error('nothing appeared after picking a symptom')
-  for (const word of ['Mild', 'Moderate', 'Strong']) {
-    if (!(await panel.locator(`button:has-text("${word}")`).count())) {
-      throw new Error(`no ${word} button`)
-    }
-  }
-})
-
-await step('the note field is behind "add note", not always on screen', async () => {
-  await symptoms()
-  if ((await page.locator('textarea').count()) > 0) {
-    throw new Error('a note box is on screen before it was asked for')
-  }
-  await page.locator('[data-testid="likely-now"] button').first().click()
-  await page.waitForTimeout(400)
-  if ((await page.locator('textarea').count()) > 0) throw new Error('note box appeared unbidden')
-  await page.click('button:has-text("Add note")')
-  await page.waitForTimeout(350)
-  if ((await page.locator('textarea').count()) === 0) throw new Error('"Add note" opened nothing')
-})
-
-await step('the injection-site picker only appears for a site symptom', async () => {
-  await symptoms()
-  await page.locator('[data-testid="likely-now"] button').first().click()
-  await page.waitForTimeout(400)
-  const panel = page.locator('[data-testid="selected-panel"]')
-  const hadSite = await panel.locator('button:has-text("Which site?")').count()
-  // now add one from the Injection site category
-  await page.click('[data-testid="symptom-categories"] button:has-text("Injection site")')
-  await page.waitForTimeout(400)
-  const inj = page.locator('[data-testid="symptom-categories"] button').filter({ hasText: /Injection-site reaction/i }).first()
-  if (!(await inj.count())) throw new Error('no injection-site symptom in that category')
-  await inj.click()
-  await page.waitForTimeout(450)
-  if ((await panel.locator('button:has-text("Which site?")').count()) === 0) {
-    throw new Error('the site question never appeared for a site symptom')
-  }
-  if (hadSite > 0) throw new Error('the site question was showing for a non-site symptom')
-})
-
-await step('logging a check-in names the likely compounds inline', async () => {
-  await symptoms()
-  await page.locator('[data-testid="likely-now"] button').first().click()
-  await page.waitForTimeout(400)
-  await page.locator('[data-testid="selected-panel"]').locator('..').locator('button')
-    .filter({ hasText: /^(Log \d|Update check-in)$/ }).last().click()
-  await page.waitForTimeout(900)
-  const attr = page.locator('[data-testid="attribution-panel"]')
-  if (!(await attr.count())) throw new Error('no attribution appeared after logging')
-  const text = await attr.textContent()
-  if (!/candidates, not a diagnosis/i.test(text)) throw new Error('the attribution caveat is missing')
-})
-
-await step('recently logged comes back as a quick row', async () => {
-  // Deliberately logged from a category rather than "Likely now": a chip already
-  // sitting in the likely row is excluded from this one, so it would never show.
-  await symptoms()
-  await page.click('[data-testid="symptom-categories"] button:has-text("Gut")')
-  await page.waitForTimeout(500)
-  const label = 'Constipation'
-  await page.click(`[data-testid="symptom-categories"] button:text-is("${label}")`)
-  await page.waitForTimeout(450)
-  await page.locator('main button').filter({ hasText: /^(Log \d|Update check-in)$/ }).last().click()
-  await page.waitForTimeout(900)
-
-  await symptoms()
-  const recent = page.locator('[data-testid="recently-logged"]')
-  if (!(await recent.count())) throw new Error('no recently-logged row after a check-in')
-  const text = await recent.textContent()
-  if (!text.includes(label)) {
-    throw new Error(`recently-logged does not carry "${label}" — it reads "${text.trim()}"`)
-  }
-})
-
-await step('the 14-day heatmap has moved off the logging screen into History', async () => {
-  await symptoms()
-  if (/last 14 days/i.test(await main())) throw new Error('the heatmap is still on the Symptoms tab')
-  await more('History & adherence')
-  await waitText(/Adherence/)
-  if (!(await page.locator('[data-testid="symptom-history"]').count())) {
-    throw new Error('the symptom history section is not on the History screen')
-  }
-  if (!/last 14 days/i.test(await main())) throw new Error('the heatmap did not land in History')
-})
+// ======================================================= 3 · Symptoms UI (retired)
+// The Symptoms "how I feel" screen left the app in stage 2D (its data is kept);
+// e2e/v14.mjs checks it stays unreachable.
 
 // ============================================================= 4 · Insights
 
@@ -407,7 +197,7 @@ await step('tap targets on the new screens are at least 40px tall', async () => 
 
 await step('the primary nav is untouched', async () => {
   const labels = (await page.locator('nav button span:not(:has(svg))').allTextContents()).map((s) => s.trim())
-  if (labels.join('|') !== 'Home|Body|Calendar|More') {
+  if (labels.join('|') !== 'Home|Body|Sauna|More') {
     throw new Error(`nav is [${labels.join(', ')}]`)
   }
 })

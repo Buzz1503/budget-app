@@ -536,9 +536,9 @@ await step('7 · the screen and every sheet fit 390px', async () => {
 
 await step('8 · the other tabs are untouched', async () => {
   await closeAll()
-  // Symptoms and Bloods are the first two rows of More since stage 2C
-  for (const label of ['Home', 'Body', 'Calendar', 'More', 'Symptoms', 'Bloods']) {
-    if (label === 'Symptoms' || label === 'Bloods') {
+  // Calendar, Reactions and Bloods are the first rows of More since stage 2D
+  for (const label of ['Home', 'Body', 'Sauna', 'More', 'Calendar', 'Reactions', 'Bloods']) {
+    if (label === 'Calendar' || label === 'Reactions' || label === 'Bloods') {
       await page.click('nav button[aria-label="More"]'); await page.waitForTimeout(400)
       await page.click(`[data-testid="more-${label.toLowerCase()}"]`)
     } else {

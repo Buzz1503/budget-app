@@ -23,6 +23,7 @@ import { minutesOf } from '../../sauna/sauna'
 import { NotConnected, EmptyState } from './BodyHealthView'
 import { HEALTH_BANDS } from './bands'
 import { Hypnogram, Chronogram, DebtBars, NightCalendar } from './SleepCharts'
+import { HabitChips } from './Journal'
 
 const clock = (ms) => clockOf(clockFromNoon(ms, tz))
 const dayWords = (d, t) => (d === t ? 'Last night' : d === addDays(t, -1) ? 'The night before' : `Night to ${format(parseISO(d), 'EEE d MMM')}`)
@@ -354,6 +355,7 @@ function DebtAndPlan({ model, t }) {
 
 function Factors({ model, t }) {
   const habits = useStore((s) => s.habits)
+  const [habitsOpen, setHabitsOpen] = useState(false)
   const saunaSessions = useStore((s) => s.saunaSessions)
   const habitLogs = useStore((s) => s.habitLogs)
   const doseLogs = useStore((s) => s.doseLogs)
@@ -395,6 +397,11 @@ function Factors({ model, t }) {
     <>
       <SectionTitle sub={`Nights after each, against nights without. Needs ${SLEEP_VIEW.minPerGroup} nights in each group.`}>What goes with your sleep</SectionTitle>
       <section className="card rows p-0" data-testid="sleep-factors">
+        {/* the habits journal's entry point (with the calendar day sheet) */}
+        <button onClick={() => setHabitsOpen(true)} className="flex w-full items-center gap-2 px-4 py-3 text-left" data-testid="log-habits">
+          <span className="min-w-0 flex-1 text-sm font-black">Log today's habits</span>
+          <ChevronRight size={16} style={{ color: 'var(--text-3)' }} />
+        </button>
         {rows.map((r) => (
           <div key={r.key} className="px-4 py-3" data-testid="sleep-factor" data-enough={r.enough ? '1' : '0'}>
             <div className="flex items-baseline gap-2">
@@ -413,7 +420,26 @@ function Factors({ model, t }) {
       <p className="px-1 text-[11px] font-medium" style={{ color: 'var(--text-3)' }}>
         Higher or lower on days with, not because of. {COMPARE.caveat}
       </p>
+      <HabitsSheet open={habitsOpen} onClose={() => setHabitsOpen(false)} t={t} />
     </>
+  )
+}
+
+/** Yes or no for each habit, today or any past day. */
+function HabitsSheet({ open, onClose, t }) {
+  const [date, setDate] = useState(t)
+  return (
+    <Modal open={open} onClose={onClose} title="Habits">
+      <div className="space-y-3" data-testid="habits-sheet">
+        <div className="flex items-center gap-2">
+          <button onClick={() => setDate(addDays(date, -1))} aria-label="Previous day" className="rounded-full p-2" style={{ background: 'var(--surface-sunk)' }} data-testid="habits-prev"><ChevronLeft size={16} /></button>
+          <p className="flex-1 text-center text-sm font-black" data-testid="habits-date">{date === t ? 'Today' : date === addDays(t, -1) ? 'Yesterday' : format(parseISO(date), 'EEE d MMM')}</p>
+          <button onClick={() => date < t && setDate(addDays(date, 1))} disabled={date >= t} aria-label="Next day" className="rounded-full p-2 disabled:opacity-30" style={{ background: 'var(--surface-sunk)' }}><ChevronRight size={16} /></button>
+        </div>
+        <HabitChips date={date} />
+        <p className="text-xs font-medium" style={{ color: 'var(--text-3)' }}>Tap what you did. Once anything is answered, the rest count as no. Edit habits in More › Health.</p>
+      </div>
+    </Modal>
   )
 }
 

@@ -204,7 +204,7 @@ export default function App() {
                 <span className="relative">
                   <Icon size={28} strokeWidth={active ? 2.5 : 2} />
                   {/* a compound running low: a small dot, the Stock row says which */}
-                  {id === 'more' && lowStock && <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full" style={{ background: 'var(--warn)' }} data-testid="more-low-dot" />}
+                  {id === 'more' && lowStock && <i aria-hidden="true" className="absolute -right-0.5 -top-0.5 block h-2 w-2 rounded-full" style={{ background: 'var(--warn)' }} data-testid="more-low-dot" />}
                 </span>
                 <span className="max-w-full truncate text-[10px] font-bold leading-none">{label}</span>
                 {active && <motion.div layoutId="tab-dot" className="mt-0.5 h-1 w-1 rounded-full" style={{ background: 'var(--lime)' }} />}
