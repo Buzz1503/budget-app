@@ -35,10 +35,10 @@ describe('health settings, check-ins and habits in the store', () => {
     setHealthSettings({ wakeTarget: '06:30' })
     expect(useStore.getState().healthSettings.wakeTarget).toBe('06:30')
     setHealthSettings({ wakeTarget: null })
-    const saved = JSON.parse(localStorage.getItem('peptide-command-center')).state.healthSettings
+    const saved = JSON.parse(globalThis.localStorage.getItem('peptide-command-center')).state.healthSettings
     expect(saved.wakeTarget).toBeNull()
     useStore.setState({ healthSettings: { ...useStore.getState().healthSettings, wakeTarget: 'stale' } }, false)
-    localStorage.setItem('peptide-command-center', JSON.stringify({ state: { ...JSON.parse(localStorage.getItem('peptide-command-center')).state, healthSettings: saved }, version: useStore.persist.getOptions().version }))
+    globalThis.localStorage.setItem('peptide-command-center', JSON.stringify({ state: { ...JSON.parse(globalThis.localStorage.getItem('peptide-command-center')).state, healthSettings: saved }, version: useStore.persist.getOptions().version }))
     await useStore.persist.rehydrate()
     expect(useStore.getState().healthSettings.wakeTarget).toBeNull()
   })
