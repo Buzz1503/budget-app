@@ -221,8 +221,9 @@ await step('8 · nothing else on Home moved', async () => {
   if (buttons !== due) throw new Error(`${buttons} Log on body buttons for ${due} due row(s)`)
   const nav6 = await page.locator('nav button').count()
   if (nav6 !== 4) throw new Error(`${nav6} nav buttons`)
-  if (!(await page.locator('[data-testid="recent-sites-card"]').count())) throw new Error('no recent sites card after logging on the body')
-  console.log(`  ${due} due row(s) with the button, recent sites card present, six tabs`)
+  // stage 2D: recent sites live in Reactions, not on Home
+  if (await page.locator('[data-testid="recent-sites-card"]').count()) throw new Error('the recent sites card is still on Home')
+  console.log(`  ${due} due row(s) with the button, four tabs`)
 })
 
 const noise = errors.filter((e) => e.startsWith('console') || e.startsWith('pageerror'))
