@@ -7,15 +7,13 @@ import Modal from '../ui/Modal'
 import { addDays, dateRange } from '../../health/tz'
 import { rowFor } from '../../health/engine/model'
 import { glp1NoteDue, GLP1_RHR_NOTE } from '../../health/engine/protocol'
-import { planBedtime, hhmm } from '../../health/engine/planner'
-import { nightsEnding } from '../../health/engine/sleep'
 import { weeklyMeans } from '../../health/engine/training'
 import { vo2Percentile, fitnessAge, smoothVo2 } from '../../health/engine/fitness'
 import { mean, round } from '../../health/engine/stats'
-import useHealthModel, { tz, useCompounds } from './useHealthModel'
+import useHealthModel, { useCompounds } from './useHealthModel'
 import TrendChart from '../charts/TrendChart'
 import useChartEvents from '../charts/useChartEvents'
-import { ReadinessRing, Sparkline, Delta, minutesWords, Stat } from './atoms'
+import { ReadinessRing, Sparkline, Delta, Stat } from './atoms'
 import { HEALTH_BANDS } from './bands'
 import { SyncLine } from './HealthSettings'
 
@@ -25,7 +23,7 @@ const lastDays = (t, n) => dateRange(addDays(t, -(n - 1)), t)
 const clean = (rows) => rows.filter((r) => r.value != null)
 
 /** Shown instead of a screen when nothing has been read yet. */
-function EmptyState() {
+export function EmptyState() {
   const syncing = useHealth((s) => s.syncing)
   return (
     <div className="card p-4" data-testid="health-empty-state">
@@ -38,7 +36,7 @@ function EmptyState() {
   )
 }
 
-function NotConnected({ goTo }) {
+export function NotConnected({ goTo }) {
   return (
     <button onClick={() => goTo?.('health')} className="card w-full p-4 text-left" data-testid="health-not-connected">
       <p className="t-label">Connect Apple Health</p>
@@ -53,7 +51,6 @@ export default function BodyHealthView({ segment, goTo }) {
   if (!connected) return <NotConnected goTo={goTo} />
   if (!model.hasData) return <EmptyState />
   if (segment === 'recovery') return <RecoveryView model={model} />
-  if (segment === 'sleep') return <SleepView model={model} />
   return <TrainingView model={model} />
 }
 
@@ -152,140 +149,6 @@ function RecoveryView({ model }) {
 
       <HowCalculated open={info} onClose={() => setInfo(false)} />
       {compare && <Suspense fallback={null}><CompareSheet model={model} onClose={() => setCompare(false)} /></Suspense>}
-    </div>
-  )
-}
-
-// ------------------------------------------------------------------- Sleep
-
-const STAGE_SHADE = { deep: 'var(--text)', core: 'var(--text-2)', rem: 'var(--text-3)', awake: 'var(--surface2)' }
-
-function StageBar({ night }) {
-  const parts = night.hasStages
-    ? [['Deep', 'deep', night.deepMin], ['Core', 'core', night.coreMin], ['REM', 'rem', night.remMin], ['Awake', 'awake', night.awakeMin]]
-    : [['Asleep', 'core', night.asleepMin], ['Awake', 'awake', night.awakeMin]]
-  const total = parts.reduce((s, p) => s + p[2], 0) || 1
-  return (
-    <div data-testid="stage-bar">
-      <div className="flex h-3 w-full overflow-hidden rounded-full" style={{ background: 'var(--surface-sunk)' }}>
-        {parts.map(([label, key, min]) => (
-          <span key={label} style={{ width: `${(min / total) * 100}%`, background: STAGE_SHADE[key] }} />
-        ))}
-      </div>
-      <div className="mt-2 grid grid-cols-4 gap-1">
-        {parts.map(([label, key, min]) => (
-          <div key={label} data-testid={`stage-${key}`}>
-            <p className="flex items-center gap-1 text-[11px] font-bold" style={{ color: 'var(--text-3)' }}>
-              <span className="h-2 w-2 rounded-full" style={{ background: STAGE_SHADE[key] }} />{label}
-            </p>
-            <p className="text-xs font-black tabular-nums">{Math.round(min)} min</p>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function DurationBars({ model }) {
-  const t = todayStr()
-  const days = lastDays(t, 14)
-  const need = model.needH
-  const vals = days.map((d) => (model.nightBy.get(d)?.asleepMin ?? null))
-  const maxH = Math.max(need, ...vals.filter((v) => v != null).map((v) => v / 60)) + 0.5
-  const W = 320
-  const H = 110
-  const bw = (W - 30) / days.length
-  const y = (h) => H - 16 - (h / maxH) * (H - 26)
-  return (
-    <div className="card p-3" data-testid="sleep-duration-chart">
-      <p className="t-caption" style={{ color: 'var(--text-2)' }}>Last 14 nights</p>
-      <svg viewBox={`0 0 ${W} ${H}`} className="mt-2 w-full" role="img" aria-label="Hours asleep over the last 14 nights">
-        {vals.map((v, i) => v != null && (
-          <rect key={days[i]} x={24 + i * bw + 2} y={y(v / 60)} width={bw - 4} height={H - 16 - y(v / 60)} rx="3" fill="var(--text-2)" data-testid="sleep-bar" />
-        ))}
-        <line x1="24" x2={W} y1={y(need)} y2={y(need)} stroke="var(--text)" strokeDasharray="3 3" />
-        <text x="20" y={y(need) + 3} fontSize="9" fontWeight="700" textAnchor="end" fill="var(--text-2)">{need} h</text>
-        <text x="24" y={H - 3} fontSize="9" fontWeight="700" fill="var(--text-3)">{format(new Date(`${days[0]}T00:00:00`), 'd MMM')}</text>
-        <text x={W} y={H - 3} fontSize="9" fontWeight="700" textAnchor="end" fill="var(--text-3)">Last night</text>
-      </svg>
-      <p className="text-xs font-medium" style={{ color: 'var(--text-3)' }}>Dashed line: your sleep need ({need} h).</p>
-    </div>
-  )
-}
-
-function SleepView({ model }) {
-  const t = todayStr()
-  const settings = useStore((s) => s.healthSettings)
-  const [showInputs, setShowInputs] = useState(false)
-  const night = model.nightBy.get(t)
-  const latestDate = night ? t : [...model.nightBy.keys()].sort().at(-1)
-  const shown = model.nightBy.get(latestDate)
-  const perf = shown ? model.sleepScore(latestDate) : null
-  const recent7 = nightsEnding(model.nightBy, t, 7)
-  const recent14 = nightsEnding(model.nightBy, t, 14)
-  const debt = model.debtH(t)
-  const plan = planBedtime({
-    recent: recent14, debtH: debt, needH: model.needH,
-    yesterdayLoad: model.loadVsUsual(addDays(t, -1)).label, wakeTarget: settings.wakeTarget, tz,
-  })
-  const naps = lastDays(t, 7).flatMap((d) => (model.nightBy.get(d)?.naps || []).map((n) => ({ ...n, date: d })))
-  const sdMin = perf?.consistencySdMin
-  const clock = (ms) => hhmm(tz.hourOf(ms) * 60)
-  const events = useChartEvents()
-  const sleepSeries = useMemo(() => [...model.nightBy.values()].map((n) => ({ date: n.date, value: n.asleepMin / 60 })).sort((a, b) => a.date.localeCompare(b.date)), [model])
-
-  return (
-    <div className="space-y-3" data-testid="sleep-view">
-      {shown ? (
-        <div className="card p-4" data-testid="last-night">
-          <div className="flex items-baseline gap-2">
-            <p className="t-caption min-w-0 flex-1" style={{ color: 'var(--text-3)' }}>{latestDate === t ? 'Last night' : `Night ending ${format(new Date(`${latestDate}T00:00:00`), 'd MMM')}`}</p>
-            <p className="text-xs font-bold tabular-nums" style={{ color: 'var(--text-3)' }}>{shown.sourceName}</p>
-          </div>
-          <div className="mt-1 flex items-end gap-3">
-            <p className="text-3xl font-black tabular-nums" data-testid="asleep-duration">{minutesWords(shown.asleepMin)}</p>
-            <p className="pb-1 text-sm font-bold tabular-nums" style={{ color: 'var(--text-2)' }} data-testid="sleep-score">Score {perf?.score ?? '–'}</p>
-          </div>
-          <p className="text-xs font-medium tabular-nums" style={{ color: 'var(--text-2)' }}>
-            In bed {minutesWords(shown.inBedMin)} · {clock(shown.start)} to {clock(shown.end)}
-          </p>
-          <div className="mt-3"><StageBar night={shown} /></div>
-          {!shown.hasStages && <p className="mt-2 text-xs font-medium" style={{ color: 'var(--text-3)' }}>No sleep stages from this source; the score leaves that part out.</p>}
-        </div>
-      ) : (
-        <div className="card p-4"><p className="text-sm font-medium" style={{ color: 'var(--text-2)' }}>No main sleep recorded yet.</p></div>
-      )}
-
-      <div className="grid grid-cols-2 gap-2">
-        <Stat testid="sleep-consistency" label="Consistency" value={sdMin != null ? `±${Math.round(sdMin)} min` : '–'} sub={recent7.length >= 3 ? 'Bed and wake time, last 7 nights' : 'Needs 3 nights'} />
-        <Stat testid="sleep-debt" label="7-night debt" value={`${round(debt, 1)} h`} sub={`Against ${model.needH} h a night`} />
-      </div>
-
-      <button onClick={() => setShowInputs((v) => !v)} className="card w-full p-4 text-left" data-testid="sleep-planner" aria-expanded={showInputs}>
-        <p className="text-base font-black">Aim to be in bed by {plan.bedtime}</p>
-        <p className="text-xs font-medium" style={{ color: 'var(--text-3)' }}>To wake at {plan.wake}. Tap to see how.</p>
-        {showInputs && (
-          <div className="mt-2 space-y-0.5 text-xs font-medium tabular-nums" style={{ color: 'var(--text-2)' }} data-testid="planner-inputs">
-            <p>Sleep need {minutesWords(plan.inputs.needMin)}{plan.inputs.debtAddMin ? ` + ${plan.inputs.debtAddMin} min for this week’s debt` : ''}{plan.inputs.loadBumpMin ? ` + ${plan.inputs.loadBumpMin} min after a higher-load day` : ''}</p>
-            <p>Typical efficiency {Math.round(plan.inputs.efficiency * 100)} % → {minutesWords(plan.inputs.inBedMin)} in bed</p>
-            <p>Wake time {plan.wake} ({plan.inputs.wakeFrom === 'setting' ? 'your setting' : plan.inputs.wakeFrom === 'history' ? 'your usual, last 14 nights' : 'default'})</p>
-          </div>
-        )}
-      </button>
-
-      <DurationBars model={model} />
-      <TrendChart metric="sleep" title="Time asleep" unit="h" dp={1} series={sleepSeries} events={events} />
-
-      {naps.length > 0 && (
-        <div className="card p-4" data-testid="naps">
-          <p className="t-caption mb-1" style={{ color: 'var(--text-3)' }}>Naps, last 7 days (not scored)</p>
-          {naps.map((n) => (
-            <p key={`${n.date}-${n.start}`} className="text-xs font-medium tabular-nums" style={{ color: 'var(--text-2)' }}>
-              {format(new Date(`${n.date}T00:00:00`), 'EEE d MMM')} · {clock(n.start)} · {minutesWords(n.asleepMin)}
-            </p>
-          ))}
-        </div>
-      )}
     </div>
   )
 }

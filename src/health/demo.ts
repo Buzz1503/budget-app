@@ -100,6 +100,12 @@ export function generateDemo({ now, tz, days = DEMO_DAYS, seed = 42 }: { now: nu
     q.respRate.push({ value: 14.6 + gauss() * 0.5, start: bed + 120 * MIN, end: bed + 121 * MIN, ...WATCH })
     q.wristTemp.push({ value: 35.6 + gauss() * 0.15, start: bed, end: wakeAt, ...WATCH })
     q.spo2.push({ value: 96 + gauss() * 1.2, start: bed + 200 * MIN, end: bed + 201 * MIN, ...WATCH })
+    // heart rate every 10 minutes while asleep, lowest in the middle of the night
+    const hrFloor = 50 + 2 * Math.cos(i / 11) + gauss()
+    for (let x = bed; x < wakeAt; x += 10 * MIN) {
+      const ph = (x - bed) / (wakeAt - bed)
+      q.heartRate.push({ value: Math.round(hrFloor + 8 * Math.abs(ph - 0.45) + rnd() * 3), start: x, end: x, ...WATCH })
+    }
     if (!isToday || now > at(9)) {
       q.restingHR.push({ value: 56 + 3 * Math.cos(i / 11) + gauss() * 1.6, start: at(8), end: at(8) + MIN, ...WATCH })
     }

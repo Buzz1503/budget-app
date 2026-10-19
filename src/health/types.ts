@@ -74,6 +74,20 @@ export interface HealthDaily {
   daylightMin: number | null
 }
 
+/** One stretch of a single stage, for the hypnogram. 'asleep' = no stage given. */
+export interface SleepSegment {
+  start: number
+  end: number
+  stage: 'awake' | 'rem' | 'core' | 'deep' | 'asleep'
+}
+
+/** Heart rate while asleep, from the samples inside the main sleep. */
+export interface SleepingHR {
+  min: number
+  avg: number
+  n: number
+}
+
 /** A run of sleep samples from one source with no gap of an hour or more. */
 export interface SleepSession {
   source: SourceClass
@@ -88,12 +102,16 @@ export interface SleepSession {
   remMin: number
   unspecifiedMin: number
   hasStages: boolean
+  /** Stage by stage, oldest first, overlaps trimmed. Missing on nights cached before stage 2C. */
+  segments?: SleepSegment[]
 }
 
 /** The main sleep that ended on `date` (the wake-up date), and any naps. */
 export interface SleepNight extends SleepSession {
   date: string
   naps: SleepSession[]
+  /** Lowest and average heart rate inside the main sleep; null when none was recorded. */
+  sleepingHR?: SleepingHR | null
 }
 
 export interface HealthWorkout {

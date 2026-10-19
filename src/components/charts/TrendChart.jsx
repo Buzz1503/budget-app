@@ -13,6 +13,8 @@ import { PHASES } from '../../health/engine/config'
 /** The four series colours; every other line is drawn in the primary text colour. */
 export const SERIES_COLOR = {
   weight: 'var(--series-weight)', leanMass: 'var(--series-lean)', fatMass: 'var(--series-fat)', muscleMass: 'var(--series-muscle)',
+  sleep: 'var(--series-sleep)', sleepScore: 'var(--series-sleep)', deepSleep: 'var(--series-sleep)', remSleep: 'var(--series-sleep)',
+  sleepHR: 'var(--series-sleep)', bedtime: 'var(--series-sleep)',
 }
 export const colorFor = (metric) => SERIES_COLOR[metric] || 'var(--series-weight)'
 
@@ -69,7 +71,7 @@ export function useChartGeometry({ points, from, to, metric, zero = false, extra
 }
 
 /** Gridlines, their labels and the dates along the bottom. */
-export function Axes({ axis, yFor, from, to, dp }) {
+export function Axes({ axis, yFor, from, to, dp, format = null }) {
   const plotBottom = PAD.t + PLOT_H
   const ticks = xTicks(from, to)
   const x0 = dayNum(from)
@@ -81,7 +83,7 @@ export function Axes({ axis, yFor, from, to, dp }) {
       {axis.ticks.map((v) => (
         <g key={`y${v}`}>
           <line x1={PAD.l} x2={W - PAD.r} y1={yFor(v)} y2={yFor(v)} stroke="var(--border)" strokeWidth="1" />
-          <text x={PAD.l - 5} y={yFor(v) + 3} fontSize="9" fontWeight="600" textAnchor="end" fill="var(--text-3)" className="tabular-nums">{fmt(v, tickDp)}</text>
+          <text x={PAD.l - 5} y={yFor(v) + 3} fontSize="9" fontWeight="600" textAnchor="end" fill="var(--text-3)" className="tabular-nums">{format ? format(v) : fmt(v, tickDp)}</text>
         </g>
       ))}
       {ticks.map((t, i) => (
@@ -102,8 +104,10 @@ const pointDates = (p) => (p.from === p.to ? shortDate(p.from) : `${shortDate(p.
 export default function TrendChart({
   metric, chartType = metric, title, unit = '', dp = 1, series, current = null, currentCaption = null,
   events = [], wobble: wobbleProp, window: fixed = null, defaultRange = '90D', testid, note = null, onEditDate = null,
-  startLine = null, refBand = null,
+  startLine = null, refBand = null, format = null, changeUnit = null,
 }) {
+  // how a value reads: a number by default, or e.g. a clock time for bedtime
+  const show = format || ((v) => fmt(v, dp))
   const [rangeKey, setRangeKey] = useState(defaultRange)
   const [overlayOpen, setOverlayOpen] = useState(false)
   const [selected, setSelected] = useState(null)
@@ -137,7 +141,7 @@ export default function TrendChart({
   const line = points.filter((p) => !p.scan)
   const place = labelPlacement(points.map((p) => p.value))
   const boxes = points.map((p, i) => {
-    const text = fmt(p.value, dp)
+    const text = show(p.value)
     return { x: xFor(p.x), y: yFor(p.value) + (place[i] === 'above' ? -11 : 13), w: text.length * 5.2 + 3, h: 10, value: p.value, scan: p.scan, text }
   })
   const keep = pickLabels(boxes)
@@ -150,7 +154,7 @@ export default function TrendChart({
   const pinTop = laneTop + lanes.length * LANE_H
   const H = pinTop + (groups.length ? PIN_ROW : 0)
   const shownValue = current ?? (points.length ? points[points.length - 1].value : null)
-  const change = rangeChangeWords(line.length ? line : points, unit, dp, from, to)
+  const change = rangeChangeWords(line.length ? line : points, changeUnit ?? unit, dp, from, to)
 
   const bloodY = (b) => {
     const vals = blood.filter((x) => x.marker === b.marker).map((x) => x.value)
@@ -169,7 +173,7 @@ export default function TrendChart({
         <div className="min-w-0 flex-1">
           <p className="t-caption" style={{ color: 'var(--text-2)' }}>{title}</p>
           <p className="text-2xl font-black tabular-nums leading-tight" data-testid="chart-current">
-            {shownValue != null ? fmt(shownValue, dp) : '–'}{unit && <span className="ml-1 text-xs font-bold" style={{ color: 'var(--text-3)' }}>{unit}</span>}
+            {shownValue != null ? show(shownValue) : '–'}{unit && <span className="ml-1 text-xs font-bold" style={{ color: 'var(--text-3)' }}>{unit}</span>}
           </p>
           {(currentCaption || change) && (
             <p className="text-xs font-medium tabular-nums" style={{ color: 'var(--text-3)' }} data-testid="chart-change">
@@ -213,7 +217,7 @@ export default function TrendChart({
         <p className="mt-3 text-xs font-medium" style={{ color: 'var(--text-2)' }} data-testid="chart-empty">No data in this range yet.</p>
       ) : (
         <svg viewBox={`0 0 ${W} ${H}`} className="mt-2 w-full" role="img" aria-label={`${title} over time`}>
-          <Axes axis={axis} yFor={yFor} from={from} to={to} dp={dp} />
+          <Axes axis={axis} yFor={yFor} from={from} to={to} dp={dp} format={format} />
           {refBand && (
             <g data-testid="chart-ref-band">
               <rect x={PAD.l} width={W - PAD.l - PAD.r} y={yFor(refBand.hi)} height={Math.max(1, yFor(refBand.lo) - yFor(refBand.hi))} fill="var(--text)" opacity="0.06" />
@@ -271,7 +275,7 @@ export default function TrendChart({
       {sel && (
         <div className="mt-2 flex items-start gap-2 rounded-[10px] p-2.5" style={{ background: 'var(--surface-sunk)' }} data-testid="point-popover">
           <div className="min-w-0 flex-1 text-xs font-medium tabular-nums" style={{ color: 'var(--text-2)' }}>
-            <p className="font-bold" style={{ color: 'var(--text)' }}>{pointDates(sel)}: {fmt(sel.value, dp)}{unit ? ` ${unit}` : ''}</p>
+            <p className="font-bold" style={{ color: 'var(--text)' }}>{pointDates(sel)}: {show(sel.value)}{unit ? ` ${unit}` : ''}</p>
             <p>{sel.n === 1 ? '1 reading' : `Average of ${sel.n} readings`} · {sel.sources.join(', ')}{sel.scan ? ' (scan)' : ''}</p>
             {onEditDate && sel.from === sel.to && (
               <button onClick={() => onEditDate(sel.from)} className="mt-1 font-bold" style={{ color: 'var(--text)' }} data-testid="point-edit">Edit this entry</button>

@@ -94,6 +94,23 @@ describe('syncing into the cache', () => {
     expect(after.daily.find((d) => d.date === '2026-09-01')).toEqual(before.daily.find((d) => d.date === '2026-09-01'))
   })
 
+  it('nights carry stage segments and sleeping heart rate; a cache from before them is read again in full', async () => {
+    const bridge = demoBridge({ now: NOW, tz })
+    await syncHealth({ bridge, db, tz, now: NOW })
+    const snap = await loadAll(db)
+    const last = snap.nights.at(-1)!
+    expect(last.segments!.length).toBeGreaterThan(4)
+    expect(last.sleepingHR!.min).toBeLessThanOrEqual(last.sleepingHR!.avg)
+    expect((await readMeta(db)).nightsSchema).toBe(2)
+
+    // pretend the cache was written before stage 2C: the next sync reads every window again
+    await db.meta.put({ key: 'nightsSchema', value: 1 })
+    const res = await syncHealth({ bridge, db, tz, now: NOW + 3600000 })
+    expect(res.from).toBe(addDays('2026-10-18', -(BACKFILL_DAYS - 1)))
+    const res2 = await syncHealth({ bridge, db, tz, now: NOW + 7200000 })
+    expect(res2.from).toBe(addDays('2026-10-18', -3))
+  })
+
   it('a bridge that returns nothing leaves an empty cache, not an error', async () => {
     const empty: HealthBridge = {
       isAvailable: async () => true, requestAuthorization: async () => true, characteristics: async () => ({}),

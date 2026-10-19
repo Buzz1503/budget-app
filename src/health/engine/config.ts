@@ -42,6 +42,35 @@ export const SLEEP = {
   debtNights: 7,
 } as const
 
+// The Sleep tab. Typical adult ranges are shares of time asleep, shown as a
+// faint band labelled "typical adult range"; they are context, not targets.
+export const SLEEP_VIEW = {
+  typical: { deep: [13, 23], rem: [20, 25] } as Record<string, [number, number]>,
+  averageNights: 30,        // the marker on each stage: its share over the last 30 nights
+  usualNights: 28,          // overnight vitals are read against the 28 nights before
+  usualMinNights: 7,        // call: fewer than this and there is no "usual" yet
+  // call: a difference smaller than this reads "about the same as usual"
+  sameWithin: { hrMin: 1, hrAvg: 1, hrv: 3, resp: 0.3, temp: 0.1, spo2: 0.5 } as Record<string, number>,
+  lateWorkoutH: 3,          // a workout ending within 3 h before bedtime is a late workout
+  windDownMin: 30,          // "Start winding down at": 30 min before the suggested bedtime
+  bedtimeBandMin: 15,       // the target bedtime is drawn as a band ±15 min
+  weekendWakeDays: [6, 0],  // Friday and Saturday nights: waking on Saturday or Sunday
+  weekendMinNights: 2,
+  midpointSameMin: 15,      // weekday and weekend midpoints closer than this read "about the same"
+  minPerGroup: 7,           // what-affects-your-sleep: nights needed in each group
+  // call: a higher-load day is one whose training load is over 1.3 x the mean
+  // of training days in the 28 days before, once there are 4 of those
+  higherLoadX: 1.3,
+  higherLoadDays: 28,
+  higherLoadMinSessions: 4,
+  // sleep score bands (call: 80 and up high, below 60 low)
+  bands: [
+    { id: 'low', max: 59 },
+    { id: 'moderate', max: 79 },
+    { id: 'high', max: 100 },
+  ],
+} as const
+
 export const TRAINING = {
   zoneFloors: [0.5, 0.6, 0.7, 0.8, 0.9], // fraction of max HR where zones 1–5 begin
   zoneWeights: [1, 2, 3, 4, 5],           // Edwards TRIMP

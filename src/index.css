@@ -54,11 +54,12 @@
   /* v20's primary action was the lime gradient with near-black text */
   --accent: var(--lime);
   --accent-fg: #0c1200;
-  /* the only four series colours a chart uses */
+  /* the only series colours a chart uses: four for body, one for sleep */
   --series-weight: var(--text);
   --series-lean: var(--accent);
   --series-fat: var(--amber);
   --series-muscle: #8db7ff;
+  --series-sleep: var(--indigo);
   --tint: 16%;
 
   --r-sm: 10px;

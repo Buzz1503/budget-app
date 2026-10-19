@@ -13,7 +13,7 @@
 
 import type {
   RawQuantity, RawSleep, RawWorkout, RawBloodPressure, DayValue, SourceClass,
-  SleepSession, SleepNight, HealthDaily, HealthWorkout,
+  SleepSession, SleepNight, SleepSegment, SleepingHR, HealthDaily, HealthWorkout,
 } from './types'
 import { EMPTY_DAILY } from './types'
 import type { Tz } from './tz'
@@ -69,6 +69,35 @@ export function unionMinutes(intervals: Interval[]): number {
 
 const ASLEEP: ReadonlySet<string> = new Set(['asleep', 'core', 'deep', 'rem'])
 
+/**
+ * The hypnogram: every sample except "in bed", oldest first. Where two
+ * samples overlap the later one starts where the earlier ends, and touching
+ * stretches of the same stage (under a minute apart) become one.
+ */
+export function buildSegments(samples: RawSleep[]): SleepSegment[] {
+  const sorted = samples
+    .filter((s) => s.stage !== 'inBed' && s.end > s.start)
+    .sort((a, b) => a.start - b.start || a.end - b.end)
+  const out: SleepSegment[] = []
+  for (const s of sorted) {
+    const prev = out[out.length - 1]
+    const start = prev ? Math.max(s.start, prev.end) : s.start
+    if (s.end <= start) continue
+    const stage = s.stage as SleepSegment['stage']
+    if (prev && prev.stage === stage && start - prev.end < MIN) prev.end = s.end
+    else out.push({ start, end: s.end, stage })
+  }
+  return out
+}
+
+/** Heart rate while asleep: the lowest and the mean of samples starting inside the window. */
+export function sleepingHeartRate(hr: RawQuantity[], start: number, end: number): SleepingHR | null {
+  // a reading of 25 bpm or less is a sensor gap, not a heartbeat
+  const v = hr.filter((s) => s.start >= start && s.start <= end && s.value > 25).map((s) => s.value)
+  if (!v.length) return null
+  return { min: Math.round(Math.min(...v)), avg: Math.round(v.reduce((a, b) => a + b, 0) / v.length), n: v.length }
+}
+
 /** Describe one run of samples as a session. */
 export function summariseSession(samples: RawSleep[], source: SourceClass): SleepSession {
   const iv = (pred: (s: RawSleep) => boolean): Interval[] => samples.filter(pred).map((s) => [s.start, s.end])
@@ -87,6 +116,7 @@ export function summariseSession(samples: RawSleep[], source: SourceClass): Slee
     remMin: unionMinutes(iv((s) => s.stage === 'rem')),
     unspecifiedMin: unionMinutes(iv((s) => s.stage === 'asleep')),
     hasStages: samples.some((s) => s.stage === 'core' || s.stage === 'deep' || s.stage === 'rem'),
+    segments: buildSegments(samples),
   }
 }
 

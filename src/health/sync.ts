@@ -12,9 +12,14 @@ import { readMeta, writeMeta } from './cache'
 import type { Tz } from './tz'
 import { addDays, dateRange } from './tz'
 import type { SourceClass, HealthWorkout } from './types'
-import { buildNights, buildDaily, buildWorkout } from './dayLogic'
+import { buildNights, buildDaily, buildWorkout, sleepingHeartRate } from './dayLogic'
 
 export const BACKFILL_DAYS = 365
+/**
+ * What the cached nights hold. 2: stage segments and sleeping heart rate. A
+ * cache written by an older version is read again in full on the next sync.
+ */
+export const NIGHTS_SCHEMA = 2
 export const CHUNK_DAYS = 30
 export const LATE_DATA_DAYS = 3
 
@@ -65,7 +70,8 @@ export async function syncHealth({
   const today = tz.dateOf(now)
   const meta = await readMeta(db)
   const lastSyncDate = meta.lastSyncAt ? tz.dateOf(Date.parse(meta.lastSyncAt)) : null
-  const windows = syncWindows({ today, lastSyncDate, backfillDone: meta.backfillDone, full })
+  const stale = meta.backfillDone && (meta.nightsSchema ?? 1) < NIGHTS_SCHEMA
+  const windows = syncWindows({ today, lastSyncDate, backfillDone: meta.backfillDone, full: full || stale })
   const result: SyncResult = { from: windows[0][0], to: today, days: 0, nights: 0, workouts: 0 }
 
   for (let i = 0; i < windows.length; i++) {
@@ -102,6 +108,10 @@ export async function syncHealth({
     ])
 
     const nights = buildNights(sleep, { tz, priority, dates })
+    // heart rate while asleep: read per main sleep, so a day of samples is never pulled
+    for (const n of Object.values(nights)) {
+      n.sleepingHR = sleepingHeartRate(await bridge.quantity('heartRate', n.start, n.end), n.start, n.end)
+    }
     const daily = buildDaily({
       restingHR, hrv, respRate, wristTemp, spo2, vo2max, weight, bodyFat, leanMass, hrRecovery, bloodPressure,
       steps, activeEnergy, dietEnergy, dietProtein, dietWater, daylight,
@@ -138,7 +148,7 @@ export async function syncHealth({
   }
 
   const characteristics = await bridge.characteristics()
-  await writeMeta(db, { lastSyncAt: new Date(now).toISOString(), backfillDone: true, characteristics })
+  await writeMeta(db, { lastSyncAt: new Date(now).toISOString(), backfillDone: true, characteristics, nightsSchema: NIGHTS_SCHEMA })
   onProgress?.({ done: windows.length, total: windows.length })
   return result
 }
