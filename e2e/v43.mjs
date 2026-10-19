@@ -536,11 +536,19 @@ await step('7 · the screen and every sheet fit 390px', async () => {
 
 await step('8 · the other tabs are untouched', async () => {
   await closeAll()
-  for (const label of ['Home', 'Calendar', 'Symptoms', 'Body', 'Bloods', 'More']) {
-    await page.click(`nav button[aria-label="${label}"]`); await page.waitForTimeout(500)
+  // Symptoms and Bloods are the first two rows of More since stage 2C
+  for (const label of ['Home', 'Body', 'Calendar', 'More', 'Symptoms', 'Bloods']) {
+    if (label === 'Symptoms' || label === 'Bloods') {
+      await page.click('nav button[aria-label="More"]'); await page.waitForTimeout(400)
+      await page.click(`[data-testid="more-${label.toLowerCase()}"]`)
+    } else {
+      await page.click(`nav button[aria-label="${label}"]`)
+    }
+    await page.waitForTimeout(500)
     if ((await page.locator('nav button').count()) !== 4) throw new Error(`${label} broke the nav`)
     await noOverflow(label)
   }
+  await page.click('nav button[aria-label="More"]'); await page.waitForTimeout(400)
   await page.click('[data-testid="more-supplies"]'); await page.waitForTimeout(700)
   if (!(await page.locator('text=Stock').count())) throw new Error('the Stock screen no longer opens')
 })
