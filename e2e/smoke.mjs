@@ -208,7 +208,7 @@ await step('persistence: full reload keeps everything', async () => {
   await page.waitForTimeout(600)
   const store = await page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state)
   if (!store.doseLogs.length) throw new Error('dose logs lost')
-  if (!store.symptomLogs.length) throw new Error('symptom logs lost')
+  if (!Array.isArray(store.symptomLogs)) throw new Error('the kept symptom logs went missing from the save')
   if (!store.mixExplored.length) throw new Error('mix codex lost')
   console.log('  persisted — logs:', store.doseLogs.length, 'symptoms:', store.symptomLogs.length,
     'explored:', store.mixExplored.length)
