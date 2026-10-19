@@ -25,6 +25,7 @@ import ScheduleWizard from './components/ScheduleWizard'
 import MoreHub from './components/MoreHub'
 import Toast from './components/Toast'
 import UpdatePrompt from './components/UpdatePrompt'
+import ImportScans from './components/ImportScans'
 import { HEALTH_BUILD, HealthBoot, HealthSettings } from './health/ui'
 
 // full registry of every screen
@@ -44,6 +45,7 @@ const SCREENS = {
   settings: SettingsTab,
   history: HistoryTab,
   supplements: SupplementsTab,
+  scans: ImportScans,
   // native app only: compiled out of the web build
   ...(HEALTH_BUILD ? { health: HealthSettings } : {}),
 }
@@ -62,7 +64,7 @@ const PRIMARY_IDS = new Set(PRIMARY.map((t) => t.id))
 const SUB_TITLES = {
   now: 'Right Now', protocol: 'My protocol', supplies: 'Stock', calc: 'Calculator',
   mix: 'Mix', settings: 'Settings', history: 'History', supplements: 'Supplements', gear: 'Supplies',
-  health: 'Health',
+  health: 'Health', scans: 'Import scans',
 }
 
 // Screens that were their own destination in an earlier version. Old deep links

@@ -7,6 +7,7 @@ import NumberField from '../ui/NumberField'
 import PickerField from '../ui/PickerField'
 import { affectsBaseline } from '../../health/engine/protocol'
 import { tracksEffects } from '../../health/engine/phases'
+import { validWakeTarget } from '../../health/engine/planner'
 import { useCompounds } from './useHealthModel'
 
 /** What is read, and why — said before the system sheet asks. */
@@ -145,10 +146,11 @@ function Numbers() {
       </label>
       <div className="min-w-0">
         <span className="t-label mb-1 block">Target wake time</span>
-        <PickerField kind="time" label="Target wake time" value={hs.wakeTarget || null} fallback="07:00"
+        <PickerField kind="time" label="Target wake time" value={validWakeTarget(hs.wakeTarget) ? hs.wakeTarget : null} fallback="07:00"
+          min="03:00" max="12:00" validate={(v) => (validWakeTarget(v) ? null : 'Choose a time between 03:00 and 12:00.')}
           emptyText="Auto (your usual wake time)" clearText="Reset to auto" testid="health-wake-target"
-          onChange={(v) => setHealthSettings({ wakeTarget: v || null })} />
-        <span className="mt-1 block text-xs font-medium" style={{ color: 'var(--text-3)' }}>Auto uses the middle of your wake times over the last 14 nights.</span>
+          onChange={(v) => setHealthSettings({ wakeTarget: v && validWakeTarget(v) ? v : null })} />
+        <span className="mt-1 block text-xs font-medium" style={{ color: 'var(--text-3)' }}>Between 03:00 and 12:00. Auto uses the middle of your wake times over the last 14 nights.</span>
       </div>
     </div>
   )

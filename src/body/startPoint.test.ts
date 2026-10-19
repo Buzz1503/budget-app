@@ -2,7 +2,9 @@ import { describe, it, expect } from 'vitest'
 import { getStartValue, defaultStartDate, effectiveStart, sinceStart, differentDevices, entryValues } from './startPoint'
 import type { BodyStart } from './startPoint'
 import { dailySeries, getLatestMeasurement } from './bodySeries'
-import { EVOLT_START_SCAN, EVOLT_ORIGINAL_SCAN } from './scanFields'
+import { EVOLT_START_SCAN } from './scanFields'
+
+const EVOLT_ORIGINAL_SCAN = { id: 'orig', date: '2025-01-13', source: 'scan', device: 'Evolt 360', weight: 102.6, bodyFat: 37.0, fatMass: 38.0, leanMass: 64.6 }
 
 const evoltStart: BodyStart = {
   date: '2025-01-13', label: 'Start (adjusted to 105.6 kg)', entryId: EVOLT_START_SCAN.id, device: 'Evolt 360',
@@ -15,7 +17,7 @@ const withingsYear = Array.from({ length: 12 }, (_, i) => ({
 describe('getStartValue', () => {
   it('uses the value set on the starting point', () => {
     const s = getStartValue('weight', evoltStart, { health: withingsYear })
-    expect(s).toEqual({ value: 105.6, date: '2025-01-13', device: 'Evolt 360', fromSetting: true })
+    expect(s).toEqual({ value: 105.6, date: '2025-01-13', device: 'Evolt 360', fromSetting: true, family: null })
     // the old Health weigh-ins from before the start are not the start
     const latest = getLatestMeasurement('weight', { health: [...withingsYear, { date: '2026-10-16', weight: 91.7, weightSource: 'Withings' }] }, '2026-10-19')
     expect(sinceStart(latest?.value, s)).toBe(-13.9)
@@ -26,14 +28,14 @@ describe('getStartValue', () => {
     const s = getStartValue('waist', start, { measurements: [
       { date: '2025-01-20', waist: 120 }, { date: '2025-02-03', waist: 116 }, { date: '2025-03-01', waist: 112 },
     ] })
-    expect(s).toEqual({ value: 116, date: '2025-02-03', device: null, fromSetting: false })
+    expect(s).toEqual({ value: 116, date: '2025-02-03', device: null, fromSetting: false, family: null })
   })
 
   it('never compares across fields: skeletal muscle mass is not muscle mass', () => {
     const s = getStartValue('muscleMass', evoltStart, { measurements: [EVOLT_START_SCAN] })
     expect(s).toBeNull()
     expect(getStartValue('skeletalMuscleMass', evoltStart, {})?.value).toBe(35.6)
-    expect(getStartValue('visceralFat', evoltStart, { measurements: [EVOLT_START_SCAN] })).toBeNull()
+    expect(getStartValue('visceralFat', evoltStart, { measurements: [{ ...EVOLT_START_SCAN, hiddenFromCharts: false }] })).toBeNull()
     expect(getStartValue('visceralFatLevel', evoltStart, {})?.value).toBe(16)
   })
 
@@ -83,16 +85,48 @@ describe('devices and hidden scans', () => {
     expect(differentDevices(start, null)).toBe(false)
   })
 
-  it('the original scan kept off the charts is in no series, so the day has one weight', () => {
+  it('an entry kept off the charts is in no series, so the day has one weight', () => {
+    // the adjusted starting scan is hidden; the real scan that morning is what charts show
     const s = dailySeries('weight', { measurements: [EVOLT_START_SCAN, EVOLT_ORIGINAL_SCAN] })
-    expect(s).toEqual([{ date: '2025-01-13', value: 105.6, source: 'scan', sourceLabel: 'Evolt 360' }])
-    expect(dailySeries('weight', { measurements: [EVOLT_ORIGINAL_SCAN] })).toEqual([])
+    expect(s).toEqual([{ date: '2025-01-13', value: 102.6, source: 'scan', sourceLabel: 'Evolt 360', family: 'evolt' }])
+    expect(dailySeries('weight', { measurements: [EVOLT_START_SCAN] })).toEqual([])
   })
 
-  it('scan fat mass is used as stored; extras are not measurements', () => {
-    expect(dailySeries('fatMass', { measurements: [EVOLT_START_SCAN] })[0].value).toBe(40.4)
-    expect(dailySeries('leanMass', { measurements: [EVOLT_START_SCAN] })[0].value).toBe(65.2)
-    expect(dailySeries('bmr', { measurements: [EVOLT_START_SCAN] })).toEqual([])
-    expect(dailySeries('heightCm', { measurements: [EVOLT_START_SCAN] })).toEqual([])
+  it('scan fat mass is used as stored; height is not a measurement', () => {
+    const shown = { ...EVOLT_START_SCAN, hiddenFromCharts: false }
+    expect(dailySeries('fatMass', { measurements: [shown] })[0].value).toBe(40.4)
+    expect(dailySeries('leanMass', { measurements: [shown] })[0].value).toBe(65.2)
+    expect(dailySeries('bmr', { measurements: [shown] })[0].value).toBe(1779)
+    expect(dailySeries('heightCm', { measurements: [shown] })).toEqual([])
+  })
+})
+
+describe('since start with device families', () => {
+  it('body fat compares Evolt with Evolt: the adjusted start against the latest Evolt scan', async () => {
+    const { compareSinceStart } = await import('./startPoint')
+    const { parseScanImport } = await import('./scanImport')
+    const { readFileSync } = await import('fs')
+    const scans = parseScanImport(JSON.parse(readFileSync(new URL('../data/evolt_scans.json', import.meta.url), 'utf8'))).entries
+    const input = { measurements: [...scans, EVOLT_START_SCAN], health: [{ date: '2026-10-16', weight: 91.7, weightSource: 'Withings', bodyFatPct: 28.7 }] }
+    const bf = compareSinceStart('bodyFat', evoltStart, input, '2026-10-19')
+    expect(bf.family).toBe('evolt')
+    expect(bf.latest).toMatchObject({ date: '2026-10-12', value: 31.6 })
+    expect(bf.delta).toBe(-6.7)
+    // weight is merged: the newest reading from any scale
+    const w = compareSinceStart('weight', evoltStart, input, '2026-10-19')
+    expect(w.latest).toMatchObject({ date: '2026-10-16', value: 91.7 })
+    expect(w.delta).toBe(-13.9)
+    expect(w.family).toBeNull()
+  })
+
+  it('with no start value set, the fallback reads the default family only', async () => {
+    const { compareSinceStart } = await import('./startPoint')
+    const input = {
+      measurements: [{ id: 'a', date: '2025-02-01', source: 'scan', device: 'Evolt 360', weight: 100, bodyFat: 35 }, { id: 'b', date: '2025-06-01', source: 'scan', device: 'Evolt 360', weight: 95, bodyFat: 33 }],
+      health: [{ date: '2025-01-20', weight: 101, weightSource: 'Withings', bodyFatPct: 30 }],
+    }
+    const r = compareSinceStart('bodyFat', { date: '2025-01-15' }, input, '2025-07-01')
+    expect(r).toMatchObject({ family: 'evolt', delta: -2 })
+    expect(r.start).toMatchObject({ value: 35, date: '2025-02-01' })
   })
 })

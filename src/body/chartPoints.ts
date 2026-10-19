@@ -3,9 +3,9 @@
 // collision, the date labels along the bottom, and the protocol pins.
 // Pure: the chart component only draws what these return.
 
-export type RangeKey = '30D' | '90D' | '6M' | '1Y' | 'All'
+export type RangeKey = '30D' | '90D' | '6M' | '1Y' | '2Y' | 'All'
 export const RANGES: Array<{ key: RangeKey; days: number | null }> = [
-  { key: '30D', days: 30 }, { key: '90D', days: 90 }, { key: '6M', days: 182 }, { key: '1Y', days: 365 }, { key: 'All', days: null },
+  { key: '30D', days: 30 }, { key: '90D', days: 90 }, { key: '6M', days: 182 }, { key: '1Y', days: 365 }, { key: '2Y', days: 730 }, { key: 'All', days: null },
 ]
 
 export interface SeriesPoint {

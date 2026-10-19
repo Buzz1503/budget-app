@@ -1,0 +1,1881 @@
+{
+ "schema": "pepito-scan-import/v1",
+ "source": "Evolt 360 PDF result sheets",
+ "scans": [
+  {
+   "date": "2024-08-23",
+   "time": "11:07",
+   "device": "Evolt 360",
+   "height_cm": 170,
+   "age": 34,
+   "weight_kg": 100.4,
+   "body_fat_pct": 36.5,
+   "fat_mass_kg": 36.6,
+   "lean_body_mass_kg": 63.8,
+   "skeletal_muscle_mass_kg": 34.9,
+   "protein_kg": 12.2,
+   "mineral_kg": 5.6,
+   "total_body_water_kg": 46.0,
+   "icf_kg": 31.1,
+   "icf_pct": 68,
+   "ecf_kg": 14.9,
+   "ecf_pct": 32,
+   "subcutaneous_fat_kg": 29.8,
+   "subcutaneous_fat_pct": 29.7,
+   "visceral_fat_kg": 6.8,
+   "visceral_fat_pct": 6.8,
+   "visceral_fat_area_cm2": 178,
+   "visceral_fat_level": 15,
+   "bmr_kcal": 1748,
+   "tee_kcal": 2691,
+   "bio_age": 41,
+   "bwi_score": 5.4,
+   "abdominal_circumference_cm": 114.9,
+   "waist_hip_ratio": 1.01,
+   "segmental": {
+    "left_arm": {
+     "lean_kg": 3.65,
+     "fat_kg": 2.42
+    },
+    "right_arm": {
+     "lean_kg": 3.73,
+     "fat_kg": 2.16
+    },
+    "torso": {
+     "lean_kg": 28.78,
+     "fat_kg": 21.17
+    },
+    "left_leg": {
+     "lean_kg": 8.53,
+     "fat_kg": 5.56
+    },
+    "right_leg": {
+     "lean_kg": 8.68,
+     "fat_kg": 5.28
+    }
+   },
+   "balance": {
+    "upper_lower": "Unbalanced",
+    "left_right": "Unbalanced"
+   },
+   "status": {
+    "lean_body_mass_kg": "High",
+    "fat_mass_kg": "High",
+    "skeletal_muscle_mass_kg": "High",
+    "protein_kg": "High",
+    "mineral_kg": "High",
+    "visceral_fat_area_cm2": "High",
+    "total_body_water_kg": "High",
+    "body_fat_pct": "High",
+    "waist_hip_ratio": "High",
+    "visceral_fat_level": "Over Range"
+   },
+   "reference_ranges": {
+    "lean_body_mass_kg": [
+     47.3,
+     57.8
+    ],
+    "fat_mass_kg": [
+     8.9,
+     13.3
+    ],
+    "skeletal_muscle_mass_kg": [
+     26.4,
+     32.3
+    ],
+    "protein_kg": [
+     9.5,
+     11.7
+    ],
+    "mineral_kg": [
+     3.2,
+     4.0
+    ],
+    "visceral_fat_area_cm2": [
+     50.0,
+     100.0
+    ],
+    "total_body_water_kg": [
+     34.5,
+     42.2
+    ],
+    "body_fat_pct": [
+     15.0,
+     20.0
+    ],
+    "waist_hip_ratio": [
+     0.75,
+     0.9
+    ]
+   },
+   "evolt_recommendations": {
+    "calories_kcal": [
+     2148,
+     2248
+    ],
+    "protein_g": [
+     161,
+     169
+    ],
+    "carbs_g": [
+     188,
+     197
+    ],
+    "fat_g": [
+     84,
+     87
+    ]
+   }
+  },
+  {
+   "date": "2024-09-20",
+   "time": "07:37",
+   "device": "Evolt 360",
+   "height_cm": 170,
+   "age": 34,
+   "weight_kg": 101.3,
+   "body_fat_pct": 34.5,
+   "fat_mass_kg": 34.9,
+   "lean_body_mass_kg": 66.4,
+   "skeletal_muscle_mass_kg": 36.4,
+   "protein_kg": 12.9,
+   "mineral_kg": 5.7,
+   "total_body_water_kg": 47.8,
+   "icf_kg": 32.0,
+   "icf_pct": 67,
+   "ecf_kg": 15.8,
+   "ecf_pct": 33,
+   "subcutaneous_fat_kg": 28.7,
+   "subcutaneous_fat_pct": 28.3,
+   "visceral_fat_kg": 6.2,
+   "visceral_fat_pct": 6.1,
+   "visceral_fat_area_cm2": 157,
+   "visceral_fat_level": 14,
+   "bmr_kcal": 1804,
+   "tee_kcal": 2778,
+   "bio_age": 40,
+   "bwi_score": 5.7,
+   "abdominal_circumference_cm": 112.9,
+   "waist_hip_ratio": 0.98,
+   "segmental": {
+    "left_arm": {
+     "lean_kg": 3.88,
+     "fat_kg": 2.25
+    },
+    "right_arm": {
+     "lean_kg": 3.98,
+     "fat_kg": 1.97
+    },
+    "torso": {
+     "lean_kg": 30.02,
+     "fat_kg": 20.41
+    },
+    "left_leg": {
+     "lean_kg": 8.76,
+     "fat_kg": 5.29
+    },
+    "right_leg": {
+     "lean_kg": 8.91,
+     "fat_kg": 4.98
+    }
+   },
+   "balance": {
+    "upper_lower": "Balanced",
+    "left_right": "Balanced"
+   },
+   "status": {
+    "lean_body_mass_kg": "High",
+    "fat_mass_kg": "High",
+    "skeletal_muscle_mass_kg": "High",
+    "protein_kg": "High",
+    "mineral_kg": "High",
+    "visceral_fat_area_cm2": "High",
+    "total_body_water_kg": "High",
+    "body_fat_pct": "High",
+    "waist_hip_ratio": "High",
+    "visceral_fat_level": "Over Range"
+   },
+   "reference_ranges": {
+    "lean_body_mass_kg": [
+     47.3,
+     57.8
+    ],
+    "fat_mass_kg": [
+     8.9,
+     13.3
+    ],
+    "skeletal_muscle_mass_kg": [
+     26.4,
+     32.3
+    ],
+    "protein_kg": [
+     9.5,
+     11.7
+    ],
+    "mineral_kg": [
+     3.2,
+     4.0
+    ],
+    "visceral_fat_area_cm2": [
+     50.0,
+     100.0
+    ],
+    "total_body_water_kg": [
+     34.5,
+     42.2
+    ],
+    "body_fat_pct": [
+     15.0,
+     20.0
+    ],
+    "waist_hip_ratio": [
+     0.75,
+     0.9
+    ]
+   },
+   "evolt_recommendations": {
+    "calories_kcal": [
+     2204,
+     2304
+    ],
+    "protein_g": [
+     165,
+     173
+    ],
+    "carbs_g": [
+     193,
+     202
+    ],
+    "fat_g": [
+     86,
+     90
+    ]
+   }
+  },
+  {
+   "date": "2025-01-13",
+   "time": "02:23",
+   "device": "Evolt 360",
+   "height_cm": 170,
+   "age": 34,
+   "weight_kg": 102.6,
+   "body_fat_pct": 37.0,
+   "fat_mass_kg": 38.0,
+   "lean_body_mass_kg": 64.6,
+   "skeletal_muscle_mass_kg": 35.3,
+   "protein_kg": 12.3,
+   "mineral_kg": 5.8,
+   "total_body_water_kg": 46.5,
+   "icf_kg": 31.1,
+   "icf_pct": 67,
+   "ecf_kg": 15.4,
+   "ecf_pct": 33,
+   "subcutaneous_fat_kg": 30.7,
+   "subcutaneous_fat_pct": 29.9,
+   "visceral_fat_kg": 7.3,
+   "visceral_fat_pct": 7.1,
+   "visceral_fat_area_cm2": 185,
+   "visceral_fat_level": 16,
+   "bmr_kcal": 1765,
+   "tee_kcal": 2718,
+   "bio_age": 41,
+   "bwi_score": 5.4,
+   "abdominal_circumference_cm": 116.6,
+   "waist_hip_ratio": 1.02,
+   "segmental": {
+    "left_arm": {
+     "lean_kg": 3.65,
+     "fat_kg": 2.58
+    },
+    "right_arm": {
+     "lean_kg": 3.72,
+     "fat_kg": 2.32
+    },
+    "torso": {
+     "lean_kg": 28.86,
+     "fat_kg": 21.84
+    },
+    "left_leg": {
+     "lean_kg": 8.83,
+     "fat_kg": 5.78
+    },
+    "right_leg": {
+     "lean_kg": 8.98,
+     "fat_kg": 5.49
+    }
+   },
+   "balance": {
+    "upper_lower": "Balanced",
+    "left_right": "Balanced"
+   },
+   "status": {
+    "lean_body_mass_kg": "High",
+    "fat_mass_kg": "High",
+    "skeletal_muscle_mass_kg": "High",
+    "protein_kg": "High",
+    "mineral_kg": "High",
+    "visceral_fat_area_cm2": "High",
+    "total_body_water_kg": "High",
+    "body_fat_pct": "High",
+    "waist_hip_ratio": "High",
+    "visceral_fat_level": "Over Range"
+   },
+   "reference_ranges": {
+    "lean_body_mass_kg": [
+     47.3,
+     57.8
+    ],
+    "fat_mass_kg": [
+     8.9,
+     13.3
+    ],
+    "skeletal_muscle_mass_kg": [
+     26.4,
+     32.3
+    ],
+    "protein_kg": [
+     9.5,
+     11.7
+    ],
+    "mineral_kg": [
+     3.2,
+     4.0
+    ],
+    "visceral_fat_area_cm2": [
+     50.0,
+     100.0
+    ],
+    "total_body_water_kg": [
+     34.5,
+     42.2
+    ],
+    "body_fat_pct": [
+     15.0,
+     20.0
+    ],
+    "waist_hip_ratio": [
+     0.75,
+     0.9
+    ]
+   },
+   "evolt_recommendations": {
+    "calories_kcal": [
+     2165,
+     2265
+    ],
+    "protein_g": [
+     162,
+     170
+    ],
+    "carbs_g": [
+     189,
+     198
+    ],
+    "fat_g": [
+     84,
+     88
+    ]
+   }
+  },
+  {
+   "date": "2025-01-28",
+   "time": "04:01",
+   "device": "Evolt 360",
+   "height_cm": 170,
+   "age": 34,
+   "weight_kg": 99.7,
+   "body_fat_pct": 34.6,
+   "fat_mass_kg": 34.5,
+   "lean_body_mass_kg": 65.2,
+   "skeletal_muscle_mass_kg": 35.7,
+   "protein_kg": 12.6,
+   "mineral_kg": 5.7,
+   "total_body_water_kg": 46.9,
+   "icf_kg": 31.2,
+   "icf_pct": 67,
+   "ecf_kg": 15.7,
+   "ecf_pct": 33,
+   "subcutaneous_fat_kg": 28.2,
+   "subcutaneous_fat_pct": 28.3,
+   "visceral_fat_kg": 6.3,
+   "visceral_fat_pct": 6.3,
+   "visceral_fat_area_cm2": 159,
+   "visceral_fat_level": 15,
+   "bmr_kcal": 1778,
+   "tee_kcal": 2738,
+   "bio_age": 40,
+   "bwi_score": 5.7,
+   "abdominal_circumference_cm": 112.5,
+   "waist_hip_ratio": 0.98,
+   "segmental": {
+    "left_arm": {
+     "lean_kg": 3.69,
+     "fat_kg": 2.33
+    },
+    "right_arm": {
+     "lean_kg": 3.79,
+     "fat_kg": 2.0
+    },
+    "torso": {
+     "lean_kg": 29.04,
+     "fat_kg": 19.96
+    },
+    "left_leg": {
+     "lean_kg": 8.9,
+     "fat_kg": 5.28
+    },
+    "right_leg": {
+     "lean_kg": 9.11,
+     "fat_kg": 4.92
+    }
+   },
+   "balance": {
+    "upper_lower": "Balanced",
+    "left_right": "Balanced"
+   },
+   "status": {
+    "lean_body_mass_kg": "High",
+    "fat_mass_kg": "High",
+    "skeletal_muscle_mass_kg": "High",
+    "protein_kg": "High",
+    "mineral_kg": "High",
+    "visceral_fat_area_cm2": "High",
+    "total_body_water_kg": "High",
+    "body_fat_pct": "High",
+    "waist_hip_ratio": "High",
+    "visceral_fat_level": "Over Range"
+   },
+   "reference_ranges": {
+    "lean_body_mass_kg": [
+     47.3,
+     57.8
+    ],
+    "fat_mass_kg": [
+     8.9,
+     13.3
+    ],
+    "skeletal_muscle_mass_kg": [
+     26.4,
+     32.3
+    ],
+    "protein_kg": [
+     9.5,
+     11.7
+    ],
+    "mineral_kg": [
+     3.2,
+     4.0
+    ],
+    "visceral_fat_area_cm2": [
+     50.0,
+     100.0
+    ],
+    "total_body_water_kg": [
+     34.5,
+     42.2
+    ],
+    "body_fat_pct": [
+     15.0,
+     20.0
+    ],
+    "waist_hip_ratio": [
+     0.75,
+     0.9
+    ]
+   },
+   "evolt_recommendations": {
+    "calories_kcal": [
+     2178,
+     2278
+    ],
+    "protein_g": [
+     163,
+     171
+    ],
+    "carbs_g": [
+     191,
+     199
+    ],
+    "fat_g": [
+     85,
+     89
+    ]
+   }
+  },
+  {
+   "date": "2025-04-09",
+   "time": "05:08",
+   "device": "Evolt 360",
+   "height_cm": 170,
+   "age": 35,
+   "weight_kg": 94.9,
+   "body_fat_pct": 32.9,
+   "fat_mass_kg": 31.2,
+   "lean_body_mass_kg": 63.7,
+   "skeletal_muscle_mass_kg": 35.0,
+   "protein_kg": 12.5,
+   "mineral_kg": 5.3,
+   "total_body_water_kg": 45.9,
+   "icf_kg": 30.5,
+   "icf_pct": 66,
+   "ecf_kg": 15.4,
+   "ecf_pct": 34,
+   "subcutaneous_fat_kg": 25.7,
+   "subcutaneous_fat_pct": 27.1,
+   "visceral_fat_kg": 5.5,
+   "visceral_fat_pct": 5.8,
+   "visceral_fat_area_cm2": 172,
+   "visceral_fat_level": 15,
+   "bmr_kcal": 1745,
+   "tee_kcal": 2687,
+   "bio_age": 40,
+   "bwi_score": 6.0,
+   "abdominal_circumference_cm": 108.6,
+   "waist_hip_ratio": 1.0,
+   "segmental": {
+    "left_arm": {
+     "lean_kg": 3.71,
+     "fat_kg": 1.95
+    },
+    "right_arm": {
+     "lean_kg": 3.77,
+     "fat_kg": 1.74
+    },
+    "torso": {
+     "lean_kg": 28.79,
+     "fat_kg": 18.28
+    },
+    "left_leg": {
+     "lean_kg": 8.44,
+     "fat_kg": 4.73
+    },
+    "right_leg": {
+     "lean_kg": 8.58,
+     "fat_kg": 4.5
+    }
+   },
+   "balance": {
+    "upper_lower": "Unbalanced",
+    "left_right": "Balanced"
+   },
+   "status": {
+    "lean_body_mass_kg": "High",
+    "fat_mass_kg": "High",
+    "skeletal_muscle_mass_kg": "High",
+    "protein_kg": "High",
+    "mineral_kg": "High",
+    "visceral_fat_area_cm2": "High",
+    "total_body_water_kg": "High",
+    "body_fat_pct": "High",
+    "waist_hip_ratio": "High",
+    "visceral_fat_level": "Over Range"
+   },
+   "reference_ranges": {
+    "lean_body_mass_kg": [
+     47.3,
+     57.8
+    ],
+    "fat_mass_kg": [
+     8.9,
+     13.3
+    ],
+    "skeletal_muscle_mass_kg": [
+     26.4,
+     32.3
+    ],
+    "protein_kg": [
+     9.5,
+     11.7
+    ],
+    "mineral_kg": [
+     3.2,
+     4.0
+    ],
+    "visceral_fat_area_cm2": [
+     50.0,
+     100.0
+    ],
+    "total_body_water_kg": [
+     34.5,
+     42.2
+    ],
+    "body_fat_pct": [
+     15.0,
+     20.0
+    ],
+    "waist_hip_ratio": [
+     0.75,
+     0.9
+    ]
+   },
+   "evolt_recommendations": {
+    "calories_kcal": [
+     2145,
+     2245
+    ],
+    "protein_g": [
+     161,
+     168
+    ],
+    "carbs_g": [
+     188,
+     196
+    ],
+    "fat_g": [
+     83,
+     87
+    ]
+   }
+  },
+  {
+   "date": "2025-07-15",
+   "time": "04:29",
+   "device": "Evolt 360",
+   "height_cm": 170,
+   "age": 35,
+   "weight_kg": 90.4,
+   "body_fat_pct": 33.2,
+   "fat_mass_kg": 30.0,
+   "lean_body_mass_kg": 60.4,
+   "skeletal_muscle_mass_kg": 33.2,
+   "protein_kg": 11.8,
+   "mineral_kg": 5.1,
+   "total_body_water_kg": 43.5,
+   "icf_kg": 29.3,
+   "icf_pct": 67,
+   "ecf_kg": 14.2,
+   "ecf_pct": 33,
+   "subcutaneous_fat_kg": 24.7,
+   "subcutaneous_fat_pct": 27.3,
+   "visceral_fat_kg": 5.3,
+   "visceral_fat_pct": 5.9,
+   "visceral_fat_area_cm2": 176,
+   "visceral_fat_level": 15,
+   "bmr_kcal": 1674,
+   "tee_kcal": 2577,
+   "bio_age": 40,
+   "bwi_score": 6.0,
+   "abdominal_circumference_cm": 107.2,
+   "waist_hip_ratio": 1.01,
+   "segmental": {
+    "left_arm": {
+     "lean_kg": 3.41,
+     "fat_kg": 1.98
+    },
+    "right_arm": {
+     "lean_kg": 3.5,
+     "fat_kg": 1.67
+    },
+    "torso": {
+     "lean_kg": 27.28,
+     "fat_kg": 17.36
+    },
+    "left_leg": {
+     "lean_kg": 8.08,
+     "fat_kg": 4.66
+    },
+    "right_leg": {
+     "lean_kg": 8.26,
+     "fat_kg": 4.33
+    }
+   },
+   "balance": {
+    "upper_lower": "Unbalanced",
+    "left_right": "Balanced"
+   },
+   "status": {
+    "lean_body_mass_kg": "High",
+    "fat_mass_kg": "High",
+    "skeletal_muscle_mass_kg": "High",
+    "protein_kg": "High",
+    "mineral_kg": "High",
+    "visceral_fat_area_cm2": "High",
+    "total_body_water_kg": "High",
+    "body_fat_pct": "High",
+    "waist_hip_ratio": "High",
+    "visceral_fat_level": "Over Range"
+   },
+   "reference_ranges": {
+    "lean_body_mass_kg": [
+     47.3,
+     57.8
+    ],
+    "fat_mass_kg": [
+     8.9,
+     13.3
+    ],
+    "skeletal_muscle_mass_kg": [
+     26.4,
+     32.3
+    ],
+    "protein_kg": [
+     9.5,
+     11.7
+    ],
+    "mineral_kg": [
+     3.2,
+     4.0
+    ],
+    "visceral_fat_area_cm2": [
+     50.0,
+     100.0
+    ],
+    "total_body_water_kg": [
+     34.5,
+     42.2
+    ],
+    "body_fat_pct": [
+     15.0,
+     20.0
+    ],
+    "waist_hip_ratio": [
+     0.75,
+     0.9
+    ]
+   },
+   "evolt_recommendations": {
+    "calories_kcal": [
+     2074,
+     2174
+    ],
+    "protein_g": [
+     156,
+     163
+    ],
+    "carbs_g": [
+     181,
+     190
+    ],
+    "fat_g": [
+     81,
+     85
+    ]
+   }
+  },
+  {
+   "date": "2025-07-19",
+   "time": "03:17",
+   "device": "Evolt 360",
+   "height_cm": 170,
+   "age": 35,
+   "weight_kg": 89.8,
+   "body_fat_pct": 32.6,
+   "fat_mass_kg": 29.3,
+   "lean_body_mass_kg": 60.5,
+   "skeletal_muscle_mass_kg": 33.2,
+   "protein_kg": 11.8,
+   "mineral_kg": 5.1,
+   "total_body_water_kg": 43.6,
+   "icf_kg": 29.2,
+   "icf_pct": 67,
+   "ecf_kg": 14.4,
+   "ecf_pct": 33,
+   "subcutaneous_fat_kg": 24.1,
+   "subcutaneous_fat_pct": 26.8,
+   "visceral_fat_kg": 5.2,
+   "visceral_fat_pct": 5.8,
+   "visceral_fat_area_cm2": 170,
+   "visceral_fat_level": 15,
+   "bmr_kcal": 1676,
+   "tee_kcal": 2581,
+   "bio_age": 40,
+   "bwi_score": 6.0,
+   "abdominal_circumference_cm": 106.1,
+   "waist_hip_ratio": 1.0,
+   "segmental": {
+    "left_arm": {
+     "lean_kg": 3.37,
+     "fat_kg": 1.97
+    },
+    "right_arm": {
+     "lean_kg": 3.43,
+     "fat_kg": 1.69
+    },
+    "torso": {
+     "lean_kg": 26.97,
+     "fat_kg": 16.83
+    },
+    "left_leg": {
+     "lean_kg": 8.31,
+     "fat_kg": 4.55
+    },
+    "right_leg": {
+     "lean_kg": 8.54,
+     "fat_kg": 4.25
+    }
+   },
+   "balance": {
+    "upper_lower": "Unbalanced",
+    "left_right": "Balanced"
+   },
+   "status": {
+    "lean_body_mass_kg": "High",
+    "fat_mass_kg": "High",
+    "skeletal_muscle_mass_kg": "High",
+    "protein_kg": "High",
+    "mineral_kg": "High",
+    "visceral_fat_area_cm2": "High",
+    "total_body_water_kg": "High",
+    "body_fat_pct": "High",
+    "waist_hip_ratio": "High",
+    "visceral_fat_level": "Over Range"
+   },
+   "reference_ranges": {
+    "lean_body_mass_kg": [
+     47.3,
+     57.8
+    ],
+    "fat_mass_kg": [
+     8.9,
+     13.3
+    ],
+    "skeletal_muscle_mass_kg": [
+     26.4,
+     32.3
+    ],
+    "protein_kg": [
+     9.5,
+     11.7
+    ],
+    "mineral_kg": [
+     3.2,
+     4.0
+    ],
+    "visceral_fat_area_cm2": [
+     50.0,
+     100.0
+    ],
+    "total_body_water_kg": [
+     34.5,
+     42.2
+    ],
+    "body_fat_pct": [
+     15.0,
+     20.0
+    ],
+    "waist_hip_ratio": [
+     0.75,
+     0.9
+    ]
+   },
+   "evolt_recommendations": {
+    "calories_kcal": [
+     2076,
+     2176
+    ],
+    "protein_g": [
+     156,
+     163
+    ],
+    "carbs_g": [
+     182,
+     190
+    ],
+    "fat_g": [
+     81,
+     85
+    ]
+   }
+  },
+  {
+   "date": "2025-08-12",
+   "time": "04:51",
+   "device": "Evolt 360",
+   "height_cm": 170,
+   "age": 35,
+   "weight_kg": 91.9,
+   "body_fat_pct": 33.2,
+   "fat_mass_kg": 30.5,
+   "lean_body_mass_kg": 61.4,
+   "skeletal_muscle_mass_kg": 33.7,
+   "protein_kg": 12.0,
+   "mineral_kg": 5.2,
+   "total_body_water_kg": 44.2,
+   "icf_kg": 29.4,
+   "icf_pct": 67,
+   "ecf_kg": 14.8,
+   "ecf_pct": 33,
+   "subcutaneous_fat_kg": 25.1,
+   "subcutaneous_fat_pct": 27.3,
+   "visceral_fat_kg": 5.4,
+   "visceral_fat_pct": 5.9,
+   "visceral_fat_area_cm2": 176,
+   "visceral_fat_level": 15,
+   "bmr_kcal": 1696,
+   "tee_kcal": 2611,
+   "bio_age": 40,
+   "bwi_score": 6.0,
+   "abdominal_circumference_cm": 107.7,
+   "waist_hip_ratio": 1.01,
+   "segmental": {
+    "left_arm": {
+     "lean_kg": 3.48,
+     "fat_kg": 2.01
+    },
+    "right_arm": {
+     "lean_kg": 3.54,
+     "fat_kg": 1.74
+    },
+    "torso": {
+     "lean_kg": 27.56,
+     "fat_kg": 17.63
+    },
+    "left_leg": {
+     "lean_kg": 8.3,
+     "fat_kg": 4.71
+    },
+    "right_leg": {
+     "lean_kg": 8.49,
+     "fat_kg": 4.41
+    }
+   },
+   "balance": {
+    "upper_lower": "Unbalanced",
+    "left_right": "Balanced"
+   },
+   "status": {
+    "lean_body_mass_kg": "High",
+    "fat_mass_kg": "High",
+    "skeletal_muscle_mass_kg": "High",
+    "protein_kg": "High",
+    "mineral_kg": "High",
+    "visceral_fat_area_cm2": "High",
+    "total_body_water_kg": "High",
+    "body_fat_pct": "High",
+    "waist_hip_ratio": "High",
+    "visceral_fat_level": "Over Range"
+   },
+   "reference_ranges": {
+    "lean_body_mass_kg": [
+     47.3,
+     57.8
+    ],
+    "fat_mass_kg": [
+     8.9,
+     13.3
+    ],
+    "skeletal_muscle_mass_kg": [
+     26.4,
+     32.3
+    ],
+    "protein_kg": [
+     9.5,
+     11.7
+    ],
+    "mineral_kg": [
+     3.2,
+     4.0
+    ],
+    "visceral_fat_area_cm2": [
+     50.0,
+     100.0
+    ],
+    "total_body_water_kg": [
+     34.5,
+     42.2
+    ],
+    "body_fat_pct": [
+     15.0,
+     20.0
+    ],
+    "waist_hip_ratio": [
+     0.75,
+     0.9
+    ]
+   },
+   "evolt_recommendations": {
+    "calories_kcal": [
+     2096,
+     2196
+    ],
+    "protein_g": [
+     157,
+     165
+    ],
+    "carbs_g": [
+     183,
+     192
+    ],
+    "fat_g": [
+     82,
+     85
+    ]
+   }
+  },
+  {
+   "date": "2025-08-19",
+   "time": "04:24",
+   "device": "Evolt 360",
+   "height_cm": 170,
+   "age": 35,
+   "weight_kg": 91.4,
+   "body_fat_pct": 32.9,
+   "fat_mass_kg": 30.1,
+   "lean_body_mass_kg": 61.3,
+   "skeletal_muscle_mass_kg": 33.7,
+   "protein_kg": 12.0,
+   "mineral_kg": 5.2,
+   "total_body_water_kg": 44.1,
+   "icf_kg": 29.3,
+   "icf_pct": 66,
+   "ecf_kg": 14.8,
+   "ecf_pct": 34,
+   "subcutaneous_fat_kg": 24.7,
+   "subcutaneous_fat_pct": 27.0,
+   "visceral_fat_kg": 5.4,
+   "visceral_fat_pct": 5.9,
+   "visceral_fat_area_cm2": 174,
+   "visceral_fat_level": 15,
+   "bmr_kcal": 1694,
+   "tee_kcal": 2608,
+   "bio_age": 40,
+   "bwi_score": 6.0,
+   "abdominal_circumference_cm": 107.3,
+   "waist_hip_ratio": 1.0,
+   "segmental": {
+    "left_arm": {
+     "lean_kg": 3.48,
+     "fat_kg": 1.96
+    },
+    "right_arm": {
+     "lean_kg": 3.51,
+     "fat_kg": 1.74
+    },
+    "torso": {
+     "lean_kg": 27.44,
+     "fat_kg": 17.39
+    },
+    "left_leg": {
+     "lean_kg": 8.32,
+     "fat_kg": 4.62
+    },
+    "right_leg": {
+     "lean_kg": 8.53,
+     "fat_kg": 4.38
+    }
+   },
+   "balance": {
+    "upper_lower": "Unbalanced",
+    "left_right": "Balanced"
+   },
+   "status": {
+    "lean_body_mass_kg": "High",
+    "fat_mass_kg": "High",
+    "skeletal_muscle_mass_kg": "High",
+    "protein_kg": "High",
+    "mineral_kg": "High",
+    "visceral_fat_area_cm2": "High",
+    "total_body_water_kg": "High",
+    "body_fat_pct": "High",
+    "waist_hip_ratio": "High",
+    "visceral_fat_level": "Over Range"
+   },
+   "reference_ranges": {
+    "lean_body_mass_kg": [
+     47.3,
+     57.8
+    ],
+    "fat_mass_kg": [
+     8.9,
+     13.3
+    ],
+    "skeletal_muscle_mass_kg": [
+     26.4,
+     32.3
+    ],
+    "protein_kg": [
+     9.5,
+     11.7
+    ],
+    "mineral_kg": [
+     3.2,
+     4.0
+    ],
+    "visceral_fat_area_cm2": [
+     50.0,
+     100.0
+    ],
+    "total_body_water_kg": [
+     34.5,
+     42.2
+    ],
+    "body_fat_pct": [
+     15.0,
+     20.0
+    ],
+    "waist_hip_ratio": [
+     0.75,
+     0.9
+    ]
+   },
+   "evolt_recommendations": {
+    "calories_kcal": [
+     2094,
+     2194
+    ],
+    "protein_g": [
+     157,
+     165
+    ],
+    "carbs_g": [
+     183,
+     192
+    ],
+    "fat_g": [
+     81,
+     85
+    ]
+   }
+  },
+  {
+   "date": "2025-12-14",
+   "time": "05:13",
+   "device": "Evolt 360",
+   "height_cm": 170,
+   "age": 35,
+   "weight_kg": 93.3,
+   "body_fat_pct": 31.5,
+   "fat_mass_kg": 29.4,
+   "lean_body_mass_kg": 63.9,
+   "skeletal_muscle_mass_kg": 35.2,
+   "protein_kg": 12.6,
+   "mineral_kg": 5.3,
+   "total_body_water_kg": 46.0,
+   "icf_kg": 30.8,
+   "icf_pct": 67,
+   "ecf_kg": 15.2,
+   "ecf_pct": 33,
+   "subcutaneous_fat_kg": 24.3,
+   "subcutaneous_fat_pct": 26.0,
+   "visceral_fat_kg": 5.1,
+   "visceral_fat_pct": 5.5,
+   "visceral_fat_area_cm2": 160,
+   "visceral_fat_level": 15,
+   "bmr_kcal": 1750,
+   "tee_kcal": 2695,
+   "bio_age": 40,
+   "bwi_score": 6.0,
+   "abdominal_circumference_cm": 106.3,
+   "waist_hip_ratio": 0.98,
+   "segmental": {
+    "left_arm": {
+     "lean_kg": 3.66,
+     "fat_kg": 1.89
+    },
+    "right_arm": {
+     "lean_kg": 3.78,
+     "fat_kg": 1.58
+    },
+    "torso": {
+     "lean_kg": 28.69,
+     "fat_kg": 17.22
+    },
+    "left_leg": {
+     "lean_kg": 8.58,
+     "fat_kg": 4.53
+    },
+    "right_leg": {
+     "lean_kg": 8.76,
+     "fat_kg": 4.18
+    }
+   },
+   "balance": {
+    "upper_lower": "Unbalanced",
+    "left_right": "Unbalanced"
+   },
+   "status": {
+    "lean_body_mass_kg": "High",
+    "fat_mass_kg": "High",
+    "skeletal_muscle_mass_kg": "High",
+    "protein_kg": "High",
+    "mineral_kg": "High",
+    "visceral_fat_area_cm2": "High",
+    "total_body_water_kg": "High",
+    "body_fat_pct": "High",
+    "waist_hip_ratio": "High",
+    "visceral_fat_level": "Over Range"
+   },
+   "reference_ranges": {
+    "lean_body_mass_kg": [
+     47.3,
+     57.8
+    ],
+    "fat_mass_kg": [
+     8.9,
+     13.3
+    ],
+    "skeletal_muscle_mass_kg": [
+     26.4,
+     32.3
+    ],
+    "protein_kg": [
+     9.5,
+     11.7
+    ],
+    "mineral_kg": [
+     3.2,
+     4.0
+    ],
+    "visceral_fat_area_cm2": [
+     50.0,
+     100.0
+    ],
+    "total_body_water_kg": [
+     34.5,
+     42.2
+    ],
+    "body_fat_pct": [
+     15.0,
+     20.0
+    ],
+    "waist_hip_ratio": [
+     0.75,
+     0.9
+    ]
+   },
+   "evolt_recommendations": {
+    "calories_kcal": [
+     2150,
+     2250
+    ],
+    "protein_g": [
+     161,
+     169
+    ],
+    "carbs_g": [
+     188,
+     197
+    ],
+    "fat_g": [
+     84,
+     88
+    ]
+   }
+  },
+  {
+   "date": "2026-04-29",
+   "time": "04:25",
+   "device": "Evolt 360",
+   "height_cm": 170,
+   "age": 36,
+   "weight_kg": 96.9,
+   "body_fat_pct": 34.8,
+   "fat_mass_kg": 33.7,
+   "lean_body_mass_kg": 63.2,
+   "skeletal_muscle_mass_kg": 34.6,
+   "protein_kg": 12.2,
+   "mineral_kg": 5.5,
+   "total_body_water_kg": 45.5,
+   "icf_kg": 30.3,
+   "icf_pct": 67,
+   "ecf_kg": 15.2,
+   "ecf_pct": 33,
+   "subcutaneous_fat_kg": 27.4,
+   "subcutaneous_fat_pct": 28.3,
+   "visceral_fat_kg": 6.3,
+   "visceral_fat_pct": 6.5,
+   "visceral_fat_area_cm2": 192,
+   "visceral_fat_level": 16,
+   "bmr_kcal": 1735,
+   "tee_kcal": 2671,
+   "bio_age": 42,
+   "bwi_score": 5.7,
+   "abdominal_circumference_cm": 111.5,
+   "waist_hip_ratio": 1.03,
+   "segmental": {
+    "left_arm": {
+     "lean_kg": 3.66,
+     "fat_kg": 2.17
+    },
+    "right_arm": {
+     "lean_kg": 3.69,
+     "fat_kg": 1.95
+    },
+    "torso": {
+     "lean_kg": 28.51,
+     "fat_kg": 19.57
+    },
+    "left_leg": {
+     "lean_kg": 8.44,
+     "fat_kg": 5.13
+    },
+    "right_leg": {
+     "lean_kg": 8.58,
+     "fat_kg": 4.88
+    }
+   },
+   "balance": {
+    "upper_lower": "Unbalanced",
+    "left_right": "Balanced"
+   },
+   "status": {
+    "lean_body_mass_kg": "High",
+    "fat_mass_kg": "High",
+    "skeletal_muscle_mass_kg": "High",
+    "protein_kg": "High",
+    "mineral_kg": "High",
+    "visceral_fat_area_cm2": "High",
+    "total_body_water_kg": "High",
+    "body_fat_pct": "High",
+    "waist_hip_ratio": "High",
+    "visceral_fat_level": "Over Range"
+   },
+   "reference_ranges": {
+    "lean_body_mass_kg": [
+     47.3,
+     57.8
+    ],
+    "fat_mass_kg": [
+     8.9,
+     13.3
+    ],
+    "skeletal_muscle_mass_kg": [
+     26.4,
+     32.3
+    ],
+    "protein_kg": [
+     9.5,
+     11.7
+    ],
+    "mineral_kg": [
+     3.2,
+     4.0
+    ],
+    "visceral_fat_area_cm2": [
+     50.0,
+     100.0
+    ],
+    "total_body_water_kg": [
+     34.5,
+     42.2
+    ],
+    "body_fat_pct": [
+     15.0,
+     20.0
+    ],
+    "waist_hip_ratio": [
+     0.75,
+     0.9
+    ]
+   },
+   "evolt_recommendations": {
+    "calories_kcal": [
+     2135,
+     2235
+    ],
+    "protein_g": [
+     160,
+     168
+    ],
+    "carbs_g": [
+     187,
+     196
+    ],
+    "fat_g": [
+     83,
+     87
+    ]
+   }
+  },
+  {
+   "date": "2026-05-25",
+   "time": "06:28",
+   "device": "Evolt 360",
+   "height_cm": 170,
+   "age": 36,
+   "weight_kg": 99.0,
+   "body_fat_pct": 34.8,
+   "fat_mass_kg": 34.5,
+   "lean_body_mass_kg": 64.5,
+   "skeletal_muscle_mass_kg": 35.3,
+   "protein_kg": 12.5,
+   "mineral_kg": 5.6,
+   "total_body_water_kg": 46.4,
+   "icf_kg": 31.0,
+   "icf_pct": 67,
+   "ecf_kg": 15.4,
+   "ecf_pct": 33,
+   "subcutaneous_fat_kg": 28.0,
+   "subcutaneous_fat_pct": 28.3,
+   "visceral_fat_kg": 6.5,
+   "visceral_fat_pct": 6.6,
+   "visceral_fat_area_cm2": 195,
+   "visceral_fat_level": 16,
+   "bmr_kcal": 1763,
+   "tee_kcal": 2715,
+   "bio_age": 42,
+   "bwi_score": 5.7,
+   "abdominal_circumference_cm": 112.5,
+   "waist_hip_ratio": 1.03,
+   "segmental": {
+    "left_arm": {
+     "lean_kg": 3.65,
+     "fat_kg": 2.21
+    },
+    "right_arm": {
+     "lean_kg": 3.79,
+     "fat_kg": 1.98
+    },
+    "torso": {
+     "lean_kg": 29.03,
+     "fat_kg": 20.1
+    },
+    "left_leg": {
+     "lean_kg": 8.69,
+     "fat_kg": 5.23
+    },
+    "right_leg": {
+     "lean_kg": 8.79,
+     "fat_kg": 4.98
+    }
+   },
+   "balance": {
+    "upper_lower": "Balanced",
+    "left_right": "Balanced"
+   },
+   "status": {
+    "lean_body_mass_kg": "High",
+    "fat_mass_kg": "High",
+    "skeletal_muscle_mass_kg": "High",
+    "protein_kg": "High",
+    "mineral_kg": "High",
+    "visceral_fat_area_cm2": "High",
+    "total_body_water_kg": "High",
+    "body_fat_pct": "High",
+    "waist_hip_ratio": "High",
+    "visceral_fat_level": "Over Range"
+   },
+   "reference_ranges": {
+    "lean_body_mass_kg": [
+     47.3,
+     57.8
+    ],
+    "fat_mass_kg": [
+     8.9,
+     13.3
+    ],
+    "skeletal_muscle_mass_kg": [
+     26.4,
+     32.3
+    ],
+    "protein_kg": [
+     9.5,
+     11.7
+    ],
+    "mineral_kg": [
+     3.2,
+     4.0
+    ],
+    "visceral_fat_area_cm2": [
+     50.0,
+     100.0
+    ],
+    "total_body_water_kg": [
+     34.5,
+     42.2
+    ],
+    "body_fat_pct": [
+     15.0,
+     20.0
+    ],
+    "waist_hip_ratio": [
+     0.75,
+     0.9
+    ]
+   },
+   "evolt_recommendations": {
+    "calories_kcal": [
+     2163,
+     2263
+    ],
+    "protein_g": [
+     162,
+     170
+    ],
+    "carbs_g": [
+     189,
+     198
+    ],
+    "fat_g": [
+     84,
+     88
+    ]
+   }
+  },
+  {
+   "date": "2026-06-02",
+   "time": "02:44",
+   "device": "Evolt 360",
+   "height_cm": 170,
+   "age": 36,
+   "weight_kg": 97.8,
+   "body_fat_pct": 35.0,
+   "fat_mass_kg": 34.2,
+   "lean_body_mass_kg": 63.6,
+   "skeletal_muscle_mass_kg": 34.9,
+   "protein_kg": 12.3,
+   "mineral_kg": 5.5,
+   "total_body_water_kg": 45.8,
+   "icf_kg": 30.7,
+   "icf_pct": 67,
+   "ecf_kg": 15.1,
+   "ecf_pct": 33,
+   "subcutaneous_fat_kg": 27.8,
+   "subcutaneous_fat_pct": 28.4,
+   "visceral_fat_kg": 6.4,
+   "visceral_fat_pct": 6.5,
+   "visceral_fat_area_cm2": 195,
+   "visceral_fat_level": 16,
+   "bmr_kcal": 1743,
+   "tee_kcal": 2684,
+   "bio_age": 42,
+   "bwi_score": 5.7,
+   "abdominal_circumference_cm": 112.1,
+   "waist_hip_ratio": 1.03,
+   "segmental": {
+    "left_arm": {
+     "lean_kg": 3.64,
+     "fat_kg": 2.25
+    },
+    "right_arm": {
+     "lean_kg": 3.68,
+     "fat_kg": 2.0
+    },
+    "torso": {
+     "lean_kg": 28.49,
+     "fat_kg": 19.79
+    },
+    "left_leg": {
+     "lean_kg": 8.59,
+     "fat_kg": 5.22
+    },
+    "right_leg": {
+     "lean_kg": 8.8,
+     "fat_kg": 4.94
+    }
+   },
+   "balance": {
+    "upper_lower": "Unbalanced",
+    "left_right": "Unbalanced"
+   },
+   "status": {
+    "lean_body_mass_kg": "High",
+    "fat_mass_kg": "High",
+    "skeletal_muscle_mass_kg": "High",
+    "protein_kg": "High",
+    "mineral_kg": "High",
+    "visceral_fat_area_cm2": "High",
+    "total_body_water_kg": "High",
+    "body_fat_pct": "High",
+    "waist_hip_ratio": "High",
+    "visceral_fat_level": "Over Range"
+   },
+   "reference_ranges": {
+    "lean_body_mass_kg": [
+     47.3,
+     57.8
+    ],
+    "fat_mass_kg": [
+     8.9,
+     13.3
+    ],
+    "skeletal_muscle_mass_kg": [
+     26.4,
+     32.3
+    ],
+    "protein_kg": [
+     9.5,
+     11.7
+    ],
+    "mineral_kg": [
+     3.2,
+     4.0
+    ],
+    "visceral_fat_area_cm2": [
+     50.0,
+     100.0
+    ],
+    "total_body_water_kg": [
+     34.5,
+     42.2
+    ],
+    "body_fat_pct": [
+     15.0,
+     20.0
+    ],
+    "waist_hip_ratio": [
+     0.75,
+     0.9
+    ]
+   },
+   "evolt_recommendations": {
+    "calories_kcal": [
+     2143,
+     2243
+    ],
+    "protein_g": [
+     161,
+     168
+    ],
+    "carbs_g": [
+     188,
+     196
+    ],
+    "fat_g": [
+     83,
+     87
+    ]
+   }
+  },
+  {
+   "date": "2026-07-15",
+   "time": "07:17",
+   "device": "Evolt 360",
+   "height_cm": 170,
+   "age": 36,
+   "weight_kg": 92.4,
+   "body_fat_pct": 34.0,
+   "fat_mass_kg": 31.4,
+   "lean_body_mass_kg": 61.0,
+   "skeletal_muscle_mass_kg": 33.5,
+   "protein_kg": 11.9,
+   "mineral_kg": 5.2,
+   "total_body_water_kg": 43.9,
+   "icf_kg": 29.5,
+   "icf_pct": 67,
+   "ecf_kg": 14.4,
+   "ecf_pct": 33,
+   "subcutaneous_fat_kg": 25.6,
+   "subcutaneous_fat_pct": 27.7,
+   "visceral_fat_kg": 5.8,
+   "visceral_fat_pct": 6.3,
+   "visceral_fat_area_cm2": 185,
+   "visceral_fat_level": 16,
+   "bmr_kcal": 1687,
+   "tee_kcal": 2597,
+   "bio_age": 42,
+   "bwi_score": 5.7,
+   "abdominal_circumference_cm": 108.8,
+   "waist_hip_ratio": 1.02,
+   "segmental": {
+    "left_arm": {
+     "lean_kg": 3.44,
+     "fat_kg": 2.09
+    },
+    "right_arm": {
+     "lean_kg": 3.51,
+     "fat_kg": 1.82
+    },
+    "torso": {
+     "lean_kg": 27.46,
+     "fat_kg": 18.08
+    },
+    "left_leg": {
+     "lean_kg": 8.22,
+     "fat_kg": 4.86
+    },
+    "right_leg": {
+     "lean_kg": 8.4,
+     "fat_kg": 4.56
+    }
+   },
+   "balance": {
+    "upper_lower": "Unbalanced",
+    "left_right": "Balanced"
+   },
+   "status": {
+    "lean_body_mass_kg": "High",
+    "fat_mass_kg": "High",
+    "skeletal_muscle_mass_kg": "High",
+    "protein_kg": "High",
+    "mineral_kg": "High",
+    "visceral_fat_area_cm2": "High",
+    "total_body_water_kg": "High",
+    "body_fat_pct": "High",
+    "waist_hip_ratio": "High",
+    "visceral_fat_level": "Over Range"
+   },
+   "reference_ranges": {
+    "lean_body_mass_kg": [
+     47.3,
+     57.8
+    ],
+    "fat_mass_kg": [
+     8.9,
+     13.3
+    ],
+    "skeletal_muscle_mass_kg": [
+     26.4,
+     32.3
+    ],
+    "protein_kg": [
+     9.5,
+     11.7
+    ],
+    "mineral_kg": [
+     3.2,
+     4.0
+    ],
+    "visceral_fat_area_cm2": [
+     50.0,
+     100.0
+    ],
+    "total_body_water_kg": [
+     34.5,
+     42.2
+    ],
+    "body_fat_pct": [
+     15.0,
+     20.0
+    ],
+    "waist_hip_ratio": [
+     0.75,
+     0.9
+    ]
+   },
+   "evolt_recommendations": {
+    "calories_kcal": [
+     2087,
+     2187
+    ],
+    "protein_g": [
+     157,
+     164
+    ],
+    "carbs_g": [
+     183,
+     191
+    ],
+    "fat_g": [
+     81,
+     85
+    ]
+   }
+  },
+  {
+   "date": "2026-10-12",
+   "time": "07:11",
+   "device": "Evolt 360",
+   "height_cm": 170,
+   "age": 36,
+   "weight_kg": 93.3,
+   "body_fat_pct": 31.6,
+   "fat_mass_kg": 29.5,
+   "lean_body_mass_kg": 63.8,
+   "skeletal_muscle_mass_kg": 35.1,
+   "protein_kg": 12.6,
+   "mineral_kg": 5.3,
+   "total_body_water_kg": 45.9,
+   "icf_kg": 30.8,
+   "icf_pct": 67,
+   "ecf_kg": 15.1,
+   "ecf_pct": 33,
+   "subcutaneous_fat_kg": 24.4,
+   "subcutaneous_fat_pct": 26.2,
+   "visceral_fat_kg": 5.1,
+   "visceral_fat_pct": 5.5,
+   "visceral_fat_area_cm2": 160,
+   "visceral_fat_level": 15,
+   "bmr_kcal": 1748,
+   "tee_kcal": 2691,
+   "bio_age": 41,
+   "bwi_score": 6.0,
+   "abdominal_circumference_cm": 106.4,
+   "waist_hip_ratio": 0.98,
+   "segmental": {
+    "left_arm": {
+     "lean_kg": 3.58,
+     "fat_kg": 1.88
+    },
+    "right_arm": {
+     "lean_kg": 3.72,
+     "fat_kg": 1.62
+    },
+    "torso": {
+     "lean_kg": 28.5,
+     "fat_kg": 17.24
+    },
+    "left_leg": {
+     "lean_kg": 8.72,
+     "fat_kg": 4.52
+    },
+    "right_leg": {
+     "lean_kg": 8.85,
+     "fat_kg": 4.24
+    }
+   },
+   "balance": {
+    "upper_lower": "Balanced",
+    "left_right": "Balanced"
+   },
+   "status": {
+    "lean_body_mass_kg": "High",
+    "fat_mass_kg": "High",
+    "skeletal_muscle_mass_kg": "High",
+    "protein_kg": "High",
+    "mineral_kg": "High",
+    "visceral_fat_area_cm2": "High",
+    "total_body_water_kg": "High",
+    "body_fat_pct": "High",
+    "waist_hip_ratio": "High",
+    "visceral_fat_level": "Over Range"
+   },
+   "reference_ranges": {
+    "lean_body_mass_kg": [
+     47.3,
+     57.8
+    ],
+    "fat_mass_kg": [
+     8.9,
+     13.3
+    ],
+    "skeletal_muscle_mass_kg": [
+     26.4,
+     32.3
+    ],
+    "protein_kg": [
+     9.5,
+     11.7
+    ],
+    "mineral_kg": [
+     3.2,
+     4.0
+    ],
+    "visceral_fat_area_cm2": [
+     50.0,
+     100.0
+    ],
+    "total_body_water_kg": [
+     34.5,
+     42.2
+    ],
+    "body_fat_pct": [
+     15.0,
+     20.0
+    ],
+    "waist_hip_ratio": [
+     0.75,
+     0.9
+    ]
+   },
+   "evolt_recommendations": {
+    "calories_kcal": [
+     2148,
+     2248
+    ],
+    "protein_g": [
+     161,
+     169
+    ],
+    "carbs_g": [
+     188,
+     197
+    ],
+    "fat_g": [
+     84,
+     87
+    ]
+   }
+  }
+ ]
+}

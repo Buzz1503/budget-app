@@ -286,3 +286,23 @@ describe('model and day snapshot', () => {
     expect(empty.outcomes.find((o) => o.key === 'sleepTotal')!.fn('2026-10-17')).toBeNull()
   })
 })
+
+describe('target wake time range', () => {
+  it('only 03:00 to 12:00 counts; anything else falls back to the 14-night median', async () => {
+    const { validWakeTarget, planBedtime } = await import('./planner')
+    expect(validWakeTarget('03:00')).toBe(true)
+    expect(validWakeTarget('12:00')).toBe(true)
+    expect(validWakeTarget('13:50')).toBe(false)
+    expect(validWakeTarget('02:59')).toBe(false)
+    expect(validWakeTarget(null)).toBe(false)
+    const tz = makeTz('Australia/Sydney')
+    const nights = dateRange('2026-09-01', '2026-09-14').map((d) => ({
+      date: d, start: Date.parse(`${addDays(d, -1)}T12:30:00Z`), end: Date.parse(`${d}T20:30:00Z`),
+      inBedMin: 480, asleepMin: 440, awakeMin: 20, deepMin: 60, coreMin: 280, remMin: 100, unspecifiedMin: 0, hasStages: true, source: 'watch', sourceName: 'Watch', naps: [],
+    })) as unknown as SleepNight[]
+    const bad = planBedtime({ recent: nights, debtH: 0, wakeTarget: '13:50', tz })
+    expect(bad.inputs.wakeFrom).toBe('history')
+    expect(bad.wake).toBe('06:30') // 20:30 UTC is 06:30 in Sydney in September
+    expect(planBedtime({ recent: nights, debtH: 0, wakeTarget: '05:45', tz }).wake).toBe('05:45')
+  })
+})

@@ -12,11 +12,10 @@ import {
 } from '../lib/metrics'
 import {
   useLatestMeasurement, useBodyInput, seriesFor, latestCaption, BODY_FIELDS,
-  useBodyStart, useStartValue, sinceStart, sinceWords, latestDevice,
+  useBodyStart, useStartValue, sinceStart, sinceWords, useSinceStart,
 } from '../lib/useBody'
-import { differentDevices } from '../body/startPoint'
 import StartPointSheet from './StartPointSheet'
-import { SCAN_FIELDS, SCAN_FIELD_BY_KEY, SCAN_DEVICES, groupedExtras } from '../body/scanFields'
+import { SCAN_FIELDS, SCAN_FIELD_BY_KEY, SCAN_DEVICES, groupedScanFields } from '../body/scanFields'
 import TrendChart from './charts/TrendChart'
 import ProgressChart from './charts/ProgressChart'
 import useChartEvents from './charts/useChartEvents'
@@ -114,30 +113,25 @@ export default function BodyTab({ goTo }) {
 // starting point.
 function LatestTile({ field, onStart }) {
   const m = METRIC_BY_KEY[field]
-  const l = useLatestMeasurement(field)
-  const start = useStartValue(field)
-  const d = sinceStart(l?.value, start)
+  const merged = useLatestMeasurement(field)
+  // body fat (and fat and lean mass) compare one device family with itself
+  const { start, latest, delta: d, family } = useSinceStart(field)
+  const l = family ? latest : merged
   const good = d != null && (m.better === 'down' ? d < 0 : d > 0)
-  const mixed = field === 'bodyFat' && differentDevices(start, latestDevice(l))
   return (
     <div className="card p-3" data-testid={`tile-${field}`}>
       <p className="text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-2)' }}>{m.label}</p>
       <p className="text-2xl font-black tabular-nums">{l ? Number(l.value.toFixed(1)) : '–'}<span className="ml-1 text-xs font-bold" style={{ color: 'var(--text-2)' }}>{m.unit}</span></p>
       {l && (
-        <p className="text-[11px] font-medium tabular-nums" data-testid={`tile-${field}-source`} data-stale={l.stale ? 'true' : 'false'}
+        <p className="text-[11px] font-medium tabular-nums" data-testid={`tile-${field}-source`} data-stale={merged?.stale ? 'true' : 'false'}
           style={{ color: 'var(--text-3)' }}>
-          <span style={l.stale ? { color: 'color-mix(in srgb, var(--warn) 70%, var(--text-3))' } : undefined}>{format(parseISO(l.date), 'd MMM')}</span>, {l.sourceLabel}
+          <span style={merged?.stale && !family ? { color: 'color-mix(in srgb, var(--warn) 70%, var(--text-3))' } : undefined}>{format(parseISO(l.date), 'd MMM')}</span>, {l.sourceLabel}
         </p>
       )}
       {d != null && (
         <button onClick={onStart} data-testid={`tile-${field}-delta`} className="block text-left text-xs font-bold tabular-nums" style={{ color: good ? 'var(--good)' : d === 0 ? 'var(--text-2)' : 'var(--danger)' }}>
           {d > 0 ? '▲' : d < 0 ? '▼' : ''} {Math.abs(Number(d.toFixed(1)))} {m.unit} {sinceWords(start)}
         </button>
-      )}
-      {mixed && (
-        <p className="mt-0.5 text-[11px] font-medium leading-snug" style={{ color: 'var(--text-3)' }} data-testid="tile-devices-note">
-          Different devices. Body fat readings vary between devices.
-        </p>
       )}
     </div>
   )
@@ -224,7 +218,7 @@ function StatsSection() {
 // visceral fat) and everything else it reported, grouped.
 function ScanDetails({ form, set }) {
   const isScan = form.source === 'scan'
-  const groups = groupedExtras(form.extras)
+  const groups = groupedScanFields(form)
   return (
     <div className="space-y-3 rounded-[14px] p-3" style={{ background: 'var(--surface-sunk)' }} data-testid="scan-details">
       <label className="flex items-center justify-between gap-3">
@@ -274,19 +268,38 @@ function ScanDetails({ form, set }) {
               {[form.heightCm && `Height ${form.heightCm} cm`, form.ageAtScan && `age at scan ${form.ageAtScan}`].filter(Boolean).join(', ')}
             </p>
           )}
+          {form.time && <p className="text-xs font-medium tabular-nums" style={{ color: 'var(--text-3)' }}>Scanned at {form.time}</p>}
           {groups.map((g) => (
             <div key={g.group} data-testid={`extras-${g.group}`}>
               <p className="t-caption mb-1" style={{ color: 'var(--text-3)' }}>{g.group}</p>
               <div className="rows">
                 {g.rows.map((r) => (
                   <div key={r.key} className="flex items-baseline gap-2 py-1.5 text-xs">
-                    <span className="min-w-0 flex-1 font-medium" style={{ color: 'var(--text-2)' }}>{r.label}</span>
-                    <span className="font-bold tabular-nums">{String(r.value)}{r.unit ? ` ${r.unit}` : ''}</span>
+                    <span className="min-w-0 flex-1 font-medium" style={{ color: 'var(--text-2)' }}>
+                      {r.label}{r.range ? <span style={{ color: 'var(--text-3)' }}> · range {r.range[0]} to {r.range[1]}</span> : null}
+                    </span>
+                    {r.status && <span className="rounded-full px-2 py-0.5 text-[11px] font-bold" style={{ background: 'var(--surface2)', color: 'var(--text-2)' }}>{r.status}</span>}
+                    <span className="font-bold tabular-nums">{Number(r.value.toFixed(r.dp))}{r.unit ? ` ${r.unit}` : ''}</span>
                   </div>
                 ))}
               </div>
             </div>
           ))}
+          {form.balance && (
+            <p className="text-xs font-medium" style={{ color: 'var(--text-2)' }} data-testid="scan-balance">
+              Balance: upper and lower {String(form.balance.upperLower || 'not given').toLowerCase()}, left and right {String(form.balance.leftRight || 'not given').toLowerCase()}
+            </p>
+          )}
+          {form.recommendations && (
+            <div data-testid="scan-recommendations">
+              <p className="t-caption mb-1" style={{ color: 'var(--text-3)' }}>{form.device || 'Device'} recommendations</p>
+              <p className="text-xs font-medium tabular-nums" style={{ color: 'var(--text-2)' }}>
+                {[['caloriesKcal', 'Calories', 'kcal'], ['proteinG', 'Protein', 'g'], ['carbsG', 'Carbs', 'g'], ['fatG', 'Fat', 'g']]
+                  .filter(([k]) => form.recommendations[k]).map(([k, label, unit]) => `${label} ${form.recommendations[k][0]} to ${form.recommendations[k][1]} ${unit}`).join(' · ')}
+              </p>
+              <p className="mt-0.5 text-[11px] font-medium" style={{ color: 'var(--text-3)' }}>As printed on the scan, not advice from this app.</p>
+            </div>
+          )}
         </>
       )}
     </div>

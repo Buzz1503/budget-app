@@ -5,11 +5,12 @@ import {
 import type { SeriesPoint, LabelBox } from './chartPoints'
 
 describe('bucketing', () => {
-  it('30 days daily, 90 days and 6 months weekly, a year and all time monthly', () => {
+  it('30 days daily, 90 days and 6 months weekly, a year, two years and all time monthly', () => {
     expect(bucketFor('30D')).toBe('day')
     expect(bucketFor('90D')).toBe('week')
     expect(bucketFor('6M')).toBe('week')
     expect(bucketFor('1Y')).toBe('month')
+    expect(bucketFor('2Y')).toBe('month')
     expect(bucketFor('All')).toBe('month')
   })
 

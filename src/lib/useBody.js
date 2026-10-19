@@ -8,7 +8,7 @@ import { format, parseISO } from 'date-fns'
 import useStore, { todayStr } from '../store/useStore'
 import { useHealthLink } from './healthLink'
 import { getLatestMeasurement, dailySeries } from '../body/bodySeries'
-import { getStartValue, effectiveStart, sinceStart } from '../body/startPoint'
+import { getStartValue, effectiveStart, sinceStart, compareSinceStart } from '../body/startPoint'
 import { trackedEvents } from '../health/engine/phases'
 import { useCompounds } from './useCompounds'
 
@@ -60,6 +60,17 @@ export function useStartValue(field) {
   const start = useBodyStart()
   const input = useBodyInput()
   return useMemo(() => getStartValue(field, start, input), [field, start, input])
+}
+
+/**
+ * A field's change since the starting point: start value, latest value and
+ * the change, with body fat, fat mass and lean mass kept to one device family.
+ */
+export function useSinceStart(field) {
+  const start = useBodyStart()
+  const input = useBodyInput()
+  const t = todayStr()
+  return useMemo(() => compareSinceStart(field, start, input, t), [field, start, input, t])
 }
 
 /** The latest reading's device, or null for a typed-in value. */

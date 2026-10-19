@@ -15,7 +15,7 @@ import Modal from './Modal'
  */
 export default function PickerField({
   kind = 'time', value, onChange, label, emptyText, clearText = 'Clear',
-  clearable = true, fallback, min, max, testid,
+  clearable = true, fallback, min, max, testid, validate = null,
 }) {
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState('')
@@ -23,7 +23,8 @@ export default function PickerField({
   const shown = !value ? emptyText : kind === 'time' ? value : format(parseISO(value), 'd MMM yyyy')
 
   const start = () => { setDraft(value || fallback || ''); setOpen(true) }
-  const done = () => { if (draft) onChange(draft); setOpen(false) }
+  const problem = draft && validate ? validate(draft) : null
+  const done = () => { if (draft && !problem) { onChange(draft); setOpen(false) } }
 
   return (
     <div className="min-w-0">
@@ -45,7 +46,8 @@ export default function PickerField({
           <input type={kind} className="input" value={draft} min={min} max={max} autoFocus
             aria-label={label || kind} data-testid={testid ? `${testid}-input` : undefined}
             onChange={(e) => setDraft(e.target.value)} />
-          <button type="button" onClick={done} disabled={!draft} data-testid={testid ? `${testid}-done` : undefined}
+          {problem && <p className="text-xs font-medium" style={{ color: 'var(--warn)' }} data-testid={testid ? `${testid}-problem` : undefined}>{problem}</p>}
+          <button type="button" onClick={done} disabled={!draft || !!problem} data-testid={testid ? `${testid}-done` : undefined}
             className="btn-primary w-full rounded-full py-3 text-sm font-black disabled:opacity-50">
             Done
           </button>

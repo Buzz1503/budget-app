@@ -37,24 +37,42 @@ describe('starting point in the store', () => {
   })
 })
 
-describe('v21 migration', () => {
+describe('v22 migration', () => {
   const migrate = () => useStore.persist.getOptions().migrate
 
-  it('adds the adjusted and the original Evolt scan and sets the adjusted one as the start', () => {
-    const out = migrate()({ measurements: [{ id: 'x', date: '2026-01-01', weight: 99 }] }, 20)
-    const ids = out.measurements.map((m) => m.id)
-    expect(ids).toEqual([scan.EVOLT_START_ID, scan.EVOLT_ORIGINAL_ID, 'x'])
-    const original = out.measurements.find((m) => m.id === scan.EVOLT_ORIGINAL_ID)
-    expect(original).toMatchObject({ hiddenFromCharts: true, label: 'Original scan, not used as start', weight: 102.6 })
+  it('imports the 15 Evolt scans, replaces the untimed 13 Jan copy, and makes the hidden adjusted scan the start', () => {
+    const v21 = {
+      measurements: [
+        { id: 'x', date: '2026-01-01', weight: 99 },
+        { id: scan.EVOLT_ORIGINAL_ID, date: '2025-01-13', source: 'scan', device: 'Evolt 360', weight: 102.6, hiddenFromCharts: true, extras: { bmr: 1765 } },
+      ],
+      healthSettings: { wakeTarget: '13:50', sleepNeedH: 8 },
+    }
+    const out = migrate()(v21, 21)
+    const scans = out.measurements.filter((m) => m.source === 'scan' && !m.estimated)
+    expect(scans).toHaveLength(15)
+    expect(scans[0].date).toBe('2024-08-23')
+    expect(scans.at(-1).date).toBe('2026-10-12')
+    expect(out.measurements.find((m) => m.id === scan.EVOLT_ORIGINAL_ID)).toBeUndefined()
+    const jan = scans.find((m) => m.date === '2025-01-13')
+    expect(jan).toMatchObject({ time: '02:23', weight: 102.6, skeletalMuscleMass: 35.3, torsoFat: 21.84 })
+    expect(jan.hiddenFromCharts).toBeUndefined()
+    const start = out.measurements.find((m) => m.id === scan.EVOLT_START_ID)
+    expect(start).toMatchObject({ estimated: true, hiddenFromCharts: true, weight: 105.6, totalBodyWater: 47.0, bmr: 1779, torsoFat: 21.84 })
     expect(out.bodyStart).toMatchObject({ date: '2025-01-13', label: 'Start (adjusted to 105.6 kg)', entryId: scan.EVOLT_START_ID, device: 'Evolt 360' })
-    expect(out.bodyStart.values).toMatchObject({ weight: 105.6, bodyFat: 38.3, fatMass: 40.4, leanMass: 65.2, skeletalMuscleMass: 35.6, visceralFatLevel: 16 })
     expect(out.bodyStart.values.muscleMass).toBeUndefined()
+    expect(out.bodyStart.values.skeletalMuscleMass).toBe(35.6)
+    expect(out.measurements.find((m) => m.id === 'x')).toEqual({ id: 'x', date: '2026-01-01', weight: 99 })
+    // the wake target stored by mistake is cleared
+    expect(out.healthSettings.wakeTarget).toBeNull()
   })
 
-  it('runs once: entries already there are not duplicated, a chosen start is kept', () => {
+  it('runs once: scans already there are not duplicated, a chosen start and a sensible wake time are kept', () => {
     const first = migrate()({ measurements: [] }, 20)
-    const again = migrate()({ ...first, bodyStart: { date: '2025-06-01', values: {} } }, 20)
+    const again = migrate()({ ...first, bodyStart: { date: '2025-06-01', values: {} }, healthSettings: { wakeTarget: '06:45' } }, 21)
+    expect(again.measurements.filter((m) => m.source === 'scan' && !m.estimated)).toHaveLength(15)
     expect(again.measurements.filter((m) => m.id === scan.EVOLT_START_ID)).toHaveLength(1)
     expect(again.bodyStart.date).toBe('2025-06-01')
+    expect(again.healthSettings.wakeTarget).toBe('06:45')
   })
 })

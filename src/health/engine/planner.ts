@@ -1,6 +1,7 @@
 // Tonight's suggested bedtime.
 //
-//   wake target   the setting, or the median wake time of the last 14 nights
+//   wake target   the setting (only between 03:00 and 12:00), or the median
+//                 wake time of the last 14 nights
 //   sleep target  need + clamp(7-night debt / 4, 0, 60 min)
 //                 + 15 min if yesterday's training load was Higher
 //   in bed        sleep target / typical efficiency (median of the last 14
@@ -44,6 +45,13 @@ export const parseHhmm = (s: string | null | undefined): number | null => {
   return v >= 0 && v < 1440 ? v : null
 }
 
+/** A target wake time is only used between 03:00 and 12:00; anything else is a mistake. */
+export const WAKE_RANGE = { min: 3 * 60, max: 12 * 60 }
+export const validWakeTarget = (s: string | null | undefined): boolean => {
+  const m = parseHhmm(s)
+  return m != null && m >= WAKE_RANGE.min && m <= WAKE_RANGE.max
+}
+
 export function planBedtime({
   recent, debtH, needH = SLEEP.defaultNeedH, yesterdayLoad = null, wakeTarget = null, tz,
 }: {
@@ -55,7 +63,8 @@ export function planBedtime({
   tz: Tz
 }): Plan {
   const nights = recent.slice(-PLANNER.lookbackNights)
-  const fromSetting = parseHhmm(wakeTarget)
+  // a stored target outside 03:00 to 12:00 is ignored, falling back to the 14-night median
+  const fromSetting = validWakeTarget(wakeTarget) ? parseHhmm(wakeTarget) : null
   const historical = median(nights.map((n) => tz.hourOf(n.end) * 60))
   const wakeMin = fromSetting ?? (historical != null ? Math.round(historical) : 7 * 60)
   const wakeFrom: PlannerInputs['wakeFrom'] = fromSetting != null ? 'setting' : historical != null ? 'history' : 'default'

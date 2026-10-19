@@ -8,8 +8,10 @@ import {
 import { SEED_KNOWN_GOOD } from '../lib/mixing'
 import { canPush } from '../lib/pushes'
 import { pauseEnd } from '../lib/pauses'
-import { EVOLT_START_SCAN, EVOLT_ORIGINAL_SCAN, EVOLT_START_ID } from '../body/scanFields'
-import { entryValues } from '../body/startPoint'
+import { applyScanHistory } from '../body/scanHistory'
+import { applyScanImport } from '../body/scanImport'
+import { validWakeTarget } from '../health/engine/planner'
+import EVOLT_HISTORY from '../data/evolt_scans.json'
 import { findMixedGroup, severityRank, migrateReactionLab } from '../lib/reactionTracker'
 import { PIN_BY_ID } from '../lib/sitePins'
 import { withIdentity } from '../lib/peptideIdentity'
@@ -2054,6 +2056,12 @@ const useStore = create(
             .sort((a, b) => a.date.localeCompare(b.date)),
         }))
       },
+      /** Write a planned scan import; returns Undo, which puts the entries back as they were. */
+      importScans(plan) {
+        const before = get().measurements
+        set({ measurements: applyScanImport(before, plan) })
+        return () => set({ measurements: before })
+      },
       /** Set where "since" deltas start from: a date, optional label and values, the entry it came from. */
       setBodyStart(start) {
         if (!start?.date) return
@@ -2258,7 +2266,7 @@ const useStore = create(
     }),
     {
       name: 'peptide-command-center', // storage key is history — renaming it would orphan existing data
-      version: 21,
+      version: 22,
       storage: createJSONStorage(() => safeStorage),
       // Saves written before a release can't pick new library entries up from
       // the seed, so each version bump backfills them here — once. Deleting one
@@ -2284,21 +2292,21 @@ const useStore = create(
       //   v19: supplies and equipment, seeded from the user's own inventory
       //   v20: two nightly topicals, with the nights since each was started
       //   v21: the user's 13 Jan 2025 Evolt scan (adjusted and original) as the starting point
+      //   v22: the full Evolt history (15 scans), scan fields first-class, a bad wake target cleared
       migrate: (persisted, from) => {
-        if (!persisted || from >= 21) return persisted
+        if (!persisted || from >= 22) return persisted
         const s = { ...persisted }
         const t = todayStr()
-        if (from < 21) {
-          // added once, never replaced: entries already present (by id) are
-          // left alone, and a starting point already chosen is kept
-          const have = new Set((s.measurements || []).map((m) => m.id))
-          const add = [EVOLT_START_SCAN, EVOLT_ORIGINAL_SCAN].filter((e) => !have.has(e.id)).map((e) => structuredClone(e))
-          s.measurements = [...(s.measurements || []), ...add].sort((a, b) => a.date.localeCompare(b.date))
-          if (!s.bodyStart) {
-            s.bodyStart = {
-              date: EVOLT_START_SCAN.date, label: EVOLT_START_SCAN.label,
-              values: entryValues(EVOLT_START_SCAN), entryId: EVOLT_START_ID, device: EVOLT_START_SCAN.device,
-            }
+        if (from < 22) {
+          // v21/v22: the Evolt history and the estimated starting scan. Scans
+          // already on record are left alone; an untimed copy of a scan is
+          // replaced by the timed import; a starting point chosen by hand stays.
+          const next = applyScanHistory(s.measurements || [], s.bodyStart, EVOLT_HISTORY)
+          s.measurements = next.measurements
+          s.bodyStart = next.bodyStart
+          // a target wake time outside 03:00 to 12:00 was stored by mistake
+          if (s.healthSettings?.wakeTarget && !validWakeTarget(s.healthSettings.wakeTarget)) {
+            s.healthSettings = { ...s.healthSettings, wakeTarget: null }
           }
         }
         if (from < 20) {
