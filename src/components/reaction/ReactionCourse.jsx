@@ -304,7 +304,9 @@ export function NeedleSelects({ value, onChange }) {
  * default"; the parent holds the choice.
  */
 export function NeedlePicker({ value, onChange }) {
-  const remembered = useStore((s) => lastNeedle(s.settings))
+  // select the stored object itself (stable between renders), then clean it
+  const stored = useStore((s) => s.settings.lastNeedle)
+  const remembered = useMemo(() => lastNeedle({ lastNeedle: stored }), [stored])
   const current = value === undefined ? remembered : normaliseNeedle(value)
   return (
     <div data-testid="needle-picker" data-needle={current ? needleKey(current) : ''}>

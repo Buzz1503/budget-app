@@ -465,13 +465,17 @@ const seedReactions = () => setState(`
   e14: chk(-14, 'mild', ['redness']),
 })
 
-await step('3a · an open reaction sits on Home with site, peptide, days open, severity and Check', async () => {
+// stage 2D: Home is the log only; open reactions sit at the top of Reactions
+await step('3a · an open reaction sits at the top of Reactions with site, peptide, days open, severity and Check', async () => {
   await seedReactions()
   await reload()
   await nav('Home')
+  await page.waitForTimeout(500)
+  if (await page.locator('[data-testid="open-reactions"]').count()) throw new Error('the open-reactions card is still on Home')
+  await nav('Reactions')
   await page.waitForTimeout(800)
   const card = page.locator('[data-testid="open-reactions"]')
-  if (!(await card.count())) throw new Error('no open-reactions card on Home')
+  if (!(await card.count())) throw new Error('no open-reactions card in Reactions')
   const rows = card.locator('[data-testid="open-reaction-row"]')
   const ids = await rows.evaluateAll((els) => els.map((e) => e.getAttribute('data-record')))
   if (ids.join() !== 'o1,o2') throw new Error(`rows are ${ids} — a resolved or abandoned reaction is on Home, or one is missing`)
@@ -484,7 +488,7 @@ await step('3a · an open reaction sits on Home with site, peptide, days open, s
   const second = (await rows.nth(1).innerText()).replace(/\n/g, ' ')
   if (/improving|worsening|stable/.test(second)) throw new Error(`a direction is shown after a single check: "${second}"`)
   if (!(await rows.first().locator('[data-testid="open-reaction-check"]').count())) throw new Error('no Check action')
-  await noOverflow('Home with an open reaction')
+  await noOverflow('Reactions with an open reaction')
   // the abandoned one was written down, not just hidden
   const s = await state()
   if (!s.reactions.find((r) => r.injectionRecordId === 'x1').abandonedAt) throw new Error('the week-old reaction was not marked abandoned')
