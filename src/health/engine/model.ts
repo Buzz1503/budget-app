@@ -177,10 +177,8 @@ export function buildModel({
         return mins > 0 ? ss.reduce((s, x) => s + x.trimp, 0) / mins : null
       },
     },
-    ...['energy', 'mood', 'appetite', 'drive'].map((k) => ({
-      key: `checkin:${k}`, label: `Check-in: ${k[0].toUpperCase()}${k.slice(1)}`, unit: '/5', when: 'day' as const, dp: 2,
-      fn: (d: string) => protocol.checkins[d]?.[k] ?? null,
-    })),
+    // the daily check-in (energy, mood, appetite, drive) left the app in stage
+    // 2D; its stored answers stay in the backup but are no longer an outcome
   ]
 
   return {

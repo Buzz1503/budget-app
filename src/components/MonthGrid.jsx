@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { format, parseISO } from 'date-fns'
-import { ChevronDown, ChevronRight, Droplet, HeartPulse, Dumbbell } from 'lucide-react'
+import { ChevronDown, ChevronRight, Droplet, Dumbbell } from 'lucide-react'
 import { monthSummary } from '../lib/calendarView'
 import { useHealthLink } from '../lib/healthLink'
 
@@ -123,9 +123,6 @@ export default function MonthGrid({ cal, anchor, todayStr: t, onOpenDay }) {
                 </div>
                 <div className="flex flex-wrap gap-x-3 gap-y-1.5">
                   <span className="flex items-center gap-1.5 text-xs font-bold">
-                    <HeartPulse size={11} style={{ color: 'var(--violet)' }} /> Symptoms logged
-                  </span>
-                  <span className="flex items-center gap-1.5 text-xs font-bold">
                     <Droplet size={11} style={{ color: 'var(--info)' }} /> Blood test
                   </span>
                 </div>
@@ -149,7 +146,6 @@ function DayCell({ day: d, muted, onOpen }) {
   const pct = completion(d)
   const { dots, extra } = dotsFor(d)
   const owed = d.owed ?? d.scheduled
-  const hasSymptom = !!d.symptom
   const hasBlood = !!d.bloodTests?.length
   // filled in only by the native app's Apple Health; empty everywhere else
   const hasWorkout = useHealthLink((s) => s.workoutDates.has(d.date))
@@ -160,7 +156,6 @@ function DayCell({ day: d, muted, onOpen }) {
     d.wholeDayPaused ? `paused${d.pauseReason ? ` — ${d.pauseReason}` : ''}`
       : owed > 0 ? `${d.done} of ${owed} logged` : 'nothing scheduled',
     d.missed > 0 ? `${d.missed} missed` : null,
-    hasSymptom ? 'symptoms logged' : null,
     hasBlood ? 'blood test' : null,
     hasWorkout ? 'workout' : null,
   ].filter(Boolean).join(', ')
@@ -209,10 +204,9 @@ function DayCell({ day: d, muted, onOpen }) {
       </span>
 
       {/* not doses, so deliberately not dots — they sit in the corner instead */}
-      {(hasSymptom || hasBlood || hasWorkout) && (
+      {(hasBlood || hasWorkout) && (
         <span className="absolute right-0.5 top-0.5 flex gap-px">
           {hasWorkout && <Dumbbell size={8} data-testid="day-workout-marker" style={{ color: 'var(--text-3)' }} />}
-          {hasSymptom && <HeartPulse size={8} data-testid="day-symptom" style={{ color: 'var(--violet)' }} />}
           {hasBlood && <Droplet size={8} data-testid="day-blood" style={{ color: 'var(--info)' }} />}
         </span>
       )}

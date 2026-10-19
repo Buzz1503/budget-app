@@ -230,15 +230,6 @@ function Habits() {
   )
 }
 
-function CheckinToggle() {
-  const on = useStore((s) => s.healthSettings.checkinEnabled)
-  const setHealthSettings = useStore((s) => s.setHealthSettings)
-  return (
-    <div className="card px-4" data-testid="health-checkin-setting">
-      <Switch label="Daily check-in" hint="Energy, mood, appetite and drive, 1 to 5. Optional." on={on !== false} onChange={(v) => setHealthSettings({ checkinEnabled: v })} testId="health-checkin-toggle" />
-    </div>
-  )
-}
 
 export default function HealthSettings() {
   const available = useHealth((s) => s.available)
@@ -300,7 +291,6 @@ export default function HealthSettings() {
       )}
       <TrackEffects />
       <Habits />
-      <CheckinToggle />
       <p className="px-1 text-xs font-medium leading-snug" style={{ color: 'var(--text-3)' }}>
         Health data stays on this phone and is not part of the backup file. Settings, check-ins and habits are.
       </p>

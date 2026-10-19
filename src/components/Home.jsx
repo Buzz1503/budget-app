@@ -260,29 +260,10 @@ export default function Home({ goTo }) {
             : `${p.name} vial expires in ${exp.daysLeft}d (fridge)`,
         })
       }
-      // Counted off the SEALED shelf rather than everything you own: the open
-      // vial is already draining and reports its own doses-left on the card.
-      // Adding the two together produces a number that reads fine right up
-      // until the morning there is nothing to open.
-      const cov = coverageFor(p, titration[p.id], vials, t)
-      if (isFinite(cov.days) && cov.days <= settings.restockLeadDays) {
-        // an order already on the way answers this — say so instead of nagging,
-        // and drop it entirely once the delivery date has passed
-        const covered = deliveryCovers(restock, p.id, cov.runOutDate, t)
-        if (covered?.arrived) continue
-        out.push(covered
-          ? { id: `stock-${p.id}`, kind: 'ordered', text: `${coverageWords(cov.weeks)} of ${p.name} left — delivery expected ${covered.eta}` }
-          : {
-            id: `stock-${p.id}`,
-            kind: 'stock',
-            text: cov.vials === 0
-              ? `No sealed ${p.name} left across your vials — reorder`
-              : `${coverageWords(cov.weeks)} of ${p.name} left across your vials — reorder`,
-          })
-      }
+      // low stock is a dot on More and on the Stock row since stage 2D, not a Home alert
     }
     return out
-  }, [peptides, openVials, vials, titration, settings.restockLeadDays, restock, t])
+  }, [peptides, openVials, t])
 
   /**
    * The titration question, moved off the card list.

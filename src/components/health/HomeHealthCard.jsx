@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { ChevronRight } from 'lucide-react'
 import useStore, { todayStr } from '../../store/useStore'
 import { useHealth } from '../../health/state'
@@ -7,19 +6,16 @@ import { rowFor } from '../../health/engine/model'
 import useHealthModel from './useHealthModel'
 import { ReadinessRing, Delta, minutesWords } from './atoms'
 import { HEALTH_BANDS } from './bands'
-import { CheckinRows, HabitChips } from './Journal'
 
 /**
  * One compact card at the bottom of Home: this morning's readiness, last
- * night's sleep, resting HR and HRV against usual — and today's check-in.
+ *night's sleep, resting HR and HRV against usual.
  */
 export default function HomeHealthCard({ goTo }) {
   const available = useHealth((s) => s.available)
   const connected = useStore((s) => s.healthSettings.connected)
-  const checkinEnabled = useStore((s) => s.healthSettings.checkinEnabled)
   const setBodySegment = useHealthLink((s) => s.setBodySegment)
   const model = useHealthModel()
-  const [journalOpen, setJournalOpen] = useState(false)
   const t = todayStr()
   if (!available) return null
 
@@ -74,21 +70,6 @@ export default function HomeHealthCard({ goTo }) {
         <span className="text-xs font-bold" style={{ color: 'var(--text)' }}>Sleep</span>
         <ChevronRight size={16} className="shrink-0" style={{ color: 'var(--text-3)' }} />
       </button>
-
-      {checkinEnabled && (
-        <div className="mt-3 border-t pt-3" style={{ borderColor: 'var(--border)' }}>
-          <button onClick={() => setJournalOpen((v) => !v)} className="flex w-full items-center gap-2 text-left" data-testid="home-checkin-toggle" aria-expanded={journalOpen}>
-            <span className="t-label min-w-0 flex-1">Today’s check-in</span>
-            <span className="text-xs font-bold" style={{ color: 'var(--text-3)' }}>{journalOpen ? 'Done' : 'Optional'}</span>
-          </button>
-          {journalOpen && (
-            <div className="mt-2 space-y-3">
-              <CheckinRows date={t} />
-              <HabitChips date={t} />
-            </div>
-          )}
-        </div>
-      )}
     </div>
   )
 }

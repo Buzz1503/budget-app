@@ -226,10 +226,11 @@ describe('log-time capture', () => {
     expect(coDrawInfo(logs, 'c')).toEqual({ coDraw: false, coDrawId: null, peptideIds: ['kpv'] })
   })
 
-  it('captureFor pulls it all together', () => {
+  it('captureFor pulls it all together, the needle from the last one used', () => {
     const logs = [{ id: 'a', peptideId: 'bpc157', coDrawId: 'cd1' }, { id: 'b', peptideId: 'tb500', coDrawId: 'cd1' }]
-    const c = captureFor({ peptide: { id: 'bpc157', route: 'SubQ' }, doseLogId: 'a', doseLogs: logs, gearItems: [gear[1]] })
+    const c = captureFor({ peptide: { id: 'bpc157', route: 'SubQ' }, doseLogId: 'a', doseLogs: logs, lastNeedle: { gauge: '32G', lengthMm: 6 } })
     expect(c).toMatchObject({ coDraw: true, coDrawPeptideIds: ['bpc157', 'tb500'], route: 'SubQ', needle: { gauge: '32G', lengthMm: 6 } })
+    expect(captureFor({ peptide: { route: 'SubQ' } }).needle).toBeNull()
   })
 
   it('needle helpers normalise', () => {

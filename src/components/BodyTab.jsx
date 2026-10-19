@@ -43,10 +43,9 @@ const SEGMENTS = [
   { id: 'composition', label: 'Composition' },
   { id: 'effects', label: 'Effects' },
   { id: 'recovery', label: 'Recovery' },
-  { id: 'training', label: 'Training' },
 ]
 
-// Composition | Effects | Recovery | Training. Only in the native app once
+// Composition | Effects | Recovery. Only in the native app once
 // Apple Health is there; on the web the Body tab is Composition alone. Sleep
 // has its own tab.
 function HealthSegments({ value, onChange }) {

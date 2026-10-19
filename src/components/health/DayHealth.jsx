@@ -3,14 +3,13 @@ import { daySnapshot } from '../../health/engine/snapshot'
 import useHealthModel, { useCompounds } from './useHealthModel'
 import { HEALTH_BANDS } from './bands'
 import { minutesWords } from './atoms'
-import { CheckinRows, HabitChips } from './Journal'
+import { HabitChips } from './Journal'
 
 const signed = (v, dp = 0) => (v == null ? '' : ` (${v > 0 ? '+' : ''}${Number(v.toFixed(dp))} vs usual)`)
 
-/** The day sheet's Health part: that day's numbers, then its check-in and habits. */
+/** The day sheet's Health part: that day's numbers, then its habits. */
 export default function DayHealth({ date }) {
   const connected = useStore((s) => s.healthSettings.connected)
-  const checkinEnabled = useStore((s) => s.healthSettings.checkinEnabled)
   const checkins = useStore((s) => s.checkins)
   const habitLogs = useStore((s) => s.habitLogs)
   const habits = useStore((s) => s.habits)
@@ -39,13 +38,10 @@ export default function DayHealth({ date }) {
           </div>
         </div>
       )}
-      {checkinEnabled && (
-        <div className="space-y-2" data-testid="day-journal">
-          <p className="t-caption" style={{ color: 'var(--text-3)' }}>Check-in (optional)</p>
-          <CheckinRows date={date} />
-          <HabitChips date={date} />
-        </div>
-      )}
+      <div className="space-y-2" data-testid="day-journal">
+        <p className="t-caption" style={{ color: 'var(--text-3)' }}>Habits</p>
+        <HabitChips date={date} />
+      </div>
     </div>
   )
 }

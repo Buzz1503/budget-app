@@ -1,7 +1,7 @@
 import { useState, useEffect, useLayoutEffect, useRef, Suspense } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Sun, CalendarDays, LayoutGrid, ChevronLeft, PersonStanding, Moon,
+  Sun, LayoutGrid, ChevronLeft, PersonStanding, Moon, Flame,
 } from 'lucide-react'
 
 import useStore, { onStorageError } from './store/useStore'
@@ -13,10 +13,11 @@ import CalendarTab from './components/CalendarTab'
 import CalcTab from './components/CalcTab'
 import MixTab from './components/MixTab'
 import SuppliesTab from './components/SuppliesTab'
-import GearTab from './components/GearTab'
 import SettingsTab from './components/SettingsTab'
 import RightNowTab from './components/RightNowTab'
-import SymptomsTab from './components/SymptomsTab'
+import ReactionsScreen from './components/ReactionsScreen'
+import SaunaTab from './components/sauna/SaunaTab'
+import useLowStockDot from './lib/useLowStock'
 import BodyTab from './components/BodyTab'
 import HistoryTab from './components/HistoryTab'
 import SupplementsTab from './components/SupplementsTab'
@@ -34,14 +35,14 @@ const SCREENS = {
   calendar: CalendarTab,
   now: RightNowTab,
   mix: MixTab,
-  symptoms: SymptomsTab,
+  reactions: ReactionsScreen,
   body: BodyTab,
+  sauna: SaunaTab,
   bloods: BloodsTab,
   more: MoreHub,
   protocol: ProtocolTab,
   calc: CalcTab,
   supplies: SuppliesTab,
-  gear: GearTab,
   settings: SettingsTab,
   history: HistoryTab,
   supplements: SupplementsTab,
@@ -50,22 +51,22 @@ const SCREENS = {
   ...(HEALTH_BUILD ? { health: HealthSettings, sleep: SleepTab } : {}),
 }
 
-// Primary tabs in the bottom bar; everything else lives under More (Symptoms
-// and Bloods are its first two rows). Sleep reads Apple Health, so it is only
-// in the iPhone app; the web build has four tabs.
+// Primary tabs in the bottom bar; everything else lives under More (Calendar,
+// Reactions, Bloods and Stock are its first rows). Sleep reads Apple Health, so
+// it is only in the iPhone app; the web build has four tabs.
 const PRIMARY = [
   { id: 'today', label: 'Home', icon: Sun },
   { id: 'body', label: 'Body', icon: PersonStanding },
   ...(HEALTH_BUILD ? [{ id: 'sleep', label: 'Sleep', icon: Moon }] : []),
-  { id: 'calendar', label: 'Calendar', icon: CalendarDays },
+  { id: 'sauna', label: 'Sauna', icon: Flame },
   { id: 'more', label: 'More', icon: LayoutGrid },
 ]
 const PRIMARY_IDS = new Set(PRIMARY.map((t) => t.id))
 
 const SUB_TITLES = {
   now: 'Right Now', protocol: 'My protocol', supplies: 'Stock', calc: 'Calculator',
-  mix: 'Mix', settings: 'Settings', history: 'History', supplements: 'Supplements', gear: 'Supplies',
-  health: 'Health', scans: 'Import scans', symptoms: 'Symptoms', bloods: 'Bloods',
+  mix: 'Mix', settings: 'Settings', history: 'History', supplements: 'Supplements',
+  health: 'Health', scans: 'Import scans', reactions: 'Reactions', bloods: 'Bloods', calendar: 'Calendar',
 }
 
 // Screens that were their own destination in an earlier version. Old deep links
@@ -76,6 +77,8 @@ const SUB_TITLES = {
 const ALIASES = {
   schedule: 'protocol', library: 'protocol', inventory: 'supplies', restock: 'supplies',
   insights: 'history', recap: 'history', needle: 'settings',
+  // stage 2D: Symptoms ("how I feel") and Supplies left the app; their data stays stored
+  symptoms: 'reactions', gear: 'more',
 }
 
 export default function App() {
@@ -97,6 +100,7 @@ export default function App() {
   }, [peptides.length, coachMarks, markCoachSeen])
   const [storageError, setStorageError] = useState(false)
   const haptics = useStore((s) => s.settings.haptics)
+  const lowStock = useLowStockDot()
 
   useEffect(() => {
     onStorageError(() => setStorageError(true))
@@ -197,7 +201,11 @@ export default function App() {
               >
                 {/* five across a 390px phone leaves ~76px a column; the label
                     is sized never to wrap */}
-                <Icon size={28} strokeWidth={active ? 2.5 : 2} />
+                <span className="relative">
+                  <Icon size={28} strokeWidth={active ? 2.5 : 2} />
+                  {/* a compound running low: a small dot, the Stock row says which */}
+                  {id === 'more' && lowStock && <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full" style={{ background: 'var(--warn)' }} data-testid="more-low-dot" />}
+                </span>
                 <span className="max-w-full truncate text-[10px] font-bold leading-none">{label}</span>
                 {active && <motion.div layoutId="tab-dot" className="mt-0.5 h-1 w-1 rounded-full" style={{ background: 'var(--lime)' }} />}
               </motion.button>

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, Suspense } from 'react'
 import { format, parseISO } from 'date-fns'
 import {
   Check, SkipForward, AlertCircle, Pause, Syringe as SyringeIcon, Wind, Sun, Moon,
-  Pill, Trash2, Pencil, HeartPulse, Droplet, X,
+  Pill, Trash2, Pencil, Droplet, X,
 } from 'lucide-react'
 import useStore, { todayStr } from '../store/useStore'
 import Modal from './ui/Modal'
@@ -11,7 +11,6 @@ import { entryState, vialOnDate, stockNote, doseOnDate } from '../lib/backfill'
 import { useCalendarRange } from '../lib/useCalendarRange'
 import { prettyDate } from '../lib/schedule'
 import { formatDose, formatUnitsLong } from '../lib/calc'
-import { SYMPTOM_TAGS, TAG_BY_ID, SEVERITY } from '../lib/symptoms'
 import { HEALTH_BUILD, DayHealth } from '../health/ui'
 
 /**
@@ -42,10 +41,9 @@ export default function DaySheet({ open, date, onClose, goTo, onBackfill }) {
   const t = todayStr()
   const [skipping, setSkipping] = useState(null)
   const [editing, setEditing] = useState(null)
-  const [symptomOpen, setSymptomOpen] = useState(false)
 
   useEffect(() => {
-    if (open) { setSkipping(null); setEditing(null); setSymptomOpen(false) }
+    if (open) { setSkipping(null); setEditing(null) }
   }, [open, date])
 
   if (!open || !date) return null
@@ -54,15 +52,14 @@ export default function DaySheet({ open, date, onClose, goTo, onBackfill }) {
     <Modal open onClose={onClose} wide title={format(parseISO(date), 'EEEE d MMMM')}>
       <DayBody date={date} todayStr={t} goTo={goTo} onClose={onClose} onBackfill={onBackfill}
         skipping={skipping} setSkipping={setSkipping}
-        editing={editing} setEditing={setEditing}
-        symptomOpen={symptomOpen} setSymptomOpen={setSymptomOpen} />
+        editing={editing} setEditing={setEditing} />
     </Modal>
   )
 }
 
 function DayBody({
   date, todayStr: t, goTo, onClose, onBackfill,
-  skipping, setSkipping, editing, setEditing, symptomOpen, setSymptomOpen,
+  skipping, setSkipping, editing, setEditing,
 }) {
   const cal = useCalendarRange(date, date)
   const day = cal.byDate[date]
@@ -70,10 +67,8 @@ function DayBody({
   const doseLogs = useStore((s) => s.doseLogs)
   const skips = useStore((s) => s.skips)
   const supplements = useStore((s) => s.supplements)
-  const symptomLogs = useStore((s) => s.symptomLogs)
   const bloodTests = useStore((s) => s.bloods?.tests || [])
 
-  const symptom = useMemo(() => symptomLogs.find((l) => l.date === date) || null, [symptomLogs, date])
   const bloods = useMemo(() => bloodTests.filter((b) => b.date === date), [bloodTests, date])
   const logsToday = useMemo(() => doseLogs.filter((l) => l.date === date), [doseLogs, date])
 
@@ -84,7 +79,7 @@ function DayBody({
     return <p className="py-6 text-center text-sm font-bold" style={{ color: 'var(--text-2)' }}>Nothing to show.</p>
   }
 
-  const nothing = day.scheduled === 0 && !symptom && bloods.length === 0 && day.events.length === 0
+  const nothing = day.scheduled === 0 && bloods.length === 0 && day.events.length === 0
 
   return (
     <div className="space-y-3" data-testid="day-sheet" data-date={date}>
@@ -154,46 +149,6 @@ function DayBody({
         </div>
       )}
 
-      {/* --------------------------------------------------- the symptoms */}
-      <div className="rounded-[14px] p-3" style={{ background: 'var(--surface-sunk)' }}>
-        <div className="flex items-center gap-2">
-          <p className="flex min-w-0 flex-1 items-center gap-1 t-caption" style={{ color: 'var(--text-2)' }}>
-            <HeartPulse size={11} /> How the day felt
-          </p>
-          {editable && (
-            <button onClick={() => setSymptomOpen(true)} data-testid="day-edit-symptoms"
-              className="shrink-0 rounded-full px-2.5 py-1 text-xs font-black"
-              style={{ background: 'var(--surface)', color: 'var(--text-2)' }}>
-              {symptom ? 'Edit' : 'Add'}
-            </button>
-          )}
-        </div>
-        {symptom ? (
-          <div className="mt-1.5" data-testid="day-symptom-entry">
-            <div className="flex flex-wrap gap-1.5">
-              {symptom.tags.map((tg) => (
-                <span key={tg.id} className="rounded-full px-2 py-1 text-xs font-bold"
-                  style={{
-                    background: 'var(--surface)',
-                    color: (TAG_BY_ID[tg.id]?.polarity === 'neg') ? 'var(--warn)' : 'var(--good)',
-                  }}>
-                  {TAG_BY_ID[tg.id]?.icon} {TAG_BY_ID[tg.id]?.label || tg.id}
-                  {tg.severity ? ` · ${tg.severity}` : ''}
-                </span>
-              ))}
-            </div>
-            {symptom.note && (
-              <p className="mt-1.5 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-3)' }}>
-                {symptom.note}
-              </p>
-            )}
-          </div>
-        ) : (
-          <p className="mt-1 text-xs font-medium" style={{ color: 'var(--text-3)' }}>
-            Nothing logged for this day.
-          </p>
-        )}
-      </div>
 
       {/* ------------------------------------------------- the blood test */}
       {bloods.length > 0 && (
@@ -269,7 +224,6 @@ function DayBody({
 
       <SkipSheet entry={skipping} date={date} onClose={() => setSkipping(null)} />
       <EditLogSheet log={editing} onClose={() => setEditing(null)} />
-      <SymptomSheet open={symptomOpen} date={date} existing={symptom} onClose={() => setSymptomOpen(false)} />
     </div>
   )
 }
@@ -440,92 +394,3 @@ function EditLogSheet({ log, onClose }) {
   )
 }
 
-/** A check-in for a day that has already been. */
-function SymptomSheet({ open, date, existing, onClose }) {
-  const logSymptomCheckin = useStore((s) => s.logSymptomCheckin)
-  const deleteSymptomLog = useStore((s) => s.deleteSymptomLog)
-  const showToast = useStore((s) => s.showToast)
-  const [tags, setTags] = useState([])
-  const [note, setNote] = useState('')
-
-  useEffect(() => {
-    if (!open) return
-    setTags(existing?.tags?.map((t) => ({ id: t.id, severity: t.severity || null })) || [])
-    setNote(existing?.note || '')
-  }, [open, existing])
-
-  if (!open) return null
-
-  const toggle = (id) => setTags((prev) => prev.some((t) => t.id === id)
-    ? prev.filter((t) => t.id !== id)
-    : [...prev, { id, severity: null }])
-
-  const setSeverity = (id, sev) => setTags((prev) => prev.map((t) => (t.id === id ? { ...t, severity: sev } : t)))
-
-  const save = () => {
-    logSymptomCheckin({ tags, note, site: existing?.site || null, dateStr: date })
-    onClose()
-  }
-
-  return (
-    <Modal open onClose={onClose} wide title={`How ${format(parseISO(date), 'd MMMM')} felt`}>
-      <div className="space-y-3" data-testid="day-symptom-sheet">
-        <div className="flex flex-wrap gap-1.5" data-testid="symptom-tags">
-          {SYMPTOM_TAGS.map((tg) => {
-            const on = tags.some((x) => x.id === tg.id)
-            return (
-              <button key={tg.id} onClick={() => toggle(tg.id)} data-testid="symptom-tag"
-                data-tag={tg.id} data-on={on ? 'true' : 'false'}
-                className="flex min-h-[34px] items-center gap-1 rounded-full px-2.5 text-xs font-black"
-                style={on
-                  ? { background: tg.polarity === 'neg' ? 'color-mix(in srgb, var(--warn) 26%, transparent)' : 'color-mix(in srgb, var(--good) 26%, transparent)', color: tg.polarity === 'neg' ? 'var(--warn)' : 'var(--good)' }
-                  : { background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
-                {tg.icon} {tg.label}
-              </button>
-            )
-          })}
-        </div>
-
-        {tags.filter((x) => TAG_BY_ID[x.id]?.polarity === 'neg').map((x) => (
-          <div key={x.id} className="flex items-center gap-2">
-            <span className="min-w-0 flex-1 truncate text-xs font-bold">{TAG_BY_ID[x.id]?.label}</span>
-            <div className="flex shrink-0 gap-1">
-              {SEVERITY.map((sv) => (
-                <button key={sv} onClick={() => setSeverity(x.id, sv)}
-                  className="rounded-full px-2 py-1 text-xs font-black"
-                  style={x.severity === sv
-                    ? { background: 'var(--accent)', color: 'var(--accent-fg)' }
-                    : { background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
-                  {sv}
-                </button>
-              ))}
-            </div>
-          </div>
-        ))}
-
-        <label className="block">
-          <span className="t-caption mb-1 block" style={{ color: 'var(--text-2)' }}>Note (optional)</span>
-          <input className="input" value={note} aria-label="Note" data-testid="symptom-note"
-            placeholder="Anything worth remembering…" onChange={(e) => setNote(e.target.value)} />
-        </label>
-
-        <div className="flex gap-2">
-          {existing && (
-            <button onClick={() => { deleteSymptomLog(existing.id); showToast('Check-in removed'); onClose() }}
-              aria-label="Delete this check-in" data-testid="symptom-delete"
-              className="rounded-full px-3 py-3 text-xs font-black"
-              style={{ background: 'var(--surface-sunk)', color: 'var(--danger)' }}>
-              <Trash2 size={13} />
-            </button>
-          )}
-          <button onClick={onClose} className="flex-1 rounded-full py-3 text-xs font-black"
-            style={{ background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>Cancel</button>
-          <button onClick={save} disabled={tags.length === 0 && !note.trim()} data-testid="symptom-save"
-            className="btn-primary flex-1 rounded-full py-3 text-xs font-black disabled:opacity-40">
-            Save
-          </button>
-        </div>
-      </div>
-    </Modal>
-  )
-}

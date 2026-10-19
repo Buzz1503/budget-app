@@ -6,7 +6,6 @@ import useStore, { todayStr } from '../store/useStore'
 import PauseHistory from './PauseHistory'
 import { adherenceSummary, historyEvents, WINDOWS, windowRange } from '../lib/adherence'
 import { formatDose } from '../lib/calc'
-import { SymptomHistory } from './SymptomsTab'
 import { skipsInRange, splitAdherence } from '../lib/skips'
 import { pushesInRange } from '../lib/pushes'
 import CatchUpCard from './CatchUp'
@@ -263,8 +262,6 @@ export default function HistoryTab() {
         )}
       </div>
 
-      {/* symptoms — the 14-day heatmap lives here, not on the logging screen */}
-      <SymptomHistory />
 
       <CompoundDetail peptideId={detailId} open={!!detailId} onClose={() => setDetailId(null)} />
       <SummarySheet open={summaryOpen} onClose={() => setSummaryOpen(false)} from={from} to={to} summary={summary} />

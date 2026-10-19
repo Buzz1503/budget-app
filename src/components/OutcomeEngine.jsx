@@ -5,7 +5,7 @@ import {
 import { format, parseISO } from 'date-fns'
 import useStore, { todayStr } from '../store/useStore'
 import {
-  METRICS, METRIC_BY_KEY, rollingAverage, subjectiveSeries,
+  METRICS, METRIC_BY_KEY, rollingAverage,
   peptideDoseSeries, peptideEvents,
 } from '../lib/metrics'
 import { addDaysStr, daysBetween } from '../lib/schedule'
@@ -14,7 +14,6 @@ import { tenureFor } from '../lib/tenure'
 import { useBodyInput, seriesFor } from '../lib/useBody'
 
 const OUTCOME_OPTIONS = [
-  { key: 'subjective', label: 'Wellbeing (symptoms)', unit: '', color: 'var(--good)' },
   ...METRICS.filter((m) => ['weight', 'visceralFat', 'muscleMass', 'bodyFat', 'waist'].includes(m.key)),
 ]
 
@@ -22,7 +21,6 @@ export default function OutcomeEngine() {
   const peptides = useStore((s) => s.peptides)
   const titration = useStore((s) => s.titration)
   const bodyInput = useBodyInput()
-  const symptomLogs = useStore((s) => s.symptomLogs)
   const doseEvents = useStore((s) => s.doseEvents)
   const runs = useStore((s) => s.runs)
   const pauses = useStore((s) => s.pauses)
@@ -33,7 +31,7 @@ export default function OutcomeEngine() {
   const [axis, setAxis] = useState('weeks')
 
   const [peptideId, setPeptideId] = useState(peptides[0]?.id)
-  const [metricKey, setMetricKey] = useState('subjective')
+  const [metricKey, setMetricKey] = useState('weight')
   const peptide = peptides.find((p) => p.id === peptideId) || peptides[0]
   const outcome = OUTCOME_OPTIONS.find((o) => o.key === metricKey) || OUTCOME_OPTIONS[0]
 
@@ -48,12 +46,8 @@ export default function OutcomeEngine() {
     const doseSeries = peptideDoseSeries(peptide, titration[peptide.id], from, t, { doseEvents })
     const maxDose = Math.max(1, ...doseSeries.map((d) => d.dose))
 
-    let outSeries
-    if (metricKey === 'subjective') outSeries = subjectiveSeries(symptomLogs)
-    else {
-      const raw = seriesFor(metricKey, bodyInput)
-      outSeries = metricKey === 'weight' ? rollingAverage(raw, 7) : raw
-    }
+    const raw = seriesFor(metricKey, bodyInput)
+    const outSeries = metricKey === 'weight' ? rollingAverage(raw, 7) : raw
     const outByDate = Object.fromEntries(outSeries.filter((p) => p.date >= from).map((p) => [p.date, p.value]))
 
     const data = doseSeries.map((d) => {
@@ -71,7 +65,7 @@ export default function OutcomeEngine() {
     })
     const events = peptideEvents(peptide, titration[peptide.id], from, t, { doseEvents })
     return { data, events, hasOutcome: Object.keys(outByDate).length > 0, tenure: ten, since }
-  }, [peptide, titration, bodyInput, symptomLogs, doseEvents, runs, metricKey, t, pauses])
+  }, [peptide, titration, bodyInput, doseEvents, runs, metricKey, t, pauses])
 
   if (!peptide) return null
 
@@ -140,9 +134,7 @@ export default function OutcomeEngine() {
         </div>
         {!hasOutcome ? (
           <p className="py-8 text-center text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
-            {metricKey === 'subjective'
-              ? 'No symptom check-ins yet — log some in Symptoms to overlay wellbeing here.'
-              : `No ${outcome.label.toLowerCase()} entries yet — add measurements to overlay them.`}
+            {`No ${outcome.label.toLowerCase()} entries yet — add measurements to overlay them.`}
           </p>
         ) : (
           <div className="h-56">

@@ -81,15 +81,18 @@ export function coDrawInfo(doseLogs = [], doseLogId) {
   return { coDraw: peptideIds.length > 1, coDrawId: log.coDrawId, peptideIds }
 }
 
-/** Everything pulled automatically for a new injection record. */
-export function captureFor({ peptide, doseLogId, doseLogs = [], gearItems = [], records = [] }) {
+/**
+ * Everything pulled automatically for a new injection record. The needle is
+ * the last one used (Supplies, which used to supply it, is no longer in the
+ * app); anything the caller passes still wins.
+ */
+export function captureFor({ peptide, doseLogId, doseLogs = [], lastNeedle = null }) {
   const co = coDrawInfo(doseLogs, doseLogId)
-  const { needle } = suggestNeedle({ peptide, gearItems, records })
   return {
     coDraw: co.coDraw,
     coDrawId: co.coDrawId,
     coDrawPeptideIds: co.peptideIds,
-    needle,
+    needle: normaliseNeedle(lastNeedle),
     route: peptide?.route || null,
   }
 }

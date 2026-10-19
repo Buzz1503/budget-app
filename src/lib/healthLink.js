@@ -8,7 +8,7 @@ export const useHealthLink = create((set) => ({
   available: false,
   /** Dates (YYYY-MM-DD) with at least one workout, for the calendar marker. */
   workoutDates: new Set(),
-  /** The Body tab's segment: composition | effects | recovery | training. */
+  /** The Body tab's segment: composition | effects | recovery. */
   bodySegment: 'composition',
   setBodySegment: (bodySegment) => set({ bodySegment }),
   setWorkoutDates: (workoutDates) => set({ workoutDates }),

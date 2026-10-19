@@ -34,6 +34,7 @@ import { DEFAULT_HABITS } from '../lib/healthDefaults'
 import { backfillTopicals } from '../lib/topicals'
 import { applyCheck, toAbandon, localDay } from '../lib/reactionCourse'
 import { captureFor, normaliseNeedle, coDrawInfo } from '../lib/injectionCapture'
+import { lastNeedle, rememberNeedle } from '../lib/needle'
 import { vialOnDate } from '../lib/backfill'
 import { DEFAULT_FX_USD_TO_AUD, referenceUsdPerVial } from '../lib/cost'
 
@@ -1355,13 +1356,11 @@ const useStore = create(
           mixed: !!clash.length,
           needsPinning: !pin,
           // pulled from what the app already knows, so logging stays one tap:
-          // who shared the syringe, and the needle currently In use in Supplies
-          // for this route. Anything the caller passes wins, and every one of
-          // them can be corrected afterwards.
+          // who shared the syringe, and the last needle used. Anything the
+          // caller passes wins, and every one of them can be corrected afterwards.
           ...(() => {
             const cap = captureFor({
-              peptide, doseLogId: rec.doseLogId, doseLogs: s.doseLogs,
-              gearItems: s.gearItems || [], records: s.injectionRecords,
+              peptide, doseLogId: rec.doseLogId, doseLogs: s.doseLogs, lastNeedle: lastNeedle(s.settings),
             })
             return {
               coDraw: rec.coDraw ?? cap.coDraw,
@@ -1374,6 +1373,7 @@ const useStore = create(
         }
         const clashIds = clash.map((r) => r.id)
         set((st) => ({
+          ...(rec.needle ? { settings: rememberNeedle(st.settings, rec.needle) } : {}),
           injectionRecords: [
             ...st.injectionRecords.map((r) => (clashIds.includes(r.id) ? { ...r, mixed: true } : r)),
             record,
@@ -1384,6 +1384,8 @@ const useStore = create(
 
       updateInjectionRecord(id, patch = {}) {
         set((s) => ({
+          // a needle picked on a record becomes the default for the next one
+          ...(patch.needle ? { settings: rememberNeedle(s.settings, patch.needle) } : {}),
           injectionRecords: s.injectionRecords.map((r) => {
             if (r.id !== id) return r
             const next = { ...r, ...patch }

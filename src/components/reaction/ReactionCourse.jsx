@@ -14,8 +14,8 @@ import {
   prefillSymptoms, currentSeverity, isReaction, openedOn,
 } from '../../lib/reactionCourse'
 import { patterns, MIN_INJECTIONS } from '../../lib/reactionPatterns'
-import { suggestNeedle, needleLabel, needleKey, normaliseNeedle, needleCategoryFor } from '../../lib/injectionCapture'
-import { optionsFor } from '../../lib/gear'
+import { needleKey, normaliseNeedle } from '../../lib/injectionCapture'
+import { NEEDLE_GAUGES, NEEDLE_LENGTHS_MM, cleanNeedle, gaugeOptions, lengthOptions, lastNeedle } from '../../lib/needle'
 
 const toneOf = (sev) => (sev === 'severe' ? 'var(--danger)' : sev === 'none' ? 'var(--good)' : 'var(--warn)')
 const on = { background: 'var(--accent)', color: 'var(--accent-fg)', borderColor: 'transparent' }
@@ -230,21 +230,7 @@ export function ReactionCheck({ recordId, onClose }) {
  * what changed.
  */
 export function CapturedFields({ record, onChange }) {
-  const peptides = useStore((s) => s.peptides)
-  const gearItems = useStore((s) => s.gearItems)
-  const gearOptions = useStore((s) => s.gearOptions)
-  const records = useStore((s) => s.injectionRecords)
   const label = usePeptideLabel()
-  const peptide = peptides.find((p) => p.id === record.peptideId)
-  const category = needleCategoryFor(peptide)
-  const { choices } = useMemo(
-    () => suggestNeedle({ peptide, gearItems, records }),
-    [peptide, gearItems, records],
-  )
-  const gaugeKey = category === 'Pen needles' ? 'pen_needle_gauge' : 'syringe_needle_gauge'
-  const lengthKey = category === 'Pen needles' ? 'pen_needle_length_mm' : 'syringe_needle_length_mm'
-  const gauges = optionsFor(gaugeKey, { extras: gearOptions || {}, items: gearItems })
-  const lengths = optionsFor(lengthKey, { extras: gearOptions || {}, items: gearItems })
   const needle = normaliseNeedle(record.needle)
   const ids = (record.coDrawPeptideIds?.length ? record.coDrawPeptideIds : [record.peptideId]).filter(Boolean)
 
@@ -286,71 +272,44 @@ export function CapturedFields({ record, onChange }) {
 
       <div>
         <p className="t-label mb-1" style={{ color: 'var(--text-3)' }}>Needle</p>
-        {choices.length > 0 && (
-          <div className="mb-2 flex flex-wrap gap-1.5">
-            {choices.map((c) => (
-              <button key={needleKey(c)} data-testid="cf-needle-choice" className="chip"
-                style={needle && needleKey(needle) === needleKey(c) ? on : undefined}
-                onClick={() => onChange({ needle: c })}>
-                {needleLabel(c)}
-              </button>
-            ))}
-          </div>
-        )}
-        <div className="flex gap-2">
-          <select className="input" aria-label="Needle gauge" data-testid="cf-gauge" value={needle?.gauge || ''}
-            onChange={(e) => onChange({ needle: e.target.value ? { gauge: e.target.value, lengthMm: needle?.lengthMm ?? lengths[0] } : null })}>
-            <option value="">Gauge</option>
-            {gauges.map((g) => <option key={g} value={g}>{g}</option>)}
-          </select>
-          <select className="input" aria-label="Needle length" data-testid="cf-length" value={needle?.lengthMm ?? ''}
-            onChange={(e) => onChange({ needle: e.target.value ? { gauge: needle?.gauge || gauges[0], lengthMm: Number(e.target.value) } : null })}>
-            <option value="">Length</option>
-            {lengths.map((l) => <option key={l} value={l}>{l} mm</option>)}
-          </select>
-        </div>
-        {!needle && (
-          <p className="mt-1 text-xs font-medium" style={{ color: 'var(--text-3)' }}>
-            Nothing is In use for this in Supplies, so it is left blank rather than guessed.
-          </p>
-        )}
+        <NeedleSelects value={needle} onChange={(n) => onChange({ needle: n })} />
       </div>
     </div>
   )
 }
 
-/**
- * The needle for a new injection: whatever is In use in Supplies for this
- * route, already selected, with the other in-use ones a tap away. `value`
- * undefined means "leave it to the default"; the parent holds the choice.
- */
-export function NeedlePicker({ peptide, value, onChange }) {
-  const gearItems = useStore((s) => s.gearItems)
-  const records = useStore((s) => s.injectionRecords)
-  const { needle: suggested, choices } = useMemo(
-    () => suggestNeedle({ peptide, gearItems, records }),
-    [peptide, gearItems, records],
+/** Gauge and length, two plain pickers. Calls onChange with a needle or null. */
+export function NeedleSelects({ value, onChange }) {
+  const needle = cleanNeedle(value)
+  const pick = (gauge, lengthMm) => onChange(gauge && lengthMm ? { gauge, lengthMm: Number(lengthMm) } : null)
+  return (
+    <div className="flex gap-2" data-testid="needle-selects">
+      <select className="input" aria-label="Needle gauge" data-testid="cf-gauge" value={needle?.gauge || value?.gauge || ''}
+        onChange={(e) => pick(e.target.value, needle?.lengthMm ?? value?.lengthMm ?? NEEDLE_LENGTHS_MM[2])}>
+        <option value="">Gauge</option>
+        {gaugeOptions(needle?.gauge).map((g) => <option key={g} value={g}>{g}</option>)}
+      </select>
+      <select className="input" aria-label="Needle length" data-testid="cf-length" value={needle?.lengthMm ?? value?.lengthMm ?? ''}
+        onChange={(e) => pick(needle?.gauge || value?.gauge || NEEDLE_GAUGES[5], e.target.value)}>
+        <option value="">Length</option>
+        {lengthOptions(needle?.lengthMm).map((l) => <option key={l} value={l}>{l} mm</option>)}
+      </select>
+    </div>
   )
-  const current = value === undefined ? suggested : normaliseNeedle(value)
-  if (!choices.length) {
-    return (
-      <p className="text-xs font-medium" style={{ color: 'var(--text-3)' }} data-testid="needle-picker" data-needle="">
-        Needle: nothing In use in Supplies, so none recorded.
-      </p>
-    )
-  }
+}
+
+/**
+ * The needle for a new injection: the last one used, already selected, and
+ * two pickers to change it. `value` undefined means "leave it to the
+ * default"; the parent holds the choice.
+ */
+export function NeedlePicker({ value, onChange }) {
+  const remembered = useStore((s) => lastNeedle(s.settings))
+  const current = value === undefined ? remembered : normaliseNeedle(value)
   return (
     <div data-testid="needle-picker" data-needle={current ? needleKey(current) : ''}>
       <p className="t-caption mb-1" style={{ color: 'var(--text-3)' }}>Needle</p>
-      <div className="flex flex-wrap gap-1.5">
-        {choices.map((c) => (
-          <button key={needleKey(c)} data-testid="needle-choice" data-on={current && needleKey(current) === needleKey(c) ? 'true' : 'false'}
-            className="chip" style={current && needleKey(current) === needleKey(c) ? on : undefined}
-            onClick={() => onChange(c)}>
-            {needleLabel(c)}
-          </button>
-        ))}
-      </div>
+      <NeedleSelects value={current} onChange={onChange} />
     </div>
   )
 }
@@ -679,7 +638,7 @@ export function PatternsSection({ onOpenPeptide }) {
         <div className="t-label mb-2" style={{ color: 'var(--text-3)' }}>By needle</div>
         {p.needles.rows.length === 0 && (
           <div className="t-caption" style={{ color: 'var(--text-2)' }}>
-            No needle recorded yet. New injections pick it up from what is In use in Supplies.
+            No needle recorded yet. Pick one on an injection and the next one starts from it.
           </div>
         )}
         <div className="rows">

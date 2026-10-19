@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import {
   Package, Settings, ChevronRight, Activity, History, Wand2, FlaskConical,
-  Combine, Pill, ClipboardList, CalendarPlus, Syringe, HeartPulse, Upload, Droplet,
+  Combine, Pill, ClipboardList, CalendarPlus, HeartPulse, Upload, Droplet, CalendarDays, MapPin,
 } from 'lucide-react'
 import { HEALTH_BUILD } from '../health/ui'
+import useLowStockDot from '../lib/useLowStock'
 import BackfillSheet from './BackfillSheet'
 
 /**
@@ -20,8 +21,10 @@ const SECTIONS = [
     id: 'track',
     title: 'Track',
     links: [
-      { id: 'symptoms', label: 'Symptoms', desc: 'Check-ins, reactions and the site map', icon: HeartPulse },
+      { id: 'calendar', label: 'Calendar', desc: 'Every day, with doses, notes and the day sheet', icon: CalendarDays },
+      { id: 'reactions', label: 'Reactions', desc: 'Injection sites, reactions and the site map', icon: MapPin },
       { id: 'bloods', label: 'Bloods', desc: 'Results, ranges and trends', icon: Droplet },
+      { id: 'supplies', label: 'Stock', desc: 'Vials I own, run-out dates and what to order', icon: Package, lowDot: true },
     ],
   },
   {
@@ -30,8 +33,6 @@ const SECTIONS = [
     links: [
       { id: 'wizard', label: 'Build / rebuild my protocol', desc: 'Add, remove or edit anything I take', icon: Wand2 },
       { id: 'protocol', label: 'Protocol overview', desc: 'Everything I’m on, at a glance', icon: ClipboardList },
-      { id: 'supplies', label: 'Stock', desc: 'Vials I own, run-out dates and what to order', icon: Package },
-      { id: 'gear', label: 'Supplies', desc: 'Needles, syringes, swabs and sharps', icon: Syringe },
       { id: 'supplements', label: 'Supplements', desc: 'What I take daily, AM and PM', icon: Pill },
       { id: 'history', label: 'History & adherence', desc: 'Every dose, rates, shareable summary', icon: History },
       // a sheet, not a screen: it is a correction to make and be done with
@@ -61,6 +62,7 @@ const SECTIONS = [
 
 export default function MoreHub({ goTo }) {
   const [backfill, setBackfill] = useState(false)
+  const lowStock = useLowStockDot()
 
   return (
     <div>
@@ -81,7 +83,10 @@ export default function MoreHub({ goTo }) {
               >
                 <l.icon size={20} className="shrink-0" style={{ color: 'var(--text-2)' }} />
                 <span className="min-w-0 flex-1">
-                  <span className="t-label block" style={{ color: 'var(--text)' }}>{l.label}</span>
+                  <span className="t-label flex items-center gap-2" style={{ color: 'var(--text)' }}>
+                    {l.label}
+                    {l.lowDot && lowStock && <span className="h-2 w-2 rounded-full" style={{ background: 'var(--warn)' }} aria-label="Something is running low" data-testid="stock-low-dot" />}
+                  </span>
                   <span className="block text-xs font-medium" style={{ color: 'var(--text-3)' }}>{l.desc}</span>
                 </span>
                 <ChevronRight size={18} className="shrink-0" style={{ color: 'var(--text-3)' }} />

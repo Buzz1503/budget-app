@@ -1,5 +1,4 @@
 import { useMemo, useState, Suspense, lazy } from 'react'
-import { format } from 'date-fns'
 import { Info } from 'lucide-react'
 import useStore, { todayStr } from '../../store/useStore'
 import { useHealth } from '../../health/state'
@@ -7,9 +6,7 @@ import Modal from '../ui/Modal'
 import { addDays, dateRange } from '../../health/tz'
 import { rowFor } from '../../health/engine/model'
 import { glp1NoteDue, GLP1_RHR_NOTE } from '../../health/engine/protocol'
-import { weeklyMeans } from '../../health/engine/training'
-import { vo2Percentile, fitnessAge, smoothVo2 } from '../../health/engine/fitness'
-import { mean, round } from '../../health/engine/stats'
+import { round } from '../../health/engine/stats'
 import useHealthModel, { useCompounds } from './useHealthModel'
 import TrendChart from '../charts/TrendChart'
 import useChartEvents from '../charts/useChartEvents'
@@ -45,13 +42,14 @@ export function NotConnected({ goTo }) {
   )
 }
 
-export default function BodyHealthView({ segment, goTo }) {
+export default function BodyHealthView({ goTo }) {
   const connected = useStore((s) => s.healthSettings.connected)
   const model = useHealthModel()
   if (!connected) return <NotConnected goTo={goTo} />
   if (!model.hasData) return <EmptyState />
-  if (segment === 'recovery') return <RecoveryView model={model} />
-  return <TrainingView model={model} />
+  // Training left Body in stage 2D; its data and engines stay (sleep factors,
+  // the planner and sauna detection read them), so any old link lands here
+  return <RecoveryView model={model} />
 }
 
 // ---------------------------------------------------------------- Recovery
@@ -149,104 +147,6 @@ function RecoveryView({ model }) {
 
       <HowCalculated open={info} onClose={() => setInfo(false)} />
       {compare && <Suspense fallback={null}><CompareSheet model={model} onClose={() => setCompare(false)} /></Suspense>}
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------- Training
-
-const ZONE_SHADE = ['var(--surface2)', 'var(--text-3)', 'var(--text-2)', 'var(--muted)', 'var(--text)']
-
-function ZoneBar({ zones }) {
-  const total = zones.reduce((s, z) => s + z, 0)
-  if (!total) return null
-  return (
-    <div className="mt-1.5 flex h-2 w-full overflow-hidden rounded-full" style={{ background: 'var(--surface-sunk)' }} data-testid="zone-bar" title="Minutes in zones 1 to 5">
-      {zones.map((z, i) => <span key={i} style={{ width: `${(z / total) * 100}%`, background: ZONE_SHADE[i] }} />)}
-    </div>
-  )
-}
-
-function TrainingView({ model }) {
-  const t = todayStr()
-  const dow = (new Date(`${t}T00:00:00Z`).getUTCDay() + 6) % 7
-  const monday = addDays(t, -dow)
-  const week = model.sessions.filter((s) => s.date >= monday && s.date <= t).sort((a, b) => b.start - a.start)
-  const lvu = model.loadVsUsual(t)
-  const hrr = weeklyMeans(model.sessions, t, (s) => ({ date: s.date, value: s.hrRecovery }))
-  const last7 = lastDays(t, 7).map((d) => model.dailyBy.get(d))
-  const avg = (k) => round(mean(last7.map((r) => r?.[k]).filter((v) => v != null)), 0)
-  const vo2Readings = model.daily.filter((r) => r.vo2max != null).map((r) => ({ date: r.date, value: r.vo2max }))
-  const vo2Smooth = smoothVo2(vo2Readings)
-  const latestVo2 = vo2Smooth.at(-1)
-  const sex = model.characteristics.biologicalSex === 'male' || model.characteristics.biologicalSex === 'female' ? model.characteristics.biologicalSex : null
-  const pct = latestVo2 && model.age != null ? vo2Percentile(latestVo2.value, model.age, sex) : null
-  const fitAge = latestVo2 ? fitnessAge(latestVo2.value, sex) : null
-  const today = model.dailyBy.get(t)
-  const proteinAvg = avg('dietProtein')
-  const daylightAvg = avg('daylightMin')
-  const hrrMax = Math.max(...hrr.map((w) => w.mean || 0), 1)
-
-  return (
-    <div className="space-y-3" data-testid="training-view">
-      <div className="card p-4">
-        <div className="flex items-baseline gap-2">
-          <p className="t-caption min-w-0 flex-1" style={{ color: 'var(--text-3)' }}>This week</p>
-          <p className="text-sm font-black" data-testid="load-vs-usual">{lvu.label ? `${lvu.label} load than usual` : 'Load vs usual needs 4 weeks'}</p>
-        </div>
-        {lvu.label && <p className="text-xs font-medium tabular-nums" style={{ color: 'var(--text-3)' }}>Last 7 days average {round(lvu.acute, 0)} TRIMP a day, against {round(lvu.chronic, 0)} over 28 days.</p>}
-        <div className="mt-2 rows">
-          {week.length === 0 && <p className="py-2 text-xs font-medium" style={{ color: 'var(--text-2)' }}>No sessions yet this week.</p>}
-          {week.map((s) => (
-            <div key={s.id} className="py-2.5" data-testid="session-row">
-              <div className="flex items-baseline gap-2">
-                <p className="min-w-0 flex-1 truncate text-sm font-bold">{s.title}</p>
-                <p className="text-xs font-bold tabular-nums" style={{ color: 'var(--text-3)' }}>{format(new Date(s.start), 'EEE HH:mm')}</p>
-              </div>
-              <p className="text-xs font-medium tabular-nums" style={{ color: 'var(--text-2)' }}>
-                {Math.round(s.durationMin)} min · {s.avgHR != null ? `avg ${s.avgHR} bpm` : 'no heart rate'} · TRIMP {s.trimp}
-                {s.hrRecovery != null ? ` · recovery ${s.hrRecovery} bpm` : ''}
-              </p>
-              <ZoneBar zones={s.zones} />
-            </div>
-          ))}
-        </div>
-        <p className="mt-1 text-xs font-medium" style={{ color: 'var(--text-3)' }}>Max heart rate {model.maxHR} bpm {model.maxHRFromSetting ? '(your setting)' : '(estimated from age)'}. Zones 1–5 run lightest to darkest.</p>
-      </div>
-
-      <div className="card p-4" data-testid="hrr-trend">
-        <p className="t-caption" style={{ color: 'var(--text-3)' }}>Heart rate recovery, weekly average</p>
-        <div className="mt-2 flex h-16 items-end gap-1">
-          {hrr.map((w) => (
-            <div key={w.weekStart} className="flex-1 rounded-t-[4px]" title={w.mean != null ? `${w.mean} bpm` : 'none'}
-              style={{ height: `${w.mean ? (w.mean / hrrMax) * 100 : 2}%`, background: w.mean ? 'var(--text-2)' : 'var(--surface-sunk)' }} />
-          ))}
-        </div>
-        <p className="mt-1 text-xs font-medium tabular-nums" style={{ color: 'var(--text-3)' }}>
-          The one-minute drop Apple Watch records after a workout. Last 12 weeks{hrr.at(-1)?.mean != null ? `; this week ${hrr.at(-1).mean} bpm` : ''}.
-        </p>
-      </div>
-
-      <div className="grid grid-cols-2 gap-2">
-        <Stat testid="steps-avg" label="Steps, 7-day average" value={avg('steps') != null ? Number(avg('steps')).toLocaleString() : '–'} />
-        <Stat testid="energy-avg" label="Active energy, 7-day avg" value={avg('activeEnergy') != null ? `${avg('activeEnergy')} kcal` : '–'} />
-        {daylightAvg != null && <Stat testid="daylight-avg" label="Daylight, 7-day avg" value={`${daylightAvg} min`} />}
-        {latestVo2 && (
-          <Stat testid="vo2-now" label="VO2 max (estimate)" value={`${latestVo2.value}`}
-            sub={[pct ? `${pct.bound === 'below' ? 'Below the 10th' : pct.bound === 'above' ? 'Above the 90th' : `${pct.value}th`} percentile for age` : null, fitAge ? `fitness age about ${fitAge}` : null].filter(Boolean).join(' · ') || 'Add date of birth and sex in Apple Health for age norms'} />
-        )}
-      </div>
-
-      {vo2Smooth.length >= 2 && (
-        <TrendChart metric="vo2max" title="VO2 max, smoothed" unit="mL/kg/min" series={vo2Smooth} dp={1} defaultRange="1Y"
-          note="Apple estimates VO2 max from outdoor walks and runs; percentile and fitness age use FRIEND registry norms and are estimates" />
-      )}
-
-      {(today?.dietProtein != null || proteinAvg != null) && (
-        <p className="px-1 text-xs font-medium tabular-nums" style={{ color: 'var(--text-3)' }} data-testid="protein-line">
-          Protein today {today?.dietProtein != null ? `${today.dietProtein} g` : '–'} · 7-day average {proteinAvg != null ? `${proteinAvg} g` : '–'}
-        </p>
-      )}
     </div>
   )
 }
