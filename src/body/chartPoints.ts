@@ -270,9 +270,10 @@ export function xTicks(from: string, to: string): Array<{ date: string; label: s
       return picked.map((d) => ({ date: d, label: multiYear ? `${MONTHS[Number(d.slice(5, 7)) - 1]} ${d.slice(2, 4)}` : MONTHS[Number(d.slice(5, 7)) - 1] }))
     }
   }
-  const n = 5
+  // a window of a few days has fewer than five distinct dates: one tick each
+  const n = Math.max(1, Math.min(5, span + 1))
   return Array.from({ length: n }, (_, i) => {
-    const d = fromNum(Math.round(dayNum(from) + (span * i) / (n - 1)))
+    const d = fromNum(Math.round(dayNum(from) + (n === 1 ? 0 : (span * i) / (n - 1))))
     return { date: d, label: shortDate(d) }
   })
 }

@@ -145,6 +145,14 @@ describe('Since start range and the header change', () => {
   })
 })
 
+describe('x ticks on a very short window', () => {
+  it('never repeats a date, even when the window is a single day', () => {
+    expect(xTicks('2026-10-20', '2026-10-20').map((t) => t.date)).toEqual(['2026-10-20'])
+    const three = xTicks('2026-10-18', '2026-10-20').map((t) => t.date)
+    expect(new Set(three).size).toBe(three.length)
+  })
+})
+
 describe('connected lines, label spacing, merged scans, scrubbing', () => {
   it('every neighbouring pair is joined; more than 120 days apart is a faint gap, 120 is not', () => {
     expect(GAP_DAYS).toBe(120)
