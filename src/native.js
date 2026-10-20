@@ -6,6 +6,7 @@
 import { SplashScreen } from '@capacitor/splash-screen'
 import { Keyboard } from '@capacitor/keyboard'
 import { setNativeKeyboard } from './lib/viewport'
+import { startNativeSync } from './native/runtime'
 
 // How long the launch image takes to fade out. Short: the app is ready the
 // moment it has drawn once, and a launch image that lingers reads as a hang.
@@ -29,4 +30,7 @@ export async function startNative() {
     await Keyboard.addListener('keyboardWillShow', (info) => setNativeKeyboard({ open: true, height: info?.keyboardHeight || 0 }))
     await Keyboard.addListener('keyboardWillHide', () => setNativeKeyboard({ open: false, height: 0 }))
   } catch { /* no keyboard plugin: the web fallback in viewport.js still works */ }
+
+  // the snapshot for widgets, notifications, Siri and the Watch, and the queue of what they asked for
+  void startNativeSync()
 }

@@ -36,11 +36,17 @@ import { backfillTopicals } from '../lib/topicals'
 import { applyCheck, toAbandon, localDay } from '../lib/reactionCourse'
 import { captureFor, normaliseNeedle, coDrawInfo } from '../lib/injectionCapture'
 import { lastNeedle, rememberNeedle } from '../lib/needle'
-import { DEFAULT_SAUNA_SETTINGS, newSession } from '../sauna/sauna'
+import { DEFAULT_SAUNA_SETTINGS, newSession, sessionFromTimer, hhmmOf } from '../sauna/sauna'
+import { applyPendingActions } from '../native/actions'
 import { vialOnDate } from '../lib/backfill'
 import { DEFAULT_FX_USD_TO_AUD, referenceUsdPerVial } from '../lib/cost'
 
 export const todayStr = () => format(new Date(), 'yyyy-MM-dd')
+/** Local date and minutes after midnight for an epoch ms. */
+export const localParts = (ms) => {
+  const d = new Date(ms)
+  return { date: format(d, 'yyyy-MM-dd'), minutes: d.getHours() * 60 + d.getMinutes() }
+}
 
 // localStorage wrapped so a genuine quota/security failure surfaces once, without crashing.
 let storageErrorHandler = null
@@ -168,6 +174,18 @@ function initialState() {
     saunaSettings: { ...DEFAULT_SAUNA_SETTINGS, timerNoteSeen: false, notifyAsked: false },
     saunaTimer: null,                    // { startedAt, targetMin, tempC, rounds } while one runs
     saunaDismissed: [],                  // Health workout ids answered "not a sauna"
+    // Native surfaces (stage 3B): reminders, the Watch, the Face ID lock. All
+    // in the backup. nativeState remembers which queued actions were applied
+    // and which low-stock items have already had their one notification.
+    notificationSettings: {
+      amTime: '07:00', pmTime: '20:00', nudgeDelayMin: 90,
+      doses: true, nudges: true, timeSensitive: true,
+      reactions: true, reactionTime: '19:00', stock: true, sauna: true,
+      permissionAsked: false,
+    },
+    watchSettings: { countSaunaTowardMove: false },
+    securitySettings: { faceIdLock: false, graceSec: 0 },
+    nativeState: { processedActionIds: [], stockAlerted: [], lastWatchSync: null },
     // Vials that have been used up. Kept as a record rather than deleted: it is
     // the only trace of how long a vial actually lasted.
     finishedVials: [],
@@ -1917,8 +1935,8 @@ const useStore = create(
       setSaunaSettings(patch = {}) {
         set((s) => ({ saunaSettings: { ...s.saunaSettings, ...patch } }))
       },
-      startSaunaTimer({ targetMin, tempC, rounds = 1, now = Date.now() }) {
-        set({ saunaTimer: { startedAt: now, targetMin, tempC, rounds } })
+      startSaunaTimer({ targetMin, tempC, rounds = 1, now = Date.now(), source = 'phone' }) {
+        set({ saunaTimer: { startedAt: now, targetMin, tempC, rounds, source } })
       },
       clearSaunaTimer() {
         set({ saunaTimer: null })
@@ -1928,6 +1946,97 @@ const useStore = create(
       },
 
       // ---------- health: settings, check-in, journal ----------
+      setNotificationSettings(patch = {}) {
+        set((s) => ({ notificationSettings: { ...s.notificationSettings, ...patch } }))
+      },
+      setWatchSettings(patch = {}) {
+        set((s) => ({ watchSettings: { ...s.watchSettings, ...patch } }))
+      },
+      setSecuritySettings(patch = {}) {
+        set((s) => ({ securitySettings: { ...s.securitySettings, ...patch } }))
+      },
+      setNativeState(patch = {}) {
+        set((s) => ({ nativeState: { ...s.nativeState, ...patch } }))
+      },
+
+      /**
+       * Apply what widgets, notifications, Siri and the Watch queued.
+       *
+       * Each action is applied once (by id) through the same store actions an
+       * in-app tap uses: _recordDose moves stock and the open vial, a group is a
+       * co-draw, a skip and a push are the ones Home writes. Nothing is
+       * deleted. Returns what was applied and what was set aside, and why.
+       */
+      applyNativeActions(actions = [], { dueOn = null } = {}) {
+        const plan = applyPendingActions(get(), actions, { dueOn })
+        const created = []
+        for (const o of plan.ops) {
+          switch (o.op) {
+            case 'logDose': {
+              const p = get()._recordDose(o.peptideId, o.at, null, o.date)
+              if (p) get()._recordUnsited(o.peptideId, get()._lastLoggedIds(1)[0])
+              break
+            }
+            case 'logCoDraw': {
+              const coDrawId = `cd-${Date.parse(o.at) || Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+              const done = o.peptideIds.filter((id) => get()._recordDose(id, o.at, coDrawId, o.date))
+              const ids = get()._lastLoggedIds(done.length)
+              done.forEach((pid, i) => get()._recordUnsited(pid, ids[i]))
+              break
+            }
+            case 'takeSupplement':
+              get().toggleSupplementTaken(o.supplementId, o.date, { quiet: true })
+              break
+            case 'skipDose':
+              get().skipDose(o.peptideId, '', o.date)
+              break
+            case 'skipSupplement': {
+              const s = get()
+              if (!s.skips.some((k) => k.kind === 'supplement' && k.supplementId === o.supplementId && k.date === o.date)) {
+                const supp = s.supplements.find((x) => x.id === o.supplementId)
+                set({ skips: [...s.skips, { id: `sk-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`, kind: 'supplement', supplementId: o.supplementId, date: o.date, at: new Date().toISOString(), name: supp?.name || '', reason: '' }] })
+              }
+              break
+            }
+            case 'pushDose':
+              get().pushDose(o.peptideId, o.date)
+              break
+            case 'startSauna':
+              get().startSaunaTimer({ targetMin: o.targetMin, tempC: o.tempC, rounds: o.rounds, now: o.startedAt, source: o.source || 'phone' })
+              break
+            case 'stopSauna': {
+              const stopAt = Math.min(o.stoppedAt, o.timer.startedAt + 2 * 3600000)
+              const draft = sessionFromTimer(o.timer, stopAt, localParts)
+              created.push(get().addSaunaSession({ ...draft, needsReview: !!o.needsReview, endedAt: stopAt, startedAt: o.timer.startedAt }))
+              get().clearSaunaTimer()
+              break
+            }
+            case 'saunaFromWatch': {
+              const x = o.summary
+              const start = localParts(x.start)
+              created.push(get().addSaunaSession({
+                date: start.date,
+                start: hhmmOf(start.minutes),
+                lengthMin: Math.max(1, Math.round((x.end - x.start) / 60000)),
+                tempC: x.tempC,
+                type: x.type || 'Infrared',
+                rounds: x.rounds || 1,
+                source: 'watch',
+                workoutId: x.workoutId || null,
+                startedAt: x.start,
+                endedAt: x.end,
+                hr: { avg: x.avgHR ?? null, peak: x.peakHR ?? null, samples: x.samples || [], sparse: false, from: 'watch' },
+              }))
+              if (o.clearsTimer) get().clearSaunaTimer()
+              break
+            }
+            default:
+          }
+        }
+        get().setNativeState({ processedActionIds: plan.processedIds })
+        return { ...plan, created }
+      },
+
       setHealthSettings(patch = {}) {
         set((s) => ({ healthSettings: { ...s.healthSettings, ...patch } }))
       },
@@ -2313,7 +2422,7 @@ const useStore = create(
     }),
     {
       name: 'peptide-command-center', // storage key is history — renaming it would orphan existing data
-      version: 23,
+      version: 24,
       storage: createJSONStorage(() => safeStorage),
       // Saves written before a release can't pick new library entries up from
       // the seed, so each version bump backfills them here — once. Deleting one
@@ -2358,6 +2467,8 @@ const useStore = create(
             s.healthSettings = { ...s.healthSettings, wakeTarget: null }
           }
         }
+        // v24 (stage 3B): notification, Watch and lock settings arrive with their
+        // defaults through merge; nothing stored changes.
         if (from < 23) {
           // the estimated starting entry moves from 13 Jan to 1 Jan 2025, then
           // every entry is stamped with its family (Scale, Evolt or DEXA) and
@@ -2667,6 +2778,10 @@ const useStore = create(
         settings: { ...current.settings, ...(persisted?.settings || {}) },
         healthSettings: { ...current.healthSettings, ...(persisted?.healthSettings || {}) },
         saunaSettings: { ...current.saunaSettings, ...(persisted?.saunaSettings || {}) },
+        notificationSettings: { ...current.notificationSettings, ...(persisted?.notificationSettings || {}) },
+        watchSettings: { ...current.watchSettings, ...(persisted?.watchSettings || {}) },
+        securitySettings: { ...current.securitySettings, ...(persisted?.securitySettings || {}) },
+        nativeState: { ...current.nativeState, ...(persisted?.nativeState || {}) },
         chartSources: { ...(persisted?.chartSources || {}) },
         checkins: persisted?.checkins || current.checkins,
         habits: persisted?.habits || current.habits,

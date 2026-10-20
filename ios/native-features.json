@@ -1,0 +1,6 @@
+{
+  "appGroup": true,
+  "timeSensitive": true,
+  "watchHealthKit": true,
+  "liveActivities": true
+}

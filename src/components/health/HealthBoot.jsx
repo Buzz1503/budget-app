@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import NativeHealthFeed from './NativeHealthFeed'
 import useStore from '../../store/useStore'
 import { useHealth, startAutoSync } from '../../health/state'
 import { useHealthLink } from '../../lib/healthLink'
@@ -33,5 +34,6 @@ export default function HealthBoot() {
     return startAutoSync(() => useStore.getState().healthSettings.sleepPriority)
   }, [available, connected])
 
-  return null
+  // readiness for the widgets, the Watch and Siri (iPhone app only)
+  return __NATIVE__ && available && connected ? <NativeHealthFeed /> : null
 }

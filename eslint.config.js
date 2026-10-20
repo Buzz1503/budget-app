@@ -16,6 +16,22 @@ export default [
     },
   },
   {
+    // stage 3B: the native snapshot, queue and notification schedule
+    files: ['src/native/**/*.js'],
+    languageOptions: {
+      ecmaVersion: 'latest',
+      sourceType: 'module',
+      globals: {
+        __NATIVE__: 'readonly', globalThis: 'readonly', document: 'readonly', URL: 'readonly', process: 'readonly',
+        setTimeout: 'readonly', clearTimeout: 'readonly', setInterval: 'readonly', clearInterval: 'readonly',
+      },
+    },
+    rules: {
+      'no-unused-vars': ['error', { varsIgnorePattern: '^_', argsIgnorePattern: '^_', destructuredArrayIgnorePattern: '^_' }],
+      'no-console': 'error', // nothing with health values in logs
+    },
+  },
+  {
     files: ['src/health/**/*.js'],
     languageOptions: {
       ecmaVersion: 'latest',
