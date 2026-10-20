@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto'
 import { describe, it, expect, beforeEach } from 'vitest'
 import { HealthDB, loadAll, readMeta } from './cache'
-import { syncHealth, syncWindows, BACKFILL_DAYS } from './sync'
+import { syncHealth, syncWindows, earliestReading, BACKFILL_DAYS, CHUNK_DAYS } from './sync'
 import { demoBridge, generateDemo } from './demo'
 import { nativeBridge } from './bridge'
 import type { HealthBridge } from './bridge'
@@ -28,6 +28,41 @@ describe('sync windows', () => {
 
   it('a full re-sync goes back the whole year again', () => {
     expect(syncWindows({ today: '2026-10-18', lastSyncDate: '2026-10-17', backfillDone: true, full: true })).toHaveLength(13)
+  })
+})
+
+describe('full-history backfill', () => {
+  it('reaches back to the earliest reading in 30-day windows with no gaps or overlaps', () => {
+    const w = syncWindows({ today: '2026-10-18', lastSyncDate: null, backfillDone: false, historyFrom: '2019-03-05' })
+    expect(w[0][0]).toBe('2019-03-05')
+    expect(w.at(-1)![1]).toBe('2026-10-18')
+    expect(w.slice(0, -1).every(([a, b]) => b === addDays(a, CHUNK_DAYS - 1))).toBe(true)
+    for (let i = 1; i < w.length; i++) expect(w[i][0]).toBe(addDays(w[i - 1][1], 1))
+    expect(w.length).toBeGreaterThan(80)
+  })
+
+  it('an existing cache that is up to date reads the whole history once; a later date is ignored', () => {
+    expect(syncWindows({ today: '2026-10-18', lastSyncDate: '2026-10-17', backfillDone: true, historyFrom: '2024-01-01' })[0][0]).toBe('2024-01-01')
+    expect(syncWindows({ today: '2026-10-18', lastSyncDate: '2026-10-17', backfillDone: true, historyFrom: '2026-10-16' })).toEqual([['2026-10-14', '2026-10-18']])
+  })
+
+  it('the probe takes the oldest body reading across types, and nothing when there is none', async () => {
+    const at = (d: string) => tz.startOfDay(d) + 7 * 3600000
+    const bridge = {
+      quantity: async (type: string) => (type === 'weight' ? [{ start: at('2016-02-03') }, { start: at('2020-01-01') }] : type === 'leanMass' ? [{ start: at('2018-06-01') }] : []),
+    } as unknown as HealthBridge
+    expect(await earliestReading(bridge, tz, NOW)).toBe('2016-02-03')
+    expect(await earliestReading({ quantity: async () => [] } as unknown as HealthBridge, tz, NOW)).toBeNull()
+  })
+
+  it('a first sync reports older windows as history, reads once, and the second pass is the short one', async () => {
+    const db = freshDb()
+    const bridge = demoBridge({ now: NOW, tz })
+    const seen: string[] = []
+    await syncHealth({ bridge, db, tz, now: NOW, onProgress: (p) => seen.push(p.phase || '') })
+    expect(seen.includes('recent')).toBe(true)
+    const r2 = await syncHealth({ bridge, db, tz, now: NOW + 3600000 })
+    expect(r2.from >= addDays('2026-10-18', -10)).toBe(true)
   })
 })
 

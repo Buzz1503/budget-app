@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState, Suspense } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Ruler, Images, PersonStanding, LineChart as LineChartIcon, Plus, FileText, Trash2, Play,
+  Ruler, Images, PersonStanding, LineChart as LineChartIcon, Plus, Trash2, Play,
   Info, Pencil,
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import useStore, { todayStr } from '../store/useStore'
 import {
-  METRICS, METRIC_BY_KEY, ALL_METRIC_BY_KEY, PRIMARY_FIELDS, EXTRA_GROUPS,
+  METRICS, METRIC_BY_KEY, ALL_METRIC_BY_KEY, PRIMARY_FIELDS, EXTRA_GROUPS, NOT_LOGGED_BY_HAND,
   MEASURE_RULES, REF_DISTANCES, refPhrase, legacyMetricsPresent,
 } from '../lib/metrics'
 import {
@@ -16,11 +16,13 @@ import {
 } from '../lib/useBody'
 import StartPointSheet from './StartPointSheet'
 import CompositionView from './body/CompositionView'
-import { SCAN_FIELDS, SCAN_FIELD_BY_KEY, SCAN_DEVICES, groupedScanFields } from '../body/scanFields'
+import DexaPage from './body/DexaPage'
+import { SCAN_FIELDS, SCAN_FIELD_BY_KEY, groupedScanFields } from '../body/scanFields'
+import { isScanEntry } from '../body/sources'
 import TrendChart from './charts/TrendChart'
+import BodyChart from './charts/BodyChart'
 import ProgressChart from './charts/ProgressChart'
 import useChartEvents from './charts/useChartEvents'
-import { extractPdfText, parseScanText } from '../lib/scanParse'
 import Modal from './ui/Modal'
 import NumberField from './ui/NumberField'
 import PickerField from './ui/PickerField'
@@ -67,6 +69,7 @@ export default function BodyTab({ goTo }) {
   const [adding, setAdding] = useState(false)
   const [startOpen, setStartOpen] = useState(false)
   const [viewing, setViewing] = useState(null)
+  const [dexa, setDexa] = useState(false)
   const available = useHealthLink((s) => s.available)
   const segment = useHealthLink((s) => s.bodySegment)
   const setSegment = useHealthLink((s) => s.setBodySegment)
@@ -82,11 +85,13 @@ export default function BodyTab({ goTo }) {
       </div>
     )
   }
+  if (dexa) return <DexaPage onBack={() => setDexa(false)} />
+
   return (
     <div className="space-y-3">
       <h1 className="text-2xl font-black tracking-tight">Body</h1>
       {showHealth && <HealthSegments value="composition" onChange={setSegment} />}
-      <CompositionView onLog={() => setAdding(true)} onOpenStart={() => setStartOpen(true)} />
+      <CompositionView onLog={() => setAdding(true)} onOpenStart={() => setStartOpen(true)} onOpenDexa={() => setDexa(true)} />
 
       {/* the record itself: entries, tape trends, the model, photos, outcomes */}
       <div className="px-1 pt-6">
@@ -130,8 +135,11 @@ function StatsSection({ onAdd }) {
   return (
     <div className="space-y-3">
       <button onClick={onAdd} className="btn-primary flex w-full items-center justify-center gap-2 rounded-full py-3 text-sm font-black">
-        <Plus size={16} /> Log measurement
+        <Plus size={16} /> Log tape measurement
       </button>
+      <p className="px-1 text-xs font-medium" style={{ color: 'var(--text-3)' }} data-testid="not-by-hand">
+        Weight and body composition come from your scale and Evolt scans. Tape measurements are logged here.
+      </p>
 
       <MeasuringRules />
       <ReferenceDistances />
@@ -170,94 +178,63 @@ function StatsSection({ onAdd }) {
   )
 }
 
-// A scan's own details: the device, whether the values are estimated, whether
-// it is drawn on charts, the scan-only fields (kept apart from muscle mass and
-// visceral fat) and everything else it reported, grouped.
+// A scan's own details, read only: the device, whether the values are
+// estimated, whether it is drawn on charts, and everything it reported,
+// grouped. Scans are imported (Evolt) or added on the DEXA page, not typed here.
 function ScanDetails({ form, set }) {
-  const isScan = form.source === 'scan'
   const groups = groupedScanFields(form)
   return (
     <div className="space-y-3 rounded-[14px] p-3" style={{ background: 'var(--surface-sunk)' }} data-testid="scan-details">
+      <p className="text-xs font-bold">{form.device || 'Scan'}{form.label ? ` · ${form.label}` : ''}{form.estimated ? ' · estimated' : ''}</p>
+      {form.estimated && form.estimateNote && <p className="text-xs font-medium" style={{ color: 'var(--text-3)' }} data-testid="entry-estimate-note">{form.estimateNote}</p>}
       <label className="flex items-center justify-between gap-3">
-        <span className="text-xs font-bold">Body composition scan</span>
-        <input type="checkbox" checked={isScan} onChange={(e) => set('source', e.target.checked ? 'scan' : 'manual')} data-testid="entry-is-scan" className="h-5 w-5" />
+        <span className="min-w-0">
+          <span className="block text-xs font-bold">Show on charts</span>
+          <span className="block text-[11px] font-medium" style={{ color: 'var(--text-3)' }}>Off keeps it on record without a point on any chart.</span>
+        </span>
+        <input type="checkbox" checked={!form.hiddenFromCharts} onChange={(e) => set('hiddenFromCharts', !e.target.checked)} data-testid="entry-on-charts" className="h-5 w-5" />
       </label>
-      {isScan && (
-        <>
-          <div className="grid grid-cols-2 gap-3">
-            <label className="block min-w-0">
-              <span className="mb-1 block text-xs font-bold" style={{ color: 'var(--text-2)' }}>Device</span>
-              <select className="input" value={form.device || ''} onChange={(e) => set('device', e.target.value || null)} data-testid="entry-device" aria-label="Scan device">
-                <option value="">Not set</option>
-                {SCAN_DEVICES.map((d) => <option key={d} value={d}>{d}</option>)}
-              </select>
-            </label>
-            <label className="block min-w-0">
-              <span className="mb-1 block text-xs font-bold" style={{ color: 'var(--text-2)' }}>Label</span>
-              <input className="input" value={form.label || ''} onChange={(e) => set('label', e.target.value)} data-testid="entry-label" aria-label="Label" />
-            </label>
-          </div>
-          <label className="flex items-center justify-between gap-3">
-            <span className="text-xs font-bold">Values are estimated</span>
-            <input type="checkbox" checked={!!form.estimated} onChange={(e) => set('estimated', e.target.checked)} data-testid="entry-estimated" className="h-5 w-5" />
-          </label>
-          {form.estimated && (
-            <textarea className="input min-h-16 text-xs" value={form.estimateNote || ''} onChange={(e) => set('estimateNote', e.target.value)}
-              placeholder="How the values were estimated" data-testid="entry-estimate-note" aria-label="Estimate note" />
-          )}
-          <label className="flex items-center justify-between gap-3">
-            <span className="min-w-0">
-              <span className="block text-xs font-bold">Show on charts</span>
-              <span className="block text-[11px] font-medium" style={{ color: 'var(--text-3)' }}>Off keeps it on record without a second point on the day.</span>
-            </span>
-            <input type="checkbox" checked={!form.hiddenFromCharts} onChange={(e) => set('hiddenFromCharts', !e.target.checked)} data-testid="entry-on-charts" className="h-5 w-5" />
-          </label>
-          <div className="grid grid-cols-2 gap-3">
-            {SCAN_FIELDS.map((f) => (
-              <label key={f.key} className="block min-w-0">
-                <span className="mb-1 block text-xs font-bold" style={{ color: 'var(--text-2)' }}>{f.label}{f.unit ? ` (${f.unit})` : ''}</span>
-                <NumberField allowEmpty min={0} value={form[f.key]} onChange={(n) => set(f.key, n)} aria-label={f.label} data-testid={`entry-${f.key}`} />
-              </label>
+      <div className="grid grid-cols-2 gap-x-3 gap-y-1" data-testid="scan-main-values">
+        {SCAN_FIELDS.filter((f) => form[f.key] != null).map((f) => (
+          <p key={f.key} className="text-xs font-medium" style={{ color: 'var(--text-2)' }}>{f.label} <b className="tabular-nums" style={{ color: 'var(--text)' }}>{form[f.key]}{f.unit ? ` ${f.unit}` : ''}</b></p>
+        ))}
+      </div>
+      {(form.heightCm || form.ageAtScan) && (
+        <p className="text-xs font-medium tabular-nums" style={{ color: 'var(--text-3)' }}>
+          {[form.heightCm && `Height ${form.heightCm} cm`, form.ageAtScan && `age at scan ${form.ageAtScan}`].filter(Boolean).join(', ')}
+        </p>
+      )}
+      {form.time && <p className="text-xs font-medium tabular-nums" style={{ color: 'var(--text-3)' }}>Scanned at {form.time}</p>}
+      {groups.map((g) => (
+        <div key={g.group} data-testid={`extras-${g.group}`}>
+          <p className="t-caption mb-1" style={{ color: 'var(--text-3)' }}>{g.group}</p>
+          <div className="rows">
+            {g.rows.map((r) => (
+              <div key={r.key} className="flex items-baseline gap-2 py-1.5 text-xs">
+                <span className="min-w-0 flex-1 font-medium" style={{ color: 'var(--text-2)' }}>
+                  {r.label}{r.range ? <span style={{ color: 'var(--text-3)' }}> · range {r.range[0]} to {r.range[1]}</span> : null}
+                </span>
+                {r.status && <span className="rounded-full px-2 py-0.5 text-[11px] font-bold" style={{ background: 'var(--surface2)', color: 'var(--text-2)' }}>{r.status}</span>}
+                <span className="font-bold tabular-nums">{Number(r.value.toFixed(r.dp))}{r.unit ? ` ${r.unit}` : ''}</span>
+              </div>
             ))}
           </div>
-          {(form.heightCm || form.ageAtScan) && (
-            <p className="text-xs font-medium tabular-nums" style={{ color: 'var(--text-3)' }}>
-              {[form.heightCm && `Height ${form.heightCm} cm`, form.ageAtScan && `age at scan ${form.ageAtScan}`].filter(Boolean).join(', ')}
-            </p>
-          )}
-          {form.time && <p className="text-xs font-medium tabular-nums" style={{ color: 'var(--text-3)' }}>Scanned at {form.time}</p>}
-          {groups.map((g) => (
-            <div key={g.group} data-testid={`extras-${g.group}`}>
-              <p className="t-caption mb-1" style={{ color: 'var(--text-3)' }}>{g.group}</p>
-              <div className="rows">
-                {g.rows.map((r) => (
-                  <div key={r.key} className="flex items-baseline gap-2 py-1.5 text-xs">
-                    <span className="min-w-0 flex-1 font-medium" style={{ color: 'var(--text-2)' }}>
-                      {r.label}{r.range ? <span style={{ color: 'var(--text-3)' }}> · range {r.range[0]} to {r.range[1]}</span> : null}
-                    </span>
-                    {r.status && <span className="rounded-full px-2 py-0.5 text-[11px] font-bold" style={{ background: 'var(--surface2)', color: 'var(--text-2)' }}>{r.status}</span>}
-                    <span className="font-bold tabular-nums">{Number(r.value.toFixed(r.dp))}{r.unit ? ` ${r.unit}` : ''}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-          {form.balance && (
-            <p className="text-xs font-medium" style={{ color: 'var(--text-2)' }} data-testid="scan-balance">
-              Balance: upper and lower {String(form.balance.upperLower || 'not given').toLowerCase()}, left and right {String(form.balance.leftRight || 'not given').toLowerCase()}
-            </p>
-          )}
-          {form.recommendations && (
-            <div data-testid="scan-recommendations">
-              <p className="t-caption mb-1" style={{ color: 'var(--text-3)' }}>{form.device || 'Device'} recommendations</p>
-              <p className="text-xs font-medium tabular-nums" style={{ color: 'var(--text-2)' }}>
-                {[['caloriesKcal', 'Calories', 'kcal'], ['proteinG', 'Protein', 'g'], ['carbsG', 'Carbs', 'g'], ['fatG', 'Fat', 'g']]
-                  .filter(([k]) => form.recommendations[k]).map(([k, label, unit]) => `${label} ${form.recommendations[k][0]} to ${form.recommendations[k][1]} ${unit}`).join(' · ')}
-              </p>
-              <p className="mt-0.5 text-[11px] font-medium" style={{ color: 'var(--text-3)' }}>As printed on the scan, not advice from this app.</p>
-            </div>
-          )}
-        </>
+        </div>
+      ))}
+      {form.balance && (
+        <p className="text-xs font-medium" style={{ color: 'var(--text-2)' }} data-testid="scan-balance">
+          Balance: upper and lower {String(form.balance.upperLower || 'not given').toLowerCase()}, left and right {String(form.balance.leftRight || 'not given').toLowerCase()}
+        </p>
+      )}
+      {form.recommendations && (
+        <div data-testid="scan-recommendations">
+          <p className="t-caption mb-1" style={{ color: 'var(--text-3)' }}>{form.device || 'Device'} recommendations</p>
+          <p className="text-xs font-medium tabular-nums" style={{ color: 'var(--text-2)' }}>
+            {[['caloriesKcal', 'Calories', 'kcal'], ['proteinG', 'Protein', 'g'], ['carbsG', 'Carbs', 'g'], ['fatG', 'Fat', 'g']]
+              .filter(([k]) => form.recommendations[k]).map(([k, label, unit]) => `${label} ${form.recommendations[k][0]} to ${form.recommendations[k][1]} ${unit}`).join(' · ')}
+          </p>
+          <p className="mt-0.5 text-[11px] font-medium" style={{ color: 'var(--text-3)' }}>As printed on the scan, not advice from this app.</p>
+        </div>
       )}
     </div>
   )
@@ -390,8 +367,6 @@ function MeasurementSheet({ open, onClose, entryId = null }) {
 
   const [form, setForm] = useState({ date: todayStr() })
   const [showExtra, setShowExtra] = useState(false)
-  const [scanBusy, setScanBusy] = useState(false)
-  const [scanNote, setScanNote] = useState(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
 
   // the sheet is filled from the entry each time it opens, so reopening after a
@@ -400,7 +375,6 @@ function MeasurementSheet({ open, onClose, entryId = null }) {
     if (!open) return
     setForm(editing ? { ...editing } : { date: todayStr() })
     setConfirmDelete(false)
-    setScanNote(null)
     setShowExtra(editing ? EXTRA_GROUPS.some((g) => g.keys.some((k) => editing[k] != null)) : false)
   }, [open, entryId]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -416,29 +390,9 @@ function MeasurementSheet({ open, onClose, entryId = null }) {
     )
   }
 
-  const onScan = async (e) => {
-    const file = e.target.files?.[0]
-    e.target.value = ''
-    if (!file) return
-    setScanBusy(true); setScanNote(null)
-    try {
-      const text = await extractPdfText(file)
-      const parsed = parseScanText(text)
-      const keys = Object.keys(parsed)
-      if (keys.length === 0) {
-        setScanNote({ ok: false, msg: "Couldn't read values automatically — enter them manually below." })
-      } else {
-        setForm((f) => ({ ...f, ...parsed, source: 'scan' }))
-        setScanNote({ ok: true, msg: `Pre-filled ${keys.length} field${keys.length > 1 ? 's' : ''} from the PDF — review & confirm before saving.` })
-      }
-    } catch (err) {
-      setScanNote({ ok: false, msg: `PDF import failed: ${err.message}. Enter manually.` })
-    } finally {
-      setScanBusy(false)
-    }
-  }
-
-  const hasAny = METRICS.some((m) => form[m.key] != null) || SCAN_FIELDS.some((f) => form[f.key] != null)
+  // a new entry is tape only; an entry already on record can always be saved (date, note, tape)
+  const hasAny = !!editing || METRICS.some((m) => !NOT_LOGGED_BY_HAND.includes(m.key) && form[m.key] != null)
+  const held = editing ? METRICS.filter((m) => NOT_LOGGED_BY_HAND.includes(m.key) && form[m.key] != null) : []
 
   const submit = () => {
     if (!hasAny) return
@@ -449,9 +403,8 @@ function MeasurementSheet({ open, onClose, entryId = null }) {
       updateMeasurement(editing.id, form)
       showToast('Measurement updated', () => restoreMeasurement(before))
     } else {
-      addMeasurement({ ...form, source: form.source || 'manual' })
+      addMeasurement({ ...form, source: 'manual' })
       setForm({ date: todayStr() })
-      setScanNote(null)
       setShowExtra(false)
     }
     onClose()
@@ -465,7 +418,7 @@ function MeasurementSheet({ open, onClose, entryId = null }) {
   }
 
   return (
-    <Modal open={open} onClose={onClose} title={editing ? 'Edit measurement' : 'Log measurement'} wide>
+    <Modal open={open} onClose={onClose} title={editing ? 'Edit measurement' : 'Log tape measurement'} wide>
       <div className="space-y-3">
         <div className="grid grid-cols-2 gap-3">
           <label className="block">
@@ -477,17 +430,6 @@ function MeasurementSheet({ open, onClose, entryId = null }) {
             <PickerField kind="time" label="Time" value={form.time || null} fallback="08:00" emptyText="No time"
               clearText="Clear time" testid="entry-time" onChange={(v) => set('time', v || '')} />
           </div>
-        </div>
-
-        {/* scan import */}
-        <div className="rounded-[14px] p-3" style={{ background: 'var(--surface-sunk)' }}>
-          <label className="flex cursor-pointer items-center justify-between">
-            <span className="flex items-center gap-2 text-xs font-bold"><FileText size={14} style={{ color: 'var(--text-2)' }} /> Import DEXA / InBody PDF</span>
-            <span className="rounded-[10px] px-3 py-2 text-xs font-black" style={{ background: 'var(--surface)', color: 'var(--info)' }}>{scanBusy ? 'Reading…' : 'Choose PDF'}</span>
-            <input type="file" accept="application/pdf" className="hidden" onChange={onScan} disabled={scanBusy} />
-          </label>
-          {scanNote && <p className="mt-2 text-xs font-semibold" style={{ color: scanNote.ok ? 'var(--good)' : 'var(--warn)' }}>{scanNote.msg}</p>}
-          <p className="mt-1 text-xs font-medium" style={{ color: 'var(--text-2)' }}>Formats vary — imported values pre-fill for you to confirm, never auto-saved.</p>
         </div>
 
         <div className="rounded-[14px] p-3" style={{ background: 'color-mix(in srgb, var(--info) 10%, var(--surface-sunk))' }}>
@@ -505,7 +447,12 @@ function MeasurementSheet({ open, onClose, entryId = null }) {
 
         <div className="grid grid-cols-2 gap-3">{PRIMARY_FIELDS.map(field)}</div>
 
-        <ScanDetails form={form} set={set} />
+        {held.length > 0 && !isScanEntry(form) && (
+          <p className="rounded-[14px] p-3 text-xs font-medium tabular-nums" style={{ background: 'var(--surface-sunk)', color: 'var(--text-2)' }} data-testid="entry-held-values">
+            Recorded before body composition moved to your scale and Evolt: {held.map((m) => `${m.label.toLowerCase()} ${form[m.key]}${m.unit ? ` ${m.unit}` : ''}`).join(', ')}. Kept as it was.
+          </p>
+        )}
+        {editing && isScanEntry(form) && <ScanDetails form={form} set={set} />}
 
         <button onClick={() => setShowExtra(!showExtra)} className="text-xs font-bold" style={{ color: 'var(--text-2)' }}>
           {showExtra ? '− Hide' : '+ More'} measurements (neck, chest, hips, arms, forearms, thighs, calves)
@@ -633,6 +580,8 @@ function TrendsSection() {
   const [editing, setEditing] = useState(null)
   const series = useMemo(() => seriesFor(key, bodyInput), [key, bodyInput])
   const startValue = useStartValue(key)
+  // weight, fat, lean, muscle and scan fields come from a device: one source at a time. Tape stays as typed.
+  const fromDevice = NOT_LOGGED_BY_HAND.includes(key) || !!SCAN_FIELD_BY_KEY[key]
   const latest = useLatestMeasurement(BODY_FIELDS.has(key) ? key : 'weight')
   const latestHere = BODY_FIELDS.has(key) ? latest : null
   // a point that is one day's manual entry opens the same edit sheet the list does
@@ -663,12 +612,15 @@ function TrendsSection() {
       )}
       {series.length === 0 ? (
         <div className="card p-4">
-          <p className="py-6 text-center text-xs font-semibold" style={{ color: 'var(--text-2)' }}>No {m.label.toLowerCase()} entries yet. Log a measurement to see the trend.</p>
+          <p className="py-6 text-center text-xs font-semibold" style={{ color: 'var(--text-2)' }}>No {m.label.toLowerCase()} entries yet.{fromDevice ? '' : ' Log a measurement to see the trend.'}</p>
         </div>
+      ) : fromDevice ? (
+        <BodyChart key={key} metric={key} chartType={`body-${key}`} title={m.label} unit={m.unit}
+          dp={m.unit === 'kg' || m.unit === '%' || m.unit === 'cm' ? 1 : 0} events={events} testid="trends-chart" />
       ) : (
         <TrendChart key={key} metric={key} chartType={`body-${key}`} title={m.label} unit={m.unit}
           dp={m.unit === 'kg' || m.unit === '%' || m.unit === 'cm' ? 1 : 0} series={series} events={events}
-          current={latestHere ? latestHere.value : null} currentCaption={latestHere ? latestCaption(latestHere) : null}
+          defaultRange="Start" current={latestHere ? latestHere.value : null} currentCaption={latestHere ? latestCaption(latestHere) : null}
           startLine={startValue} onEditDate={editDate} testid="trends-chart" />
       )}
       <MeasurementSheet open={!!editing} onClose={() => setEditing(null)} entryId={editing} />

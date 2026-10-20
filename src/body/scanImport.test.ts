@@ -84,7 +84,7 @@ describe('dedupe and replacement', () => {
   })
 })
 
-describe('device families', () => {
+describe('source families', () => {
   const scans = parseScanImport(FILE).entries
   const withings = [
     { date: '2026-10-10', weight: 92.1, weightSource: 'Withings', bodyFatPct: 28.9 },
@@ -92,20 +92,21 @@ describe('device families', () => {
   ]
   const input = { measurements: [...scans, { id: 'm', date: '2026-10-14', weight: 92, bodyFat: 30 }], health: withings }
 
-  it('body fat, fat mass and lean mass are one series per family, never mixed', () => {
+  it('body fat, fat mass and lean mass are one series per family (Scale and Evolt), never mixed', () => {
     const by = seriesByFamily('bodyFat', input)
-    expect(Object.keys(by).sort()).toEqual(['evolt', 'manual', 'withings'])
+    expect(Object.keys(by).sort()).toEqual(['evolt', 'scale'])
     expect(by.evolt.every((p) => p.family === 'evolt')).toBe(true)
     expect(by.evolt).toHaveLength(15)
-    expect(familySeries('bodyFat', input, 'withings').map((p) => p.value)).toEqual([28.9, 28.7])
-    // fat mass worked out within Withings, not with an Evolt weight
-    expect(familySeries('fatMass', input, 'withings').map((p) => p.value)).toEqual([26.62, 26.32])
+    // a typed-in entry and Withings share one Scale line; Withings is listed with the entry on its own day
+    expect(familySeries('bodyFat', input, 'scale').map((p) => [p.date, p.value])).toEqual([['2026-10-10', 28.9], ['2026-10-14', 30], ['2026-10-16', 28.7]])
+    // fat mass worked out within Scale, not with an Evolt weight
+    expect(familySeries('fatMass', input, 'scale').map((p) => p.value)).toEqual([26.62, 27.6, 26.32])
   })
 
-  it('a comparison window uses Evolt with 2 or more Evolt readings in it, else Withings', () => {
+  it('a comparison window uses Evolt with 2 or more Evolt readings in it, else Scale', () => {
     expect(pickFamily('bodyFat', input, '2025-01-13', '2026-10-19')).toBe('evolt')
-    expect(pickFamily('bodyFat', input, '2026-10-01', '2026-10-19')).toBe('withings')
-    expect(pickFamily('bodyFat', { measurements: [{ id: 'm', date: '2026-10-14', bodyFat: 30 }] }, '2026-10-01', '2026-10-19')).toBe('manual')
+    expect(pickFamily('bodyFat', input, '2026-10-01', '2026-10-19')).toBe('scale')
+    expect(pickFamily('bodyFat', { measurements: [{ id: 'm', date: '2026-10-14', bodyFat: 30 }] }, '2026-10-01', '2026-10-19')).toBe('scale')
     expect(pickFamily('bodyFat', {}, '2026-10-01', '2026-10-19')).toBeNull()
   })
 })

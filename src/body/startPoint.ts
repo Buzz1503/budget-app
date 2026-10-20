@@ -9,7 +9,8 @@
 // the starting date, else nothing (and the delta is hidden). Fields are never
 // mixed: a scan's skeletal muscle mass is not the app's muscle mass.
 
-import { dailySeries, familySeries, familyOfDevice, pickFamily, getLatestMeasurement, FAMILY_FIELDS } from './bodySeries'
+import { dailySeries, familySeries, pickFamily, getLatestMeasurement, FAMILY_FIELDS } from './bodySeries'
+import { familyOfEntry } from './sources'
 import type { BodyField, BodyInput, BodySource, DayPoint } from './bodySeries'
 
 export interface BodyStart {
@@ -56,17 +57,28 @@ export function effectiveStart(start: BodyStart | null | undefined, compoundStar
 
 const deviceOf = (source: BodySource, label: string): string | null => (source === 'manual' ? null : label)
 
+/** The family a starting point's own values came from (an Evolt start is Evolt; typed-in values are Scale). */
+const startFamily = (start: BodyStart): string => (start.device ? familyOfEntry({ date: start.date, source: 'scan', device: start.device }) : 'scale')
+
 /**
  * The value a field's "since" delta starts from, or null to hide the delta.
- * For body fat, fat mass and lean mass the fallback reads one device family
- * (the one given, else the default for the window from the start date on).
+ *
+ *  - Weight: the value set on the starting point (105.6), for the Scale view
+ *    and the Evolt view alike.
+ *  - Body fat, fat mass, lean mass: the Evolt view uses the starting point's
+ *    own values (they are an Evolt entry); the Scale view uses its first Scale
+ *    reading on or after the starting date, never the Evolt estimate.
+ *  - Every other field: the value set, else its first reading on or after the
+ *    starting date.
  */
 export function getStartValue(field: BodyField, start: BodyStart | null, input: BodyInput, { family = null }: { family?: string | null } = {}): StartValue | null {
   if (!start?.date) return null
   const set = start.values?.[field]
+  const hasSet = set != null && Number.isFinite(Number(set))
   const famField = FAMILY_FIELDS.has(field)
-  if (set != null && Number.isFinite(Number(set))) {
-    return { value: Number(set), date: start.date, device: start.device ?? null, fromSetting: true, family: famField ? familyOfDevice(start.device) : null }
+  const own = startFamily(start)
+  if (hasSet && (!famField || family == null || family === own)) {
+    return { value: Number(set), date: start.date, device: start.device ?? null, fromSetting: true, family: famField ? own : null }
   }
   const fam = famField ? (family ?? pickFamily(field, input, start.date, '9999-12-31')) : null
   const series = famField ? (fam ? familySeries(field, input, fam) : []) : dailySeries(field, input)
@@ -84,20 +96,23 @@ export interface SinceStart {
 }
 
 /**
- * A field's change since the starting point. Weight and the other fields use
- * the newest reading from any source; body fat, fat mass and lean mass compare
- * one device family with itself, the family the start value came from.
+ * A field's change since the starting point. Without a family, weight and the
+ * other fields use the newest reading from any source; body fat, fat mass and
+ * lean mass compare one family with itself. With a family (the one a chart is
+ * showing) every field reads that family on both sides.
  */
-export function compareSinceStart(field: BodyField, start: BodyStart | null, input: BodyInput, today: string): SinceStart {
-  const s = getStartValue(field, start, input)
-  if (!FAMILY_FIELDS.has(field)) {
+export function compareSinceStart(field: BodyField, start: BodyStart | null, input: BodyInput, today: string, { family = null }: { family?: string | null } = {}): SinceStart {
+  const famField = FAMILY_FIELDS.has(field)
+  if (!famField && !family) {
+    const s = getStartValue(field, start, input)
     const latest = getLatestMeasurement(field, input, today)
     return { start: s, latest, delta: sinceStart(latest?.value, s), family: null }
   }
-  const family = s?.family ?? (start ? pickFamily(field, input, start.date, today) : null)
-  const series = family ? familySeries(field, input, family) : []
+  const chosen = family ?? (start ? (getStartValue(field, start, input)?.family ?? pickFamily(field, input, start.date, today)) : null)
+  const s = getStartValue(field, start, input, { family: chosen })
+  const series = chosen ? familySeries(field, input, chosen) : []
   const latest = series.length ? series[series.length - 1] : null
-  return { start: s, latest, delta: sinceStart(latest?.value, s), family }
+  return { start: s, latest, delta: sinceStart(latest?.value, s), family: chosen }
 }
 
 /** Latest minus start, or null when either is missing. */

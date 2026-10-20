@@ -6,6 +6,13 @@
 // from any source. Source priority only settles ties within the same day:
 // scan, then manual, then Withings, then other apps. An older manual entry
 // never beats a newer Health reading. Nothing here writes or deletes entries.
+//
+// Every reading belongs to one of three families (src/body/sources.ts): Scale
+// (Withings, typed-in and other-app weights), Evolt (scans) and DEXA (every
+// other scan). DEXA is left out of every series here: it has its own page and
+// is never charted or averaged with anything.
+
+import { familyOfEntry, FAMILY_LABEL as SOURCE_FAMILY_LABEL, SCALE_RANK } from './sources'
 
 export type BodySource = 'scan' | 'manual' | 'withings' | 'other'
 /**
@@ -20,7 +27,11 @@ export type BodyField = string
 /** Numbers on an entry that describe the scan, not the body. */
 const NOT_MEASURES = new Set(['heightCm', 'ageAtScan'])
 
-export const SOURCE_RANK: Record<BodySource, number> = { scan: 4, manual: 3, withings: 2, other: 1 }
+/**
+ * Same-day order: an Evolt scan, then Withings, then typed in, then other
+ * apps (the Scale order from the brief; see SCALE_RANK).
+ */
+export const SOURCE_RANK: Record<BodySource, number> = { scan: 4, withings: SCALE_RANK.withings, manual: SCALE_RANK.manual, other: SCALE_RANK.other }
 export const STALE_DAYS = 14
 
 export interface MeasurementLike {
@@ -54,8 +65,10 @@ export interface DayPoint {
   value: number
   source: BodySource
   sourceLabel: string
-  /** device family: evolt, withings, manual, dexa, inbody, scan, other */
+  /** source family: scale, evolt or dexa */
   family?: string
+  /** an estimated value (the starting entry) */
+  estimated?: boolean
   /** diastolic, for blood pressure */
   extra?: number | null
 }
@@ -66,30 +79,23 @@ interface Reading {
   source: BodySource
   sourceLabel: string
   family: string
+  estimated?: boolean
   values: Record<string, number>
 }
 
 /**
  * Body fat %, fat mass and lean mass depend heavily on the device: a scan and
- * a bathroom scale on the same morning disagree by several points. These are
- * kept as one series per device family and never averaged or compared across
- * families. Weight is the same on any scale and is merged.
+ * a bathroom scale on the same morning disagree by several points. They are
+ * kept as one series per family and never averaged or compared across
+ * families. Weight is also offered per family, but the merged series still
+ * answers "what is my weight now".
  */
 export const FAMILY_FIELDS = new Set(['bodyFat', 'fatMass', 'leanMass'])
-export const FAMILY_LABEL: Record<string, string> = {
-  evolt: 'Evolt', withings: 'Withings', manual: 'Manual', dexa: 'DEXA', inbody: 'InBody', scan: 'Scan', other: 'Other apps',
-}
+export const FAMILY_LABEL = SOURCE_FAMILY_LABEL
 
-/** The family a device or source belongs to. Typed-in values are their own family. */
-export function familyOfDevice(device: string | null | undefined, source?: BodySource): string {
-  const d = (device || '').toLowerCase()
-  if (/evolt/.test(d)) return 'evolt'
-  if (/withings/.test(d)) return 'withings'
-  if (/dexa/.test(d)) return 'dexa'
-  if (/inbody/.test(d)) return 'inbody'
-  if (source === 'manual' || (!d && !source)) return 'manual'
-  if (source === 'scan') return 'scan'
-  return 'other'
+/** The family a device name belongs to (a scan's device decides it). */
+export function familyOfDevice(device: string | null | undefined): string {
+  return familyOfEntry({ date: '', source: 'scan', device: device || '' })
 }
 
 const num = (v: unknown): number | null => {
@@ -103,11 +109,14 @@ const round = (v: number, dp = 2) => Math.round(v * 10 ** dp) / 10 ** dp
 export const sourceLabel = (source: BodySource, name?: string | null): string =>
   source === 'scan' ? (name || 'Scan') : source === 'manual' ? 'Manual' : source === 'withings' ? 'Withings' : (name || 'Apple Health')
 
+const isEstimated = (m: MeasurementLike) => m.estimated === true
+
 function readingsFrom({ measurements = [], health = [] }: BodyInput): Reading[] {
   const out: Reading[] = []
   measurements.forEach((m, i) => {
     if (m.hiddenFromCharts) return
-    const source: BodySource = m.source === 'scan' ? 'scan' : 'manual'
+    const family = familyOfEntry(m)
+    const source: BodySource = family === 'scale' ? 'manual' : 'scan'
     const values: Reading['values'] = {}
     for (const [k, raw] of Object.entries(m)) {
       if (NOT_MEASURES.has(k) || typeof raw === 'object' || typeof raw === 'boolean') continue
@@ -116,7 +125,7 @@ function readingsFrom({ measurements = [], health = [] }: BodyInput): Reading[] 
       if (v != null) values[k] = v
     }
     const label = sourceLabel(source, m.device || m.scanType)
-    out.push({ date: m.date, order: i, source, sourceLabel: label, family: source === 'manual' ? 'manual' : familyOfDevice(m.device || m.scanType, 'scan'), values })
+    out.push({ date: m.date, order: i, source, sourceLabel: label, family, estimated: isEstimated(m), values })
   })
   health.forEach((h, i) => {
     const source: BodySource = /withings/i.test(h.weightSource || '') ? 'withings' : 'other'
@@ -126,7 +135,7 @@ function readingsFrom({ measurements = [], health = [] }: BodyInput): Reading[] 
     if (num(h.leanMass) != null) values.leanMass = num(h.leanMass) as number
     if (num(h.bpSys) != null) values.bpSys = num(h.bpSys) as number
     if (num(h.bpDia) != null) values.bpDia = num(h.bpDia) as number
-    out.push({ date: h.date, order: measurements.length + i, source, sourceLabel: sourceLabel(source, h.weightSource), family: source === 'withings' ? 'withings' : familyOfDevice(h.weightSource, 'other'), values })
+    out.push({ date: h.date, order: measurements.length + i, source, sourceLabel: sourceLabel(source, h.weightSource), family: 'scale', values })
   })
   return out
 }
@@ -145,6 +154,7 @@ function resolveStored(readings: Reading[], key: string): Map<string, DayPoint> 
   for (const [date, r] of best) {
     out.set(date, {
       date, value: r.values[key] as number, source: r.source, sourceLabel: r.sourceLabel, family: r.family,
+      ...(r.estimated ? { estimated: true } : {}),
       ...(key === 'bpSys' ? { extra: r.values.bpDia ?? null } : {}),
     })
   }
@@ -159,8 +169,11 @@ const sorted = (m: Map<string, DayPoint>) => [...m.values()].sort((a, b) => a.da
  * fat mass.
  */
 export function dailySeries(field: BodyField, input: BodyInput): DayPoint[] {
-  return seriesFromReadings(field, readingsFrom(input))
+  return seriesFromReadings(field, chartable(readingsFrom(input)))
 }
+
+/** Every reading except DEXA, which is never charted or merged. */
+const chartable = (readings: Reading[]) => readings.filter((r) => r.family !== 'dexa')
 
 function seriesFromReadings(field: BodyField, readings: Reading[]): DayPoint[] {
   if (field === 'bp') return sorted(resolveStored(readings, 'bpSys'))
@@ -184,16 +197,16 @@ function seriesFromReadings(field: BodyField, readings: Reading[]): DayPoint[] {
 
 const dayNum = (d: string) => Math.round(Date.parse(`${d}T00:00:00Z`) / 86400000)
 
-/** One device family's series for a field: only its own readings, fat and lean worked out within it. */
+/** One family's series for a field: only its own readings, fat and lean worked out within it. DEXA has none. */
 export function familySeries(field: BodyField, input: BodyInput, family: string): DayPoint[] {
+  if (family === 'dexa') return []
   return seriesFromReadings(field, readingsFrom(input).filter((r) => r.family === family))
 }
 
-/** Every family that has the field, with its series. */
+/** Every chartable family that has the field, with its series (Scale and Evolt only). */
 export function seriesByFamily(field: BodyField, input: BodyInput): Record<string, DayPoint[]> {
-  const families = [...new Set(readingsFrom(input).map((r) => r.family))]
   const out: Record<string, DayPoint[]> = {}
-  for (const f of families) {
+  for (const f of ['scale', 'evolt']) {
     const s = familySeries(field, input, f)
     if (s.length) out[f] = s
   }
@@ -202,14 +215,14 @@ export function seriesByFamily(field: BodyField, input: BodyInput): Record<strin
 
 /**
  * Which family a comparison over [from, to] uses: Evolt when it has at least
- * two readings in the window, else Withings when it has any, else whichever
- * family has the most readings there.
+ * two readings in the window, else Scale when it has any, else whichever has
+ * the most readings there.
  */
 export function pickFamily(field: BodyField, input: BodyInput, from: string, to: string): string | null {
   const by = seriesByFamily(field, input)
   const count = (f: string) => (by[f] || []).filter((p) => p.date >= from && p.date <= to).length
   if (count('evolt') >= 2) return 'evolt'
-  if (count('withings') > 0) return 'withings'
+  if (count('scale') > 0) return 'scale'
   const ranked = Object.keys(by).map((f) => [f, count(f)] as const).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1])
   return ranked[0]?.[0] ?? null
 }

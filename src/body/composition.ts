@@ -188,22 +188,38 @@ export function projectGoal(series: Array<{ date: string; value: number }>, goal
 
 // ----------------------------------------------------------- weekly change
 
-export interface WeekBar { weekStart: string; mean: number | null; change: number | null }
+export interface WeekBar {
+  weekStart: string
+  mean: number | null
+  /** weigh-ins that week */
+  count: number
+  /** this week's mean against the week before, or null (a dash) when the week has under 2 weigh-ins or the week before has none */
+  change: number | null
+}
 
-/** The last 12 weeks (Monday to Sunday): each week's mean and its change from the week before. */
-export function weeklyBars(series: Array<{ date: string; value: number }>, today: string, weeks = 12): WeekBar[] {
+/**
+ * The last `weeks` weeks (Monday to Sunday): each week's mean and its change
+ * from the week before. A week needs at least 2 weigh-ins to draw a bar; the
+ * week before only needs one reading to compare against.
+ */
+export function weeklyBars(series: Array<{ date: string; value: number }>, today: string, weeks = 12, minReadings = 2): WeekBar[] {
   const dow = (new Date(`${today}T00:00:00Z`).getUTCDay() + 6) % 7
   const thisMonday = dayNum(today) - dow
   const starts = Array.from({ length: weeks + 1 }, (_, i) => thisMonday - (weeks - i) * 7)
-  const means = starts.map((s) => {
+  const stats = starts.map((s) => {
     const pts = series.filter((p) => dayNum(p.date) >= s && dayNum(p.date) < s + 7)
-    return pts.length ? pts.reduce((a, p) => a + p.value, 0) / pts.length : null
+    return { count: pts.length, mean: pts.length ? pts.reduce((a, p) => a + p.value, 0) / pts.length : null }
   })
-  return starts.slice(1).map((s, i) => ({
-    weekStart: fromNum(s),
-    mean: means[i + 1] == null ? null : r2(means[i + 1] as number),
-    change: means[i + 1] != null && means[i] != null ? r2((means[i + 1] as number) - (means[i] as number)) : null,
-  }))
+  return starts.slice(1).map((s, i) => {
+    const cur = stats[i + 1]
+    const prev = stats[i]
+    return {
+      weekStart: fromNum(s),
+      mean: cur.mean == null ? null : r2(cur.mean),
+      count: cur.count,
+      change: cur.count >= minReadings && cur.mean != null && prev.mean != null ? r2(cur.mean - prev.mean) : null,
+    }
+  })
 }
 
 // ------------------------------------------------------------ helpers

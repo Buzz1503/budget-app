@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import {
   bucketPoints, bucketFor, weekStart, yAxis, labelPlacement, pickLabels, xTicks, groupEvents, rangeChangeWords, MIN_SPAN,
+  rangeBounds, rangeChange, lineSegments, mergeScans, nearestPoint, GAP_DAYS, MERGE_DAYS, RANGES, LABEL_SPACING,
 } from './chartPoints'
-import type { SeriesPoint, LabelBox } from './chartPoints'
+import type { SeriesPoint, LabelBox, PlotPoint } from './chartPoints'
 
 describe('bucketing', () => {
   it('30 days daily, 90 days and 6 months weekly, a year, two years and all time monthly', () => {
@@ -108,5 +109,80 @@ describe('x axis and pins', () => {
     const pts = [{ x: 'a', from: 'a', to: 'a', value: 93, n: 1, sources: [], scan: false }, { x: 'b', from: 'b', to: 'b', value: 91, n: 1, sources: [], scan: false }]
     expect(rangeChangeWords(pts, 'kg', 1, '2026-07-22', '2026-10-19')).toBe('down 2.0 kg over 90 days')
     expect(rangeChangeWords(pts, 'kg', 1, '2026-07-22', '2026-10-19', false)).toBe('down 2.0 kg')
+  })
+})
+
+const pt = (x: string, value: number, scan = false): PlotPoint => ({ x, from: x, to: x, value, n: 1, sources: [], scan })
+
+describe('Since start range and the header change', () => {
+  it('Since start runs from the starting date to today and is offered with the other ranges', () => {
+    expect(RANGES.map((r) => r.key)).toEqual(['Start', '30D', '90D', '6M', '1Y', '2Y', 'All'])
+    expect(rangeBounds('Start', '2026-10-19', [{ date: '2025-06-01', value: 1 }], '2025-01-01')).toEqual({ from: '2025-01-01', to: '2026-10-19' })
+    // without a starting point it falls back to the first reading
+    expect(rangeBounds('Start', '2026-10-19', [{ date: '2025-06-01', value: 1 }])).toEqual({ from: '2025-06-01', to: '2026-10-19' })
+    expect(bucketFor('Start', '2025-01-01', '2026-10-19')).toBe('month')
+    expect(bucketFor('Start', '2026-09-01', '2026-10-19')).toBe('week')
+  })
+
+  it('Since start compares the latest value with the starting value: down 13.9 kg since 1 Jan 2025', () => {
+    const series = [{ date: '2025-03-01', value: 100 }, { date: '2026-10-18', value: 91.7 }]
+    const r = rangeChange({ series, from: '2025-01-01', to: '2026-10-19', range: 'Start', startValue: 105.6, startDate: '2025-01-01', unit: 'kg' })
+    expect(r.delta).toBeCloseTo(-13.9, 5)
+    expect(r.words).toBe('down 13.9 kg since 1 Jan 2025')
+  })
+
+  it('any other range compares the first and last reading of the same series, counting the days between them (not 789)', () => {
+    const series = [{ date: '2024-08-01', value: 99 }, { date: '2026-08-28', value: 93 }, { date: '2026-10-10', value: 92.4 }]
+    const r = rangeChange({ series, from: '2024-01-01', to: '2026-10-19', range: 'All', unit: 'kg' })
+    expect(r.words).toBe('down 6.6 kg over 800 days')
+    // the window is 30 days wide, so 'over 30 days' must not come from the window width
+    const w = rangeChange({ series, from: '2026-09-20', to: '2026-10-19', range: '30D', unit: 'kg' })
+    expect(w).toEqual({ delta: null, words: null })
+    const two = rangeChange({ series: [...series, { date: '2026-09-25', value: 92.8 }], from: '2026-09-20', to: '2026-10-19', range: '30D', unit: 'kg' })
+    expect(two.words).toBe('down 0.4 kg over 15 days')
+    expect(rangeChange({ series: [{ date: '2026-10-10', value: 92 }, { date: '2026-10-11', value: 92 }], from: '2026-09-20', to: '2026-10-19', range: '30D' }).words)
+      .toBe('about the same over 1 day')
+  })
+})
+
+describe('connected lines, label spacing, merged scans, scrubbing', () => {
+  it('every neighbouring pair is joined; more than 120 days apart is a faint gap, 120 is not', () => {
+    expect(GAP_DAYS).toBe(120)
+    const segs = lineSegments([pt('2025-01-01', 1), pt('2025-04-30', 2), pt('2025-08-28', 3), pt('2025-12-26', 4)])
+    // 2025-01-01 to 2025-04-30 = 119 days; to 2025-08-28 = 120; to 2025-12-26 = 120
+    expect(segs).toHaveLength(3)
+    expect(segs.map((x) => x.gap)).toEqual([false, false, false])
+    const long = lineSegments([pt('2025-01-01', 1), pt('2025-05-02', 2), pt('2025-05-03', 3)])
+    expect(long.map((x) => x.gap)).toEqual([true, false])
+  })
+
+  it('labels keep first, last, high and low, and the rest are at least 48 px apart', () => {
+    expect(LABEL_SPACING).toBe(48)
+    const boxes = Array.from({ length: 30 }, (_, i): LabelBox => ({ x: i * 10, y: 0, w: 20, h: 10, value: 90 + Math.sin(i / 3) * 3 }))
+    const kept = [...pickLabels(boxes)].sort((a, b) => a - b)
+    const vals = boxes.map((b) => b.value)
+    for (const must of [0, 29, vals.indexOf(Math.max(...vals)), vals.indexOf(Math.min(...vals))]) expect(kept).toContain(must)
+    const extra = kept.filter((i) => ![0, 29, vals.indexOf(Math.max(...vals)), vals.indexOf(Math.min(...vals))].includes(i))
+    for (const i of extra) for (const k of kept) if (k !== i) expect(Math.abs(boxes[i].x - boxes[k].x)).toBeGreaterThanOrEqual(48)
+    expect(kept.length).toBeLessThan(12)
+  })
+
+  it('scans within 10 days draw as one marker (the latest) and carry the others', () => {
+    expect(MERGE_DAYS).toBe(10)
+    const merged = mergeScans([pt('2026-05-01', 38, true), pt('2026-05-08', 37.5, true), pt('2026-05-11', 37.2, true), pt('2026-05-12', 37, true), pt('2026-06-30', 36, true), pt('2026-05-05', 90)])
+    // 1, 8 and 11 May fall inside 10 days of the first; 12 May starts a new cluster
+    expect(merged.map((p) => p.x)).toEqual(['2026-05-05', '2026-05-11', '2026-05-12', '2026-06-30'])
+    const cluster = merged.find((p) => p.x === '2026-05-11')!
+    expect(cluster.value).toBe(37.2)
+    expect(cluster.members!.map((m) => m.x)).toEqual(['2026-05-01', '2026-05-08', '2026-05-11'])
+    expect(merged.find((p) => p.x === '2026-06-30')!.members).toBeUndefined()
+    // only same-series scans are given: a single scan is untouched
+    expect(mergeScans([pt('2026-01-01', 1, true)])).toHaveLength(1)
+  })
+
+  it('scrubbing lands on the nearest point', () => {
+    expect(nearestPoint([10, 50, 90], 62)).toBe(1)
+    expect(nearestPoint([10, 50, 90], 80)).toBe(2)
+    expect(nearestPoint([], 5)).toBe(-1)
   })
 })

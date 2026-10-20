@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { laneFor, MAX_LANES } from './lanes'
+import { laneFor, MAX_LANES, doseAt, laneValuesAt } from './lanes'
 
 describe('compound lanes', () => {
   const points = [
@@ -34,5 +34,24 @@ describe('compound lanes', () => {
 
   it('a chart shows at most four lanes', () => {
     expect(MAX_LANES).toBe(4)
+  })
+})
+
+describe('scrub readout for the lanes', () => {
+  const segs = [{ from: '2026-01-01', to: '2026-01-31', dose: 1.5, unit: 'mg' }, { from: '2026-02-01', to: '2026-03-14', dose: 3, unit: 'mg' }]
+  it('the dose a compound was at on a date, or nothing when it was not on it', () => {
+    expect(doseAt({ segments: segs as never }, '2026-02-20')).toBe('3 mg')
+    expect(doseAt({ segments: segs as never }, '2026-01-15')).toBe('1.5 mg')
+    expect(doseAt({ segments: segs as never }, '2026-03-20')).toBeNull()
+  })
+  it('lists each lane that has a value at the date, sauna as minutes', () => {
+    const lanes = [
+      { name: 'Reta', segments: segs as never },
+      { name: 'BPC', segments: [{ from: '2026-04-01', to: '2026-04-30', dose: 250, unit: 'mcg' }] as never },
+      { name: 'Sauna', kind: 'dots', segments: [], dots: [{ date: '2026-02-20', minutes: 25 }] },
+    ]
+    expect(laneValuesAt(lanes, '2026-02-20')).toEqual(['Reta 3 mg', 'Sauna 25 min'])
+    expect(laneValuesAt(lanes, '2026-04-02')).toEqual(['BPC 250 mcg'])
+    expect(laneValuesAt(lanes, '2025-01-01')).toEqual([])
   })
 })

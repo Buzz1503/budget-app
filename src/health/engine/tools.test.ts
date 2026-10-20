@@ -250,9 +250,9 @@ describe('model and day snapshot', () => {
     expect(model.readiness('2026-06-25').status).toBe('building')
   })
 
-  it('max HR comes from date of birth unless set; manual weight beats the scale', () => {
+  it('max HR comes from date of birth unless set; inside Scale, Withings beats a typed-in weight', () => {
     expect(model.maxHR).toBe(183) // 208 − 0.7 × 36 = 182.8
-    expect(model.bodyBy.get('2026-10-10')!.weightSource).toBe('manual')
+    expect(model.bodyBy.get('2026-10-10')!.weightSource).not.toBe('manual')
     expect(model.sessions.length).toBeLessThan(workouts.length) // Hevy + Watch pairs merged
   })
 

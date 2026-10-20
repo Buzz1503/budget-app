@@ -8,7 +8,8 @@ import {
 import { SEED_KNOWN_GOOD } from '../lib/mixing'
 import { canPush } from '../lib/pushes'
 import { pauseEnd } from '../lib/pauses'
-import { applyScanHistory } from '../body/scanHistory'
+import { applyScanHistory, moveStartEntry } from '../body/scanHistory'
+import { migrateSourceFamilies } from '../body/sources'
 import { applyScanImport } from '../body/scanImport'
 import { validWakeTarget } from '../health/engine/planner'
 import EVOLT_HISTORY from '../data/evolt_scans.json'
@@ -71,6 +72,8 @@ function initialState() {
     measurements: [], // body-comp entries (structured; no blobs)
     // where every "since" delta starts: { date, label, values, entryId, device } or null for the default
     bodyStart: null,
+    // which source each body chart shows, by metric: { weight: 'scale', bodyFat: 'evolt' }
+    chartSources: {},
     photos: [], // progress-photo metadata; blobs live in IndexedDB by blobKey
     bodyGoals: {}, // { metric: targetValue }; weight and bodyFat drive the Composition projection
     bodyProfile: { heightCm: null }, // height for FFMI; empty uses the latest scan's
@@ -2110,6 +2113,10 @@ const useStore = create(
           device: start.device || null,
         } })
       },
+      /** Remember which source a body chart shows (Scale or Evolt), per metric. */
+      setChartSource(metric, family) {
+        set((s) => ({ chartSources: { ...(s.chartSources || {}), [metric]: family } }))
+      },
       /** Back to the default: the first tracked compound's start date. */
       resetBodyStart() {
         set({ bodyStart: null })
@@ -2306,7 +2313,7 @@ const useStore = create(
     }),
     {
       name: 'peptide-command-center', // storage key is history — renaming it would orphan existing data
-      version: 22,
+      version: 23,
       storage: createJSONStorage(() => safeStorage),
       // Saves written before a release can't pick new library entries up from
       // the seed, so each version bump backfills them here — once. Deleting one
@@ -2333,8 +2340,10 @@ const useStore = create(
       //   v20: two nightly topicals, with the nights since each was started
       //   v21: the user's 13 Jan 2025 Evolt scan (adjusted and original) as the starting point
       //   v22: the full Evolt history (15 scans), scan fields first-class, a bad wake target cleared
+      //   v23: body sources are Scale, Evolt and DEXA (every entry stamped, none deleted);
+      //        the estimated start moves to 1 Jan 2025
       migrate: (persisted, from) => {
-        if (!persisted || from >= 22) return persisted
+        if (!persisted || from >= 23) return persisted
         const s = { ...persisted }
         const t = todayStr()
         if (from < 22) {
@@ -2348,6 +2357,14 @@ const useStore = create(
           if (s.healthSettings?.wakeTarget && !validWakeTarget(s.healthSettings.wakeTarget)) {
             s.healthSettings = { ...s.healthSettings, wakeTarget: null }
           }
+        }
+        if (from < 23) {
+          // the estimated starting entry moves from 13 Jan to 1 Jan 2025, then
+          // every entry is stamped with its family (Scale, Evolt or DEXA) and
+          // keeps the source it had. Values are untouched; nothing is deleted.
+          const moved = moveStartEntry(s.measurements || [], s.bodyStart)
+          s.bodyStart = moved.bodyStart
+          s.measurements = migrateSourceFamilies(moved.measurements).measurements
         }
         if (from < 20) {
           // Idempotent: a topical already on the shelf is reused and a night

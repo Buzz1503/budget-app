@@ -48,3 +48,30 @@ export function laneFor(points: DosePoint[], runs: Run[], from: string, to: stri
 }
 
 export const MAX_LANES = 4
+
+/** "3 mg" for a compound on a date: the dose of the segment covering it, or null when it was not on it. */
+export function doseAt(lane: Pick<Lane, 'segments'>, date: string): string | null {
+  const seg = lane.segments.find((x) => x.from <= date && date <= x.to)
+  return seg ? fmt(seg.dose, seg.unit) : null
+}
+
+/**
+ * What each lane says at a date, for the scrub readout: "Retatrutide 3 mg",
+ * "Sauna 25 min". A lane with nothing at that date says nothing.
+ */
+export function laneValuesAt(
+  lanes: Array<{ name: string; kind?: string; segments: LaneSegment[]; dots?: Array<{ date: string; minutes: number }> }>,
+  date: string,
+): string[] {
+  const out: string[] = []
+  for (const l of lanes) {
+    if (l.kind === 'dots') {
+      const hit = (l.dots || []).find((d) => d.date === date)
+      if (hit) out.push(`${l.name} ${hit.minutes} min`)
+      continue
+    }
+    const dose = doseAt(l, date)
+    if (dose) out.push(`${l.name} ${dose}`)
+  }
+  return out
+}

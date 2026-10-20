@@ -5,12 +5,12 @@ import useStore, { todayStr } from '../../store/useStore'
 import NumberField from '../ui/NumberField'
 import { CountIn, Stagger, StaggerItem } from '../ui/Motion'
 import Sparkline from '../charts/Sparkline'
-import TrendChart from '../charts/TrendChart'
-import FamilyChart from '../charts/FamilyChart'
+import BodyChart, { useChartSource } from '../charts/BodyChart'
 import useChartEvents from '../charts/useChartEvents'
 import { useBodyInput, useBodyStart, sinceWords } from '../../lib/useBody'
 import { dailySeries, familySeries, seriesByFamily, pickFamily, weeklyChange, FAMILY_FIELDS } from '../../body/bodySeries'
-import { compareSinceStart, getStartValue } from '../../body/startPoint'
+import { compareSinceStart } from '../../body/startPoint'
+import { dexaScans, resolveSource } from '../../body/sources'
 import { SCAN_METRICS } from '../../body/scanFields'
 import {
   lossSplit, evoltScans, ffmi, heightFor, projectGoal, weeklyBars, latestScanMeta, seriesForMetric,
@@ -36,18 +36,21 @@ function SectionTitle({ children, sub }) {
 
 // ---------------------------------------------------------------- hero
 
+/** Weight from the same source the weight chart shows (Scale unless you chose Evolt), against the starting weight. */
 function Hero({ onLog, onOpenStart }) {
   const input = useBodyInput()
   const start = useBodyStart()
   const t = todayStr()
-  const w = compareSinceStart('weight', start, input, t)
-  const rate = weeklyChange(dailySeries('weight', input))
+  const families = useMemo(() => seriesByFamily('weight', input), [input])
+  const [family] = useChartSource('weight', Object.keys(families))
+  const w = compareSinceStart('weight', start, input, t, { family })
+  const rate = weeklyChange(family ? families[family] : [])
   if (!w.latest) {
     return (
       <section className="card p-5" data-testid="composition-hero">
         <p className="t-caption" style={{ color: 'var(--text-3)' }}>Weight</p>
-        <p className="mt-1 text-sm font-medium" style={{ color: 'var(--text-2)' }}>No weigh-ins yet. Log one, import a scan, or connect Apple Health.</p>
-        <button onClick={onLog} className="btn-primary mt-4 flex w-full items-center justify-center gap-2 rounded-full py-3 text-sm font-black"><Plus size={16} /> Log measurement</button>
+        <p className="mt-1 text-sm font-medium" style={{ color: 'var(--text-2)' }}>No weigh-ins yet. Connect Apple Health for your Withings scale, or import an Evolt scan.</p>
+        <button onClick={onLog} className="mt-4 flex w-full items-center justify-center gap-2 rounded-full py-3 text-sm font-black" style={{ background: 'var(--surface-sunk)', color: 'var(--text-2)' }}><Plus size={16} /> Log tape measurement</button>
       </section>
     )
   }
@@ -55,8 +58,8 @@ function Hero({ onLog, onOpenStart }) {
     <section className="card p-5" data-testid="composition-hero">
       <div className="flex items-start gap-3">
         <p className="t-caption min-w-0 flex-1" style={{ color: 'var(--text-3)' }}>Weight</p>
-        <button onClick={onLog} className="flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-bold" style={{ background: 'var(--surface-sunk)', color: 'var(--text-2)' }} data-testid="composition-log">
-          <Plus size={13} /> Log
+        <button onClick={onLog} aria-label="Log a tape measurement" className="flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-bold" style={{ background: 'var(--surface-sunk)', color: 'var(--text-2)' }} data-testid="composition-log">
+          <Plus size={13} /> Tape
         </button>
       </div>
       <p className="mt-1 font-black tabular-nums leading-none" style={{ fontSize: 56 }} data-testid="hero-weight">
@@ -148,15 +151,18 @@ function waistField(input) {
   return a.date >= w.date ? 'abdominalCircumference' : 'waist'
 }
 
+/** A metric's latest value and change since the start, from the source its chart shows. */
 function useMetricRow(field) {
   const input = useBodyInput()
   const start = useBodyStart()
+  const saved = useStore((s) => s.chartSources?.[field])
   const t = todayStr()
   return useMemo(() => {
-    const cmp = compareSinceStart(field, start, input, t)
+    const family = FAMILY_FIELDS.has(field) ? resolveSource(field, Object.keys(seriesByFamily(field, input)), saved) : null
+    const cmp = compareSinceStart(field, start, input, t, { family })
     const series = seriesForMetric(field, input, cmp.family)
     return { ...cmp, series }
-  }, [field, input, start, t])
+  }, [field, input, start, t, saved])
 }
 
 function KeyTile({ def, onOpen }) {
@@ -307,7 +313,7 @@ function GoalCard() {
       )}
       {bf && (
         <div className="mt-3" data-testid="goal-bodyfat-line">
-          <p className="text-sm font-bold">{goals.bodyFat}% body fat <span className="text-xs font-medium" style={{ color: 'var(--text-3)' }}>({fam === 'evolt' ? 'Evolt' : fam === 'withings' ? 'Withings' : fam})</span></p>
+          <p className="text-sm font-bold">{goals.bodyFat}% body fat <span className="text-xs font-medium" style={{ color: 'var(--text-3)' }}>({fam === 'evolt' ? 'Evolt' : fam === 'scale' ? 'Scale' : fam})</span></p>
           <p className="text-sm font-medium" style={{ color: 'var(--text-2)' }}>{bf.words}</p>
         </div>
       )}
@@ -318,28 +324,52 @@ function GoalCard() {
 
 // ------------------------------------------------------------------ charts
 
-function WeeklyBarsStrip({ series }) {
+const WEEK_W = 340
+const WEEK_PAD = { l: 8, r: 8, t: 22, b: 22 }
+const WEEK_H = 150
+
+/**
+ * Weekly change: one bar per week for the last 12, from a zero line, the value
+ * on each bar, the week's start date under it. Down in the accent, up in amber.
+ * A week with fewer than 2 weigh-ins is an empty slot with a dash.
+ */
+function WeeklyBars({ series }) {
   const t = todayStr()
   const bars = weeklyBars(series, t)
-  const max = Math.max(0.2, ...bars.map((b) => Math.abs(b.change || 0)))
-  if (bars.every((b) => b.change == null)) return null
+  if (bars.every((b) => b.mean == null)) return null
+  const max = Math.max(0.3, ...bars.map((b) => Math.abs(b.change || 0)))
+  const mid = WEEK_PAD.t + (WEEK_H - WEEK_PAD.t - WEEK_PAD.b) / 2
+  const half = (WEEK_H - WEEK_PAD.t - WEEK_PAD.b) / 2 - 12
+  const slot = (WEEK_W - WEEK_PAD.l - WEEK_PAD.r) / bars.length
   return (
     <div className="card p-3" data-testid="weekly-bars">
       <p className="t-caption" style={{ color: 'var(--text-2)' }}>Weekly change, last 12 weeks</p>
-      <svg viewBox="0 0 320 70" className="mt-2 w-full" role="img" aria-label="Change in average weight from each week to the next">
-        <line x1="0" x2="320" y1="35" y2="35" stroke="var(--border)" />
+      <svg viewBox={`0 0 ${WEEK_W} ${WEEK_H}`} className="mt-2 w-full" role="img" aria-label="Change in average weight from each week to the week before">
+        <line x1={WEEK_PAD.l} x2={WEEK_W - WEEK_PAD.r} y1={mid} y2={mid} stroke="var(--text-3)" strokeWidth="1" data-testid="weekly-zero" />
         {bars.map((b, i) => {
-          const x = 4 + i * (312 / 12)
-          if (b.change == null) return null
-          const h = (Math.abs(b.change) / max) * 30
+          const cx = WEEK_PAD.l + i * slot + slot / 2
+          const label = format(parseISO(b.weekStart), 'd MMM')
+          if (b.change == null) {
+            return (
+              <g key={b.weekStart} data-testid="weekly-empty" data-week={b.weekStart}>
+                <text x={cx} y={mid + 3} fontSize="10" fontWeight="700" textAnchor="middle" fill="var(--text-3)">–</text>
+                <text x={cx} y={WEEK_H - 8} fontSize="7" fontWeight="600" textAnchor="middle" fill="var(--text-3)" className="tabular-nums">{label}</text>
+              </g>
+            )
+          }
+          const h = Math.max(1.5, (Math.abs(b.change) / max) * half)
+          const down = b.change < 0
+          const text = `${b.change > 0 ? '+' : b.change < 0 ? '−' : ''}${Math.abs(b.change).toFixed(1)}`
           return (
-            <g key={b.weekStart} data-testid="weekly-bar" data-change={b.change}>
-              <rect x={x} width={312 / 12 - 6} y={b.change < 0 ? 35 : 35 - h} height={Math.max(1, h)} rx="3" fill={b.change < 0 ? GOOD : BAD} />
+            <g key={b.weekStart} data-testid="weekly-bar" data-change={b.change} data-week={b.weekStart}>
+              <rect x={cx - slot * 0.32} width={slot * 0.64} y={down ? mid : mid - h} height={h} rx="3" fill={down ? GOOD : BAD} />
+              <text x={cx} y={down ? mid + h + 9 : mid - h - 3} fontSize="8" fontWeight="700" textAnchor="middle" fill="var(--text-2)" className="tabular-nums">{text}</text>
+              <text x={cx} y={WEEK_H - 8} fontSize="7" fontWeight="600" textAnchor="middle" fill="var(--text-3)" className="tabular-nums">{label}</text>
             </g>
           )
         })}
       </svg>
-      <p className="text-[11px] font-medium" style={{ color: 'var(--text-3)' }}>Each bar is a week's average weight against the week before. Down in the accent, up in amber.</p>
+      <p className="text-[11px] font-medium" style={{ color: 'var(--text-3)' }}>Each bar is a week's average weight against the week before, in kg. Down in the accent, up in amber. A dash means fewer than 2 weigh-ins that week.</p>
     </div>
   )
 }
@@ -352,47 +382,52 @@ const FAMILY_METRICS = [
 
 function Charts() {
   const input = useBodyInput()
-  const start = useBodyStart()
   const events = useChartEvents()
-  const measurements = useStore((s) => s.measurements)
   const [fm, setFm] = useState('bodyFat')
-  const weight = useMemo(() => dailySeries('weight', input), [input])
-  const latestW = weight.at(-1)
-  const families = useMemo(() => seriesByFamily(fm, input), [fm, input])
+  const weightFamilies = useMemo(() => seriesByFamily('weight', input), [input])
+  const [wf] = useChartSource('weight', Object.keys(weightFamilies))
   const def = FAMILY_METRICS.find((m) => m.key === fm)
-  const meta = latestScanMeta(measurements, fm)
-  const fam = families.evolt ? 'evolt' : Object.keys(families)[0]
+  const anyComposition = Object.keys(seriesByFamily(fm, input)).length > 0
   return (
     <div className="space-y-3">
-      <TrendChart metric="weight" chartType="composition-weight" title="Weight" unit="kg" dp={1} series={weight} events={events}
-        defaultRange="All" startLine={getStartValue('weight', start, input)} testid="composition-weight-chart"
-        current={latestW?.value ?? null} currentCaption={latestW ? `${shortD(latestW.date)}, ${latestW.sourceLabel}` : null}
-        note="Weekly points from your scale, scans as rings." />
-      <WeeklyBarsStrip series={weight} />
-      {Object.keys(families).length > 0 && (
-        <>
-          <div className="flex gap-1.5" role="group" aria-label="Metric">
-            {FAMILY_METRICS.map((m) => (
-              <button key={m.key} onClick={() => setFm(m.key)} aria-pressed={fm === m.key} data-testid={`family-metric-${m.key}`}
-                className="min-h-[32px] rounded-full px-3 text-xs font-bold"
-                style={fm === m.key ? { background: 'var(--surface2)', color: 'var(--text)', border: '1px solid var(--border)' } : { background: 'var(--surface-sunk)', color: 'var(--text-3)', border: '1px solid transparent' }}>
-                {m.label}
-              </button>
-            ))}
-          </div>
-          <FamilyChart key={fm} metric={fm} title={`${def.label} by device`} unit={def.unit} dp={def.dp} families={families}
-            refBand={meta.range ? { lo: meta.range[0], hi: meta.range[1], label: 'Evolt reference range' } : null}
-            startLine={getStartValue(fm, start, input, { family: fam })} events={events} />
-        </>
-      )}
+      <BodyChart metric="weight" chartType="composition-weight" title="Weight" unit="kg" dp={1} events={events} testid="composition-weight-chart" />
+      <WeeklyBars series={wf ? weightFamilies[wf] : []} />
+      <div className="flex gap-1.5" role="group" aria-label="Metric">
+        {FAMILY_METRICS.map((m) => (
+          <button key={m.key} onClick={() => setFm(m.key)} aria-pressed={fm === m.key} data-testid={`family-metric-${m.key}`}
+            className="min-h-[32px] rounded-full px-3 text-xs font-bold"
+            style={fm === m.key ? { background: 'var(--surface2)', color: 'var(--text)', border: '1px solid var(--border)' } : { background: 'var(--surface-sunk)', color: 'var(--text-3)', border: '1px solid transparent' }}>
+            {m.label}
+          </button>
+        ))}
+      </div>
+      {anyComposition && <BodyChart key={fm} metric={fm} chartType={`composition-${fm}`} title={def.label} unit={def.unit} dp={def.dp} events={events} testid={`family-chart-${fm}`} />}
     </div>
+  )
+}
+
+/** A row to the DEXA page: how many scans, the latest. DEXA is never charted. */
+function DexaRow({ onOpen }) {
+  const measurements = useStore((s) => s.measurements)
+  const scans = useMemo(() => dexaScans(measurements), [measurements])
+  const last = scans.at(-1)
+  return (
+    <button onClick={onOpen} className="card flex w-full items-center gap-3 p-4 text-left" data-testid="dexa-row">
+      <span className="min-w-0 flex-1">
+        <span className="block text-base font-black">DEXA scans</span>
+        <span className="block text-xs font-medium tabular-nums" style={{ color: 'var(--text-3)' }}>
+          {scans.length ? `${scans.length} scan${scans.length === 1 ? '' : 's'} · latest ${format(parseISO(last.date), 'd MMM yyyy')}` : 'None yet. Add one, compared only with other DEXA scans.'}
+        </span>
+      </span>
+      <ChevronRight size={16} style={{ color: 'var(--text-3)' }} />
+    </button>
   )
 }
 
 // ------------------------------------------------------------------- view
 
 /** Body › Composition: one story, top to bottom. */
-export default function CompositionView({ onLog, onOpenStart }) {
+export default function CompositionView({ onLog, onOpenStart, onOpenDexa }) {
   const measurements = useStore((s) => s.measurements)
   const [metric, setMetric] = useState(null)
   const scans = useMemo(() => measurements.filter((m) => m.source === 'scan' && /evolt/i.test(m.device || '')), [measurements])
@@ -410,6 +445,7 @@ export default function CompositionView({ onLog, onOpenStart }) {
       <AllMetrics onOpen={setMetric} />
       <SegmentMap measurements={measurements} />
       <ScanCompare scans={scans} />
+      <DexaRow onOpen={onOpenDexa} />
       <GoalCard />
       <SectionTitle sub="Tap a tile or a row above for any one metric.">Trends</SectionTitle>
       <Charts />

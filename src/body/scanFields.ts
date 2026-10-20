@@ -86,9 +86,13 @@ export function groupedScanFields(entry: Record<string, unknown>): Array<{ group
 
 // ------------------------------------------------- the Evolt starting point
 
-export const EVOLT_START_ID = 'm-evolt-2025-01-13-start'
+export const EVOLT_START_ID = 'm-evolt-2025-01-01-start'
+/** Earlier ids of the same estimated entry, when it sat on 13 Jan 2025. Moved, never duplicated. */
+export const EVOLT_START_LEGACY_IDS = ['m-evolt-2025-01-13-start']
 /** The untimed copy of the 13 Jan 2025 scan added before the history was imported. */
 export const EVOLT_ORIGINAL_ID = 'm-evolt-2025-01-13-original'
+export const EVOLT_START_DATE = '2025-01-01'
+export const EVOLT_START_LABEL = 'Start (estimated)'
 
 const SEGMENTAL_13_JAN = {
   leftArmLean: 3.65, leftArmFat: 2.58, rightArmLean: 3.72, rightArmFat: 2.32,
@@ -97,19 +101,18 @@ const SEGMENTAL_13_JAN = {
 }
 
 /**
- * The 13 Jan 2025 Evolt scan adjusted to the 105.6 kg starting weight. Used
- * only as the starting point: it stays off the charts, which show the real
- * 102.6 kg scan from that morning.
+ * The 13 Jan 2025 Evolt scan adjusted to the 105.6 kg starting weight and
+ * placed on 1 Jan 2025. It is the starting point and the first point of every
+ * Evolt chart, drawn as a dashed ring because it is an estimate.
  */
 export const EVOLT_START_SCAN = {
   id: EVOLT_START_ID,
-  date: '2025-01-13',
+  date: EVOLT_START_DATE,
   source: 'scan',
   device: 'Evolt 360',
-  label: 'Start (adjusted to 105.6 kg)',
+  label: EVOLT_START_LABEL,
   estimated: true,
   estimateNote: 'Evolt scan at 102.6 kg adjusted to starting weight 105.6 kg. Extra 3.0 kg split 79% fat, 21% lean (Forbes model). Lean-based values scaled with lean, fat-based with fat, BMR by 370 + 21.6 x lean.',
-  hiddenFromCharts: true,
   weight: 105.6,
   bodyFat: 38.3,
   fatMass: 40.4,

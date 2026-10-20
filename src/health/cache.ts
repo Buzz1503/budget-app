@@ -40,6 +40,8 @@ export interface SyncMeta {
   characteristics: HealthCharacteristics
   /** See NIGHTS_SCHEMA in sync.ts. Missing on a cache from before stage 2C. */
   nightsSchema?: number
+  /** the full history has been read once (stage 3A); false on a cache from before */
+  historyDone?: boolean
 }
 
 export async function readMeta(db: HealthDB): Promise<SyncMeta> {
@@ -50,6 +52,7 @@ export async function readMeta(db: HealthDB): Promise<SyncMeta> {
     backfillDone: !!get('backfillDone'),
     characteristics: (get('characteristics') as HealthCharacteristics) || {},
     nightsSchema: (get('nightsSchema') as number) || 1,
+    historyDone: !!get('historyDone'),
   }
 }
 

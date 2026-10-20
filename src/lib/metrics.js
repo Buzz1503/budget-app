@@ -128,7 +128,12 @@ export function legacyMetricsPresent(measurements) {
 }
 
 // Primary fields shown in the quick-entry form (rest are optional extras).
-export const PRIMARY_FIELDS = ['weight', 'bodyFat', 'visceralFat', 'muscleMass', 'waist']
+// Weight, body fat, fat mass, lean mass and muscle mass are not typed in any
+// more: they come from Withings and from Evolt scans. The tape stays.
+export const PRIMARY_FIELDS = ['waist']
+
+/** Values that can no longer be typed in. Entries that already hold them keep them. */
+export const NOT_LOGGED_BY_HAND = ['weight', 'bodyFat', 'fatMass', 'leanMass', 'muscleMass', 'visceralFat']
 
 // Extras, grouped so a left/right pair sits on one row under one instruction.
 export const EXTRA_GROUPS = [

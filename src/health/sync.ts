@@ -1,8 +1,10 @@
 // Reading Apple Health into the local cache.
 //
-// First run: the last 365 days, 30 days at a time, so the phone stays responsive
-// and progress can be shown. After that: from three days before the last sync,
-// because Withings often delivers readings late. Each window is replaced as a
+// First run: the full history, 30 days at a time, so the phone stays
+// responsive and progress can be shown. The earliest date is found with one
+// cheap probe of the body readings, so a Withings scale from 2014 fills the
+// Scale weight line back that far. After that: from three days before the last
+// sync, because Withings often delivers readings late. Each window is replaced as a
 // whole — rows deleted, then rewritten — so running a sync twice changes
 // nothing, and a sample deleted in Health disappears here on the next pass.
 
@@ -15,6 +17,10 @@ import type { SourceClass, HealthWorkout } from './types'
 import { buildNights, buildDaily, buildWorkout, sleepingHeartRate } from './dayLogic'
 
 export const BACKFILL_DAYS = 365
+/** The earliest date the history probe looks at. */
+export const HISTORY_FLOOR = '2009-01-01'
+/** Quantities probed for the oldest reading: the body ones, so the Scale line reaches back as far as it can. */
+const HISTORY_PROBE = ['weight', 'bodyFat', 'leanMass', 'restingHR'] as const
 /**
  * What the cached nights hold. 2: stage segments and sleeping heart rate. A
  * cache written by an older version is read again in full on the next sync.
@@ -26,6 +32,8 @@ export const LATE_DATA_DAYS = 3
 export interface SyncProgress {
   done: number
   total: number
+  /** 'history' while windows older than the usual year are being read */
+  phase?: 'recent' | 'history'
 }
 
 export interface SyncResult {
@@ -37,15 +45,18 @@ export interface SyncResult {
 }
 
 /** The date windows a sync will read, oldest first. */
-export function syncWindows({ today, lastSyncDate, backfillDone, full }: {
+export function syncWindows({ today, lastSyncDate, backfillDone, full, historyFrom }: {
   today: string
   lastSyncDate: string | null
   backfillDone: boolean
   full?: boolean
+  /** read from this date when it is earlier than the usual start: the full history */
+  historyFrom?: string | null
 }): Array<[string, string]> {
-  const from = full || !backfillDone || !lastSyncDate
+  const usual = full || !backfillDone || !lastSyncDate
     ? addDays(today, -(BACKFILL_DAYS - 1))
     : addDays(lastSyncDate < today ? lastSyncDate : today, -LATE_DATA_DAYS)
+  const from = historyFrom && historyFrom < usual ? historyFrom : usual
   const dates = dateRange(from, today)
   const out: Array<[string, string]> = []
   for (let i = 0; i < dates.length; i += CHUNK_DAYS) {
@@ -55,6 +66,21 @@ export function syncWindows({ today, lastSyncDate, backfillDone, full }: {
 }
 
 const DAY_MS = 86400000
+
+/**
+ * The oldest date any body reading goes back to, or null when there is none.
+ * One query per type over the whole span; weights and resting heart rates are
+ * a few thousand small rows, not the heavy sleep or workout data.
+ */
+export async function earliestReading(bridge: HealthBridge, tz: Tz, now: number): Promise<string | null> {
+  const from = tz.startOfDay(HISTORY_FLOOR)
+  const firsts = await Promise.all(HISTORY_PROBE.map(async (type) => {
+    const rows = await bridge.quantity(type, from, now)
+    return rows.length ? tz.dateOf(Math.min(...rows.map((r) => r.start))) : null
+  }))
+  const found = firsts.filter((d): d is string => !!d).sort()
+  return found[0] ?? null
+}
 
 export async function syncHealth({
   bridge, db, tz, now = Date.now(), priority, full = false, onProgress,
@@ -71,12 +97,19 @@ export async function syncHealth({
   const meta = await readMeta(db)
   const lastSyncDate = meta.lastSyncAt ? tz.dateOf(Date.parse(meta.lastSyncAt)) : null
   const stale = meta.backfillDone && (meta.nightsSchema ?? 1) < NIGHTS_SCHEMA
-  const windows = syncWindows({ today, lastSyncDate, backfillDone: meta.backfillDone, full: full || stale })
+  // the full history is read once: now for an existing cache, on connect for a new one
+  let historyFrom: string | null = null
+  if (!meta.historyDone) {
+    try { historyFrom = await earliestReading(bridge, tz, now) } catch { historyFrom = null }
+  }
+  const windows = syncWindows({ today, lastSyncDate, backfillDone: meta.backfillDone, full: full || stale, historyFrom })
+  const recentFrom = addDays(today, -(BACKFILL_DAYS - 1))
   const result: SyncResult = { from: windows[0][0], to: today, days: 0, nights: 0, workouts: 0 }
 
   for (let i = 0; i < windows.length; i++) {
     const [d0, d1] = windows[i]
-    onProgress?.({ done: i, total: windows.length })
+    const older = d1 < recentFrom
+    onProgress?.({ done: i, total: windows.length, phase: older ? 'history' : 'recent' })
     const a = tz.startOfDay(d0)
     const b = Math.min(tz.startOfDay(addDays(d1, 1)), now)
     // a night that ends on d0 began the evening before; so did its wrist
@@ -109,8 +142,9 @@ export async function syncHealth({
 
     const nights = buildNights(sleep, { tz, priority, dates })
     // heart rate while asleep: read per main sleep, so a day of samples is never pulled
+    // (older than the usual year there is no sleeping heart rate: nothing reads it)
     for (const n of Object.values(nights)) {
-      n.sleepingHR = sleepingHeartRate(await bridge.quantity('heartRate', n.start, n.end), n.start, n.end)
+      n.sleepingHR = older ? null : sleepingHeartRate(await bridge.quantity('heartRate', n.start, n.end), n.start, n.end)
     }
     const daily = buildDaily({
       restingHR, hrv, respRate, wristTemp, spo2, vo2max, weight, bodyFat, leanMass, hrRecovery, bloodPressure,
@@ -124,7 +158,8 @@ export async function syncHealth({
     const workouts: HealthWorkout[] = []
     for (const raw of rawWorkouts) {
       const prior = cached.get(raw.id)
-      const hr = prior?.hrSeries.length ? null : await bridge.quantity('heartRate', raw.start, raw.end)
+      // workout heart rate is not read for history older than the usual year
+      const hr = prior?.hrSeries.length || older ? null : await bridge.quantity('heartRate', raw.start, raw.end)
       const built = buildWorkout(raw, { tz, hr: hr || [], hrr: hrRecovery })
       if (prior?.hrSeries.length) {
         built.hrSeries = prior.hrSeries
@@ -148,7 +183,7 @@ export async function syncHealth({
   }
 
   const characteristics = await bridge.characteristics()
-  await writeMeta(db, { lastSyncAt: new Date(now).toISOString(), backfillDone: true, characteristics, nightsSchema: NIGHTS_SCHEMA })
+  await writeMeta(db, { lastSyncAt: new Date(now).toISOString(), backfillDone: true, characteristics, nightsSchema: NIGHTS_SCHEMA, historyDone: true })
   onProgress?.({ done: windows.length, total: windows.length })
   return result
 }

@@ -73,16 +73,16 @@ describe('since starting', () => {
   it('body fat reads one device family on both sides, and says which', () => {
     const evolt = ['2025-12-01', '2026-01-01', '2026-02-01', '2026-02-20', '2026-04-01', '2026-06-01', '2026-08-01', '2026-10-12']
       .map((d, i) => ({ date: d, value: 38 - (d >= '2026-03-01' ? i : 0) * 0.5 }))
-    const withings = dateRange('2026-09-01', T).map((d) => ({ date: d, value: 28 }))
-    const fam = { bodyFat: { evolt, withings } }
+    const scale = dateRange('2026-09-01', T).map((d) => ({ date: d, value: 28 }))
+    const fam = { bodyFat: { evolt, scale } }
     const on = { from: '2026-03-01', to: T, days: 233 }
     const before = { from: '2025-11-30', to: '2026-02-28', days: 91 }
     expect(familyForComparison(fam.bodyFat, on, before)).toBe('evolt')
     const row = compareWindows('bodyFat', { series: {}, families: fam }, on, before, T)!
     expect(row.family).toBe('evolt')
-    // Withings has nothing before the start: never compared against Evolt
-    expect(familyForComparison({ withings }, on, before)).toBe('withings')
-    expect(compareWindows('bodyFat', { series: {}, families: { bodyFat: { withings } } }, on, before, T)!.label).toBe('Too early')
+    // Scale has nothing before the start: never compared against Evolt
+    expect(familyForComparison({ scale }, on, before)).toBe('scale')
+    expect(compareWindows('bodyFat', { series: {}, families: { bodyFat: { scale } } }, on, before, T)!.label).toBe('Too early')
   })
 
   it('a compound never started, or started in the future, has no effects page', () => {

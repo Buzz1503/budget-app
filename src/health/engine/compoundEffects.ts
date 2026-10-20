@@ -27,20 +27,20 @@ export const SINCE_METRICS: MetricKey[] = [
   'rhr', 'hrv', 'sleep', 'deepSleep', 'sleepScore', 'readiness',
 ]
 const FAMILY_KEYS = new Set(['bodyFat', 'fatMass', 'leanMass'])
-export const FAMILY_NAME: Record<string, string> = { evolt: 'Evolt', withings: 'Withings', manual: 'manual entries', dexa: 'DEXA', inbody: 'InBody', scan: 'scans', other: 'other apps' }
+export const FAMILY_NAME: Record<string, string> = { evolt: 'Evolt', scale: 'Scale', dexa: 'DEXA' }
 
 const win = (from: string, to: string): Window => ({ from, to, days: daysBetween(from, to) + 1 })
 
 /**
  * The device family a two-sided comparison reads: Evolt when it has a usable
- * trend on both sides, else Withings, else any family that does, else the
+ * trend on both sides, else Scale, else any family that does, else the
  * family with the most readings (which will read as too early).
  */
 export function familyForComparison(families: FamilySeries, a: Window, b: Window): string | null {
   const keys = Object.keys(families)
   if (!keys.length) return null
   const ok = (k: string) => bodyRate(families[k], a).ok && bodyRate(families[k], b).ok
-  for (const k of ['evolt', 'withings', ...keys]) if (families[k] && ok(k)) return k
+  for (const k of ['evolt', 'scale', ...keys]) if (families[k] && ok(k)) return k
   const count = (k: string) => families[k].filter((p) => (p.date >= a.from && p.date <= a.to) || (p.date >= b.from && p.date <= b.to)).length
   return [...keys].sort((x, y) => count(y) - count(x))[0]
 }

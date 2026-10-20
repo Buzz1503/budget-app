@@ -28,7 +28,7 @@ export function SyncLine() {
   if (syncing) {
     return (
       <p className="text-xs font-medium tabular-nums" style={{ color: 'var(--text-3)' }} data-testid="health-sync-progress">
-        Reading Apple Health{progress?.total ? ` · ${Math.min(progress.done + 1, progress.total)} of ${progress.total}` : '…'}
+        {progress?.phase === 'history' ? 'Reading older Apple Health history' : 'Reading Apple Health'}{progress?.total ? ` · ${Math.min(progress.done + 1, progress.total)} of ${progress.total}` : '…'}
       </p>
     )
   }

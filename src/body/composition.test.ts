@@ -104,6 +104,22 @@ describe('weekly change bars and scan meta', () => {
     expect(bars[5].change).toBeCloseTo(-0.35, 2)
   })
 
+  it('a week with fewer than two weigh-ins is an empty slot, not a bar', () => {
+    const series = [
+      { date: '2026-10-05', value: 93 }, { date: '2026-10-07', value: 93 }, // week of 5 Oct
+      { date: '2026-10-12', value: 92.4 },                                  // one weigh-in only
+      { date: '2026-10-19', value: 92 }, { date: '2026-10-19', value: 92 },
+    ]
+    const bars = weeklyBars(series, '2026-10-19')
+    expect(bars).toHaveLength(12)
+    const wk = (d: string) => bars.find((b) => b.weekStart === d)!
+    expect(wk('2026-10-12')).toMatchObject({ count: 1, change: null })
+    expect(wk('2026-10-05').count).toBe(2)
+    expect(wk('2026-10-05').change).toBeNull() // nothing the week before to compare with
+    expect(wk('2026-10-19').change).toBeCloseTo(-0.4, 5)
+    expect(wk('2026-09-14')).toMatchObject({ count: 0, mean: null, change: null })
+  })
+
   it('the latest scan status and reference range for a field', () => {
     expect(latestScanMeta(all, 'bodyFat')).toEqual({ status: 'High', range: [15, 20], date: '2026-10-12' })
     expect(latestScanMeta(all, 'bmr')).toEqual({ status: null, range: null, date: '2026-10-12' })
