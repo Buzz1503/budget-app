@@ -247,3 +247,18 @@ final class SaunaLimitTests: XCTestCase {
         XCTAssertTrue(SaunaLimits.isOverdue(startedAtMs: start.timeIntervalSince1970 * 1000, now: start.addingTimeInterval(7_200)))
     }
 }
+
+final class WatchOutboxTests: XCTestCase {
+    func testATickMadeOfflineSurvivesAnOlderSnapshot() throws {
+        var box = WatchOutbox()
+        let now = Date()
+        box.add(PendingAction(type: .logDose, at: now, source: .watch, payload: .init(date: "2026-10-20", refId: "reta")))
+        box.add(box.actions[0]) // the same action twice is kept once
+        XCTAssertEqual(box.actions.count, 1)
+        let shown = box.overlay(try fixture(), now: now)
+        XCTAssertEqual(shown.days[0].items.first { $0.refId == "reta" }?.status, .logged)
+        // a day later it is dropped, whatever the phone says
+        _ = box.overlay(try fixture(), now: now.addingTimeInterval(25 * 3600))
+        XCTAssertTrue(box.actions.isEmpty)
+    }
+}

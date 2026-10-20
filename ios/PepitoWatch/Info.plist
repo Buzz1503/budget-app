@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>CFBundleDisplayName</key>
+	<string>Pepito+</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.buzz.pepito.watchkitapp</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>pepito</string>
+			</array>
+		</dict>
+	</array>
+	<key>CFBundleVersion</key>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>Pepito+ reads your heart rate during a sauna session to show it live and in the summary.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>Pepito+ saves each sauna session as a workout in Health, with its heart rate.</string>
+	<key>PepitoFeatures</key>
+	<dict>
+		<key>appGroup</key>
+		<true/>
+		<key>liveActivities</key>
+		<true/>
+		<key>timeSensitive</key>
+		<true/>
+		<key>watchHealthKit</key>
+		<true/>
+	</dict>
+	<key>WKApplication</key>
+	<true/>
+	<key>WKBackgroundModes</key>
+	<array>
+		<string>workout-processing</string>
+	</array>
+	<key>WKCompanionAppBundleIdentifier</key>
+	<string>com.buzz.pepito</string>
+</dict>
+</plist>

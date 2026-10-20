@@ -115,8 +115,16 @@ def configure(target, settings)
 end
 
 def find_or_create(project, name, type, platform, version)
-  project.targets.find { |t| t.name == name } ||
-    project.new_target(type, name, platform, version, nil, :swift)
+  target = project.targets.find { |t| t.name == name } ||
+           project.new_target(type, name, platform, version, nil, :swift)
+  # new_target links Foundation by an SDK-versioned path; Swift links it on
+  # its own, and a path naming one Xcode's SDK breaks the build on another
+  target.frameworks_build_phase.files.select { |f| f.file_ref&.path.to_s.end_with?('Foundation.framework') }.each do |f|
+    ref = f.file_ref
+    f.remove_from_project
+    ref.remove_from_project if ref.build_files.empty?
+  end
+  target
 end
 
 features_plist = FEATURES.slice('appGroup', 'timeSensitive', 'watchHealthKit', 'liveActivities')
@@ -224,6 +232,7 @@ if Dir.exist?(watch_dir)
     'WKApplication' => true,
     'WKCompanionAppBundleIdentifier' => BUNDLE,
     'WKBackgroundModes' => ['workout-processing'],
+    'CFBundleURLTypes' => [{ 'CFBundleURLName' => "#{BUNDLE}.watchkitapp", 'CFBundleURLSchemes' => ['pepito'] }],
     'NSHealthShareUsageDescription' => 'Pepito+ reads your heart rate during a sauna session to show it live and in the summary.',
     'NSHealthUpdateUsageDescription' => 'Pepito+ saves each sauna session as a workout in Health, with its heart rate.',
     'PepitoFeatures' => features_plist
@@ -295,6 +304,13 @@ if Dir.exist?(watch_widgets_dir) && (wa = project.targets.find { |t| t.name == '
   })
   embed(project, wa, ww, 'Embed Foundation Extensions', :plug_ins)
 end
+
+# groups left empty (the per-platform Frameworks groups new_target makes, an empty shared folder)
+def prune_empty(group)
+  group.children.select { |c| c.isa == 'PBXGroup' }.each { |c| prune_empty(c) }
+  group.remove_from_project if group.children.empty? && group != group.project.main_group
+end
+project.main_group.children.select { |c| c.isa == 'PBXGroup' && %w[Frameworks WatchShared].include?(c.display_name) }.each { |g| prune_empty(g) }
 
 project.save
 puts "Targets: #{project.targets.map(&:name).join(', ')}"

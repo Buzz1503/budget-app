@@ -8,13 +8,18 @@
 
 /* Begin PBXBuildFile section */
 		00E89D171D1B642853E624C3 /* ActionSink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66373078718C7DB9F556DE0B /* ActionSink.swift */; };
-		0251693D72CEBA16B3239281 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 46D99EE71E11B8B6322F73D0 /* Foundation.framework */; };
+		070A288A7FE006ED1C9B9C57 /* ReadinessTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = F595177852EDCF862AC5B52F /* ReadinessTab.swift */; };
+		0887431949B324D8BC8B6947 /* PepitoWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8425A56BD017F81E60295FC /* PepitoWatchApp.swift */; };
 		1C38E069A4BF31FD548F33CF /* PepitoNotifications.swift in Sources */ = {isa = PBXBuildFile; fileRef = AADDA7C85DEE44D2D5AC63D8 /* PepitoNotifications.swift */; };
 		1F065EC80FCEE9EF60C84554 /* PepitoWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = BC75703CCD009C1806348BD2 /* PepitoWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeaderOnCopy, ); }; };
+		21795FF331F9FBBF72BEEAFA /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A4A9084B105F8B9B70B31355 /* Assets.xcassets */; };
 		28D251405FE079A7018FEAF6 /* PepitoShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F9FB1366CE96896188FD218 /* PepitoShortcuts.swift */; };
 		2BD6D66CB6ED74942A13CD94 /* NotificationHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88C6266E72ABDEC7D85FDB3B /* NotificationHandler.swift */; };
 		2F0E4FD5B35076BC77A0C67E /* PepitoCore in Frameworks */ = {isa = PBXBuildFile; productRef = 2DD9BBAB3F7C0DBEFD3EDB1C /* PepitoCore */; };
 		2FAD9763203C412B000D30F8 /* config.xml in Resources */ = {isa = PBXBuildFile; fileRef = 2FAD9762203C412B000D30F8 /* config.xml */; };
+		314EE0AC87AEE31EF100A85D /* PepitoCore in Frameworks */ = {isa = PBXBuildFile; productRef = 2C9C7905FC17B982B580E97D /* PepitoCore */; };
+		39CEB95FC481335FDDC74964 /* PepitoCore in Frameworks */ = {isa = PBXBuildFile; productRef = 2DC6A7A5CB5B276442D98457 /* PepitoCore */; };
+		403C40421655826C11D63A04 /* WatchStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 992FEC1CC2BA6E671A6F0DA1 /* WatchStore.swift */; };
 		4924C7D925C10E21B2048736 /* TodayWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81BB60DB3FBF86F6B96E4656 /* TodayWidget.swift */; };
 		4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */ = {isa = PBXBuildFile; productRef = 4D22ABE82AF431CB00220026 /* CapApp-SPM */; };
 		50379B232058CBB4000EE86E /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 50379B222058CBB4000EE86E /* capacitor.config.json */; };
@@ -23,7 +28,9 @@
 		504EC30F1FED79650016851F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30E1FED79650016851F /* Assets.xcassets */; };
 		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
 		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
+		600EA4198BE5BE52CAE3B448 /* SaunaTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82A29CA2B81F239DE3140DBF /* SaunaTab.swift */; };
 		60253D955B41BD11D6C4E3D3 /* SaunaLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8A298B9596FA85DC3978657 /* SaunaLiveActivity.swift */; };
+		707FFC6BD3344C5A2CC99EAC /* SaunaWorkoutManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = ADA32A6878651502297B4B82 /* SaunaWorkoutManager.swift */; };
 		710EEBDF15F778651CDF78BD /* SaunaWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8489B6252230B88DAAFB66F2 /* SaunaWidget.swift */; };
 		78D37890AE4E63E2FD27E594 /* PepitoBridgePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B6394D0645D8B463A8FF282 /* PepitoBridgePlugin.swift */; };
 		9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B6822FE993A50072D4E8 /* SceneDelegate.swift */; };
@@ -35,16 +42,37 @@
 		BE909DCA4C63E5B2F386672F /* PepitoCore in Frameworks */ = {isa = PBXBuildFile; productRef = 68D237DAFA212DE0CB9D5E6F /* PepitoCore */; };
 		C4AF5CEB0EE1E80D817310B3 /* SaunaActivityController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 844E7276129F99CB5BC4ED68 /* SaunaActivityController.swift */; };
 		C86BD73D49CA3816587E5407 /* SaunaEffects.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35F07B17BA63A3452BFA7636 /* SaunaEffects.swift */; };
+		CF2C84EC1FE69C2BF8C20758 /* PepitoTheme in Frameworks */ = {isa = PBXBuildFile; productRef = 764A188D33E84CBAB6549EEB /* PepitoTheme */; };
 		D2EA6E23EAB7A591612C04F6 /* PepitoNotifications.swift in Sources */ = {isa = PBXBuildFile; fileRef = AADDA7C85DEE44D2D5AC63D8 /* PepitoNotifications.swift */; };
+		D5BADF58D19032A89452AD17 /* PepitoWatchWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 520577E40705BD53FC0BE727 /* PepitoWatchWidgets.swift */; };
 		D5ECF92714DF9DC006B65A59 /* PepitoBridgeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 114C025FF4ADBD74FC267F71 /* PepitoBridgeViewController.swift */; };
+		D9A1ED9B2ED21D3084340D74 /* PepitoWatchWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 6D22FC654EA8DD404E6AA366 /* PepitoWatchWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeaderOnCopy, ); }; };
+		DD24E58486198A00A328AC19 /* TodayTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = 375259BCC0C4DA4E7BE987AE /* TodayTab.swift */; };
+		E8A72BDB46E67CB2D9C3C486 /* WatchIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F484EF5109C1C873B1A5E7A /* WatchIntents.swift */; };
 		EB20940FEBFCED29511E8D79 /* ActionSink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66373078718C7DB9F556DE0B /* ActionSink.swift */; };
 		EB95D99B9D0BDE8E22026A05 /* SnapshotProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AC77BD76276AED58CA3F6A8 /* SnapshotProvider.swift */; };
+		F27653A76C9ED077CD18C6B1 /* PepitoTheme in Frameworks */ = {isa = PBXBuildFile; productRef = 964FEE07FD396C302D917567 /* PepitoTheme */; };
+		F4F6C1A578AF702E209DFD35 /* PepitoWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 0339A2B88EFDB5A6C9C13838 /* PepitoWatch.app */; settings = {ATTRIBUTES = (RemoveHeaderOnCopy, ); }; };
 		F5DF983BFCB5450B30ECC33E /* PepitoIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA7EC1EBE5C2A0F6B5C03412 /* PepitoIntents.swift */; };
 		F687B35A2337270014DA3321 /* SaunaEffects.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1576FB7A69B18D0458615CDE /* SaunaEffects.swift */; };
 		F7A3236C2B0D2BC85CCDF738 /* PepitoIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA7EC1EBE5C2A0F6B5C03412 /* PepitoIntents.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		1AC625C42274BB096BAF35C5 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 504EC2FC1FED79650016851F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = ED28837C287EE0B50B43A1AC;
+			remoteInfo = PepitoWatchWidgets;
+		};
+		7F5E94FF983646925434EC7E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 504EC2FC1FED79650016851F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = ED2D4733BBDDF8DDAFFBDF98;
+			remoteInfo = PepitoWatch;
+		};
 		DD6565AFDE080BFEFA88CEA4 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 504EC2FC1FED79650016851F /* Project object */;
@@ -55,6 +83,28 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
+		233FE4CCC9B57BA9E7B15202 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				D9A1ED9B2ED21D3084340D74 /* PepitoWatchWidgets.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		71DF2D46F0AD69EF9E5A6FA5 /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				F4F6C1A578AF702E209DFD35 /* PepitoWatch.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		9094809F75FE5243E36F29B5 /* Embed Foundation Extensions */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -69,13 +119,14 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		0339A2B88EFDB5A6C9C13838 /* PepitoWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PepitoWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		114C025FF4ADBD74FC267F71 /* PepitoBridgeViewController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PepitoBridgeViewController.swift; sourceTree = "<group>"; };
 		1576FB7A69B18D0458615CDE /* SaunaEffects.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SaunaEffects.swift; sourceTree = "<group>"; };
 		202ECB8AE37F82E351266247 /* PepitoWidgetsBundle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PepitoWidgetsBundle.swift; sourceTree = "<group>"; };
 		2AC77BD76276AED58CA3F6A8 /* SnapshotProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SnapshotProvider.swift; sourceTree = "<group>"; };
 		2FAD9762203C412B000D30F8 /* config.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = config.xml; sourceTree = "<group>"; };
 		35F07B17BA63A3452BFA7636 /* SaunaEffects.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SaunaEffects.swift; sourceTree = "<group>"; };
-		46D99EE71E11B8B6322F73D0 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		375259BCC0C4DA4E7BE987AE /* TodayTab.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TodayTab.swift; sourceTree = "<group>"; };
 		4B6394D0645D8B463A8FF282 /* PepitoBridgePlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PepitoBridgePlugin.swift; sourceTree = "<group>"; };
 		4F9FB1366CE96896188FD218 /* PepitoShortcuts.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PepitoShortcuts.swift; sourceTree = "<group>"; };
 		50379B222058CBB4000EE86E /* capacitor.config.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = capacitor.config.json; sourceTree = "<group>"; };
@@ -86,18 +137,27 @@
 		504EC3111FED79650016851F /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		504EC3131FED79650016851F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		50B271D01FEDC1A000F3C39B /* public */ = {isa = PBXFileReference; lastKnownFileType = folder; path = public; sourceTree = "<group>"; };
+		520577E40705BD53FC0BE727 /* PepitoWatchWidgets.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PepitoWatchWidgets.swift; sourceTree = "<group>"; };
 		66373078718C7DB9F556DE0B /* ActionSink.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ActionSink.swift; sourceTree = "<group>"; };
+		6D22FC654EA8DD404E6AA366 /* PepitoWatchWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = PepitoWatchWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		789E163A1C1E2FDD8A73364B /* ReadinessWidgets.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReadinessWidgets.swift; sourceTree = "<group>"; };
 		81BB60DB3FBF86F6B96E4656 /* TodayWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TodayWidget.swift; sourceTree = "<group>"; };
+		82A29CA2B81F239DE3140DBF /* SaunaTab.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SaunaTab.swift; sourceTree = "<group>"; };
 		844E7276129F99CB5BC4ED68 /* SaunaActivityController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SaunaActivityController.swift; sourceTree = "<group>"; };
 		8489B6252230B88DAAFB66F2 /* SaunaWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SaunaWidget.swift; sourceTree = "<group>"; };
 		88C6266E72ABDEC7D85FDB3B /* NotificationHandler.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationHandler.swift; sourceTree = "<group>"; };
 		9582B6822FE993A50072D4E8 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
+		992FEC1CC2BA6E671A6F0DA1 /* WatchStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WatchStore.swift; sourceTree = "<group>"; };
+		9F484EF5109C1C873B1A5E7A /* WatchIntents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WatchIntents.swift; sourceTree = "<group>"; };
+		A4A9084B105F8B9B70B31355 /* Assets.xcassets */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		AADDA7C85DEE44D2D5AC63D8 /* PepitoNotifications.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PepitoNotifications.swift; sourceTree = "<group>"; };
+		ADA32A6878651502297B4B82 /* SaunaWorkoutManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SaunaWorkoutManager.swift; sourceTree = "<group>"; };
 		B3C5411A4D9CA0A63E92A289 /* WatchLink.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WatchLink.swift; sourceTree = "<group>"; };
 		BC75703CCD009C1806348BD2 /* PepitoWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = PepitoWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		E8425A56BD017F81E60295FC /* PepitoWatchApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PepitoWatchApp.swift; sourceTree = "<group>"; };
 		E8A298B9596FA85DC3978657 /* SaunaLiveActivity.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SaunaLiveActivity.swift; sourceTree = "<group>"; };
+		F595177852EDCF862AC5B52F /* ReadinessTab.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReadinessTab.swift; sourceTree = "<group>"; };
 		FA7EC1EBE5C2A0F6B5C03412 /* PepitoIntents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PepitoIntents.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -106,9 +166,26 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				0251693D72CEBA16B3239281 /* Foundation.framework in Frameworks */,
 				BE909DCA4C63E5B2F386672F /* PepitoCore in Frameworks */,
 				A71A8656F55957BC20737679 /* PepitoTheme in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		361C9B56633CF73D093B1319 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				39CEB95FC481335FDDC74964 /* PepitoCore in Frameworks */,
+				F27653A76C9ED077CD18C6B1 /* PepitoTheme in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		46C2D6B8517CA73B6E16ED46 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				314EE0AC87AEE31EF100A85D /* PepitoCore in Frameworks */,
+				CF2C84EC1FE69C2BF8C20758 /* PepitoTheme in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -125,6 +202,22 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		26B40415528BDB5E947865F7 /* PepitoWatch */ = {
+			isa = PBXGroup;
+			children = (
+				E8425A56BD017F81E60295FC /* PepitoWatchApp.swift */,
+				F595177852EDCF862AC5B52F /* ReadinessTab.swift */,
+				82A29CA2B81F239DE3140DBF /* SaunaTab.swift */,
+				ADA32A6878651502297B4B82 /* SaunaWorkoutManager.swift */,
+				375259BCC0C4DA4E7BE987AE /* TodayTab.swift */,
+				9F484EF5109C1C873B1A5E7A /* WatchIntents.swift */,
+				992FEC1CC2BA6E671A6F0DA1 /* WatchStore.swift */,
+				A4A9084B105F8B9B70B31355 /* Assets.xcassets */,
+			);
+			name = PepitoWatch;
+			path = ../PepitoWatch;
+			sourceTree = "<group>";
+		};
 		3A6D2B7D0B8C74AEE07F810C /* Native */ = {
 			isa = PBXGroup;
 			children = (
@@ -158,8 +251,9 @@
 				504EC3061FED79650016851F /* App */,
 				504EC3051FED79650016851F /* Products */,
 				46EC0BB26524A8F2DD172F0E /* Shared */,
-				996E80ED963A8546844DAF3C /* Frameworks */,
 				515BD90E12F0A741BE6664F4 /* PepitoWidgets */,
+				26B40415528BDB5E947865F7 /* PepitoWatch */,
+				8765B326E5C8D38759146C1E /* PepitoWatchWidgets */,
 			);
 			sourceTree = "<group>";
 		};
@@ -168,6 +262,8 @@
 			children = (
 				504EC3041FED79650016851F /* App.app */,
 				BC75703CCD009C1806348BD2 /* PepitoWidgets.appex */,
+				0339A2B88EFDB5A6C9C13838 /* PepitoWatch.app */,
+				6D22FC654EA8DD404E6AA366 /* PepitoWatchWidgets.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -204,20 +300,13 @@
 			path = ../PepitoWidgets;
 			sourceTree = "<group>";
 		};
-		996E80ED963A8546844DAF3C /* Frameworks */ = {
+		8765B326E5C8D38759146C1E /* PepitoWatchWidgets */ = {
 			isa = PBXGroup;
 			children = (
-				ABCDE34F8CCE8EDFC5DD59DC /* iOS */,
+				520577E40705BD53FC0BE727 /* PepitoWatchWidgets.swift */,
 			);
-			name = Frameworks;
-			sourceTree = "<group>";
-		};
-		ABCDE34F8CCE8EDFC5DD59DC /* iOS */ = {
-			isa = PBXGroup;
-			children = (
-				46D99EE71E11B8B6322F73D0 /* Foundation.framework */,
-			);
-			name = iOS;
+			name = PepitoWatchWidgets;
+			path = ../PepitoWatchWidgets;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -231,11 +320,13 @@
 				504EC3011FED79650016851F /* Frameworks */,
 				504EC3021FED79650016851F /* Resources */,
 				9094809F75FE5243E36F29B5 /* Embed Foundation Extensions */,
+				71DF2D46F0AD69EF9E5A6FA5 /* Embed Watch Content */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 				67936737242B1232D9DE312E /* PBXTargetDependency */,
+				EBB66FBB9C71F316B15FBE0C /* PBXTargetDependency */,
 			);
 			name = App;
 			packageProductDependencies = (
@@ -245,6 +336,50 @@
 			);
 			productName = App;
 			productReference = 504EC3041FED79650016851F /* App.app */;
+			productType = "com.apple.product-type.application";
+		};
+		ED28837C287EE0B50B43A1AC /* PepitoWatchWidgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 36F2ECED71388878E271C4AD /* Build configuration list for PBXNativeTarget "PepitoWatchWidgets" */;
+			buildPhases = (
+				37D5E34FD1C5B8F964EB8080 /* Sources */,
+				361C9B56633CF73D093B1319 /* Frameworks */,
+				C9BEDA94A2D6ABCB161DC078 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = PepitoWatchWidgets;
+			packageProductDependencies = (
+				2DC6A7A5CB5B276442D98457 /* PepitoCore */,
+				964FEE07FD396C302D917567 /* PepitoTheme */,
+			);
+			productName = PepitoWatchWidgets;
+			productReference = 6D22FC654EA8DD404E6AA366 /* PepitoWatchWidgets.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		ED2D4733BBDDF8DDAFFBDF98 /* PepitoWatch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9D938FADAA6D5C8714AD2570 /* Build configuration list for PBXNativeTarget "PepitoWatch" */;
+			buildPhases = (
+				39BEE4BDBCA9F5B6098EEAA0 /* Sources */,
+				46C2D6B8517CA73B6E16ED46 /* Frameworks */,
+				DD0A6ED5075C77FC7268B7CB /* Resources */,
+				233FE4CCC9B57BA9E7B15202 /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				85F7BF2431A098D3B0ECDF28 /* PBXTargetDependency */,
+			);
+			name = PepitoWatch;
+			packageProductDependencies = (
+				2C9C7905FC17B982B580E97D /* PepitoCore */,
+				764A188D33E84CBAB6549EEB /* PepitoTheme */,
+			);
+			productName = PepitoWatch;
+			productReference = 0339A2B88EFDB5A6C9C13838 /* PepitoWatch.app */;
 			productType = "com.apple.product-type.application";
 		};
 		ED373F92CC933BE99C41EBAF /* PepitoWidgets */ = {
@@ -303,6 +438,8 @@
 			targets = (
 				504EC3031FED79650016851F /* App */,
 				ED373F92CC933BE99C41EBAF /* PepitoWidgets */,
+				ED2D4733BBDDF8DDAFFBDF98 /* PepitoWatch */,
+				ED28837C287EE0B50B43A1AC /* PepitoWatchWidgets */,
 			);
 		};
 /* End PBXProject section */
@@ -328,9 +465,46 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		C9BEDA94A2D6ABCB161DC078 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DD0A6ED5075C77FC7268B7CB /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				21795FF331F9FBBF72BEEAFA /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		37D5E34FD1C5B8F964EB8080 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D5BADF58D19032A89452AD17 /* PepitoWatchWidgets.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		39BEE4BDBCA9F5B6098EEAA0 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0887431949B324D8BC8B6947 /* PepitoWatchApp.swift in Sources */,
+				070A288A7FE006ED1C9B9C57 /* ReadinessTab.swift in Sources */,
+				600EA4198BE5BE52CAE3B448 /* SaunaTab.swift in Sources */,
+				707FFC6BD3344C5A2CC99EAC /* SaunaWorkoutManager.swift in Sources */,
+				DD24E58486198A00A328AC19 /* TodayTab.swift in Sources */,
+				E8A72BDB46E67CB2D9C3C486 /* WatchIntents.swift in Sources */,
+				403C40421655826C11D63A04 /* WatchStore.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		504EC3001FED79650016851F /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -375,6 +549,18 @@
 			name = PepitoWidgets;
 			target = ED373F92CC933BE99C41EBAF /* PepitoWidgets */;
 			targetProxy = DD6565AFDE080BFEFA88CEA4 /* PBXContainerItemProxy */;
+		};
+		85F7BF2431A098D3B0ECDF28 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = PepitoWatchWidgets;
+			target = ED28837C287EE0B50B43A1AC /* PepitoWatchWidgets */;
+			targetProxy = 1AC625C42274BB096BAF35C5 /* PBXContainerItemProxy */;
+		};
+		EBB66FBB9C71F316B15FBE0C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = PepitoWatch;
+			target = ED2D4733BBDDF8DDAFFBDF98 /* PepitoWatch */;
+			targetProxy = 7F5E94FF983646925434EC7E /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -426,6 +612,87 @@
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
+		};
+		0E461182AD6275750C92CCAF /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = ../PepitoWatch/PepitoWatch.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ../PepitoWatch/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.buzz.pepito.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Debug;
+		};
+		1E2A72A5EE1859E202F707A0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = ../PepitoWatch/PepitoWatch.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ../PepitoWatch/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.buzz.pepito.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				VALIDATE_PRODUCT = YES;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Release;
+		};
+		20CA54EE3CB712261C8FBD44 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = ../PepitoWatchWidgets/PepitoWatchWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ../PepitoWatchWidgets/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.buzz.pepito.watchkitapp.widgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				VALIDATE_PRODUCT = YES;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Release;
 		};
 		25C7E2AD7ED903C3B556D12F /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -612,6 +879,31 @@
 			};
 			name = Release;
 		};
+		82D4056A10B7C69689A9B954 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = ../PepitoWatchWidgets/PepitoWatchWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ../PepitoWatchWidgets/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.buzz.pepito.watchkitapp.widgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Debug;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -620,6 +912,15 @@
 			buildConfigurations = (
 				25C7E2AD7ED903C3B556D12F /* Release */,
 				01471A47D039832B4E7490BF /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		36F2ECED71388878E271C4AD /* Build configuration list for PBXNativeTarget "PepitoWatchWidgets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				20CA54EE3CB712261C8FBD44 /* Release */,
+				82D4056A10B7C69689A9B954 /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -642,6 +943,15 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		9D938FADAA6D5C8714AD2570 /* Build configuration list for PBXNativeTarget "PepitoWatch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1E2A72A5EE1859E202F707A0 /* Release */,
+				0E461182AD6275750C92CCAF /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
@@ -656,6 +966,16 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		2C9C7905FC17B982B580E97D /* PepitoCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9178A20818FE427E415426CC /* XCLocalSwiftPackageReference "PepitoKit" */;
+			productName = PepitoCore;
+		};
+		2DC6A7A5CB5B276442D98457 /* PepitoCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9178A20818FE427E415426CC /* XCLocalSwiftPackageReference "PepitoKit" */;
+			productName = PepitoCore;
+		};
 		2DD9BBAB3F7C0DBEFD3EDB1C /* PepitoCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 9178A20818FE427E415426CC /* XCLocalSwiftPackageReference "PepitoKit" */;
@@ -670,6 +990,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 9178A20818FE427E415426CC /* XCLocalSwiftPackageReference "PepitoKit" */;
 			productName = PepitoCore;
+		};
+		764A188D33E84CBAB6549EEB /* PepitoTheme */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9178A20818FE427E415426CC /* XCLocalSwiftPackageReference "PepitoKit" */;
+			productName = PepitoTheme;
+		};
+		964FEE07FD396C302D917567 /* PepitoTheme */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9178A20818FE427E415426CC /* XCLocalSwiftPackageReference "PepitoKit" */;
+			productName = PepitoTheme;
 		};
 		A0C4BAF20E6F1B3D7B84D6F8 /* PepitoTheme */ = {
 			isa = XCSwiftPackageProductDependency;
