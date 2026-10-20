@@ -7,11 +7,12 @@
 //                a tap changes, heart-rate zones). Foundation only, so its tests
 //                also run on Linux: `swift test` in this folder.
 //   PepitoTheme  the v28 design tokens, ported from src/index.css (SwiftUI).
+// macOS is listed only so `swift test` runs on a Mac (CI); nothing ships there.
 import PackageDescription
 
 let package = Package(
     name: "PepitoKit",
-    platforms: [.iOS(.v17), .watchOS(.v10)],
+    platforms: [.iOS(.v17), .watchOS(.v10), .macOS(.v14)],
     products: [
         .library(name: "PepitoCore", targets: ["PepitoCore"]),
         .library(name: "PepitoTheme", targets: ["PepitoTheme"])
