@@ -41,6 +41,7 @@ final class NotificationHandler: NSObject, UNUserNotificationCenterDelegate {
         case NotificationAction.stopSauna:
             ActionSink.record(PendingAction(type: .stopSauna, source: .notification,
                                             payload: .init(stoppedAt: Date().timeIntervalSince1970 * 1000)))
+            SaunaActivityController.shared.endAll()
         case NotificationAction.openStock:
             RouteBox.open("supplies")
         case NotificationAction.openReaction:

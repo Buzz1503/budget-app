@@ -239,3 +239,11 @@ final class NotificationActionTests: XCTestCase {
         XCTAssertEqual(NotificationAction.stale(pending: pending, snapshot: s), ["pepito.sched.nudge.2026-10-20.AM"])
     }
 }
+
+final class SaunaLimitTests: XCTestCase {
+    func testASessionIsOverdueAfterTwoHours() {
+        let start = Date(timeIntervalSince1970: 1_000_000)
+        XCTAssertFalse(SaunaLimits.isOverdue(startedAtMs: start.timeIntervalSince1970 * 1000, now: start.addingTimeInterval(7_199)))
+        XCTAssertTrue(SaunaLimits.isOverdue(startedAtMs: start.timeIntervalSince1970 * 1000, now: start.addingTimeInterval(7_200)))
+    }
+}

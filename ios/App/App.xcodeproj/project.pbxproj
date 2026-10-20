@@ -22,6 +22,7 @@
 		504EC30F1FED79650016851F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30E1FED79650016851F /* Assets.xcassets */; };
 		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
 		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
+		60253D955B41BD11D6C4E3D3 /* SaunaLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8A298B9596FA85DC3978657 /* SaunaLiveActivity.swift */; };
 		710EEBDF15F778651CDF78BD /* SaunaWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8489B6252230B88DAAFB66F2 /* SaunaWidget.swift */; };
 		78D37890AE4E63E2FD27E594 /* PepitoBridgePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B6394D0645D8B463A8FF282 /* PepitoBridgePlugin.swift */; };
 		9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B6822FE993A50072D4E8 /* SceneDelegate.swift */; };
@@ -30,6 +31,7 @@
 		AABA47D98615973E71E1EF5F /* PepitoWidgetsBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 202ECB8AE37F82E351266247 /* PepitoWidgetsBundle.swift */; };
 		ABE206095CE18AC38B8D8B51 /* WatchLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3C5411A4D9CA0A63E92A289 /* WatchLink.swift */; };
 		BE909DCA4C63E5B2F386672F /* PepitoCore in Frameworks */ = {isa = PBXBuildFile; productRef = 68D237DAFA212DE0CB9D5E6F /* PepitoCore */; };
+		C4AF5CEB0EE1E80D817310B3 /* SaunaActivityController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 844E7276129F99CB5BC4ED68 /* SaunaActivityController.swift */; };
 		C86BD73D49CA3816587E5407 /* SaunaEffects.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35F07B17BA63A3452BFA7636 /* SaunaEffects.swift */; };
 		D2EA6E23EAB7A591612C04F6 /* PepitoNotifications.swift in Sources */ = {isa = PBXBuildFile; fileRef = AADDA7C85DEE44D2D5AC63D8 /* PepitoNotifications.swift */; };
 		D5ECF92714DF9DC006B65A59 /* PepitoBridgeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 114C025FF4ADBD74FC267F71 /* PepitoBridgeViewController.swift */; };
@@ -84,6 +86,7 @@
 		66373078718C7DB9F556DE0B /* ActionSink.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ActionSink.swift; sourceTree = "<group>"; };
 		789E163A1C1E2FDD8A73364B /* ReadinessWidgets.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReadinessWidgets.swift; sourceTree = "<group>"; };
 		81BB60DB3FBF86F6B96E4656 /* TodayWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TodayWidget.swift; sourceTree = "<group>"; };
+		844E7276129F99CB5BC4ED68 /* SaunaActivityController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SaunaActivityController.swift; sourceTree = "<group>"; };
 		8489B6252230B88DAAFB66F2 /* SaunaWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SaunaWidget.swift; sourceTree = "<group>"; };
 		88C6266E72ABDEC7D85FDB3B /* NotificationHandler.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationHandler.swift; sourceTree = "<group>"; };
 		9582B6822FE993A50072D4E8 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
@@ -91,6 +94,7 @@
 		AADDA7C85DEE44D2D5AC63D8 /* PepitoNotifications.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PepitoNotifications.swift; sourceTree = "<group>"; };
 		B3C5411A4D9CA0A63E92A289 /* WatchLink.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WatchLink.swift; sourceTree = "<group>"; };
 		BC75703CCD009C1806348BD2 /* PepitoWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = PepitoWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		E8A298B9596FA85DC3978657 /* SaunaLiveActivity.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SaunaLiveActivity.swift; sourceTree = "<group>"; };
 		FA7EC1EBE5C2A0F6B5C03412 /* PepitoIntents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PepitoIntents.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -125,6 +129,7 @@
 				B3C5411A4D9CA0A63E92A289 /* WatchLink.swift */,
 				88C6266E72ABDEC7D85FDB3B /* NotificationHandler.swift */,
 				35F07B17BA63A3452BFA7636 /* SaunaEffects.swift */,
+				844E7276129F99CB5BC4ED68 /* SaunaActivityController.swift */,
 			);
 			name = Native;
 			path = Native;
@@ -188,6 +193,7 @@
 				8489B6252230B88DAAFB66F2 /* SaunaWidget.swift */,
 				2AC77BD76276AED58CA3F6A8 /* SnapshotProvider.swift */,
 				81BB60DB3FBF86F6B96E4656 /* TodayWidget.swift */,
+				E8A298B9596FA85DC3978657 /* SaunaLiveActivity.swift */,
 			);
 			name = PepitoWidgets;
 			path = ../PepitoWidgets;
@@ -333,6 +339,7 @@
 				D2EA6E23EAB7A591612C04F6 /* PepitoNotifications.swift in Sources */,
 				C86BD73D49CA3816587E5407 /* SaunaEffects.swift in Sources */,
 				F7A3236C2B0D2BC85CCDF738 /* PepitoIntents.swift in Sources */,
+				C4AF5CEB0EE1E80D817310B3 /* SaunaActivityController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -349,6 +356,7 @@
 				EB20940FEBFCED29511E8D79 /* ActionSink.swift in Sources */,
 				F5DF983BFCB5450B30ECC33E /* PepitoIntents.swift in Sources */,
 				1C38E069A4BF31FD548F33CF /* PepitoNotifications.swift in Sources */,
+				60253D955B41BD11D6C4E3D3 /* SaunaLiveActivity.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

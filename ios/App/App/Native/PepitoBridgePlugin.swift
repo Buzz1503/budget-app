@@ -87,7 +87,7 @@ public class PepitoBridgePlugin: CAPPlugin, CAPBridgedPlugin {
             try store.writeSnapshot(data: data)
             WidgetCenter.shared.reloadAllTimelines()
             WatchLink.shared.push(snapshot: data)
-            _ = snap
+            SaunaActivityController.shared.sync(with: snap)
             call.resolve(["ok": true])
         } catch {
             call.reject("Snapshot not written: \(error.localizedDescription)")
