@@ -313,5 +313,16 @@ end
 project.main_group.children.select { |c| c.isa == 'PBXGroup' && %w[Frameworks WatchShared].include?(c.display_name) }.each { |g| prune_empty(g) }
 
 project.save
+
+# shared schemes for the new targets, so xcodebuild -scheme finds them on any Mac
+%w[PepitoWidgets PepitoWatch PepitoWatchWidgets].each do |name|
+  t = project.targets.find { |x| x.name == name } or next
+  path = File.join(Xcodeproj::XCScheme.shared_data_dir(PROJECT_PATH), "#{name}.xcscheme")
+  next if File.exist?(path)
+  scheme = Xcodeproj::XCScheme.new
+  scheme.add_build_target(t)
+  scheme.set_launch_target(t) if t.product_type == Xcodeproj::Constants::PRODUCT_TYPE_UTI[:application]
+  scheme.save_as(PROJECT_PATH, name, true)
+end
 puts "Targets: #{project.targets.map(&:name).join(', ')}"
 puts "Features: #{FEATURES.map { |k, v| "#{k}=#{v}" }.join(' ')}"

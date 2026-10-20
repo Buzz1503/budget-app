@@ -29,7 +29,7 @@ import UpdatePrompt from './components/UpdatePrompt'
 import ImportScans from './components/ImportScans'
 import { HEALTH_BUILD, HealthBoot, HealthSettings, SleepTab } from './health/ui'
 import { useNativeFeed } from './native/feed'
-import { ShortcutsScreen } from './native/ui'
+import { ShortcutsScreen, NotificationsScreen, WatchScreen, LockSettingsScreen, LockGate } from './native/ui'
 
 // full registry of every screen
 const SCREENS = {
@@ -50,7 +50,7 @@ const SCREENS = {
   supplements: SupplementsTab,
   scans: ImportScans,
   // native app only: compiled out of the web build
-  ...(HEALTH_BUILD ? { health: HealthSettings, sleep: SleepTab, shortcuts: ShortcutsScreen } : {}),
+  ...(HEALTH_BUILD ? { health: HealthSettings, sleep: SleepTab, shortcuts: ShortcutsScreen, notifications: NotificationsScreen, watch: WatchScreen, lock: LockSettingsScreen } : {}),
 }
 
 // Primary tabs in the bottom bar; everything else lives under More (Calendar,
@@ -68,7 +68,7 @@ const PRIMARY_IDS = new Set(PRIMARY.map((t) => t.id))
 const SUB_TITLES = {
   now: 'Right Now', protocol: 'My protocol', supplies: 'Stock', calc: 'Calculator',
   mix: 'Mix', settings: 'Settings', history: 'History', supplements: 'Supplements',
-  health: 'Health', shortcuts: 'Shortcuts and widgets', scans: 'Import scans', reactions: 'Reactions', bloods: 'Bloods', calendar: 'Calendar',
+  health: 'Health', shortcuts: 'Shortcuts and widgets', notifications: 'Notifications', watch: 'Apple Watch', lock: 'Face ID lock', scans: 'Import scans', reactions: 'Reactions', bloods: 'Bloods', calendar: 'Calendar',
 }
 
 // Screens that were their own destination in an earlier version. Old deep links
@@ -183,6 +183,7 @@ export default function App() {
       </main>
 
       {HEALTH_BUILD && <Suspense fallback={null}><HealthBoot /></Suspense>}
+      {__NATIVE__ && <Suspense fallback={null}><LockGate /></Suspense>}
 
       {/* bottom tab bar */}
       <nav

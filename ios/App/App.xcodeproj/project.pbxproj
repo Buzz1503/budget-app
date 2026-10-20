@@ -56,6 +56,7 @@
 		F5DF983BFCB5450B30ECC33E /* PepitoIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA7EC1EBE5C2A0F6B5C03412 /* PepitoIntents.swift */; };
 		F687B35A2337270014DA3321 /* SaunaEffects.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1576FB7A69B18D0458615CDE /* SaunaEffects.swift */; };
 		F7A3236C2B0D2BC85CCDF738 /* PepitoIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA7EC1EBE5C2A0F6B5C03412 /* PepitoIntents.swift */; };
+		F84373A514DD34D4C11251C6 /* PepitoBridgePlugin+Lock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6DDDAD64C778128FCC00B88A /* PepitoBridgePlugin+Lock.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -140,6 +141,7 @@
 		520577E40705BD53FC0BE727 /* PepitoWatchWidgets.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PepitoWatchWidgets.swift; sourceTree = "<group>"; };
 		66373078718C7DB9F556DE0B /* ActionSink.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ActionSink.swift; sourceTree = "<group>"; };
 		6D22FC654EA8DD404E6AA366 /* PepitoWatchWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = PepitoWatchWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		6DDDAD64C778128FCC00B88A /* PepitoBridgePlugin+Lock.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "PepitoBridgePlugin+Lock.swift"; sourceTree = "<group>"; };
 		789E163A1C1E2FDD8A73364B /* ReadinessWidgets.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReadinessWidgets.swift; sourceTree = "<group>"; };
 		81BB60DB3FBF86F6B96E4656 /* TodayWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TodayWidget.swift; sourceTree = "<group>"; };
 		82A29CA2B81F239DE3140DBF /* SaunaTab.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SaunaTab.swift; sourceTree = "<group>"; };
@@ -228,6 +230,7 @@
 				35F07B17BA63A3452BFA7636 /* SaunaEffects.swift */,
 				844E7276129F99CB5BC4ED68 /* SaunaActivityController.swift */,
 				4F9FB1366CE96896188FD218 /* PepitoShortcuts.swift */,
+				6DDDAD64C778128FCC00B88A /* PepitoBridgePlugin+Lock.swift */,
 			);
 			name = Native;
 			path = Native;
@@ -521,6 +524,7 @@
 				F7A3236C2B0D2BC85CCDF738 /* PepitoIntents.swift in Sources */,
 				C4AF5CEB0EE1E80D817310B3 /* SaunaActivityController.swift in Sources */,
 				28D251405FE079A7018FEAF6 /* PepitoShortcuts.swift in Sources */,
+				F84373A514DD34D4C11251C6 /* PepitoBridgePlugin+Lock.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

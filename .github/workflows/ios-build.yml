@@ -1,11 +1,12 @@
 name: iOS build check
 
-# Compiles the iOS app (including the Swift Health plugin) on a Mac, without
-# signing, so a Swift error shows up here rather than on Buzz's laptop. It
+# Compiles the iPhone app, its widgets and Live Activity, the Apple Watch app
+# and the Watch widgets on a Mac, without signing, and runs the PepitoKit Swift
+# tests, so a Swift error shows up here rather than on Buzz's laptop. It
 # installs nothing anywhere and does not touch the Pages deploy.
 on:
   push:
-    branches: [native-health]
+    branches: [native-health, native-stage3]
   workflow_dispatch:
 
 jobs:
@@ -22,20 +23,40 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: PepitoKit Swift tests
+        working-directory: ios/PepitoKit
+        run: swift test
+
       - name: Build the native web bundle and sync it into ios/
         run: |
           npm run build:native
           npx cap sync ios
 
-      - name: Compile for the iOS Simulator (no signing)
+      - name: iPhone app (embeds the widgets and the Watch app)
         run: |
           set -o pipefail
           xcodebuild -version
-          xcodebuild \
-            -project ios/App/App.xcodeproj \
-            -scheme App \
-            -configuration Debug \
-            -destination 'generic/platform=iOS Simulator' \
-            -skipPackagePluginValidation \
-            CODE_SIGNING_ALLOWED=NO \
-            build 2>&1 | tail -n 80
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' -skipPackagePluginValidation \
+            CODE_SIGNING_ALLOWED=NO build 2>&1 | tail -n 80
+
+      - name: Widget extension
+        run: |
+          set -o pipefail
+          xcodebuild -project ios/App/App.xcodeproj -scheme PepitoWidgets -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' -skipPackagePluginValidation \
+            CODE_SIGNING_ALLOWED=NO build 2>&1 | tail -n 60
+
+      - name: Watch app
+        run: |
+          set -o pipefail
+          xcodebuild -project ios/App/App.xcodeproj -scheme PepitoWatch -configuration Debug \
+            -destination 'generic/platform=watchOS Simulator' -skipPackagePluginValidation \
+            CODE_SIGNING_ALLOWED=NO build 2>&1 | tail -n 60
+
+      - name: Watch widgets
+        run: |
+          set -o pipefail
+          xcodebuild -project ios/App/App.xcodeproj -scheme PepitoWatchWidgets -configuration Debug \
+            -destination 'generic/platform=watchOS Simulator' -skipPackagePluginValidation \
+            CODE_SIGNING_ALLOWED=NO build 2>&1 | tail -n 60

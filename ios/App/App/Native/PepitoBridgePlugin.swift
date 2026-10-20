@@ -31,7 +31,10 @@ public class PepitoBridgePlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "notificationPermission", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "requestNotificationPermission", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "scheduleNotifications", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "takeRoute", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "takeRoute", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "biometryType", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "authenticate", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setPrivacyCover", returnType: CAPPluginReturnPromise)
     ]
 
     private let store = SharedStore.shared()
@@ -55,6 +58,7 @@ public class PepitoBridgePlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     @objc private func didBecomeActive() {
+        PrivacyCover.hide()
         notifyListeners("appActive", data: [:])
     }
 
@@ -66,6 +70,7 @@ public class PepitoBridgePlugin: CAPPlugin, CAPBridgedPlugin {
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [weak self] in self?.endBackgroundTask() }
         }
+        PrivacyCover.show()
         notifyListeners("appBackground", data: [:])
     }
 

@@ -40,8 +40,7 @@ an iOS app (bundle id com.buzz.pepito). State is one persisted Zustand store,
   → Dexie cache `pepito-health` (`cache.ts`). The cache is not in the backup;
   settings, check-ins and habits are (in the Zustand store). Nights carry stage
   `segments` and `sleepingHR`; bump `NIGHTS_SCHEMA` (`sync.ts`) to re-read the year.
-- Engines: `src/health/engine/*`, pure functions, every constant in `config.ts`.
-  `model.ts` wires them together for the screens. `compoundEffects.ts` feeds
+- Engines: `src/health/engine/*`, pure, constants in `config.ts`; `model.ts` wires them. `compoundEffects.ts` feeds
   Body › Effects (per compound: since starting, overlaps within 14 days, clean
   windows); `sleepView.ts` feeds the Sleep tab (`SleepTab.jsx`, `SleepCharts.jsx`).
 - Body values: always `getLatestMeasurement` / `dailySeries` (`src/body/bodySeries.ts`,
@@ -57,21 +56,24 @@ an iOS app (bundle id com.buzz.pepito). State is one persisted Zustand store,
   (`seriesByFamily`, `familySeries`). Weight, body fat, fat/lean/muscle mass are not
   typed in; tape still is. Start entry: 1 Jan 2025, Evolt, estimated. Scan fields live in `src/body/scanFields.ts`; skeletal muscle is
   never muscle mass, visceral level never visceral fat.
-- Scans: `src/data/evolt_scans.json` (schema `pepito-scan-import/v1`) is imported
-  by the v22 migration (`scanHistory.ts`); More › Data › Import scans uses
-  `scanImport.ts` (dedupe on date + time + device).
-- Charts: `src/components/charts/TrendChart.jsx`, arithmetic in `src/body/chartPoints.ts`;
-  body metrics go through `BodyChart.jsx` (one source at a time, Scale | Evolt, saved
-  per metric in `chartSources`; "Since start" range; scrubbing; merged scans). Compound and sauna lanes
-  (`Lanes.jsx`, `src/body/lanes.ts`) sit under every chart. Series colours only
-  from `--series-*` tokens.
-- Demo data: `VITE_DEMO_HEALTH=1 npx vite --port 5175` in dev only, then
-  `BASE_URL=http://localhost:5175/budget-app/ node e2e/_health-demo.mjs`.
+- Scans: `src/data/evolt_scans.json` imported by v22 (`scanHistory.ts`); More › Import
+  scans uses `scanImport.ts` (dedupe on date + time + device).
+- Charts: `TrendChart.jsx`, maths in `src/body/chartPoints.ts`; body metrics via `BodyChart.jsx`
+  (one source, Scale | Evolt, saved in `chartSources`). Lanes (`Lanes.jsx`, `src/body/lanes.ts`)
+  under every chart. Series colours only from `--series-*` tokens.
+- Demo: `VITE_DEMO_HEALTH=1 npx vite --port 5175` (dev only), then `e2e/_health-demo.mjs`.
 - Sauna: `saunaSessions`, `saunaSettings`, `saunaTimer` in the store (in the backup);
   pure logic in `src/sauna` (`sauna.ts`, `saunaEffects.ts` on the compare engine;
   session on day D = night D, morning D+1). Screens in `src/components/sauna`; the
   Health parts (Watch detection, HR, effects) are lazy in `src/health/ui.js`.
-  Timer: elapsed from the stored start; one local notification at the target.
 - Nothing with health values goes to the network or to the console.
-- iOS: HealthKit entitlement in `ios/App/App/App.entitlements`; the read prompt
-  text is `NSHealthShareUsageDescription` in Info.plist.
+
+## Native surfaces (3B)
+
+- `src/native`: `buildSnapshot` (doses, units, groups, sauna, readiness) is the only
+  source for widgets, notifications, Siri and the Watch; `applyPendingActions` +
+  `useStore.applyNativeActions` apply queued actions once by id. Native never logs.
+- Swift: `ios/PepitoKit` (PepitoCore model and logic, `swift test` runs on Linux;
+  PepitoTheme tokens), app code `ios/App/App/Native`, shared `ios/Shared`, targets
+  `ios/PepitoWidgets`, `ios/PepitoWatch`, `ios/PepitoWatchWidgets`. Add targets and files
+  only with `ruby ios/scripts/native_targets.rb`; flags in `ios/native-features.json`.

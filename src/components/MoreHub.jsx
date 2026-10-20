@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import {
   Package, Settings, ChevronRight, Activity, History, Wand2, FlaskConical,
-  Combine, Pill, ClipboardList, CalendarPlus, HeartPulse, Upload, Droplet, CalendarDays, MapPin, Zap,
+  Combine, Pill, ClipboardList, CalendarPlus, HeartPulse, Upload, Droplet, CalendarDays, MapPin, Zap, Bell, Watch, Lock,
 } from 'lucide-react'
 import { HEALTH_BUILD } from '../health/ui'
 import useLowStockDot from '../lib/useLowStock'
@@ -48,14 +48,24 @@ const SECTIONS = [
       { id: 'now', label: 'Right Now', desc: 'What my protocol is doing today', icon: Activity },
     ],
   },
+  // native app only: reminders, the Watch, Siri and widgets, the lock
+  ...(HEALTH_BUILD ? [{
+    id: 'iphone',
+    title: 'This iPhone',
+    links: [
+      { id: 'notifications', label: 'Notifications', desc: 'AM and PM reminders, nudges, stock and sauna', icon: Bell },
+      { id: 'watch', label: 'Apple Watch', desc: 'Install status, last sync and a test', icon: Watch },
+      { id: 'shortcuts', label: 'Shortcuts and widgets', desc: 'Action Button, Siri, widgets and Watch faces', icon: Zap },
+      { id: 'lock', label: 'Face ID lock', desc: 'Ask for Face ID when the app opens', icon: Lock },
+    ],
+  }] : []),
   {
     id: 'data',
     title: 'Data',
     links: [
       // native app only: Apple Health is read on the iPhone, never on the web
       ...(HEALTH_BUILD ? [{ id: 'health', label: 'Health', desc: 'Apple Health connection, sleep and training settings', icon: HeartPulse }] : []),
-      // native app only: Siri, the Action Button, widgets and the Watch
-      ...(HEALTH_BUILD ? [{ id: 'shortcuts', label: 'Shortcuts and widgets', desc: 'Action Button, Siri, widgets and Apple Watch', icon: Zap }] : []),
+
       { id: 'scans', label: 'Import scans', desc: 'Evolt, DEXA or InBody results from a file', icon: Upload },
       { id: 'settings', label: 'Settings, backup & export', desc: 'Lead time, currency, backup and reset', icon: Settings },
     ],
