@@ -318,8 +318,8 @@ await step('reference distances are shown and editable', async () => {
 })
 
 await step('the entry form gives each measurement its exact instruction', async () => {
-  await page.click('button:has-text("Log measurement")')
-  await waitText(/Log measurement/)
+  await page.click('button:has-text("Log tape measurement")')
+  await waitText(/Log tape measurement/)
   await modal().locator('button:has-text("More")').click()
   await page.waitForTimeout(400)
   const txt = (await modal().textContent()).toLowerCase()

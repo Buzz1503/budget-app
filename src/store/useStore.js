@@ -2667,6 +2667,7 @@ const useStore = create(
         settings: { ...current.settings, ...(persisted?.settings || {}) },
         healthSettings: { ...current.healthSettings, ...(persisted?.healthSettings || {}) },
         saunaSettings: { ...current.saunaSettings, ...(persisted?.saunaSettings || {}) },
+        chartSources: { ...(persisted?.chartSources || {}) },
         checkins: persisted?.checkins || current.checkins,
         habits: persisted?.habits || current.habits,
         habitLogs: persisted?.habitLogs || current.habitLogs,

@@ -165,8 +165,8 @@ await gotIt()
 await step('1 · a measurement entry can be edited, undone, and is marked Edited', async () => {
   await setState(`
     s.measurements = [
-      { id: 'm-a', date: a.d1, source: 'manual', weight: 80, bodyFat: 20 },
-      { id: 'm-b', date: a.d2, source: 'manual', weight: 82, bodyFat: 21 },
+      { id: 'm-a', date: a.d1, source: 'manual', weight: 80, bodyFat: 20, waist: 95 },
+      { id: 'm-b', date: a.d2, source: 'manual', weight: 82, bodyFat: 21, waist: 96 },
     ]
   `, { d1: dayStr(20), d2: dayStr(5) })
   await reload()
@@ -183,14 +183,16 @@ await step('1 · a measurement entry can be edited, undone, and is marked Edited
   await page.fill('[data-testid="entry-time-input"]', '07:15')
   await page.click('[data-testid="entry-time-done"]')
   await page.fill('[data-testid="entry-note"]', 'after a fast')
-  const weight = page.locator('input[aria-label="Weight in kg"]').first()
-  await weight.fill('79.5')
+  // weight is no longer typed in; the tape value is what an edit changes
+  const waist = page.locator('input[aria-label="Waist in cm"]').first()
+  await waist.fill('94.5')
   await page.click('[data-testid="entry-save"]')
   await page.waitForTimeout(700)
 
   const s = await state()
   const m = s.measurements.find((x) => x.id === 'm-b')
-  if (m.weight !== 79.5) throw new Error(`weight is ${m.weight}, not 79.5`)
+  if (m.waist !== 94.5) throw new Error(`waist is ${m.waist}, not 94.5`)
+  if (m.weight !== 82) throw new Error(`weight changed to ${m.weight}: it is not editable`)
   if (m.time !== '07:15') throw new Error('the time was not saved')
   if (m.note !== 'after a fast') throw new Error('the note was not saved')
   if (!m.editedAt) throw new Error('editedAt was not stamped')
@@ -201,8 +203,8 @@ await step('1 · a measurement entry can be edited, undone, and is marked Edited
   await page.click('[data-testid="toast-undo"]')
   await page.waitForTimeout(600)
   const back = (await state()).measurements.find((x) => x.id === 'm-b')
-  if (back.weight !== 82) throw new Error(`undo left the weight at ${back.weight}`)
-  console.log('  edited, marked, undone back to 82')
+  if (back.waist !== 96) throw new Error(`undo left the waist at ${back.waist}`)
+  console.log('  edited, marked, undone back to 96')
 })
 
 await step('1b · changing the date re-sorts, and the chart follows immediately', async () => {

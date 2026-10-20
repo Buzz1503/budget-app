@@ -35,7 +35,8 @@ an iOS app (bundle id com.buzz.pepito). State is one persisted Zustand store,
 - `HEALTH_BUILD` (`src/health/ui.js`) is false in the web build, so no Health code
   ships to Pages. All screens are lazy and live in `src/components/health`.
 - Data: `bridge.ts` (plugin → raw types) → `dayLogic.ts` (nights, days, workouts)
-  → `sync.ts` (365-day backfill in 30-day windows, then from last sync −3 days)
+  → `sync.ts` (full history in 30-day windows, found by a body-reading probe, once;
+  then from last sync −3 days)
   → Dexie cache `pepito-health` (`cache.ts`). The cache is not in the backup;
   settings, check-ins and habits are (in the Zustand store). Nights carry stage
   `segments` and `sleepingHR`; bump `NIGHTS_SCHEMA` (`sync.ts`) to re-read the year.
@@ -44,20 +45,24 @@ an iOS app (bundle id com.buzz.pepito). State is one persisted Zustand store,
   Body › Effects (per compound: since starting, overlaps within 14 days, clean
   windows); `sleepView.ts` feeds the Sleep tab (`SleepTab.jsx`, `SleepCharts.jsx`).
 - Body values: always `getLatestMeasurement` / `dailySeries` (`src/body/bodySeries.ts`,
-  hooks in `src/lib/useBody.js`). Newest day wins; scan > manual > Withings > other
+  hooks in `src/lib/useBody.js`). Newest day wins; scan > Withings > manual > other
   only within a day. Never read `measurements` directly for a current value.
 - "Since" deltas: always `getStartValue` (`src/body/startPoint.ts`) against the
   starting point (`bodyStart`, default: first tracked compound start). Same field
   only; entries with `hiddenFromCharts` are in no series.
-- Device families: body fat %, fat mass and lean mass are one line per family
-  (Evolt, Withings, Manual), never mixed (`familySeries`, `pickFamily`); weight
-  is merged. Scan fields live in `src/body/scanFields.ts`; skeletal muscle is
+- Source families (`src/body/sources.ts`): Scale (Withings, typed-in, other apps; the
+  v23 migration stamps `family` + `originalSource`), Evolt (all Evolt scans and the
+  estimated start), DEXA (any other scan; own page `body/DexaPage.jsx`, compared only
+  with DEXA, in no series or chart). One line per source, never mixed
+  (`seriesByFamily`, `familySeries`). Weight, body fat, fat/lean/muscle mass are not
+  typed in; tape still is. Start entry: 1 Jan 2025, Evolt, estimated. Scan fields live in `src/body/scanFields.ts`; skeletal muscle is
   never muscle mass, visceral level never visceral fat.
 - Scans: `src/data/evolt_scans.json` (schema `pepito-scan-import/v1`) is imported
   by the v22 migration (`scanHistory.ts`); More › Data › Import scans uses
   `scanImport.ts` (dedupe on date + time + device).
-- Charts: one component, `src/components/charts/TrendChart.jsx`, arithmetic in
-  `src/body/chartPoints.ts` (FamilyChart for device lines). Compound and sauna lanes
+- Charts: `src/components/charts/TrendChart.jsx`, arithmetic in `src/body/chartPoints.ts`;
+  body metrics go through `BodyChart.jsx` (one source at a time, Scale | Evolt, saved
+  per metric in `chartSources`; "Since start" range; scrubbing; merged scans). Compound and sauna lanes
   (`Lanes.jsx`, `src/body/lanes.ts`) sit under every chart. Series colours only
   from `--series-*` tokens.
 - Demo data: `VITE_DEMO_HEALTH=1 npx vite --port 5175` in dev only, then

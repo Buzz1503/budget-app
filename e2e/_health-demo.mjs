@@ -264,7 +264,7 @@ await step('Target wake time: set, then reset to auto', async () => {
   await noOverflow('More › Health')
 })
 
-await step('Starting point: v22 imports the Evolt history and every "since" counts from 13 Jan 2025', async () => {
+await step('Starting point: v22 imports the Evolt history and every "since" counts from 1 Jan 2025', async () => {
   // make this profile look like one saved before v21, then reopen the app
   await page.evaluate(() => {
     const raw = JSON.parse(localStorage.getItem('peptide-command-center'))
@@ -277,20 +277,20 @@ await step('Starting point: v22 imports the Evolt history and every "since" coun
   await page.waitForSelector('nav button')
   await page.waitForTimeout(1500)
   const st = await page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state)
-  if (st.bodyStart?.date !== '2025-01-13' || st.bodyStart?.values?.weight !== 105.6) throw new Error('the Evolt start was not set')
+  if (st.bodyStart?.date !== '2025-01-01' || st.bodyStart?.values?.weight !== 105.6) throw new Error('the Evolt start was not set')
   const scans = st.measurements.filter((m) => m.source === 'scan' && !m.estimated)
   if (scans.length !== 15) throw new Error(`${scans.length} Evolt scans imported, expected 15`)
-  if (!st.measurements.some((m) => m.id === 'm-evolt-2025-01-13-start' && m.hiddenFromCharts)) throw new Error('the adjusted start scan is missing or on the charts')
+  if (!st.measurements.some((m) => m.id === 'm-evolt-2025-01-01-start' && m.estimated && !m.hiddenFromCharts && m.date === '2025-01-01')) throw new Error('the estimated start entry is missing or not on 1 Jan 2025')
   await tab('Body')
   await page.click('[data-testid="body-seg-composition"]')
   await page.click('[data-testid="body-section-stats"]')
   const delta = await page.locator('[data-testid="hero-since"]').innerText()
-  if (!/^Down .* kg since 13 Jan 2025$/.test(delta)) throw new Error(`weight change reads "${delta}"`)
+  if (!/^Down .* kg since 1 Jan 2025$/.test(delta)) throw new Error(`weight change reads "${delta}"`)
   // body fat compares Evolt with Evolt
   const bfTile = await page.locator('[data-testid="key-tile-bodyFat"]').innerText()
-  if (!/12 Oct, Evolt 360/.test(bfTile) || !/−6\.7 pts since 13 Jan 2025/.test(bfTile)) throw new Error(`body fat tile reads "${bfTile}", expected Evolt against Evolt`)
+  if (!/12 Oct, Evolt 360/.test(bfTile) || !/−6\.7 pts since 1 Jan 2025/.test(bfTile)) throw new Error(`body fat tile reads "${bfTile}", expected Evolt against Evolt`)
   const lost = await page.locator('[data-testid="lost-line"]').innerText()
-  if (lost !== 'Down 9.3 kg since 13 Jan 2025.') throw new Error(`lost card reads "${lost}"`)
+  if (lost !== 'Down 9.3 kg since 1 Jan 2025.') throw new Error(`lost card reads "${lost}"`)
   if (!/91% of the loss was fat/.test(await page.locator('[data-testid="lost-card"]').innerText())) throw new Error('no fat share')
   await seen('[data-testid="lost-estimate"]')
   await noOverflow('Stats with starting point')
@@ -321,10 +321,10 @@ await step('Starting point sheet: use an entry, enter manually, reset to default
   // back to the Evolt scan, from the list
   await page.click('[data-testid="edit-start"]')
   await page.click('[data-testid="start-kind-scan"]')
-  await page.click('[data-testid="start-entry"][data-entry="m-evolt-2025-01-13-start"]')
+  await page.click('[data-testid="start-entry"][data-entry="m-evolt-2025-01-01-start"]')
   await page.waitForTimeout(400)
   st = await page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state.bodyStart)
-  if (st?.entryId !== 'm-evolt-2025-01-13-start' || st.values.skeletalMuscleMass !== 35.6) throw new Error('picking the Evolt entry did not set it')
+  if (st?.entryId !== 'm-evolt-2025-01-01-start' || st.values.skeletalMuscleMass !== 35.6) throw new Error('picking the Evolt entry did not set it')
 })
 
 await step('Scan detail shows the device, estimate note and grouped extras', async () => {
@@ -338,14 +338,14 @@ await step('Scan detail shows the device, estimate note and grouped extras', asy
   await page.waitForTimeout(400)
 })
 
-await step('Trends: Start line on the weight chart, one weight on 13 Jan 2025', async () => {
+await step('Trends: Start line on the weight chart, the start entry on 1 Jan 2025', async () => {
   await page.click('[data-testid="body-section-trends"]')
   await page.click('[data-testid="trend-chip-weight"]')
   const chart = page.locator('[data-testid="trends-chart"]')
   await chart.locator('[data-testid="chart-start-line"]').waitFor({ timeout: 5000 })
   await page.locator('[data-testid="legend-since"]').first().waitFor({ timeout: 5000 })
-  const st = await page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state.measurements.filter((m) => m.date === '2025-01-13'))
-  if (st.length !== 2 || st.filter((m) => m.hiddenFromCharts).length !== 1) throw new Error('13 Jan should hold the real scan and the hidden adjusted start')
+  const st = await page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state.measurements.filter((m) => m.date === '2025-01-01'))
+  if (st.length !== 1 || st[0].device !== 'Evolt 360' || !st[0].estimated) throw new Error('1 Jan 2025 should hold the one estimated Evolt start')
   await noOverflow('Trends with start line')
 })
 
@@ -369,10 +369,13 @@ await step('Composition: all metrics, body map, scan compare, goal and device ch
   await page.fill('[data-testid="goal-weight"]', '80')
   await page.click('[data-testid="goal-edit"]')
   await seen('[data-testid="goal-weight-line"]')
-  await seen('[data-testid="family-chart-bodyFat"] [data-testid="family-line-evolt"]')
-  await page.click('[data-testid="family-toggle-evolt"]')
-  if (await page.locator('[data-testid="family-chart-bodyFat"] [data-testid="family-line-evolt"]').count()) throw new Error('turning Evolt off left its line')
-  await seen('[data-testid="weekly-bars"]')
+  // body fat is one source at a time: Evolt by default, joined by a line, with Scale a tap away
+  await seen('[data-testid="family-chart-bodyFat"] [data-testid="chart-segment"]')
+  if ((await page.getAttribute('[data-testid="family-chart-bodyFat"] [data-testid="source-evolt"]', 'data-on')) !== 'true') throw new Error('body fat should default to Evolt')
+  await page.click('[data-testid="family-chart-bodyFat"] [data-testid="source-scale"]')
+  await seen('[data-testid="family-chart-bodyFat"] [data-testid="chart-segment"]')
+  await page.click('[data-testid="family-chart-bodyFat"] [data-testid="source-evolt"]')
+  await seen('[data-testid="weekly-zero"]')
   await noOverflow('Composition')
 })
 
