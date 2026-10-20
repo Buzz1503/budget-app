@@ -8,9 +8,13 @@
 
 /* Begin PBXBuildFile section */
 		00E89D171D1B642853E624C3 /* ActionSink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66373078718C7DB9F556DE0B /* ActionSink.swift */; };
+		0251693D72CEBA16B3239281 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 46D99EE71E11B8B6322F73D0 /* Foundation.framework */; };
+		1C38E069A4BF31FD548F33CF /* PepitoNotifications.swift in Sources */ = {isa = PBXBuildFile; fileRef = AADDA7C85DEE44D2D5AC63D8 /* PepitoNotifications.swift */; };
+		1F065EC80FCEE9EF60C84554 /* PepitoWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = BC75703CCD009C1806348BD2 /* PepitoWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeaderOnCopy, ); }; };
 		2BD6D66CB6ED74942A13CD94 /* NotificationHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88C6266E72ABDEC7D85FDB3B /* NotificationHandler.swift */; };
 		2F0E4FD5B35076BC77A0C67E /* PepitoCore in Frameworks */ = {isa = PBXBuildFile; productRef = 2DD9BBAB3F7C0DBEFD3EDB1C /* PepitoCore */; };
 		2FAD9763203C412B000D30F8 /* config.xml in Resources */ = {isa = PBXBuildFile; fileRef = 2FAD9762203C412B000D30F8 /* config.xml */; };
+		4924C7D925C10E21B2048736 /* TodayWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81BB60DB3FBF86F6B96E4656 /* TodayWidget.swift */; };
 		4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */ = {isa = PBXBuildFile; productRef = 4D22ABE82AF431CB00220026 /* CapApp-SPM */; };
 		50379B232058CBB4000EE86E /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 50379B222058CBB4000EE86E /* capacitor.config.json */; };
 		504EC3081FED79650016851F /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 504EC3071FED79650016851F /* AppDelegate.swift */; };
@@ -18,16 +22,56 @@
 		504EC30F1FED79650016851F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30E1FED79650016851F /* Assets.xcassets */; };
 		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
 		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
+		710EEBDF15F778651CDF78BD /* SaunaWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8489B6252230B88DAAFB66F2 /* SaunaWidget.swift */; };
 		78D37890AE4E63E2FD27E594 /* PepitoBridgePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B6394D0645D8B463A8FF282 /* PepitoBridgePlugin.swift */; };
 		9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B6822FE993A50072D4E8 /* SceneDelegate.swift */; };
+		96D0A5FDC3197AD3D043456E /* ReadinessWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 789E163A1C1E2FDD8A73364B /* ReadinessWidgets.swift */; };
+		A71A8656F55957BC20737679 /* PepitoTheme in Frameworks */ = {isa = PBXBuildFile; productRef = BBACCC3492B660754A0477D6 /* PepitoTheme */; };
+		AABA47D98615973E71E1EF5F /* PepitoWidgetsBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 202ECB8AE37F82E351266247 /* PepitoWidgetsBundle.swift */; };
 		ABE206095CE18AC38B8D8B51 /* WatchLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3C5411A4D9CA0A63E92A289 /* WatchLink.swift */; };
+		BE909DCA4C63E5B2F386672F /* PepitoCore in Frameworks */ = {isa = PBXBuildFile; productRef = 68D237DAFA212DE0CB9D5E6F /* PepitoCore */; };
+		C86BD73D49CA3816587E5407 /* SaunaEffects.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35F07B17BA63A3452BFA7636 /* SaunaEffects.swift */; };
 		D2EA6E23EAB7A591612C04F6 /* PepitoNotifications.swift in Sources */ = {isa = PBXBuildFile; fileRef = AADDA7C85DEE44D2D5AC63D8 /* PepitoNotifications.swift */; };
 		D5ECF92714DF9DC006B65A59 /* PepitoBridgeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 114C025FF4ADBD74FC267F71 /* PepitoBridgeViewController.swift */; };
+		EB20940FEBFCED29511E8D79 /* ActionSink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66373078718C7DB9F556DE0B /* ActionSink.swift */; };
+		EB95D99B9D0BDE8E22026A05 /* SnapshotProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AC77BD76276AED58CA3F6A8 /* SnapshotProvider.swift */; };
+		F5DF983BFCB5450B30ECC33E /* PepitoIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA7EC1EBE5C2A0F6B5C03412 /* PepitoIntents.swift */; };
+		F687B35A2337270014DA3321 /* SaunaEffects.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1576FB7A69B18D0458615CDE /* SaunaEffects.swift */; };
+		F7A3236C2B0D2BC85CCDF738 /* PepitoIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA7EC1EBE5C2A0F6B5C03412 /* PepitoIntents.swift */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		DD6565AFDE080BFEFA88CEA4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 504EC2FC1FED79650016851F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = ED373F92CC933BE99C41EBAF;
+			remoteInfo = PepitoWidgets;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		9094809F75FE5243E36F29B5 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				1F065EC80FCEE9EF60C84554 /* PepitoWidgets.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		114C025FF4ADBD74FC267F71 /* PepitoBridgeViewController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PepitoBridgeViewController.swift; sourceTree = "<group>"; };
+		1576FB7A69B18D0458615CDE /* SaunaEffects.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SaunaEffects.swift; sourceTree = "<group>"; };
+		202ECB8AE37F82E351266247 /* PepitoWidgetsBundle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PepitoWidgetsBundle.swift; sourceTree = "<group>"; };
+		2AC77BD76276AED58CA3F6A8 /* SnapshotProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SnapshotProvider.swift; sourceTree = "<group>"; };
 		2FAD9762203C412B000D30F8 /* config.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = config.xml; sourceTree = "<group>"; };
+		35F07B17BA63A3452BFA7636 /* SaunaEffects.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SaunaEffects.swift; sourceTree = "<group>"; };
+		46D99EE71E11B8B6322F73D0 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		4B6394D0645D8B463A8FF282 /* PepitoBridgePlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PepitoBridgePlugin.swift; sourceTree = "<group>"; };
 		50379B222058CBB4000EE86E /* capacitor.config.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = capacitor.config.json; sourceTree = "<group>"; };
 		504EC3041FED79650016851F /* App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = App.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -38,14 +82,29 @@
 		504EC3131FED79650016851F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		50B271D01FEDC1A000F3C39B /* public */ = {isa = PBXFileReference; lastKnownFileType = folder; path = public; sourceTree = "<group>"; };
 		66373078718C7DB9F556DE0B /* ActionSink.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ActionSink.swift; sourceTree = "<group>"; };
+		789E163A1C1E2FDD8A73364B /* ReadinessWidgets.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReadinessWidgets.swift; sourceTree = "<group>"; };
+		81BB60DB3FBF86F6B96E4656 /* TodayWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TodayWidget.swift; sourceTree = "<group>"; };
+		8489B6252230B88DAAFB66F2 /* SaunaWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SaunaWidget.swift; sourceTree = "<group>"; };
 		88C6266E72ABDEC7D85FDB3B /* NotificationHandler.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationHandler.swift; sourceTree = "<group>"; };
 		9582B6822FE993A50072D4E8 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
 		AADDA7C85DEE44D2D5AC63D8 /* PepitoNotifications.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PepitoNotifications.swift; sourceTree = "<group>"; };
 		B3C5411A4D9CA0A63E92A289 /* WatchLink.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WatchLink.swift; sourceTree = "<group>"; };
+		BC75703CCD009C1806348BD2 /* PepitoWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = PepitoWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		FA7EC1EBE5C2A0F6B5C03412 /* PepitoIntents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PepitoIntents.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		1B6D0A189CF74546DC7FCBAF /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0251693D72CEBA16B3239281 /* Foundation.framework in Frameworks */,
+				BE909DCA4C63E5B2F386672F /* PepitoCore in Frameworks */,
+				A71A8656F55957BC20737679 /* PepitoTheme in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		504EC3011FED79650016851F /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -65,6 +124,7 @@
 				114C025FF4ADBD74FC267F71 /* PepitoBridgeViewController.swift */,
 				B3C5411A4D9CA0A63E92A289 /* WatchLink.swift */,
 				88C6266E72ABDEC7D85FDB3B /* NotificationHandler.swift */,
+				35F07B17BA63A3452BFA7636 /* SaunaEffects.swift */,
 			);
 			name = Native;
 			path = Native;
@@ -75,6 +135,7 @@
 			children = (
 				66373078718C7DB9F556DE0B /* ActionSink.swift */,
 				AADDA7C85DEE44D2D5AC63D8 /* PepitoNotifications.swift */,
+				FA7EC1EBE5C2A0F6B5C03412 /* PepitoIntents.swift */,
 			);
 			name = Shared;
 			path = ../Shared;
@@ -87,6 +148,8 @@
 				504EC3061FED79650016851F /* App */,
 				504EC3051FED79650016851F /* Products */,
 				46EC0BB26524A8F2DD172F0E /* Shared */,
+				996E80ED963A8546844DAF3C /* Frameworks */,
+				515BD90E12F0A741BE6664F4 /* PepitoWidgets */,
 			);
 			sourceTree = "<group>";
 		};
@@ -94,6 +157,7 @@
 			isa = PBXGroup;
 			children = (
 				504EC3041FED79650016851F /* App.app */,
+				BC75703CCD009C1806348BD2 /* PepitoWidgets.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -115,6 +179,36 @@
 			path = App;
 			sourceTree = "<group>";
 		};
+		515BD90E12F0A741BE6664F4 /* PepitoWidgets */ = {
+			isa = PBXGroup;
+			children = (
+				202ECB8AE37F82E351266247 /* PepitoWidgetsBundle.swift */,
+				789E163A1C1E2FDD8A73364B /* ReadinessWidgets.swift */,
+				1576FB7A69B18D0458615CDE /* SaunaEffects.swift */,
+				8489B6252230B88DAAFB66F2 /* SaunaWidget.swift */,
+				2AC77BD76276AED58CA3F6A8 /* SnapshotProvider.swift */,
+				81BB60DB3FBF86F6B96E4656 /* TodayWidget.swift */,
+			);
+			name = PepitoWidgets;
+			path = ../PepitoWidgets;
+			sourceTree = "<group>";
+		};
+		996E80ED963A8546844DAF3C /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				ABCDE34F8CCE8EDFC5DD59DC /* iOS */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		ABCDE34F8CCE8EDFC5DD59DC /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				46D99EE71E11B8B6322F73D0 /* Foundation.framework */,
+			);
+			name = iOS;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -125,10 +219,12 @@
 				504EC3001FED79650016851F /* Sources */,
 				504EC3011FED79650016851F /* Frameworks */,
 				504EC3021FED79650016851F /* Resources */,
+				9094809F75FE5243E36F29B5 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				67936737242B1232D9DE312E /* PBXTargetDependency */,
 			);
 			name = App;
 			packageProductDependencies = (
@@ -138,6 +234,27 @@
 			productName = App;
 			productReference = 504EC3041FED79650016851F /* App.app */;
 			productType = "com.apple.product-type.application";
+		};
+		ED373F92CC933BE99C41EBAF /* PepitoWidgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 09B1A2C74785D9B68518909A /* Build configuration list for PBXNativeTarget "PepitoWidgets" */;
+			buildPhases = (
+				CB35DB0504A857CD2204FF7C /* Sources */,
+				1B6D0A189CF74546DC7FCBAF /* Frameworks */,
+				4B57FD34025F90EFCA372D06 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = PepitoWidgets;
+			packageProductDependencies = (
+				68D237DAFA212DE0CB9D5E6F /* PepitoCore */,
+				BBACCC3492B660754A0477D6 /* PepitoTheme */,
+			);
+			productName = PepitoWidgets;
+			productReference = BC75703CCD009C1806348BD2 /* PepitoWidgets.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -173,11 +290,19 @@
 			projectRoot = "";
 			targets = (
 				504EC3031FED79650016851F /* App */,
+				ED373F92CC933BE99C41EBAF /* PepitoWidgets */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		4B57FD34025F90EFCA372D06 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		504EC3021FED79650016851F /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -206,10 +331,37 @@
 				00E89D171D1B642853E624C3 /* ActionSink.swift in Sources */,
 				2BD6D66CB6ED74942A13CD94 /* NotificationHandler.swift in Sources */,
 				D2EA6E23EAB7A591612C04F6 /* PepitoNotifications.swift in Sources */,
+				C86BD73D49CA3816587E5407 /* SaunaEffects.swift in Sources */,
+				F7A3236C2B0D2BC85CCDF738 /* PepitoIntents.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CB35DB0504A857CD2204FF7C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AABA47D98615973E71E1EF5F /* PepitoWidgetsBundle.swift in Sources */,
+				96D0A5FDC3197AD3D043456E /* ReadinessWidgets.swift in Sources */,
+				F687B35A2337270014DA3321 /* SaunaEffects.swift in Sources */,
+				710EEBDF15F778651CDF78BD /* SaunaWidget.swift in Sources */,
+				EB95D99B9D0BDE8E22026A05 /* SnapshotProvider.swift in Sources */,
+				4924C7D925C10E21B2048736 /* TodayWidget.swift in Sources */,
+				EB20940FEBFCED29511E8D79 /* ActionSink.swift in Sources */,
+				F5DF983BFCB5450B30ECC33E /* PepitoIntents.swift in Sources */,
+				1C38E069A4BF31FD548F33CF /* PepitoNotifications.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		67936737242B1232D9DE312E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = PepitoWidgets;
+			target = ED373F92CC933BE99C41EBAF /* PepitoWidgets */;
+			targetProxy = DD6565AFDE080BFEFA88CEA4 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin PBXVariantGroup section */
 		504EC30B1FED79650016851F /* Main.storyboard */ = {
@@ -231,6 +383,65 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
+		01471A47D039832B4E7490BF /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = "";
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = "";
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = ../PepitoWidgets/PepitoWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ../PepitoWidgets/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.buzz.pepito.widgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) WIDGET_EXTENSION";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		25C7E2AD7ED903C3B556D12F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = "";
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = "";
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = ../PepitoWidgets/PepitoWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ../PepitoWidgets/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.buzz.pepito.widgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) WIDGET_EXTENSION";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
 		504EC3141FED79650016851F /* Debug */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 958DCC722DB07C7200EA8C5F /* debug.xcconfig */;
@@ -389,6 +600,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		09B1A2C74785D9B68518909A /* Build configuration list for PBXNativeTarget "PepitoWidgets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				25C7E2AD7ED903C3B556D12F /* Release */,
+				01471A47D039832B4E7490BF /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		504EC2FF1FED79650016851F /* Build configuration list for PBXProject "App" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -430,6 +650,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = D4C12C0A2AAA248700AAC8A2 /* XCLocalSwiftPackageReference "CapApp-SPM" */;
 			productName = "CapApp-SPM";
+		};
+		68D237DAFA212DE0CB9D5E6F /* PepitoCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9178A20818FE427E415426CC /* XCLocalSwiftPackageReference "PepitoKit" */;
+			productName = PepitoCore;
+		};
+		BBACCC3492B660754A0477D6 /* PepitoTheme */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9178A20818FE427E415426CC /* XCLocalSwiftPackageReference "PepitoKit" */;
+			productName = PepitoTheme;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

@@ -183,6 +183,7 @@ if Dir.exist?(widgets_dir)
     'CURRENT_PROJECT_VERSION' => '1',
     'LD_RUNPATH_SEARCH_PATHS' => ['$(inherited)', '@executable_path/Frameworks', '@executable_path/../../Frameworks'],
     'APPLICATION_EXTENSION_API_ONLY' => 'YES',
+    'SWIFT_ACTIVE_COMPILATION_CONDITIONS' => '$(inherited) WIDGET_EXTENSION',
     'ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME' => '',
     'ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME' => ''
   })
