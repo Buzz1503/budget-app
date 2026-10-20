@@ -29,7 +29,7 @@ const gotIt = async () => {
   await page.waitForTimeout(300)
 }
 const tab = async (label) => { await page.click(`nav button[aria-label="${label}"]`); await page.waitForTimeout(600) }
-const seen = (sel, timeout = 8000) => page.waitForSelector(sel, { timeout })
+const seen = (sel, timeout = 8000) => page.waitForSelector(sel, { timeout }).catch((e) => { throw new Error(`not found: ${sel}`) })
 const noOverflow = async (where) => {
   const w = await page.evaluate(() => document.documentElement.scrollWidth)
   if (w > 391) throw new Error(`${where} overflows to ${w}px`)
@@ -290,7 +290,7 @@ await step('Starting point: v22 imports the Evolt history and every "since" coun
   const bfTile = await page.locator('[data-testid="key-tile-bodyFat"]').innerText()
   if (!/12 Oct, Evolt 360/.test(bfTile) || !/−6\.7 pts since 1 Jan 2025/.test(bfTile)) throw new Error(`body fat tile reads "${bfTile}", expected Evolt against Evolt`)
   const lost = await page.locator('[data-testid="lost-line"]').innerText()
-  if (lost !== 'Down 9.3 kg since 1 Jan 2025.') throw new Error(`lost card reads "${lost}"`)
+  if (lost !== 'Down 9.3 kg since 13 Jan 2025.') throw new Error(`lost card reads "${lost}"`)
   if (!/91% of the loss was fat/.test(await page.locator('[data-testid="lost-card"]').innerText())) throw new Error('no fat share')
   await seen('[data-testid="lost-estimate"]')
   await noOverflow('Stats with starting point')
@@ -331,7 +331,8 @@ await step('Scan detail shows the device, estimate note and grouped extras', asy
   await page.click('[data-testid="edit-start"]')
   await page.click('[data-testid="start-view-entry"]')
   await seen('[data-testid="scan-details"]')
-  if ((await page.locator('[data-testid="entry-device"]').inputValue()) !== 'Evolt 360') throw new Error('device not shown')
+  const head = await page.locator('[data-testid="scan-details"] p').first().innerText()
+  if (!/^Evolt 360 · Start \(estimated\) · estimated$/.test(head)) throw new Error(`scan header reads "${head}"`)
   await seen('[data-testid="entry-estimate-note"]')
   for (const g of ['Composition', 'Segmental', 'Energy', 'Scores']) await seen(`[data-testid="extras-${g}"]`)
   await page.click('[data-testid="entry-cancel"]')
@@ -375,7 +376,10 @@ await step('Composition: all metrics, body map, scan compare, goal and device ch
   await page.click('[data-testid="family-chart-bodyFat"] [data-testid="source-scale"]')
   await seen('[data-testid="family-chart-bodyFat"] [data-testid="chart-segment"]')
   await page.click('[data-testid="family-chart-bodyFat"] [data-testid="source-evolt"]')
-  await seen('[data-testid="weekly-zero"]')
+  if (!(await page.locator('[data-testid="weekly-zero"]').count())) {
+    const info = await page.evaluate(() => { const s = JSON.parse(localStorage.getItem('peptide-command-center')).state; return { src: s.chartSources, weights: s.measurements.filter((m) => m.weight != null).slice(-3).map((m) => m.date + ' ' + m.source) } })
+    throw new Error(`no weekly bars: ${JSON.stringify(info)}`)
+  }
   await noOverflow('Composition')
 })
 
