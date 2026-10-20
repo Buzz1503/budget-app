@@ -2,6 +2,7 @@ import Foundation
 import UIKit
 import Capacitor
 import WidgetKit
+import UserNotifications
 import PepitoCore
 
 /**
@@ -26,7 +27,11 @@ public class PepitoBridgePlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "acknowledge", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "features", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "watchStatus", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "sendTestToWatch", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "sendTestToWatch", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "notificationPermission", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "requestNotificationPermission", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "scheduleNotifications", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "takeRoute", returnType: CAPPluginReturnPromise)
     ]
 
     private let store = SharedStore.shared()
@@ -115,6 +120,47 @@ public class PepitoBridgePlugin: CAPPlugin, CAPBridgedPlugin {
             "watchHealthKit": NativeFeatures.watchHealthKit,
             "liveActivities": NativeFeatures.liveActivities
         ])
+    }
+
+    // MARK: - notifications
+
+    private static func words(_ s: UNAuthorizationStatus) -> String {
+        switch s {
+        case .authorized, .provisional, .ephemeral: return "granted"
+        case .denied: return "denied"
+        default: return "prompt"
+        }
+    }
+
+    @objc func notificationPermission(_ call: CAPPluginCall) {
+        UNUserNotificationCenter.current().getNotificationSettings { s in
+            call.resolve([
+                "display": PepitoBridgePlugin.words(s.authorizationStatus),
+                "timeSensitive": s.timeSensitiveSetting == .enabled
+            ])
+        }
+    }
+
+    /// Asked the first time the Notifications page opens or a sauna timer starts, never at launch.
+    @objc func requestNotificationPermission(_ call: CAPPluginCall) {
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
+            call.resolve(["display": granted ? "granted" : "denied"])
+        }
+    }
+
+    /// The rolling seven-day schedule from src/native/notifySchedule.js, plus any stock alerts.
+    @objc func scheduleNotifications(_ call: CAPPluginCall) {
+        guard let json = call.getString("json"), let data = json.data(using: .utf8),
+              let planned = try? JSONDecoder().decode([PlannedNotification].self, from: data) else {
+            call.reject("No schedule")
+            return
+        }
+        PepitoNotifications.replaceSchedule(planned) { call.resolve(["scheduled": planned.count]) }
+    }
+
+    /// The screen a notification tap asked for, once.
+    @objc func takeRoute(_ call: CAPPluginCall) {
+        if let r = RouteBox.take() { call.resolve(["route": r]) } else { call.resolve([:]) }
     }
 
     // MARK: - Watch

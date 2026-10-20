@@ -113,6 +113,15 @@ export async function startNativeSync() {
     if (document.visibilityState === 'visible') void drainQueue()
   })
 
+  // notification schedule rebuilt after every snapshot write; the screen a notification tap asked for
+  const { startNotifications } = await import('./notifyRuntime')
+  startNotifications()
+  try {
+    await PepitoBridge.addListener('openRoute', ({ route }) => { if (route) useNativeFeed.getState().setHealth({ route }) })
+    const { route } = await PepitoBridge.takeRoute()
+    if (route) useNativeFeed.getState().setHealth({ route })
+  } catch { /* nothing to open */ }
+
   await drainQueue()
   await writeSnapshotNow()
   // midnight: the snapshot carries three days, but "today" in it should move on too

@@ -7,7 +7,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        // Override point for customization after application launch.
+        // Notification buttons (Log, Skip, Remind, Push, Stop) are handled
+        // natively, even when the app is launched in the background just for them.
+        NotificationHandler.shared.install()
+        WatchLink.shared.activate()
         return true
     }
 

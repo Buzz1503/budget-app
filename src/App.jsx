@@ -28,6 +28,7 @@ import Toast from './components/Toast'
 import UpdatePrompt from './components/UpdatePrompt'
 import ImportScans from './components/ImportScans'
 import { HEALTH_BUILD, HealthBoot, HealthSettings, SleepTab } from './health/ui'
+import { useNativeFeed } from './native/feed'
 
 // full registry of every screen
 const SCREENS = {
@@ -90,6 +91,14 @@ export default function App() {
 
   // 'wizard' isn't a screen — it's a modal any screen can ask for.
   const goTo = (id) => (id === 'wizard' ? setWizard(true) : setTab(ALIASES[id] || id))
+
+  // iPhone app: a notification tap (Open Stock, Check now) asks for a screen
+  const nativeRoute = useNativeFeed((s) => s.route)
+  useEffect(() => {
+    if (!nativeRoute) return
+    if (SCREENS[ALIASES[nativeRoute] || nativeRoute]) setTab(ALIASES[nativeRoute] || nativeRoute)
+    useNativeFeed.setState({ route: null })
+  }, [nativeRoute])
 
   // Offered once, unprompted, when there's nothing to track yet.
   useEffect(() => {

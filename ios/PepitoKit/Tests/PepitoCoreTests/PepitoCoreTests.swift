@@ -197,3 +197,45 @@ final class WatchLaunchTests: XCTestCase {
         XCTAssertTrue(WatchLaunch.readinessIsStale(s, now: asOf.addingTimeInterval(7 * 3600)))
     }
 }
+
+final class NotificationActionTests: XCTestCase {
+    let payload = NotificationPayload(
+        kind: "dose", date: "2026-10-20", slot: "AM",
+        groups: [.init(id: "g", refIds: ["bpc157", "tb500"])],
+        items: [.init(refId: "fish", kind: "supplement", canPush: false), .init(refId: "test-e", kind: "peptide", canPush: true)],
+        pushable: ["test-e"])
+
+    func testLogFromTheBannerLogsTheGroupAsOneAndEveryItem() {
+        let a = NotificationAction.actions(for: NotificationAction.log, payload: payload)
+        XCTAssertEqual(a.map(\.type), [.logDose, .logDose, .logDose])
+        XCTAssertEqual(a[0].payload.refIds, ["bpc157", "tb500"])
+        XCTAssertEqual(a[0].payload.group, true)
+        XCTAssertEqual(a[1].payload.kind, "supplement")
+        XCTAssertTrue(a.allSatisfy { $0.source == .notification })
+        XCTAssertEqual(Set(a.map(\.id)).count, 3) // each has its own id
+    }
+
+    func testPushMovesOnlyWhatCanMoveAndSnoozeIsRecorded() {
+        let push = NotificationAction.actions(for: NotificationAction.push, payload: payload)
+        XCTAssertEqual(push.count, 1)
+        XCTAssertEqual(push[0].payload.refIds, ["test-e"])
+        XCTAssertEqual(NotificationAction.actions(for: NotificationAction.snooze, payload: payload).first?.type, .snoozeDose)
+        XCTAssertTrue(NotificationAction.actions(for: NotificationAction.openStock, payload: payload).isEmpty)
+    }
+
+    func testPayloadRoundTripsThroughUserInfo() {
+        let info: [AnyHashable: Any] = [NotificationPayload.userInfoKey: payload.json()]
+        XCTAssertEqual(NotificationPayload.from(userInfo: info), payload)
+    }
+
+    func testAReminderGoesStaleOnceItsSlotIsSettled() throws {
+        var s = try fixture()
+        let am = NotificationPayload(kind: "dose", date: "2026-10-20", slot: "AM")
+        let pm = NotificationPayload(kind: "dose", date: "2026-10-20", slot: "PM")
+        let pending = [(id: "pepito.sched.nudge.2026-10-20.AM", payload: am), (id: "pepito.sched.dose.2026-10-20.PM", payload: pm)]
+        XCTAssertEqual(NotificationAction.stale(pending: pending, snapshot: s), [])
+        s.apply(PendingAction(type: .logDose, source: .widget, payload: .init(date: "2026-10-20", refIds: ["bpc157", "tb500"], group: true)))
+        s.apply(PendingAction(type: .logDose, source: .widget, payload: .init(date: "2026-10-20", kind: "supplement", refId: "fish")))
+        XCTAssertEqual(NotificationAction.stale(pending: pending, snapshot: s), ["pepito.sched.nudge.2026-10-20.AM"])
+    }
+}

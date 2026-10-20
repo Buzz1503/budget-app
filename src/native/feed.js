@@ -7,5 +7,7 @@ import { create } from 'zustand'
 export const useNativeFeed = create((set) => ({
   readiness: null,
   maxHR: null,
+  // a screen a notification tap asked for; App opens it and clears it
+  route: null,
   setHealth: (patch) => set(patch),
 }))

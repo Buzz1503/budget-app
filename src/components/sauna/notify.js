@@ -1,36 +1,22 @@
-// One local notification at the end of a sauna timer, so the Watch buzzes
-// while the phone is locked outside. iPhone app only; the web build has no
-// notification and the timer simply shows the time.
+// The notification at the end of a sauna timer, so the Watch buzzes while the
+// phone is locked outside. iPhone app only; the web build has no notification
+// and the timer simply shows the time.
 //
-// Permission is asked the first time a timer starts and never again: after a
-// "Don't allow", the timer still works, just without the alert.
+// Since stage 3B the alert itself is part of the native schedule
+// (src/native/notifySchedule.js): starting the timer writes it to the store,
+// the schedule is rebuilt, and stopping removes it the same way. All this file
+// still does is ask for permission, the first time a timer starts and never
+// again: after a "Don't allow", the timer still works, just without the alert.
 
-const ID = 4242
-
-export async function scheduleSaunaAlert({ at, targetMin, asked, markAsked }) {
+export async function scheduleSaunaAlert({ asked, markAsked }) {
   if (!__NATIVE__) return false
   try {
-    const { LocalNotifications } = await import('@capacitor/local-notifications')
-    let perm = await LocalNotifications.checkPermissions()
-    if (perm.display !== 'granted' && !asked) {
-      markAsked?.()
-      perm = await LocalNotifications.requestPermissions()
-    }
-    if (perm.display !== 'granted') return false
-    await LocalNotifications.cancel({ notifications: [{ id: ID }] })
-    await LocalNotifications.schedule({
-      notifications: [{ id: ID, title: 'Sauna', body: `${targetMin} min is up.`, schedule: { at: new Date(at), allowWhileIdle: true } }],
-    })
-    return true
+    const { ensureNotificationPermission } = await import('../../native/notifyRuntime')
+    return await ensureNotificationPermission({ asked, markAsked })
   } catch {
     return false
   }
 }
 
-export async function cancelSaunaAlert() {
-  if (!__NATIVE__) return
-  try {
-    const { LocalNotifications } = await import('@capacitor/local-notifications')
-    await LocalNotifications.cancel({ notifications: [{ id: ID }] })
-  } catch { /* nothing scheduled */ }
-}
+/** Nothing to cancel by hand: clearing the timer rebuilds the schedule without it. */
+export async function cancelSaunaAlert() {}

@@ -150,6 +150,36 @@ function groupsFor(items, date, slot, verdictOf) {
   })
 }
 
+/** One day's items and draw-together groups, as every surface shows them. */
+export function dayPlan(state, date, verdictOf = null) {
+  const items = itemsFor(state, date)
+  const groups = [...groupsFor(items, date, 'AM', verdictOf), ...groupsFor(items, date, 'PM', verdictOf)]
+  for (const g of groups) for (const id of g.itemIds) items.find((x) => x.id === id).groupId = g.id
+  return { date, items: items.map(({ separate: _separate, ml: _ml, ...rest }) => rest), groups }
+}
+
+/**
+ * One slot's rows: each draw-together group once (where its first member
+ * was), every other item on its own. Only what is still due when `dueOnly`.
+ */
+export function slotRows(day, slot, { dueOnly = false } = {}) {
+  const rows = []
+  const seen = new Set()
+  for (const item of day.items) {
+    if (item.slot !== slot) continue
+    if (item.groupId) {
+      if (seen.has(item.groupId)) continue
+      seen.add(item.groupId)
+      const group = day.groups.find((g) => g.id === item.groupId)
+      const members = group.itemIds.map((id) => day.items.find((i) => i.id === id))
+      rows.push({ group, items: members, status: members.some((m) => m.status === 'due') ? 'due' : 'logged' })
+    } else {
+      rows.push({ group: null, items: [item], status: item.status })
+    }
+  }
+  return dueOnly ? rows.filter((r) => r.status === 'due') : rows
+}
+
 const toHM = (t) => {
   const [h, m] = String(t || '').split(':').map(Number)
   return Number.isFinite(h) ? { h, m: Number.isFinite(m) ? m : 0 } : null
@@ -208,13 +238,7 @@ export function buildSnapshot(state, { now = new Date(), verdictOf = null, readi
   const ns = state.notificationSettings || {}
   const slotTimes = { AM: ns.amTime || DEFAULT_SLOT_TIMES.AM, PM: ns.pmTime || DEFAULT_SLOT_TIMES.PM }
   const days = []
-  for (let i = 0; i < SNAPSHOT_DAYS; i++) {
-    const date = addDaysStr(today, i)
-    const items = itemsFor(state, date)
-    const groups = [...groupsFor(items, date, 'AM', verdictOf), ...groupsFor(items, date, 'PM', verdictOf)]
-    for (const g of groups) for (const id of g.itemIds) items.find((x) => x.id === id).groupId = g.id
-    days.push({ date, items: items.map(({ separate: _separate, ml: _ml, ...rest }) => rest), groups })
-  }
+  for (let i = 0; i < SNAPSHOT_DAYS; i++) days.push(dayPlan(state, addDaysStr(today, i), verdictOf))
   const pause = activePause(state.pauses || [], today)
   const sessions = state.saunaSessions || []
   const saunaSettings = state.saunaSettings || {}
