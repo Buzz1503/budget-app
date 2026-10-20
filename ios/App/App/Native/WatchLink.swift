@@ -66,6 +66,17 @@ final class WatchLink: NSObject, WCSessionDelegate {
         }
     }
 
+    /// A command for the Watch app (stop the sauna it is recording): a message
+    /// when it is reachable, otherwise queued user info for when it runs.
+    func sendCommand(_ info: [String: Any]) {
+        guard let s = session, s.activationState == .activated, s.isPaired, s.isWatchAppInstalled else { return }
+        if s.isReachable {
+            s.sendMessage(info, replyHandler: nil) { _ in s.transferUserInfo(info) }
+        } else {
+            s.transferUserInfo(info)
+        }
+    }
+
     var isReachable: Bool { session?.isReachable ?? false }
     var isWatchAppInstalled: Bool { (session?.activationState == .activated) && (session?.isWatchAppInstalled ?? false) }
 

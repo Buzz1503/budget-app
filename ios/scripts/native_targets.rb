@@ -129,6 +129,7 @@ app_group = project.main_group.children.find { |g| g.isa == 'PBXGroup' && g.path
 add_sources(project, app, File.join(SRCROOT, 'App', 'Native'), nested_group(app_group, File.join(SRCROOT, 'App'), File.join(SRCROOT, 'App', 'Native')))
 add_sources(project, app, File.join(IOS, 'Shared'))
 link_product(project, app, 'PepitoCore')
+link_product(project, app, 'PepitoTheme')
 
 app_ent = { 'com.apple.developer.healthkit' => true, 'com.apple.developer.healthkit.access' => [] }
 app_ent['com.apple.security.application-groups'] = [APP_GROUP] if FEATURES['appGroup']
@@ -139,6 +140,7 @@ info_path = File.join(SRCROOT, 'App', 'Info.plist')
 info = Xcodeproj::Plist.read_from_path(info_path)
 info['PepitoFeatures'] = features_plist
 info['NSSupportsLiveActivities'] = FEATURES['liveActivities']
+info['INAlternativeAppNames'] = [{ 'INAlternativeAppName' => 'Pepito' }]
 info['NSFaceIDUsageDescription'] = 'Pepito+ uses Face ID to unlock the app when the lock is on in More, Settings.'
 info['NSHealthUpdateUsageDescription'] = 'Pepito+ asks so the sauna on your Apple Watch can be started from your iPhone. The iPhone app never writes to Health.'
 write_plist(info_path, info)

@@ -1,6 +1,8 @@
 import Foundation
 import AppIntents
+import SwiftUI
 import PepitoCore
+import PepitoTheme
 
 // App Intents shared by the widgets (interactive buttons), Siri, Shortcuts and
 // the Action Button. Each one only queues an action through ActionSink: the web
@@ -199,13 +201,43 @@ struct ShowReadinessIntent: AppIntent {
     static var description = IntentDescription("Today's readiness score and band.")
     static var openAppWhenRun = false
 
-    func perform() async throws -> some IntentResult & ProvidesDialog {
-        guard let r = DoseIntentSupport.snapshot()?.readiness else {
-            return .result(dialog: "No readiness yet. Connect Apple Health in Pepito+.")
+    func perform() async throws -> some IntentResult & ProvidesDialog & ShowsSnippetView {
+        let r = DoseIntentSupport.snapshot()?.readiness
+        let spoken: String
+        if let r, let score = r.score, let band = r.bandLabel {
+            spoken = "Readiness \(score), \(band.lowercased())."
+        } else if r == nil {
+            spoken = "No readiness yet. Connect Apple Health in Pepito+."
+        } else {
+            spoken = r?.status == "building" ? "Readiness is still building a baseline." : "Not enough data from last night."
         }
-        guard let score = r.score, let band = r.bandLabel else {
-            return .result(dialog: r.status == "building" ? "Readiness is still building a baseline." : "Not enough data from last night.")
+        return .result(dialog: "\(spoken)", view: ReadinessSnippet(readiness: r))
+    }
+}
+
+/// The card Siri shows under the spoken answer.
+struct ReadinessSnippet: View {
+    let readiness: Snapshot.Readiness?
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: PepitoTheme.Space.s12) {
+            Text(readiness?.score.map(String.init) ?? "–")
+                .font(PepitoTheme.Typography.metric)
+                .foregroundStyle(PepitoTheme.Palette.text)
+            VStack(alignment: .leading, spacing: PepitoTheme.Space.s4) {
+                Text(readiness?.bandLabel ?? "Readiness")
+                    .font(PepitoTheme.Typography.h2)
+                    .foregroundStyle(PepitoTheme.bandColor(readiness?.band))
+                if let rhr = readiness?.rhr, let hrv = readiness?.hrv {
+                    Text("RHR \(Int(rhr.rounded())), HRV \(Int(hrv.rounded())) ms")
+                        .font(PepitoTheme.Typography.small.monospacedDigit())
+                        .foregroundStyle(PepitoTheme.Palette.text2)
+                }
+            }
+            Spacer(minLength: 0)
         }
-        return .result(dialog: "Readiness \(score), \(band.lowercased()).")
+        .padding(PepitoTheme.Space.s16)
+        .background(PepitoTheme.Palette.bg)
+        .accessibilityElement(children: .combine)
     }
 }

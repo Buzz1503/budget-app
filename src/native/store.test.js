@@ -87,3 +87,18 @@ describe('applyNativeActions', () => {
     expect(useStore.getState().saunaTimer).toBeNull()
   })
 })
+
+describe('a session timed on the iPhone and recorded on the Watch', () => {
+  it('is one session: the Watch summary adds its heart rate to the phone one', () => {
+    const start = Date.now() - 40 * 60000
+    useStore.getState().applyNativeActions([
+      { id: 'p1', type: 'startSauna', at: new Date(start).toISOString(), source: 'widget', payload: { startedAt: start, targetMin: 20, tempC: 65 } },
+      { id: 'p2', type: 'stopSauna', at: new Date(start + 20 * 60000).toISOString(), source: 'widget', payload: { stoppedAt: start + 20 * 60000 } },
+      { id: 'p3', type: 'saunaCompleted', at: new Date().toISOString(), source: 'watch', payload: { start: start + 30000, end: start + 20 * 60000, tempC: 65, avgHR: 118, peakHR: 141, samples: [[start / 1000, 110]], workoutId: 'hk-9' } },
+    ])
+    const sessions = useStore.getState().saunaSessions
+    expect(sessions).toHaveLength(1)
+    expect(sessions[0]).toMatchObject({ source: 'watch', workoutId: 'hk-9' })
+    expect(sessions[0].hr.peak).toBe(141)
+  })
+})

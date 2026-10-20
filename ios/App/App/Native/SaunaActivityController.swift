@@ -14,6 +14,7 @@ import PepitoCore
 /// gets its Live Activity the next time the app opens.
 final class SaunaActivityController {
     static let shared = SaunaActivityController()
+    private var lastWatchStart: Double?
 
     private var enabled: Bool {
         NativeFeatures.liveActivities && ActivityAuthorizationInfo().areActivitiesEnabled
@@ -46,6 +47,11 @@ final class SaunaActivityController {
         }
         if Activity<SaunaActivityAttributes>.activities.isEmpty, UIApplication.shared.applicationState == .active {
             start(startedAt: a.startDate, targetMin: a.targetMin, tempC: a.tempC, rounds: a.rounds)
+        }
+        // a session started on the iPhone (the Sauna tab) starts the Watch workout once
+        if a.source != "watch", lastWatchStart != a.startedAt {
+            lastWatchStart = a.startedAt
+            if now.timeIntervalSince(a.startDate) < 120 { SaunaEffects.startWatchWorkout() }
         }
     }
 }

@@ -20,7 +20,7 @@
     "cap:open": "cap open ios",
     "ios:assets": "node scripts/make-ios-assets.mjs && capacitor-assets generate --ios --iconBackgroundColor '#080a12' --iconBackgroundColorDark '#080a12' --splashBackgroundColor '#080a12' --splashBackgroundColorDark '#080a12'",
     "typecheck": "tsc -p tsconfig.json",
-    "lint": "eslint src/native src/health src/body src/sauna src/components/health src/components/charts src/components/body src/components/sauna"
+    "lint": "eslint src/native src/components/native src/health src/body src/sauna src/components/health src/components/charts src/components/body src/components/sauna"
   },
   "dependencies": {
     "@capacitor/core": "^8.5.3",

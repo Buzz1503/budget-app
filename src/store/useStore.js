@@ -2014,6 +2014,15 @@ const useStore = create(
             case 'saunaFromWatch': {
               const x = o.summary
               const start = localParts(x.start)
+              const hr = { avg: x.avgHR ?? null, peak: x.peakHR ?? null, samples: x.samples || [], sparse: false, from: 'watch' }
+              // a session timed on the iPhone that the Watch also recorded is one session, now with its heart rate
+              const twin = get().saunaSessions.find((q) => !q.workoutId && q.date === start.date
+                && Math.abs((q.startedAt ?? new Date(`${q.date}T${q.start}:00`).getTime()) - x.start) <= 5 * 60000)
+              if (twin) {
+                get().updateSaunaSession(twin.id, { source: 'watch', workoutId: x.workoutId || null, hr, rounds: x.rounds || twin.rounds, endedAt: x.end, startedAt: x.start })
+                if (o.clearsTimer) get().clearSaunaTimer()
+                break
+              }
               created.push(get().addSaunaSession({
                 date: start.date,
                 start: hhmmOf(start.minutes),
@@ -2025,7 +2034,7 @@ const useStore = create(
                 workoutId: x.workoutId || null,
                 startedAt: x.start,
                 endedAt: x.end,
-                hr: { avg: x.avgHR ?? null, peak: x.peakHR ?? null, samples: x.samples || [], sparse: false, from: 'watch' },
+                hr,
               }))
               if (o.clearsTimer) get().clearSaunaTimer()
               break

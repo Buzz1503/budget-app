@@ -116,6 +116,9 @@ export async function startNativeSync() {
   // notification schedule rebuilt after every snapshot write; the screen a notification tap asked for
   const { startNotifications } = await import('./notifyRuntime')
   startNotifications()
+  // heart rate from Health for sauna sessions timed on the iPhone alone
+  const { startSaunaHR } = await import('./saunaHR')
+  startSaunaHR()
   try {
     await PepitoBridge.addListener('openRoute', ({ route }) => { if (route) useNativeFeed.getState().setHealth({ route }) })
     const { route } = await PepitoBridge.takeRoute()
