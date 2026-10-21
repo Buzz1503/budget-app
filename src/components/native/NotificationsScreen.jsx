@@ -8,6 +8,16 @@ import Switch from './Switch'
 // opens (never at launch); after that the switches just change the schedule.
 
 const NUDGE_OPTIONS = [30, 60, 90, 120, 180]
+const REMIND_ON = [
+  { id: 'watch', label: 'Watch' },
+  { id: 'iphone', label: 'iPhone' },
+  { id: 'both', label: 'Both' },
+]
+const REMIND_HINT = {
+  watch: 'Dose reminders come from Apple Watch, even away from your iPhone. The iPhone keeps them while the Watch app is not installed.',
+  iphone: 'Dose reminders come from your iPhone only.',
+  both: 'Dose reminders come from each. Apple Watch shows one of each reminder.',
+}
 
 async function runtime() {
   if (!__NATIVE__) return null
@@ -54,6 +64,22 @@ export default function NotificationsScreen() {
             </label>
           </div>
           <Switch on={ns.timeSensitive} onChange={(v) => set({ timeSensitive: v })} label="Time sensitive" hint="Reminders get through Focus modes." testId="notify-time-sensitive" />
+          <div className="py-3">
+            <span className="mb-2 block text-sm font-bold">Remind me on</span>
+            <div className="flex gap-2" role="group" aria-label="Remind me on">
+              {REMIND_ON.map((o) => {
+                const on = (ns.remindOn || 'watch') === o.id
+                return (
+                  <button key={o.id} type="button" onClick={() => set({ remindOn: o.id })} aria-pressed={on}
+                    data-testid={`remind-on-${o.id}`} className="min-h-[44px] flex-1 rounded-full px-3 text-xs font-bold"
+                    style={on ? { background: 'var(--surface2)', color: 'var(--text)', border: '1px solid var(--border)' } : { background: 'var(--surface-sunk)', color: 'var(--text-3)', border: '1px solid transparent' }}>
+                    {o.label}
+                  </button>
+                )
+              })}
+            </div>
+            <p className="mt-2 text-xs font-medium" style={{ color: 'var(--text-3)' }} data-testid="remind-on-hint">{REMIND_HINT[ns.remindOn || 'watch']}</p>
+          </div>
         </div>
       </section>
 

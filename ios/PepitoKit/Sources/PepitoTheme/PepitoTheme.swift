@@ -8,6 +8,9 @@
 // system font picks the right one) at the same weights as the app.
 #if canImport(SwiftUI)
 import SwiftUI
+#if os(iOS) || os(watchOS)
+import WidgetKit
+#endif
 
 public enum PepitoTheme {
 
@@ -146,7 +149,125 @@ public struct PepitoCard: ViewModifier {
     }
 }
 
+// MARK: - 3C: widgets, Live Activity and Watch
+
+public extension PepitoTheme {
+
+    /// Numbers on every native surface: SF Pro Rounded on iPhone, SF Compact
+    /// Rounded on the Watch (the system picks), semibold or bold, tabular.
+    static func number(_ size: CGFloat, weight: Font.Weight = .bold) -> Font {
+        Font.system(size: size, weight: weight, design: .rounded).monospacedDigit()
+    }
+
+    /// Widget type ramp: one hero, one title, one caption. Never more than these three in a widget.
+    enum WidgetType {
+        public static let hero: CGFloat = 34
+        public static let heroStandBy: CGFloat = 48
+        public static let title: CGFloat = 15
+        public static let caption: CGFloat = 13
+        public static func titleFont(_ weight: Font.Weight = .semibold) -> Font { .system(size: title, weight: weight) }
+        public static func captionFont(_ weight: Font.Weight = .medium) -> Font { .system(size: caption, weight: weight) }
+    }
+
+    /// Heart-rate zone colours for the running ring: cool grey at zone 1
+    /// warming to deep red at zone 5, blended smoothly between.
+    static let zoneStops: [UInt32] = [0x8E96A8, 0x8E96A8, 0xD8B46A, 0xF2A65A, 0xEE6A3C, 0xC92A3E]
+
+    static func zoneColor(_ position: Double) -> Color {
+        let p = min(max(position, 0), Double(zoneStops.count - 1))
+        let i = Int(p.rounded(.down))
+        let j = min(i + 1, zoneStops.count - 1)
+        let t = p - Double(i)
+        func ch(_ hex: UInt32, _ shift: UInt32) -> Double { Double((hex >> shift) & 0xFF) / 255 }
+        let a = zoneStops[i], b = zoneStops[j]
+        return Color(.sRGB,
+                     red: ch(a, 16) + (ch(b, 16) - ch(a, 16)) * t,
+                     green: ch(a, 8) + (ch(b, 8) - ch(a, 8)) * t,
+                     blue: ch(a, 0) + (ch(b, 0) - ch(a, 0)) * t,
+                     opacity: 1)
+    }
+
+    /// Zone 1 to 5, solid, for the summary bar.
+    static func zoneSolid(_ zone: Int) -> Color { zoneColor(Double(max(1, min(5, zone)))) }
+
+    /// Full-screen page backgrounds on the Watch.
+    enum WatchBackground {
+        public static let doses = LinearGradient(colors: [Color(hex: 0x15181F), .black], startPoint: .top, endPoint: .bottom)
+        public static let sauna = LinearGradient(colors: [Color(hex: 0xB8651E).opacity(0.35), .black], startPoint: .top, endPoint: .bottom)
+        public static let home = LinearGradient(colors: [Color(hex: 0x0E1016), .black], startPoint: .top, endPoint: .bottom)
+        public static func readiness(_ band: String?) -> LinearGradient {
+            LinearGradient(colors: [PepitoTheme.bandColor(band).opacity(0.25), .black], startPoint: .top, endPoint: .bottom)
+        }
+    }
+}
+
+/// How a widget is being drawn: full colour, accented (tinted Home Screen,
+/// tinted watch faces) or vibrant (Lock Screen, StandBy at night). Surfaces
+/// read WidgetKit's mode and pass it here; the design snapshots set it directly.
+public enum SurfaceMode: String, Sendable, CaseIterable {
+    case fullColor, accented, vibrant
+    public var isColor: Bool { self == .fullColor }
+}
+
+private struct SurfaceModeKey: EnvironmentKey { static let defaultValue = SurfaceMode.fullColor }
+private struct SnapshotTintKey: EnvironmentKey { static let defaultValue: Color? = nil }
+
+public extension EnvironmentValues {
+    var surfaceMode: SurfaceMode {
+        get { self[SurfaceModeKey.self] }
+        set { self[SurfaceModeKey.self] = newValue }
+    }
+    /// Only the design snapshots set this: the tint the system would give the
+    /// accent group in accented mode.
+    var snapshotTint: Color? {
+        get { self[SnapshotTintKey.self] }
+        set { self[SnapshotTintKey.self] = newValue }
+    }
+}
+
+/// The accent group of a widget: WidgetKit tints it in accented mode. In the
+/// design snapshots the tint is painted here so the PNG shows what the system does.
+public struct PepitoAccentable: ViewModifier {
+    @Environment(\.surfaceMode) private var mode
+    @Environment(\.snapshotTint) private var tint
+    public init() {}
+    public func body(content: Content) -> some View {
+        #if os(iOS) || os(watchOS)
+        if mode == .accented, let tint {
+            content.widgetAccentable().foregroundStyle(tint)
+        } else {
+            content.widgetAccentable()
+        }
+        #else
+        content
+        #endif
+    }
+}
+
+/// A Gauge drawn as a ring of any size: track, progress with round caps, and
+/// the current value label in the middle.
+public struct RingGaugeStyle: GaugeStyle {
+    public var lineWidth: CGFloat
+    public var tint: Color
+    public var track: Color
+    public init(lineWidth: CGFloat, tint: Color, track: Color = Color.white.opacity(0.14)) {
+        self.lineWidth = lineWidth; self.tint = tint; self.track = track
+    }
+    public func makeBody(configuration: Configuration) -> some View {
+        ZStack {
+            Circle().stroke(track, lineWidth: lineWidth)
+            Circle()
+                .trim(from: 0, to: max(0.0001, min(1, configuration.value)))
+                .stroke(tint, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+            configuration.currentValueLabel
+        }
+        .padding(lineWidth / 2)
+    }
+}
+
 public extension View {
+    func pepitoAccentable() -> some View { modifier(PepitoAccentable()) }
     func pepitoCaption() -> some View { modifier(PepitoCaption()) }
     func pepitoCard(padding: CGFloat = PepitoTheme.Space.s16) -> some View { modifier(PepitoCard(padding: padding)) }
 }

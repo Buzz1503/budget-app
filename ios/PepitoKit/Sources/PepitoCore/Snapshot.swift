@@ -94,6 +94,9 @@ public struct Snapshot: Codable, Equatable, Sendable {
         public var reason: String?
         public var until: String?
         public var wholeProtocol: Bool
+        public init(active: Bool, reason: String?, until: String?, wholeProtocol: Bool) {
+            self.active = active; self.reason = reason; self.until = until; self.wholeProtocol = wholeProtocol
+        }
     }
 
     public struct Readiness: Codable, Equatable, Sendable {

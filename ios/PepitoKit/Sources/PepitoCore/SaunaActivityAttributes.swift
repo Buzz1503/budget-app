@@ -12,9 +12,11 @@ public struct SaunaActivityAttributes: ActivityAttributes {
         public var rounds: Int
         /// The Watch's latest reading, while a Watch session runs (3C).
         public var heartRate: Int?
-        public init(startedAt: Date, targetAt: Date, tempC: Int, rounds: Int, heartRate: Int? = nil) {
+        /// Set while the session is paused on the Watch; startedAt moves on by each pause.
+        public var pausedAt: Date?
+        public init(startedAt: Date, targetAt: Date, tempC: Int, rounds: Int, heartRate: Int? = nil, pausedAt: Date? = nil) {
             self.startedAt = startedAt; self.targetAt = targetAt; self.tempC = tempC; self.rounds = rounds
-            self.heartRate = heartRate
+            self.heartRate = heartRate; self.pausedAt = pausedAt
         }
     }
 

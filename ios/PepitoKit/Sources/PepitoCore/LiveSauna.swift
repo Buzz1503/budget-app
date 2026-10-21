@@ -12,10 +12,16 @@ public struct LiveSauna: Codable, Equatable, Sendable {
     public var rounds: Int
     /// epoch milliseconds
     public var at: Double
+    /// Seconds spent paused so far, and whether it is paused now.
+    public var pausedSec: Double
+    public var paused: Bool
 
-    public init(heartRate: Int?, rounds: Int, at: Date) {
+    public init(heartRate: Int?, rounds: Int, at: Date, pausedSec: Double = 0, paused: Bool = false) {
         self.heartRate = heartRate; self.rounds = rounds; self.at = at.timeIntervalSince1970 * 1000
+        self.pausedSec = pausedSec; self.paused = paused
     }
+
+    public var date: Date { Date(timeIntervalSince1970: at / 1000) }
 
     public func message() -> [String: Any] {
         guard let d = try? JSONEncoder().encode(self) else { return [:] }

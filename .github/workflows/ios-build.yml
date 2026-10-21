@@ -6,7 +6,7 @@ name: iOS build check
 # installs nothing anywhere and does not touch the Pages deploy.
 on:
   push:
-    branches: [native-health, native-stage3]
+    branches: [native-health, native-stage3, native-design]
   workflow_dispatch:
 
 jobs:
@@ -60,3 +60,62 @@ jobs:
           xcodebuild -project ios/App/App.xcodeproj -scheme PepitoWatchWidgets -configuration Debug \
             -destination 'generic/platform=watchOS Simulator' -skipPackagePluginValidation \
             CODE_SIGNING_ALLOWED=NO build 2>&1 | tail -n 60
+
+  # Renders every widget, the Live Activity and every Watch screen to PNG
+  # (ios/PepitoKit/Tests/PepitoSnapshotTests) and commits them to
+  # design-snapshots/ on the same branch, so the design can be reviewed image
+  # by image. The commit says [skip ci].
+  snapshots:
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Pick an iPhone and an Apple Watch simulator
+        id: sims
+        run: |
+          xcodebuild -version
+          xcrun simctl list devices available -j > /tmp/sims.json
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          d = json.load(open('/tmp/sims.json'))['devices']
+          def pick(runtime_key, prefs):
+              devs = [x for k, v in d.items() if runtime_key in k for x in v if x.get('isAvailable')]
+              for p in prefs:
+                  for x in devs:
+                      if x['name'].startswith(p):
+                          return x['udid']
+              return devs[-1]['udid'] if devs else ''
+          print('iphone=' + pick('iOS', ['iPhone 16 Pro', 'iPhone 15 Pro', 'iPhone']))
+          print('watch=' + pick('watchOS', ['Apple Watch Ultra 2', 'Apple Watch Ultra', 'Apple Watch Series 10', 'Apple Watch']))
+          PY
+          cat "$GITHUB_OUTPUT"
+
+      - name: Render iPhone widgets and Live Activity
+        working-directory: ios/PepitoKit
+        run: |
+          set -o pipefail
+          xcodebuild test -scheme PepitoKit-Package -destination "id=${{ steps.sims.outputs.iphone }}" \
+            -only-testing:PepitoSnapshotTests -skipPackagePluginValidation 2>&1 | tail -n 80
+
+      - name: Render Watch screens and complications
+        if: always()
+        working-directory: ios/PepitoKit
+        run: |
+          set -o pipefail
+          xcodebuild test -scheme PepitoKit-Package -destination "id=${{ steps.sims.outputs.watch }}" \
+            -only-testing:PepitoSnapshotTests -skipPackagePluginValidation 2>&1 | tail -n 80
+
+      - name: Commit the snapshots to the branch
+        if: always()
+        run: |
+          ls design-snapshots | wc -l
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git add design-snapshots
+          if git diff --cached --quiet; then echo "No changes"; exit 0; fi
+          git commit -m "Design snapshots [skip ci]"
+          for i in 1 2 3; do git pull --rebase origin "${GITHUB_REF_NAME}" && git push origin "HEAD:${GITHUB_REF_NAME}" && break; sleep 5; done

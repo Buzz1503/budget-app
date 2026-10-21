@@ -1,0 +1,119 @@
+// The iPhone widgets and the sauna Live Activity, as plain SwiftUI views over
+// the snapshot. The widget extension wraps them in WidgetKit (timelines,
+// intents, container backgrounds); the design snapshots render them to PNG.
+// Buttons come in through WidgetActions, because the App Intents they run
+// live in the app and the extension.
+#if os(iOS)
+import SwiftUI
+import WidgetKit
+import PepitoCore
+import PepitoTheme
+
+/// What a tap does. The extension supplies Button(intent:) wrappers; the
+/// snapshots use `inert`, which draws the same label without a button.
+public struct WidgetActions {
+    public var tick: (_ rowId: String, _ label: AnyView) -> AnyView
+    public var startSauna: (_ label: AnyView) -> AnyView
+    public var stopSauna: (_ label: AnyView) -> AnyView
+
+    public init(tick: @escaping (String, AnyView) -> AnyView,
+                startSauna: @escaping (AnyView) -> AnyView,
+                stopSauna: @escaping (AnyView) -> AnyView) {
+        self.tick = tick; self.startSauna = startSauna; self.stopSauna = stopSauna
+    }
+
+    public static let inert = WidgetActions(tick: { _, l in l }, startSauna: { $0 }, stopSauna: { $0 })
+}
+
+private struct WidgetActionsKey: EnvironmentKey { static let defaultValue = WidgetActions.inert }
+private struct StandByKey: EnvironmentKey { static let defaultValue = false }
+
+public extension EnvironmentValues {
+    var widgetActions: WidgetActions {
+        get { self[WidgetActionsKey.self] }
+        set { self[WidgetActionsKey.self] = newValue }
+    }
+    /// StandBy (no container background): bigger hero numbers, no small captions.
+    var isStandBy: Bool {
+        get { self[StandByKey.self] }
+        set { self[StandByKey.self] = newValue }
+    }
+}
+
+public extension SurfaceMode {
+    init(_ mode: WidgetRenderingMode) {
+        switch mode {
+        case .accented: self = .accented
+        case .vibrant: self = .vibrant
+        default: self = .fullColor
+        }
+    }
+}
+
+typealias Pal = PepitoTheme.Palette
+typealias WT = PepitoTheme.WidgetType
+
+/// Colours that change with the rendering mode. Outside full colour only
+/// white at different strengths is used, so the system's tint or vibrancy
+/// reads it the way it is meant.
+struct Ink {
+    let mode: SurfaceMode
+    var base: Color { mode.isColor ? Pal.text : .white }
+    /// The accent where it means done, progress or the main action.
+    var accent: Color { mode.isColor ? Pal.accent : .white }
+    var track: Color { .white.opacity(mode.isColor ? 0.14 : 0.22) }
+    var buttonFill: Color { mode.isColor ? Pal.accent : .white.opacity(0.2) }
+    var buttonLabel: Color { mode.isColor ? Pal.accentForeground : .white }
+    var neutralFill: Color { mode.isColor ? .white : .white.opacity(0.2) }
+    var neutralLabel: Color { mode.isColor ? .black : .white }
+    func band(_ b: String?) -> Color { mode.isColor ? PepitoTheme.bandColor(b) : .white }
+    var sauna: Color { mode.isColor ? Pal.sauna : .white }
+}
+
+/// A full-width capsule button label: the Log, Start and Stop buttons.
+struct CapsuleLabel: View {
+    let title: String
+    let symbol: String?
+    let fill: Color
+    let label: Color
+    var height: CGFloat = PepitoTheme.minTap
+
+    var body: some View {
+        HStack(spacing: PepitoTheme.Space.s4) {
+            if let symbol { Image(systemName: symbol).font(.system(size: WT.title, weight: .bold)) }
+            Text(title).font(WT.titleFont())
+        }
+        .foregroundStyle(label)
+        .frame(maxWidth: .infinity, minHeight: height)
+        .background(Capsule().fill(fill))
+        .contentShape(Capsule())
+    }
+}
+
+enum WidgetText {
+    /// "Until 22 Oct" from "2026-10-22".
+    static func until(_ iso: String?) -> String? {
+        guard let iso else { return nil }
+        let p = iso.prefix(10).split(separator: "-").compactMap { Int($0) }
+        guard p.count == 3 else { return nil }
+        let months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+        return "Until \(p[2]) \(months[max(0, min(11, p[1] - 1))])"
+    }
+
+    /// "8:00 pm" from "20:00".
+    static func clockFull(_ hhmm: String) -> String {
+        let parts = hhmm.split(separator: ":").compactMap { Int($0) }
+        guard let h = parts.first else { return "" }
+        let m = parts.count > 1 ? parts[1] : 0
+        return "\(h % 12 == 0 ? 12 : h % 12):\(String(format: "%02d", m)) \(h < 12 ? "am" : "pm")"
+    }
+
+    /// "30 units" to "30u", for the Lock Screen line.
+    static func shortUnits(_ units: String?) -> String? {
+        guard let u = units, let n = u.split(separator: " ").first else { return nil }
+        return "\(n)u"
+    }
+
+    static func names(_ row: DoseBoard.Row) -> String { row.items.map(\.name).joined(separator: " + ") }
+}
+#endif
