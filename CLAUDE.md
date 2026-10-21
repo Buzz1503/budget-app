@@ -77,3 +77,17 @@ an iOS app (bundle id com.buzz.pepito). State is one persisted Zustand store,
   PepitoTheme tokens), app code `ios/App/App/Native`, shared `ios/Shared`, targets
   `ios/PepitoWidgets`, `ios/PepitoWatch`, `ios/PepitoWatchWidgets`. Add targets and files
   only with `ruby ios/scripts/native_targets.rb`; flags in `ios/native-features.json`.
+
+## Native design (3C)
+
+- Widget and Live Activity views live in `ios/PepitoKit/Sources/PepitoWidgetUI`, Watch
+  screens and complications in `PepitoWatchUI`; targets only wrap them (intents via
+  `WidgetActions`, mode via `SurfaceMode`). Watch Home is a menu (`WatchRoute`); only a
+  running sauna opens straight to its screen. One hero, max three text sizes, lime only
+  for done/progress/primary action, no mid-word truncation (use short variants).
+- `PepitoSnapshotTests` renders every surface to `design-snapshots/` (CI job `snapshots`
+  commits them back). Accented/vibrant are emulated; timer ProgressViews are drawn still.
+- Dose reminders: More › Notifications › Remind me on (Watch default, iPhone, Both).
+  Watch plans them from the snapshot (`WatchReminders.swift`, same ids); parity fixture
+  `Fixtures/reminders.json` from `fixture.test.js`. Snapshot carries 7 days.
+
