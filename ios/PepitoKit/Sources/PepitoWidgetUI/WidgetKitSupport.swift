@@ -58,12 +58,14 @@ typealias WT = PepitoTheme.WidgetType
 /// reads it the way it is meant.
 struct Ink {
     let mode: SurfaceMode
+    /// Only in the design snapshots: the system's tint for the accent group.
+    var tint: Color? = nil
     var base: Color { mode.isColor ? Pal.text : .white }
     /// The accent where it means done, progress or the main action.
-    var accent: Color { mode.isColor ? Pal.accent : .white }
+    var accent: Color { mode.isColor ? Pal.accent : (mode == .accented ? tint ?? .white : .white) }
     var track: Color { .white.opacity(mode.isColor ? 0.14 : 0.22) }
-    var buttonFill: Color { mode.isColor ? Pal.accent : .white.opacity(0.2) }
-    var buttonLabel: Color { mode.isColor ? Pal.accentForeground : .white }
+    var buttonFill: Color { mode.isColor ? Pal.accent : (mode == .accented ? (tint ?? .white).opacity(0.3) : .white.opacity(0.2)) }
+    var buttonLabel: Color { mode.isColor ? Pal.accentForeground : (mode == .accented ? tint ?? .white : .white) }
     var neutralFill: Color { mode.isColor ? .white : .white.opacity(0.2) }
     var neutralLabel: Color { mode.isColor ? .black : .white }
     func band(_ b: String?) -> Color { mode.isColor ? PepitoTheme.bandColor(b) : .white }
@@ -87,6 +89,48 @@ struct CapsuleLabel: View {
         .frame(maxWidth: .infinity, minHeight: height)
         .background(Capsule().fill(fill))
         .contentShape(Capsule())
+    }
+}
+
+/// Progress to a moment, live. ProgressView(timerInterval:) in a widget; a
+/// still ring at the same point in the design snapshots, which cannot draw it.
+struct TimerRing: View {
+    let range: ClosedRange<Date>
+    let tint: Color
+    var track: Color = .white.opacity(0.14)
+    var lineWidth: CGFloat = 4
+    @Environment(\.isDesignSnapshot) private var snapshot
+
+    var body: some View {
+        if snapshot {
+            let total = range.upperBound.timeIntervalSince(range.lowerBound)
+            let f = total > 0 ? min(1, max(0, Date().timeIntervalSince(range.lowerBound) / total)) : 0
+            Gauge(value: f) { EmptyView() }
+                .gaugeStyle(RingGaugeStyle(lineWidth: lineWidth, tint: tint, track: track))
+        } else {
+            ProgressView(timerInterval: range, countsDown: false) { EmptyView() } currentValueLabel: { EmptyView() }
+                .progressViewStyle(.circular)
+                .tint(tint)
+        }
+    }
+}
+
+/// The same as a thin bar.
+struct TimerBar: View {
+    let range: ClosedRange<Date>
+    let tint: Color
+    @Environment(\.isDesignSnapshot) private var snapshot
+
+    var body: some View {
+        if snapshot {
+            let total = range.upperBound.timeIntervalSince(range.lowerBound)
+            let f = total > 0 ? min(1, max(0, Date().timeIntervalSince(range.lowerBound) / total)) : 0
+            ProgressView(value: f).progressViewStyle(.linear).tint(tint)
+        } else {
+            ProgressView(timerInterval: range, countsDown: false) { EmptyView() } currentValueLabel: { EmptyView() }
+                .progressViewStyle(.linear)
+                .tint(tint)
+        }
     }
 }
 
@@ -115,5 +159,18 @@ enum WidgetText {
     }
 
     static func names(_ row: DoseBoard.Row) -> String { row.items.map(\.name).joined(separator: " + ") }
+
+    /// "Reta 3 mg · 30u", or a group's names and total: "BPC-157 + TB-500 · 50u".
+    static func rowLine(_ row: DoseBoard.Row) -> String {
+        if row.isGroup { return "\(names(row)) · \(shortUnits(WatchHome.doseLine(row)) ?? "")" }
+        guard let i = row.items.first else { return row.title }
+        return ["\(i.name) \(i.dose)", shortUnits(i.units)].compactMap { $0 }.joined(separator: " · ")
+    }
+
+    /// "8:00 pm", or "Tomorrow 7:00 am".
+    static func when(_ n: DoseBoard.NextRow, now: Date, calendar: Calendar = .current) -> String {
+        let t = clockFull(n.time)
+        return n.date == DoseBoard.dateString(now, calendar: calendar) ? t : "Tomorrow \(t)"
+    }
 }
 #endif

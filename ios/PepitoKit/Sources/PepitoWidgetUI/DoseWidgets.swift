@@ -33,13 +33,14 @@ public enum DoseWidgetState: Equatable {
 public struct NextDoseSmallView: View {
     let state: DoseWidgetState
     @Environment(\.surfaceMode) private var mode
+    @Environment(\.snapshotTint) private var tint
     @Environment(\.isStandBy) private var standBy
     @Environment(\.widgetActions) private var actions
 
     public init(state: DoseWidgetState) { self.state = state }
 
     public var body: some View {
-        let ink = Ink(mode: mode)
+        let ink = Ink(mode: mode, tint: tint)
         Group {
             switch state {
             case .empty:
@@ -141,11 +142,12 @@ struct SmallMessage: View {
 public struct TodayMediumView: View {
     let state: DoseWidgetState
     @Environment(\.surfaceMode) private var mode
+    @Environment(\.snapshotTint) private var tint
 
     public init(state: DoseWidgetState) { self.state = state }
 
-    static let singleHeight: CGFloat = 44
-    static let groupHeight: CGFloat = 60
+    static let singleHeight: CGFloat = 40
+    static let groupHeight: CGFloat = 58
     static let moreHeight: CGFloat = 18
     static let budget: CGFloat = 138
 
@@ -165,8 +167,14 @@ public struct TodayMediumView: View {
         return (shown, ordered.count - shown.count)
     }
 
+    /// "+2 more", or "+1 logged" when everything left over is done.
+    static func moreLine(_ rows: [DoseBoard.Row], shown: [DoseBoard.Row]) -> String {
+        let rest = rows.filter { r in !shown.contains { $0.id == r.id } }
+        return rest.allSatisfy { $0.status != .due } ? "+\(rest.count) logged" : "+\(rest.count) more"
+    }
+
     public var body: some View {
-        let ink = Ink(mode: mode)
+        let ink = Ink(mode: mode, tint: tint)
         HStack(alignment: .center, spacing: PepitoTheme.Space.s16) {
             ring(ink: ink)
                 .frame(width: 96)
@@ -203,6 +211,10 @@ public struct TodayMediumView: View {
                         .font(.system(size: 26, weight: .bold))
                         .foregroundStyle(ink.accent)
                         .pepitoAccentable()
+                } else if case .paused = state {
+                    Image(systemName: "pause.fill")
+                        .font(.system(size: 22, weight: .bold))
+                        .foregroundStyle(.secondary)
                 } else {
                     Text(label)
                         .font(PepitoTheme.number(22))
@@ -243,7 +255,7 @@ public struct TodayMediumView: View {
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(fit.shown) { row in TodayRow(row: row, ink: ink) }
                 if fit.more > 0 {
-                    Text("+\(fit.more) more")
+                    Text(TodayMediumView.moreLine(rows, shown: fit.shown))
                         .font(WT.captionFont())
                         .foregroundStyle(.secondary)
                         .frame(height: TodayMediumView.moreHeight, alignment: .leading)
@@ -262,14 +274,12 @@ struct TodayRow: View {
         let done = row.status != .due
         let line = actions.tick(row.id, AnyView(
             HStack(alignment: .center, spacing: PepitoTheme.Space.s8) {
-                names(done: done)
-                Spacer(minLength: PepitoTheme.Space.s4)
-                Text(detail)
-                    .font(WT.captionFont())
-                    .monospacedDigit()
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .layoutPriority(1)
+                // the whole name first; the units go before a name is cut
+                ViewThatFits(in: .horizontal) {
+                    rowLine(done: done, detail: detail)
+                    rowLine(done: done, detail: doseOnly)
+                    rowLine(done: done, detail: doseOnly, squeeze: true)
+                }
                 tick(done: done)
             }
             .frame(height: row.isGroup ? TodayMediumView.groupHeight : TodayMediumView.singleHeight)
@@ -278,6 +288,29 @@ struct TodayRow: View {
         return line
             .disabled(done)
             .accessibilityLabel(done ? "\(row.title), done" : row.speech)
+    }
+
+    /// `squeeze`: the last resort for a very long name, set a little smaller rather than cut.
+    private func rowLine(done: Bool, detail: String?, squeeze: Bool = false) -> some View {
+        HStack(spacing: PepitoTheme.Space.s8) {
+            names(done: done)
+                .fixedSize(horizontal: !squeeze, vertical: false)
+                .minimumScaleFactor(squeeze ? 0.7 : 1)
+            Spacer(minLength: 0)
+            if let detail {
+                Text(detail)
+                    .font(WT.captionFont())
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .fixedSize()
+            }
+        }
+    }
+
+    private var doseOnly: String? {
+        if row.isGroup { return WatchHome.doseLine(row) }
+        return row.items.first?.dose
     }
 
     /// "3 mg · 30u", "1 spray", or a group's total units.
@@ -294,9 +327,9 @@ struct TodayRow: View {
                 Text("Draw together").font(WT.captionFont()).foregroundStyle(.secondary)
                 ForEach(row.items) { i in
                     Text(i.name).font(WT.titleFont()).lineLimit(1)
+                        .foregroundStyle(done ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary))
                 }
             }
-            .foregroundStyle(done ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary))
             .invalidatableContent()
         } else {
             Text(row.items.first?.name ?? row.title)
@@ -326,27 +359,27 @@ public struct NextDoseRectangularView: View {
     public init(snap: Snapshot?, now: Date) { self.snap = snap; self.now = now }
 
     public var body: some View {
-        let next = snap.flatMap { DoseBoard.next($0, now: now) }
+        let next = snap.flatMap { DoseBoard.nextRow($0, now: now) }
         VStack(alignment: .leading, spacing: 0) {
             if let s = snap, s.paused.active, s.paused.wholeProtocol {
                 Label("Paused", systemImage: "pause.circle.fill").font(.headline)
                 Text(WidgetText.until(s.paused.until) ?? "Protocol paused").font(.subheadline).foregroundStyle(.secondary)
-            } else if let next, let s = snap, let first = firstDue(s, next) {
+            } else if let next {
                 Label {
-                    Text(WidgetText.clockFull(next.time))
+                    Text(WidgetText.when(next, now: now))
                 } icon: {
                     Image(systemName: "syringe.fill")
                 }
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-                Text(line(first))
+                Text(WidgetText.rowLine(next.row))
                     .font(.headline)
                     .monospacedDigit()
                     .lineLimit(1)
-                    .minimumScaleFactor(0.8)
+                    .minimumScaleFactor(0.75)
                     .pepitoAccentable()
-                if next.count > 1 {
-                    Text("+\(next.count - 1) more").font(.subheadline).foregroundStyle(.secondary)
+                if next.dueRows > 1 {
+                    Text("+\(next.dueRows - 1) more").font(.subheadline).foregroundStyle(.secondary)
                 }
             } else {
                 Label("All logged", systemImage: "checkmark.circle.fill").font(.headline).pepitoAccentable()
@@ -357,14 +390,6 @@ public struct NextDoseRectangularView: View {
         .accessibilityElement(children: .combine)
     }
 
-    private func firstDue(_ s: Snapshot, _ n: Snapshot.NextDose) -> Snapshot.Item? {
-        s.day(n.date)?.items.first { $0.slot == n.slot && $0.status == .due }
-    }
-
-    /// "Reta 3 mg · 30u"
-    private func line(_ i: Snapshot.Item) -> String {
-        ["\(i.name) \(i.dose)", WidgetText.shortUnits(i.units)].compactMap { $0 }.joined(separator: " · ")
-    }
 }
 
 /// Lock Screen inline: "Next: Reta 8 pm".
@@ -376,9 +401,8 @@ public struct NextDoseInlineContent: View {
     public var body: some View {
         if let s = snap, s.paused.active, s.paused.wholeProtocol {
             Label("Protocol paused", systemImage: "pause.circle")
-        } else if let s = snap, let next = DoseBoard.next(s, now: now),
-                  let first = s.day(next.date)?.items.first(where: { $0.slot == next.slot && $0.status == .due }) {
-            Label("Next: \(first.name) \(DoseBoard.clockLabel(next.time))", systemImage: "syringe")
+        } else if let s = snap, let next = DoseBoard.nextRow(s, now: now) {
+            Label("Next: \(next.row.items.first?.name ?? next.row.title)\(next.row.isGroup ? " +\(next.row.items.count - 1)" : "") \(DoseBoard.clockLabel(next.time))", systemImage: "syringe")
         } else {
             Label(snap == nil ? "Pepito+" : "All logged", systemImage: "checkmark.circle")
         }

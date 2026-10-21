@@ -40,6 +40,7 @@ enum Snap {
         let content = view()
             .frame(width: size.width, height: size.height)
             .environment(\.colorScheme, .dark)
+            .environment(\.isDesignSnapshot, true)
         let r = ImageRenderer(content: content)
         r.scale = scale
         r.proposedSize = ProposedViewSize(size)

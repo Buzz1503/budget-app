@@ -12,13 +12,14 @@ public struct ReadinessSmallView: View {
     let readiness: Snapshot.Readiness?
     let stale: Date?
     @Environment(\.surfaceMode) private var mode
+    @Environment(\.snapshotTint) private var tint
     @Environment(\.isStandBy) private var standBy
 
     /// `stale` is the "as of" moment, passed only when the reading is old.
     public init(readiness: Snapshot.Readiness?, stale: Date? = nil) { self.readiness = readiness; self.stale = stale }
 
     public var body: some View {
-        let ink = Ink(mode: mode)
+        let ink = Ink(mode: mode, tint: tint)
         let score = readiness?.score
         let ringSize: CGFloat = standBy ? 112 : 84
         VStack(alignment: .leading, spacing: PepitoTheme.Space.s4) {
@@ -84,11 +85,11 @@ public struct ReadinessCircularView: View {
     public var body: some View {
         if let a = snap?.sauna.active {
             ZStack {
-                ProgressView(timerInterval: a.startDate...a.targetDate, countsDown: false) { EmptyView() } currentValueLabel: { EmptyView() }
-                    .progressViewStyle(.circular)
+                TimerRing(range: a.startDate...a.targetDate, tint: .white, track: .white.opacity(0.25), lineWidth: 6)
                     .pepitoAccentable()
                 Image(systemName: "flame.fill").font(.system(size: 20, weight: .semibold))
             }
+            .padding(2)
             .accessibilityLabel("Sauna running, target \(a.targetMin) minutes")
         } else {
             let r = snap?.readiness
@@ -112,13 +113,14 @@ public struct ReadinessCircularView: View {
 public struct SaunaSmallView: View {
     let sauna: Snapshot.Sauna?
     @Environment(\.surfaceMode) private var mode
+    @Environment(\.snapshotTint) private var tint
     @Environment(\.isStandBy) private var standBy
     @Environment(\.widgetActions) private var actions
 
     public init(sauna: Snapshot.Sauna?) { self.sauna = sauna }
 
     public var body: some View {
-        let ink = Ink(mode: mode)
+        let ink = Ink(mode: mode, tint: tint)
         Group {
             if let s = sauna {
                 if let a = s.active { running(a, ink: ink) } else { idle(s, ink: ink) }
@@ -178,10 +180,8 @@ public struct SaunaSmallView: View {
         let autoEnd = a.startDate.addingTimeInterval(SaunaLimits.autoEndAfter)
         return VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: PepitoTheme.Space.s8) {
-                ProgressView(timerInterval: a.startDate...a.targetDate, countsDown: false) { EmptyView() } currentValueLabel: { EmptyView() }
-                    .progressViewStyle(.circular)
-                    .tint(ink.accent)
-                    .frame(width: 28, height: 28)
+                TimerRing(range: a.startDate...a.targetDate, tint: ink.accent, track: ink.track, lineWidth: 4)
+                    .frame(width: 24, height: 24)
                     .pepitoAccentable()
                 if !standBy {
                     Text("\(a.tempC)° · \(a.targetMin) min").font(WT.captionFont()).monospacedDigit().foregroundStyle(.secondary)

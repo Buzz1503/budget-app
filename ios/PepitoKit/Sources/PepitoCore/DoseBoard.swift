@@ -116,6 +116,24 @@ public enum DoseBoard {
         return m > 0 ? "\(h12):\(String(format: "%02d", m)) \(suffix)" : "\(h12) \(suffix)"
     }
 
+    /// The next row still due (a draw-together group is one row), with its
+    /// slot and how many rows are due in that slot: what the Lock Screen and
+    /// the complications name.
+    public struct NextRow: Equatable, Sendable {
+        public var row: Row
+        public var date: String
+        public var slot: Snapshot.Slot
+        public var time: String
+        public var dueRows: Int
+    }
+
+    public static func nextRow(_ snap: Snapshot, now: Date, calendar: Calendar = .current) -> NextRow? {
+        guard let a = activeSlot(snap, now: now, calendar: calendar) else { return nil }
+        let due = rows(snap, date: a.date, slot: a.slot).filter { $0.status == .due }
+        guard let first = due.first else { return nil }
+        return NextRow(row: first, date: a.date, slot: a.slot, time: snap.slotTimes.time(for: a.slot), dueRows: due.count)
+    }
+
     /// The next due line, worked out again after a native tick so the Lock
     /// Screen does not keep naming a dose that has just been logged. Same rule
     /// as nextDue in src/native/snapshot.js.

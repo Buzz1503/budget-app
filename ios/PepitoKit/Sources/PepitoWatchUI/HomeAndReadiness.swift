@@ -22,12 +22,19 @@ public struct WatchHomeContent: View {
         let sauna = WatchHome.sauna(snap)
         VStack(spacing: PepitoTheme.Space.s8) {
             tile(.doses, symbol: "syringe.fill", title: "Doses",
-                 line: Text(doses.text).foregroundStyle(doses.done ? Pal.accent : Pal.text2))
+                 line: Text(doses.text).foregroundStyle(doses.done ? Pal.accent : Pal.text2),
+                 short: Text(doses.short).foregroundStyle(doses.done ? Pal.accent : Pal.text2))
             tile(.sauna, symbol: "flame.fill", title: "Sauna",
-                 line: Text(sauna.text).foregroundStyle(sauna.text == "Running" ? Pal.sauna : Pal.text2))
-            tile(.readiness, symbol: "heart.fill", title: "Readiness", line: readinessLine)
+                 line: Text(sauna.text).foregroundStyle(sauna.text == "Running" ? Pal.sauna : Pal.text2),
+                 short: Text(sauna.short).foregroundStyle(sauna.text == "Running" ? Pal.sauna : Pal.text2))
+            tile(.readiness, symbol: "heart.fill", title: "Readiness", line: readinessLine, short: readinessShort)
         }
         .opacity(dimmed ? 0.6 : 1)
+    }
+
+    private var readinessShort: Text {
+        guard let score = snap?.readiness?.score else { return Text(snap?.readiness == nil ? "No data" : "Building").foregroundStyle(Pal.text2) }
+        return Text("\(score)").font(PepitoTheme.number(15, weight: .semibold)).foregroundStyle(PepitoTheme.bandColor(snap?.readiness?.band))
     }
 
     private var readinessLine: Text {
@@ -39,17 +46,22 @@ public struct WatchHomeContent: View {
             + Text(" \(r.bandLabel ?? "")").foregroundStyle(Pal.text2)
     }
 
-    private func tile(_ route: WatchRoute, symbol: String, title: String, line: Text) -> some View {
+    private func tile(_ route: WatchRoute, symbol: String, title: String, line: Text, short: Text) -> some View {
         Button { open(route) } label: {
-            HStack(spacing: PepitoTheme.Space.s12) {
+            HStack(spacing: PepitoTheme.Space.s8) {
                 Image(systemName: symbol)
                     .symbolRenderingMode(.hierarchical)
-                    .font(.system(size: 22, weight: .semibold))
+                    .font(.system(size: 20, weight: .semibold))
                     .foregroundStyle(Pal.text)
-                    .frame(width: 28)
+                    .frame(width: 24)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title).font(.system(size: 17, weight: .semibold)).foregroundStyle(Pal.text)
-                    line.font(.system(size: 15, weight: .medium)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.85)
+                    ViewThatFits(in: .horizontal) {
+                        line.fixedSize()
+                        short.fixedSize()
+                    }
+                    .font(.system(size: 15, weight: .medium))
+                    .monospacedDigit()
                 }
                 Spacer(minLength: 0)
             }
@@ -78,24 +90,21 @@ public struct WatchReadinessContent: View {
             Gauge(value: Double(r?.score ?? 0), in: 0...100) {
                 EmptyView()
             } currentValueLabel: {
-                VStack(spacing: 0) {
-                    Text(r?.score.map(String.init) ?? "–")
-                        .font(PepitoTheme.number(m.isSmall ? 36 : 40))
-                        .foregroundStyle(Pal.text)
-                        .contentTransition(.numericText())
-                    Text(bandLine)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(r?.score == nil ? Pal.text2 : PepitoTheme.bandColor(r?.band))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
-                        .frame(maxWidth: m.ring - 28)
-                }
+                Text(r?.score.map(String.init) ?? "–")
+                    .font(PepitoTheme.number(m.isSmall ? 36 : 40))
+                    .foregroundStyle(Pal.text)
+                    .contentTransition(.numericText())
             }
             .gaugeStyle(RingGaugeStyle(lineWidth: m.isSmall ? 9 : 10,
                                        tint: dimmed ? PepitoTheme.bandColor(r?.band).opacity(0.5) : PepitoTheme.bandColor(r?.band)))
             .frame(width: m.ring, height: m.ring)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(r?.score.map { "Readiness \($0), \(r?.bandLabel ?? "")" } ?? "Readiness, \(bandLine)")
+            Text(bandLine)
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(r?.score == nil ? Pal.text2 : PepitoTheme.bandColor(r?.band))
+                .padding(.top, -PepitoTheme.Space.s4)
+                .accessibilityHidden(true)
 
             VStack(spacing: 0) {
                 if let r {
@@ -121,7 +130,7 @@ public struct WatchReadinessContent: View {
     private var bandLine: String {
         guard let r = readiness else { return "No data" }
         if r.score != nil { return r.bandLabel ?? "" }
-        return r.status == "building" ? "Building" : "Not enough data"
+        return r.status == "building" ? "Building baseline" : "Not enough data"
     }
 
     private func row(_ label: String, value: String?, delta: Double?) -> some View {

@@ -211,6 +211,7 @@ public enum SurfaceMode: String, Sendable, CaseIterable {
 
 private struct SurfaceModeKey: EnvironmentKey { static let defaultValue = SurfaceMode.fullColor }
 private struct SnapshotTintKey: EnvironmentKey { static let defaultValue: Color? = nil }
+private struct DesignSnapshotKey: EnvironmentKey { static let defaultValue = false }
 
 public extension EnvironmentValues {
     var surfaceMode: SurfaceMode {
@@ -222,6 +223,12 @@ public extension EnvironmentValues {
     var snapshotTint: Color? {
         get { self[SnapshotTintKey.self] }
         set { self[SnapshotTintKey.self] = newValue }
+    }
+    /// Set by the design snapshots: ImageRenderer cannot draw the timer-driven
+    /// ProgressView, so surfaces draw the same progress as a static ring there.
+    var isDesignSnapshot: Bool {
+        get { self[DesignSnapshotKey.self] }
+        set { self[DesignSnapshotKey.self] = newValue }
     }
 }
 
@@ -256,10 +263,12 @@ public struct RingGaugeStyle: GaugeStyle {
     public func makeBody(configuration: Configuration) -> some View {
         ZStack {
             Circle().stroke(track, lineWidth: lineWidth)
-            Circle()
-                .trim(from: 0, to: max(0.0001, min(1, configuration.value)))
-                .stroke(tint, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
-                .rotationEffect(.degrees(-90))
+            if configuration.value > 0.001 {
+                Circle()
+                    .trim(from: 0, to: min(1, configuration.value))
+                    .stroke(tint, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+            }
             configuration.currentValueLabel
         }
         .padding(lineWidth / 2)

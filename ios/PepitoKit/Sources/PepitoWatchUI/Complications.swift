@@ -88,22 +88,23 @@ public struct NextDoseComplication: View {
     public init(snap: Snapshot?, now: Date) { self.snap = snap; self.now = now }
 
     public var body: some View {
-        let next = snap.flatMap { DoseBoard.next($0, now: now) }
-        let first = next.flatMap { n in snap?.day(n.date)?.items.first { $0.slot == n.slot && $0.status == .due } }
+        let next = snap.flatMap { DoseBoard.nextRow($0, now: now) }
         VStack(alignment: .leading, spacing: 0) {
             if let s = snap, s.paused.active, s.paused.wholeProtocol {
                 Label("Paused", systemImage: "pause.circle.fill").font(.headline).pepitoAccentable()
                 Text("Protocol paused").font(.subheadline).foregroundStyle(.secondary)
-            } else if let next, let first {
-                Text("\(next.slot.rawValue) · \(DoseBoard.clockLabel(next.time))")
+            } else if let next, let s = snap {
+                Text("\(next.slot.rawValue) · \(WatchHome.slotTime(s, date: next.date, slot: next.slot, now: now))")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
-                Text("\(first.name) \(first.dose)")
+                    .lineLimit(1)
+                Text(next.row.isGroup ? next.row.items.map(\.name).joined(separator: " + ") : "\(next.row.items.first?.name ?? "") \(next.row.items.first?.dose ?? "")")
                     .font(.headline)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.8)
+                    .minimumScaleFactor(0.7)
                     .pepitoAccentable()
-                Text([first.units, next.count > 1 ? "+\(next.count - 1) more" : nil].compactMap { $0 }.joined(separator: " · "))
+                Text([next.row.isGroup ? WatchHome.doseLine(next.row) : next.row.items.first?.units,
+                      next.dueRows > 1 ? "+\(next.dueRows - 1) more" : nil].compactMap { $0 }.joined(separator: " · "))
                     .font(.subheadline)
                     .monospacedDigit()
                     .foregroundStyle(.secondary)
@@ -118,7 +119,7 @@ public struct NextDoseComplication: View {
     }
 }
 
-/// accessoryInline: "Reta 3 mg · 8 pm".
+/// accessoryInline: "Reta · 8 pm".
 public struct NextDoseInlineComplication: View {
     let snap: Snapshot?
     let now: Date
@@ -127,9 +128,9 @@ public struct NextDoseInlineComplication: View {
     public var body: some View {
         if let s = snap, s.paused.active, s.paused.wholeProtocol {
             Label("Paused", systemImage: "pause.circle")
-        } else if let s = snap, let n = DoseBoard.next(s, now: now),
-                  let first = s.day(n.date)?.items.first(where: { $0.slot == n.slot && $0.status == .due }) {
-            Label("\(first.name) \(first.dose) · \(DoseBoard.clockLabel(n.time))", systemImage: "syringe")
+        } else if let s = snap, let n = DoseBoard.nextRow(s, now: now) {
+            let name = n.row.items.first?.name ?? n.row.title
+            Label("\(name)\(n.row.isGroup ? " +\(n.row.items.count - 1)" : "") · \(DoseBoard.clockLabel(n.time))", systemImage: "syringe")
         } else {
             Label(snap == nil ? "Pepito+" : "All logged", systemImage: "checkmark.circle")
         }

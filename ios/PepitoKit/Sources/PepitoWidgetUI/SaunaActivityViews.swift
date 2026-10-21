@@ -19,8 +19,8 @@ public struct SaunaLive: Equatable {
     }
 
     var autoEnd: Date { startedAt.addingTimeInterval(SaunaLimits.autoEndAfter) }
-    /// "60°C · Round 2"
-    var detail: String { "\(tempC)°C · Round \(rounds)" }
+    /// "60°C · Round 2", or "Paused · 60°C"
+    var detail: String { pausedAt != nil ? "Paused · \(tempC)°C" : "\(tempC)°C · Round \(rounds)" }
     var fractionAtPause: Double {
         guard let p = pausedAt else { return 0 }
         let total = targetAt.timeIntervalSince(startedAt)
@@ -43,13 +43,11 @@ struct SaunaProgressBar: View {
     var body: some View {
         Group {
             if live.pausedAt != nil {
-                ProgressView(value: live.fractionAtPause)
+                ProgressView(value: live.fractionAtPause).progressViewStyle(.linear).tint(Pal.accent)
             } else {
-                ProgressView(timerInterval: live.startedAt...live.targetAt, countsDown: false) { EmptyView() } currentValueLabel: { EmptyView() }
+                TimerBar(range: live.startedAt...live.targetAt, tint: Pal.accent)
             }
         }
-        .progressViewStyle(.linear)
-        .tint(Pal.accent)
         .accessibilityLabel("Progress to target")
     }
 }
@@ -110,18 +108,19 @@ public struct SaunaLockScreenView: View {
                 SaunaBadge(size: 44)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Sauna").font(WT.titleFont()).foregroundStyle(.primary)
-                    HStack(spacing: PepitoTheme.Space.s8) {
-                        Text(live.detail).font(WT.captionFont()).monospacedDigit().foregroundStyle(.secondary)
-                        if let bpm = live.heartRate { LiveHeartRate(bpm: bpm) }
-                    }
+                    Text(live.detail).font(WT.captionFont()).monospacedDigit().foregroundStyle(.secondary).lineLimit(1)
                 }
+                .fixedSize()
                 .accessibilityElement(children: .combine)
                 Spacer(minLength: 0)
-                SaunaTimerText(live: live)
-                    .font(PepitoTheme.number(WT.hero))
-                    .foregroundStyle(live.pausedAt == nil ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
-                    .multilineTextAlignment(.trailing)
-                    .frame(maxWidth: 140, alignment: .trailing)
+                VStack(alignment: .trailing, spacing: 0) {
+                    SaunaTimerText(live: live)
+                        .font(PepitoTheme.number(WT.hero))
+                        .foregroundStyle(live.pausedAt == nil ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
+                        .multilineTextAlignment(.trailing)
+                        .frame(maxWidth: 140, alignment: .trailing)
+                    if let bpm = live.heartRate { LiveHeartRate(bpm: bpm) }
+                }
             }
             HStack(spacing: PepitoTheme.Space.s16) {
                 SaunaProgressBar(live: live)
@@ -187,13 +186,12 @@ public struct SaunaIslandMinimal: View {
     public var body: some View {
         Group {
             if live.pausedAt != nil {
-                ProgressView(value: live.fractionAtPause)
+                Gauge(value: live.fractionAtPause) { EmptyView() }
+                    .gaugeStyle(RingGaugeStyle(lineWidth: 3, tint: Pal.accent))
             } else {
-                ProgressView(timerInterval: live.startedAt...live.targetAt, countsDown: false) { EmptyView() } currentValueLabel: { EmptyView() }
+                TimerRing(range: live.startedAt...live.targetAt, tint: Pal.accent, lineWidth: 3)
             }
         }
-        .progressViewStyle(.circular)
-        .tint(Pal.accent)
         .accessibilityLabel("Sauna, progress to target")
     }
 }

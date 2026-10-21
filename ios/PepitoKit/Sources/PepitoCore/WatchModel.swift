@@ -40,7 +40,10 @@ public enum WatchHome {
         public var text: String
         /// "All logged": shown with the accent, since it means done.
         public var done: Bool
-        public init(text: String, done: Bool) { self.text = text; self.done = done }
+        /// A shorter wording for the 41 mm screen, never cut mid-word.
+        public var short: String
+        public init(text: String, done: Bool, short: String? = nil) { self.text = text; self.done = done; self.short = short ?? text }
+        public static func == (a: Line, b: Line) -> Bool { a.text == b.text && a.done == b.done }
     }
 
     /// "7 am", or "7 am tomorrow" for a slot on the next day.
@@ -52,20 +55,21 @@ public enum WatchHome {
     }
 
     public static func doses(_ snap: Snapshot?, now: Date, calendar: Calendar = .current) -> Line {
-        guard let snap else { return Line(text: "Open on iPhone", done: false) }
+        guard let snap else { return Line(text: "Open on iPhone", done: false, short: "On iPhone") }
         if snap.paused.active && snap.paused.wholeProtocol { return Line(text: "Paused", done: false) }
         let today = DoseBoard.dateString(now, calendar: calendar)
         guard let active = DoseBoard.activeSlot(snap, now: now, calendar: calendar) else { return Line(text: "All logged", done: true) }
         let time = DoseBoard.clockLabel(snap.slotTimes.time(for: active.slot))
-        if active.date != today { return Line(text: "All logged · \(time)", done: true) }
+        if active.date != today { return Line(text: "All logged · \(time)", done: true, short: "All logged") }
         let due = DoseBoard.rows(snap, date: active.date, slot: active.slot).filter { $0.status == .due }.count
-        return Line(text: "\(due) due · \(time)", done: false)
+        return Line(text: "\(due) due · \(time)", done: false, short: "\(due) due")
     }
 
     public static func sauna(_ snap: Snapshot?) -> Line {
-        guard let w = snap?.sauna.week else { return Line(text: "Open on iPhone", done: false) }
+        guard let w = snap?.sauna.week else { return Line(text: "Open on iPhone", done: false, short: "On iPhone") }
         if snap?.sauna.active != nil { return Line(text: "Running", done: false) }
-        return Line(text: "\(w.sessions) of \(w.target) this week", done: w.target > 0 && w.sessions >= w.target)
+        return Line(text: "\(w.sessions) of \(w.target) this week", done: w.target > 0 && w.sessions >= w.target,
+                    short: "\(w.sessions) of \(w.target)")
     }
 
     /// The Doses screen: the current slot while something in it is due today.

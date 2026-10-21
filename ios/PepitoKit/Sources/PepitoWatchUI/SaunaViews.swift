@@ -28,9 +28,11 @@ public struct WatchSaunaStartContent: View {
                     .font(PepitoTheme.number(m.hero))
                     .foregroundStyle(Pal.text)
                     .contentTransition(.numericText(value: Double(tempC)))
-                Text("Turn the Crown to set")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(Pal.text2)
+                if tempC <= heatWarningAboveC {
+                    Text("Turn the Crown to set")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(Pal.text2)
+                }
             }
             .frame(maxWidth: .infinity)
             .accessibilityElement(children: .ignore)
@@ -376,8 +378,8 @@ public struct WatchSaunaSummaryContent: View {
             }
             VStack(spacing: 0) {
                 row("Temperature", "\(s.tempC)°C")
-                row("Avg heart rate", s.avgHR.map { "\($0) bpm" } ?? "–")
-                row("Peak heart rate", s.peakHR.map { "\($0) bpm" } ?? "–")
+                row("Average HR", s.avgHR.map { "\($0) bpm" } ?? "–")
+                row("Peak HR", s.peakHR.map { "\($0) bpm" } ?? "–")
                 row("Rounds", "\(s.rounds)")
             }
             if s.zoneMinutes.reduce(0, +) > 0 {
