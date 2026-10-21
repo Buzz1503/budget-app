@@ -4,7 +4,11 @@
 // requests to iOS, which replaces the previous schedule with them.
 //
 //   dose     the AM and PM slot reminders, one notification per slot listing
-//            each item or draw-together group with its dose and units
+//            each item or draw-together group with its dose and units. Left
+//            to the Watch when "Remind me on" is Watch and the Watch app is
+//            installed: it schedules the same reminders itself from the
+//            snapshot (ios/PepitoKit WatchReminders.swift, same ids, so with
+//            Both the system shows one of each on the wrist)
 //   nudge    one follow-up per slot if something is still unlogged by then
 //   reaction one daily reminder to check an open reaction
 //   stock    one notification when an item first runs low (see stockAlerts)
@@ -13,7 +17,7 @@
 // Logged, skipped and paused items are left out. A slot with nothing left in
 // it has no reminder and no nudge.
 import { addDaysStr } from '../lib/schedule'
-import { dayPlan, slotRows, localDate, DEFAULT_SLOT_TIMES } from './snapshot'
+import { dayPlan, slotRows, localDate, DEFAULT_SLOT_TIMES, REMIND_ON } from './snapshot'
 import { openReactions, dueForCheck } from '../lib/reactionCourse'
 import { lowStockItems } from '../lib/lowStock'
 
@@ -22,6 +26,19 @@ export const ID_PREFIX = 'pepito.sched.'
 export const DEFAULT_NOTIFICATION_SETTINGS = {
   amTime: DEFAULT_SLOT_TIMES.AM, pmTime: DEFAULT_SLOT_TIMES.PM, nudgeDelayMin: 90,
   doses: true, nudges: true, timeSensitive: true, reactions: true, reactionTime: '19:00', stock: true, sauna: true,
+  remindOn: 'watch',
+}
+
+/**
+ * Which devices schedule dose reminders and nudges. "Watch" falls back to the
+ * iPhone while the Watch app is not installed, so a setting never leaves
+ * nobody reminding.
+ */
+export function doseReminderDevices(remindOn, watchReady) {
+  const on = REMIND_ON.includes(remindOn) ? remindOn : 'watch'
+  if (on === 'iphone') return { phone: true, watch: false }
+  if (on === 'both') return { phone: true, watch: !!watchReady }
+  return { phone: !watchReady, watch: !!watchReady }
 }
 
 /** A local date and 'HH:MM' as a Date. */
@@ -61,15 +78,17 @@ function payloadFor(rows, date, slot) {
  * @param state  the store
  * @param opts.now Date
  * @param opts.verdictOf matrix lookup for draw-together groups (null leaves groups out)
+ * @param opts.watchReady the Watch app is installed (from PepitoBridge.watchStatus)
  * @returns [{ id, title, body, fireAt (ISO), category, threadId, timeSensitive, payload }]
  */
-export function buildSchedule(state, { now = new Date(), verdictOf = null } = {}) {
+export function buildSchedule(state, { now = new Date(), verdictOf = null, watchReady = false } = {}) {
   const ns = { ...DEFAULT_NOTIFICATION_SETTINGS, ...(state.notificationSettings || {}) }
+  const onPhone = doseReminderDevices(ns.remindOn, watchReady).phone
   const today = localDate(now)
   const out = []
   const later = (d) => d.getTime() > now.getTime()
 
-  for (let i = 0; i < SCHEDULE_DAYS; i++) {
+  for (let i = 0; onPhone && i < SCHEDULE_DAYS; i++) {
     const date = addDaysStr(today, i)
     const day = dayPlan(state, date, verdictOf)
     for (const slot of ['AM', 'PM']) {

@@ -10,8 +10,11 @@ public struct SaunaActivityAttributes: ActivityAttributes {
         public var targetAt: Date
         public var tempC: Int
         public var rounds: Int
-        public init(startedAt: Date, targetAt: Date, tempC: Int, rounds: Int) {
+        /// The Watch's latest reading, while a Watch session runs (3C).
+        public var heartRate: Int?
+        public init(startedAt: Date, targetAt: Date, tempC: Int, rounds: Int, heartRate: Int? = nil) {
             self.startedAt = startedAt; self.targetAt = targetAt; self.tempC = tempC; self.rounds = rounds
+            self.heartRate = heartRate
         }
     }
 

@@ -5,8 +5,17 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync, writeFileSync } from 'fs'
 import { buildSnapshot } from './snapshot'
+import { buildSchedule } from './notifySchedule'
 
 const FIXTURE = new URL('../../ios/PepitoKit/Tests/PepitoCoreTests/Fixtures/snapshot.json', import.meta.url)
+// The iPhone's dose reminders for the same state and moment. The Swift tests
+// check that the Watch, scheduling from the snapshot alone, plans exactly these.
+const REMINDERS = new URL('../../ios/PepitoKit/Tests/PepitoCoreTests/Fixtures/reminders.json', import.meta.url)
+const pad = (n) => String(n).padStart(2, '0')
+const wall = (iso) => {
+  const d = new Date(iso)
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
 
 const pep = (over) => ({
   frequency: 'daily', startDate: '2026-01-01', slot: 'AM', route: 'SubQ',
@@ -32,11 +41,12 @@ export const fixtureState = {
   notificationSettings: { amTime: '07:00', pmTime: '20:00' },
 }
 const verdictOf = (a, b) => ([a, b].sort().join('|') === 'bpc157|tb500' ? 'MIX' : null)
+const NOW = new Date('2026-10-20T08:00:00')
 
 describe('Swift snapshot fixture', () => {
   it('matches what buildSnapshot writes', () => {
     const snap = buildSnapshot(fixtureState, {
-      now: new Date('2026-10-20T08:00:00'),
+      now: NOW,
       verdictOf,
       readiness: { score: 72, band: 'moderate', bandLabel: 'Moderate', status: 'ok', asOf: '2026-10-20T06:30:00.000Z', rhr: 54, rhrDelta: -1.5, hrv: 61, hrvDelta: 4, sleepMin: 431 },
       maxHR: 182,
@@ -46,5 +56,16 @@ describe('Swift snapshot fixture', () => {
     const json = `${JSON.stringify(snap, null, 2)}\n`
     if (process.env.UPDATE_FIXTURES) writeFileSync(FIXTURE, json)
     expect(readFileSync(FIXTURE, 'utf8')).toBe(json)
+  })
+})
+
+describe('Swift reminder parity fixture', () => {
+  it('matches the dose reminders and nudges buildSchedule plans for the iPhone', () => {
+    const list = buildSchedule(fixtureState, { now: NOW, verdictOf, watchReady: false })
+      .filter((n) => /\.(dose|nudge)\./.test(n.id))
+      .map(({ fireAt, ...rest }) => ({ ...rest, fireLocal: wall(fireAt) }))
+    const json = `${JSON.stringify(list, null, 2)}\n`
+    if (process.env.UPDATE_FIXTURES) writeFileSync(REMINDERS, json)
+    expect(readFileSync(REMINDERS, 'utf8')).toBe(json)
   })
 })

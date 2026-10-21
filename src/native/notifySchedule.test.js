@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildSchedule, stockAlerts, rowLine, doseCategory, ID_PREFIX, SCHEDULE_DAYS } from './notifySchedule'
+import { buildSchedule, stockAlerts, rowLine, doseCategory, doseReminderDevices, ID_PREFIX, SCHEDULE_DAYS } from './notifySchedule'
 
 // Tuesday 20 Oct 2026, 06:00 local
 const NOW = new Date(2026, 9, 20, 6, 0, 0)
@@ -135,5 +135,42 @@ describe('low stock', () => {
     expect(restocked.alerted).toEqual([])
     const lowAgain = stockAlerts(lowState, { now: NOW, alerted: restocked.alerted })
     expect(lowAgain.notify).toHaveLength(1)
+  })
+})
+
+describe('Remind me on', () => {
+  const doseIds = (list) => list.filter((n) => /\.(dose|nudge)\./.test(n.id)).map((n) => n.id)
+
+  it('Watch (the default) leaves dose reminders to the Watch once its app is installed', () => {
+    expect(doseReminderDevices(undefined, true)).toEqual({ phone: false, watch: true })
+    expect(doseIds(buildSchedule(state(), { now: NOW, verdictOf, watchReady: true }))).toEqual([])
+  })
+
+  it('Watch falls back to the iPhone while the Watch app is not installed', () => {
+    expect(doseReminderDevices('watch', false)).toEqual({ phone: true, watch: false })
+    expect(doseIds(buildSchedule(state(), { now: NOW, verdictOf, watchReady: false })).length).toBeGreaterThan(0)
+  })
+
+  it('iPhone keeps them on the iPhone only; Both on each, with the same ids', () => {
+    expect(doseReminderDevices('iphone', true)).toEqual({ phone: true, watch: false })
+    expect(doseReminderDevices('both', true)).toEqual({ phone: true, watch: true })
+    const iphone = doseIds(buildSchedule(state({ notificationSettings: { remindOn: 'iphone' } }), { now: NOW, verdictOf, watchReady: true }))
+    const both = doseIds(buildSchedule(state({ notificationSettings: { remindOn: 'both' } }), { now: NOW, verdictOf, watchReady: true }))
+    expect(iphone.length).toBeGreaterThan(0)
+    expect(both).toEqual(iphone)
+  })
+
+  it('never leaves out stock, reactions or sauna, and never repeats an id, whatever the setting', () => {
+    for (const remindOn of ['watch', 'iphone', 'both']) {
+      for (const watchReady of [true, false]) {
+        const list = buildSchedule(state({
+          notificationSettings: { remindOn },
+          saunaTimer: { startedAt: NOW.getTime(), targetMin: 20, tempC: 60 },
+        }), { now: NOW, verdictOf, watchReady })
+        const ids = list.map((n) => n.id)
+        expect(new Set(ids).size).toBe(ids.length)
+        expect(ids).toContain(`${ID_PREFIX}sauna`)
+      }
+    }
   })
 })

@@ -42,7 +42,9 @@ export async function rebuildSchedule() {
   if ((await permission()) !== 'granted') return 0
   const state = useStore.getState()
   const now = new Date()
-  const planned = buildSchedule(state, { now, verdictOf: await verdictOf() })
+  let watchReady = false
+  try { watchReady = !!(await PepitoBridge.watchStatus())?.installed } catch { watchReady = false }
+  const planned = buildSchedule(state, { now, verdictOf: await verdictOf(), watchReady })
   const stock = stockAlerts(state, { now, alerted: state.nativeState?.stockAlerted || [] })
   const prev = state.nativeState?.stockAlerted || []
   if (stock.alerted.join('|') !== prev.join('|')) state.setNativeState({ stockAlerted: stock.alerted })
@@ -59,4 +61,6 @@ export function startNotifications() {
   if (started) return
   started = true
   onSnapshotWritten(() => rebuildSchedule())
+  // the Watch app installed or removed moves dose reminders between devices
+  void PepitoBridge.addListener('watchChanged', () => { void rebuildSchedule() }).catch(() => {})
 }

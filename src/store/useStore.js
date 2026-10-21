@@ -182,6 +182,7 @@ function initialState() {
       doses: true, nudges: true, timeSensitive: true,
       reactions: true, reactionTime: '19:00', stock: true, sauna: true,
       permissionAsked: false,
+      remindOn: 'watch',                 // dose reminders on 'watch' | 'iphone' | 'both' (3C)
     },
     watchSettings: { countSaunaTowardMove: false },
     securitySettings: { faceIdLock: false, graceSec: 0 },

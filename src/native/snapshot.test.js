@@ -44,11 +44,18 @@ describe('buildSnapshot', () => {
   const today = snap.days[0]
   const item = (refId) => today.items.find((i) => i.refId === refId)
 
-  it('covers today and the next two days, with the schema version', () => {
+  it('covers today and the next six days, with the schema version', () => {
     expect(snap.schema).toBe(SNAPSHOT_SCHEMA)
-    expect(snap.days.map((d) => d.date)).toEqual(['2026-10-20', '2026-10-21', '2026-10-22'])
+    expect(snap.days.map((d) => d.date)).toEqual(['2026-10-20', '2026-10-21', '2026-10-22', '2026-10-23', '2026-10-24', '2026-10-25', '2026-10-26'])
     // Reta is weekly on Tuesday: today only
     expect(snap.days[1].items.some((i) => i.refId === 'reta')).toBe(false)
+  })
+
+  it('carries the reminder settings the Watch schedules from', () => {
+    expect(snap.notifications).toEqual({ timeSensitive: true, remindOn: 'watch', doses: true, nudges: true, nudgeDelayMin: 90 })
+    const other = buildSnapshot(state({ notificationSettings: { remindOn: 'both', nudges: false, nudgeDelayMin: 30, timeSensitive: false } }), { now: NOW })
+    expect(other.notifications).toEqual({ timeSensitive: false, remindOn: 'both', doses: true, nudges: false, nudgeDelayMin: 30 })
+    expect(buildSnapshot(state({ notificationSettings: { remindOn: 'pager' } }), { now: NOW }).notifications.remindOn).toBe('watch')
   })
 
   it('prints each dose the way Home does, with the syringe units', () => {

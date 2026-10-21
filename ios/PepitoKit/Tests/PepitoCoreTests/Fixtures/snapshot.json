@@ -297,6 +297,370 @@
           "speech": "Log BPC-157 and TB-500 together"
         }
       ]
+    },
+    {
+      "date": "2026-10-23",
+      "items": [
+        {
+          "id": "2026-10-23:peptide:bpc157",
+          "refId": "bpc157",
+          "kind": "peptide",
+          "name": "BPC-157",
+          "compound": "BPC-157",
+          "dose": "250 mcg",
+          "units": "10 units",
+          "line": "BPC-157 250 mcg, 10 units",
+          "form": "injection",
+          "slot": "AM",
+          "status": "due",
+          "groupId": "2026-10-23:AM:group:0",
+          "verb": "Log",
+          "speech": "Log BPC-157 250 micrograms",
+          "canPush": false
+        },
+        {
+          "id": "2026-10-23:peptide:tb500",
+          "refId": "tb500",
+          "kind": "peptide",
+          "name": "TB-500",
+          "compound": "TB-500",
+          "dose": "2 mg",
+          "units": "40 units",
+          "line": "TB-500 2 mg, 40 units",
+          "form": "injection",
+          "slot": "AM",
+          "status": "due",
+          "groupId": "2026-10-23:AM:group:0",
+          "verb": "Log",
+          "speech": "Log TB-500 2 milligrams",
+          "canPush": false
+        },
+        {
+          "id": "2026-10-23:peptide:semax",
+          "refId": "semax",
+          "kind": "peptide",
+          "name": "Semax",
+          "compound": "Semax",
+          "dose": "1 spray",
+          "units": null,
+          "line": "Semax 1 spray",
+          "form": "nasal",
+          "slot": "AM",
+          "status": "due",
+          "groupId": null,
+          "verb": "Log",
+          "speech": "Log Semax 1 spray",
+          "canPush": false
+        },
+        {
+          "id": "2026-10-23:supplement:fish",
+          "refId": "fish",
+          "kind": "supplement",
+          "name": "Fish oil",
+          "compound": "Fish oil",
+          "dose": "2 capsules",
+          "units": null,
+          "line": "Fish oil 2 capsules",
+          "form": "capsule",
+          "slot": "AM",
+          "status": "due",
+          "groupId": null,
+          "verb": "Take",
+          "speech": "Take Fish oil 2 capsules",
+          "canPush": false
+        }
+      ],
+      "groups": [
+        {
+          "id": "2026-10-23:AM:group:0",
+          "date": "2026-10-23",
+          "slot": "AM",
+          "itemIds": [
+            "2026-10-23:peptide:bpc157",
+            "2026-10-23:peptide:tb500"
+          ],
+          "refIds": [
+            "bpc157",
+            "tb500"
+          ],
+          "title": "Draw together: BPC-157 + TB-500",
+          "line": "BPC-157 + TB-500, 50 units",
+          "speech": "Log BPC-157 and TB-500 together"
+        }
+      ]
+    },
+    {
+      "date": "2026-10-24",
+      "items": [
+        {
+          "id": "2026-10-24:peptide:bpc157",
+          "refId": "bpc157",
+          "kind": "peptide",
+          "name": "BPC-157",
+          "compound": "BPC-157",
+          "dose": "250 mcg",
+          "units": "10 units",
+          "line": "BPC-157 250 mcg, 10 units",
+          "form": "injection",
+          "slot": "AM",
+          "status": "due",
+          "groupId": "2026-10-24:AM:group:0",
+          "verb": "Log",
+          "speech": "Log BPC-157 250 micrograms",
+          "canPush": false
+        },
+        {
+          "id": "2026-10-24:peptide:tb500",
+          "refId": "tb500",
+          "kind": "peptide",
+          "name": "TB-500",
+          "compound": "TB-500",
+          "dose": "2 mg",
+          "units": "40 units",
+          "line": "TB-500 2 mg, 40 units",
+          "form": "injection",
+          "slot": "AM",
+          "status": "due",
+          "groupId": "2026-10-24:AM:group:0",
+          "verb": "Log",
+          "speech": "Log TB-500 2 milligrams",
+          "canPush": false
+        },
+        {
+          "id": "2026-10-24:peptide:semax",
+          "refId": "semax",
+          "kind": "peptide",
+          "name": "Semax",
+          "compound": "Semax",
+          "dose": "1 spray",
+          "units": null,
+          "line": "Semax 1 spray",
+          "form": "nasal",
+          "slot": "AM",
+          "status": "due",
+          "groupId": null,
+          "verb": "Log",
+          "speech": "Log Semax 1 spray",
+          "canPush": false
+        },
+        {
+          "id": "2026-10-24:supplement:fish",
+          "refId": "fish",
+          "kind": "supplement",
+          "name": "Fish oil",
+          "compound": "Fish oil",
+          "dose": "2 capsules",
+          "units": null,
+          "line": "Fish oil 2 capsules",
+          "form": "capsule",
+          "slot": "AM",
+          "status": "due",
+          "groupId": null,
+          "verb": "Take",
+          "speech": "Take Fish oil 2 capsules",
+          "canPush": false
+        }
+      ],
+      "groups": [
+        {
+          "id": "2026-10-24:AM:group:0",
+          "date": "2026-10-24",
+          "slot": "AM",
+          "itemIds": [
+            "2026-10-24:peptide:bpc157",
+            "2026-10-24:peptide:tb500"
+          ],
+          "refIds": [
+            "bpc157",
+            "tb500"
+          ],
+          "title": "Draw together: BPC-157 + TB-500",
+          "line": "BPC-157 + TB-500, 50 units",
+          "speech": "Log BPC-157 and TB-500 together"
+        }
+      ]
+    },
+    {
+      "date": "2026-10-25",
+      "items": [
+        {
+          "id": "2026-10-25:peptide:bpc157",
+          "refId": "bpc157",
+          "kind": "peptide",
+          "name": "BPC-157",
+          "compound": "BPC-157",
+          "dose": "250 mcg",
+          "units": "10 units",
+          "line": "BPC-157 250 mcg, 10 units",
+          "form": "injection",
+          "slot": "AM",
+          "status": "due",
+          "groupId": "2026-10-25:AM:group:0",
+          "verb": "Log",
+          "speech": "Log BPC-157 250 micrograms",
+          "canPush": false
+        },
+        {
+          "id": "2026-10-25:peptide:tb500",
+          "refId": "tb500",
+          "kind": "peptide",
+          "name": "TB-500",
+          "compound": "TB-500",
+          "dose": "2 mg",
+          "units": "40 units",
+          "line": "TB-500 2 mg, 40 units",
+          "form": "injection",
+          "slot": "AM",
+          "status": "due",
+          "groupId": "2026-10-25:AM:group:0",
+          "verb": "Log",
+          "speech": "Log TB-500 2 milligrams",
+          "canPush": false
+        },
+        {
+          "id": "2026-10-25:peptide:semax",
+          "refId": "semax",
+          "kind": "peptide",
+          "name": "Semax",
+          "compound": "Semax",
+          "dose": "1 spray",
+          "units": null,
+          "line": "Semax 1 spray",
+          "form": "nasal",
+          "slot": "AM",
+          "status": "due",
+          "groupId": null,
+          "verb": "Log",
+          "speech": "Log Semax 1 spray",
+          "canPush": false
+        },
+        {
+          "id": "2026-10-25:supplement:fish",
+          "refId": "fish",
+          "kind": "supplement",
+          "name": "Fish oil",
+          "compound": "Fish oil",
+          "dose": "2 capsules",
+          "units": null,
+          "line": "Fish oil 2 capsules",
+          "form": "capsule",
+          "slot": "AM",
+          "status": "due",
+          "groupId": null,
+          "verb": "Take",
+          "speech": "Take Fish oil 2 capsules",
+          "canPush": false
+        }
+      ],
+      "groups": [
+        {
+          "id": "2026-10-25:AM:group:0",
+          "date": "2026-10-25",
+          "slot": "AM",
+          "itemIds": [
+            "2026-10-25:peptide:bpc157",
+            "2026-10-25:peptide:tb500"
+          ],
+          "refIds": [
+            "bpc157",
+            "tb500"
+          ],
+          "title": "Draw together: BPC-157 + TB-500",
+          "line": "BPC-157 + TB-500, 50 units",
+          "speech": "Log BPC-157 and TB-500 together"
+        }
+      ]
+    },
+    {
+      "date": "2026-10-26",
+      "items": [
+        {
+          "id": "2026-10-26:peptide:bpc157",
+          "refId": "bpc157",
+          "kind": "peptide",
+          "name": "BPC-157",
+          "compound": "BPC-157",
+          "dose": "250 mcg",
+          "units": "10 units",
+          "line": "BPC-157 250 mcg, 10 units",
+          "form": "injection",
+          "slot": "AM",
+          "status": "due",
+          "groupId": "2026-10-26:AM:group:0",
+          "verb": "Log",
+          "speech": "Log BPC-157 250 micrograms",
+          "canPush": false
+        },
+        {
+          "id": "2026-10-26:peptide:tb500",
+          "refId": "tb500",
+          "kind": "peptide",
+          "name": "TB-500",
+          "compound": "TB-500",
+          "dose": "2 mg",
+          "units": "40 units",
+          "line": "TB-500 2 mg, 40 units",
+          "form": "injection",
+          "slot": "AM",
+          "status": "due",
+          "groupId": "2026-10-26:AM:group:0",
+          "verb": "Log",
+          "speech": "Log TB-500 2 milligrams",
+          "canPush": false
+        },
+        {
+          "id": "2026-10-26:peptide:semax",
+          "refId": "semax",
+          "kind": "peptide",
+          "name": "Semax",
+          "compound": "Semax",
+          "dose": "1 spray",
+          "units": null,
+          "line": "Semax 1 spray",
+          "form": "nasal",
+          "slot": "AM",
+          "status": "due",
+          "groupId": null,
+          "verb": "Log",
+          "speech": "Log Semax 1 spray",
+          "canPush": false
+        },
+        {
+          "id": "2026-10-26:supplement:fish",
+          "refId": "fish",
+          "kind": "supplement",
+          "name": "Fish oil",
+          "compound": "Fish oil",
+          "dose": "2 capsules",
+          "units": null,
+          "line": "Fish oil 2 capsules",
+          "form": "capsule",
+          "slot": "AM",
+          "status": "due",
+          "groupId": null,
+          "verb": "Take",
+          "speech": "Take Fish oil 2 capsules",
+          "canPush": false
+        }
+      ],
+      "groups": [
+        {
+          "id": "2026-10-26:AM:group:0",
+          "date": "2026-10-26",
+          "slot": "AM",
+          "itemIds": [
+            "2026-10-26:peptide:bpc157",
+            "2026-10-26:peptide:tb500"
+          ],
+          "refIds": [
+            "bpc157",
+            "tb500"
+          ],
+          "title": "Draw together: BPC-157 + TB-500",
+          "line": "BPC-157 + TB-500, 50 units",
+          "speech": "Log BPC-157 and TB-500 together"
+        }
+      ]
     }
   ],
   "next": {
@@ -355,6 +719,10 @@
     "countTowardMove": false
   },
   "notifications": {
-    "timeSensitive": true
+    "timeSensitive": true,
+    "remindOn": "watch",
+    "doses": true,
+    "nudges": true,
+    "nudgeDelayMin": 90
   }
 }

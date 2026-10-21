@@ -12,7 +12,10 @@ final class SnapshotDecodingTests: XCTestCase {
     func testDecodesWhatTheWebLayerWrites() throws {
         let s = try fixture()
         XCTAssertEqual(s.schema, Snapshot.supportedSchema)
-        XCTAssertEqual(s.days.map(\.date), ["2026-10-20", "2026-10-21", "2026-10-22"])
+        XCTAssertEqual(s.days.count, 7)
+        XCTAssertEqual(s.days.first?.date, "2026-10-20")
+        XCTAssertEqual(s.notifications?.remindOn, "watch")
+        XCTAssertEqual(s.notifications?.nudgeDelayMin, 90)
         let reta = try XCTUnwrap(s.days[0].items.first { $0.refId == "reta" })
         XCTAssertEqual(reta.line, "Reta 3 mg, 30 units")
         XCTAssertEqual(reta.speech, "Log Retatrutide 3 milligrams")
@@ -176,25 +179,198 @@ final class HeartRateTests: XCTestCase {
     }
 }
 
-final class WatchLaunchTests: XCTestCase {
-    func testSaunaFirstThenDosesThenReadiness() throws {
-        var s = try fixture()
-        var cal = Calendar(identifier: .gregorian)
-        cal.timeZone = TimeZone(identifier: "Australia/Sydney")!
-        let morning = cal.date(from: DateComponents(year: 2026, month: 10, day: 20, hour: 8))!
-        XCTAssertEqual(WatchLaunch.screen(for: s, now: morning, calendar: cal), .sauna)
-        s.sauna.active = nil
-        XCTAssertEqual(WatchLaunch.screen(for: s, now: morning, calendar: cal), .today)
-        for d in s.days.indices { for i in s.days[d].items.indices { s.days[d].items[i].status = .logged } }
-        XCTAssertEqual(WatchLaunch.screen(for: s, now: morning, calendar: cal), .readiness)
-        XCTAssertEqual(WatchLaunch.screen(for: nil, now: morning), .readiness)
+final class WatchRouteTests: XCTestCase {
+    func testHomeFirstExceptARunningSession() {
+        XCTAssertEqual(WatchRoute.launchPath(saunaRunning: true), [.sauna])
+        XCTAssertEqual(WatchRoute.launchPath(saunaRunning: false), [])
+    }
+
+    func testComplicationLinksOpenTheirScreen() {
+        XCTAssertEqual(WatchRoute.from(url: URL(string: "pepito://sauna")!), .sauna)
+        XCTAssertEqual(WatchRoute.from(url: URL(string: "pepito://doses")!), .doses)
+        XCTAssertEqual(WatchRoute.from(url: URL(string: "pepito://today")!), .doses)
+        XCTAssertEqual(WatchRoute.from(url: URL(string: "pepito://readiness")!), .readiness)
+        XCTAssertNil(WatchRoute.from(url: URL(string: "https://example.com/sauna")!))
     }
 
     func testReadinessOlderThanSixHoursShowsItsTime() throws {
         let s = try fixture()
         let asOf = ISO8601DateFormatter().date(from: "2026-10-20T06:30:00Z")!
-        XCTAssertFalse(WatchLaunch.readinessIsStale(s, now: asOf.addingTimeInterval(5 * 3600)))
-        XCTAssertTrue(WatchLaunch.readinessIsStale(s, now: asOf.addingTimeInterval(7 * 3600)))
+        XCTAssertFalse(ReadinessAge.isStale(s, now: asOf.addingTimeInterval(5 * 3600)))
+        XCTAssertTrue(ReadinessAge.isStale(s, now: asOf.addingTimeInterval(7 * 3600)))
+    }
+}
+
+final class WatchHomeTests: XCTestCase {
+    var cal: Calendar = {
+        var c = Calendar(identifier: .gregorian)
+        c.timeZone = TimeZone(identifier: "Australia/Sydney")!
+        return c
+    }()
+    func at(_ h: Int, _ day: Int = 20) -> Date { cal.date(from: DateComponents(year: 2026, month: 10, day: day, hour: h))! }
+
+    func testDoseLineCountsRowsWithTheSlotTime() throws {
+        let s = try fixture()
+        // AM: the BPC-157 + TB-500 group and fish oil (Semax already logged)
+        XCTAssertEqual(WatchHome.doses(s, now: at(8), calendar: cal), .init(text: "2 due · 7 am", done: false))
+        XCTAssertEqual(WatchHome.doses(nil, now: at(8)), .init(text: "Open on iPhone", done: false))
+    }
+
+    func testAllLoggedNamesTheNextSlot() throws {
+        var s = try fixture()
+        for i in s.days[0].items.indices { s.days[0].items[i].status = .logged }
+        XCTAssertEqual(WatchHome.doses(s, now: at(21), calendar: cal), .init(text: "All logged · 7 am", done: true))
+        let screen = try XCTUnwrap(WatchHome.doseScreen(s, now: at(21), calendar: cal))
+        XCTAssertTrue(screen.allLogged)
+        XCTAssertEqual(screen.next, "7 am tomorrow")
+    }
+
+    func testDoseScreenHeaderAndLines() throws {
+        let s = try fixture()
+        let screen = try XCTUnwrap(WatchHome.doseScreen(s, now: at(8), calendar: cal))
+        XCTAssertEqual(screen.slot, .am)
+        XCTAssertEqual(screen.left, "2 of 3 left")
+        let group = try XCTUnwrap(screen.rows.first { $0.isGroup })
+        XCTAssertEqual(WatchHome.names(group), ["BPC-157", "TB-500"])
+        XCTAssertEqual(WatchHome.doseLine(group), "50 units")
+        let semax = try XCTUnwrap(screen.rows.first { $0.items.first?.refId == "semax" })
+        XCTAssertEqual(WatchHome.doseLine(semax), "1 spray")
+        let pm = try XCTUnwrap(WatchHome.doseScreen(s, now: at(15), calendar: cal))
+        XCTAssertEqual(WatchHome.doseLine(pm.rows[0]), "3 mg · 30 units")
+    }
+
+    func testSaunaLine() throws {
+        var s = try fixture()
+        XCTAssertEqual(WatchHome.sauna(s).text, "Running")
+        s.sauna.active = nil
+        XCTAssertEqual(WatchHome.sauna(s), .init(text: "1 of 4 this week", done: false))
+    }
+}
+
+final class WatchReminderTests: XCTestCase {
+    struct Planned: Decodable {
+        var id: String
+        var title: String
+        var body: String
+        var fireLocal: String
+        var category: String
+        var threadId: String
+        var timeSensitive: Bool
+        var payload: NotificationPayload
+    }
+
+    func iphonePlan() throws -> [Planned] {
+        let url = try XCTUnwrap(Bundle.module.url(forResource: "reminders", withExtension: "json", subdirectory: "Fixtures"))
+        return try JSONDecoder().decode([Planned].self, from: Data(contentsOf: url))
+    }
+
+    func wall(_ d: Date, _ cal: Calendar) -> String {
+        let c = cal.dateComponents([.year, .month, .day, .hour, .minute], from: d)
+        return String(format: "%04d-%02d-%02dT%02d:%02d", c.year!, c.month!, c.day!, c.hour!, c.minute!)
+    }
+
+    /// The Watch, from the snapshot alone, plans exactly what the iPhone plans
+    /// from the store: same ids, times, words, buttons and payloads.
+    func testTheWatchPlansWhatTheIPhonePlans() throws {
+        let cal = Calendar.current
+        let s = try fixture()
+        let now = try XCTUnwrap(WatchReminders.moment("2026-10-20", "08:00", calendar: cal))
+        let watch = WatchReminders.plan(s, now: now, calendar: cal)
+        let phone = try iphonePlan()
+        XCTAssertEqual(watch.map(\.id), phone.map(\.id))
+        for (w, p) in zip(watch, phone) {
+            XCTAssertEqual(w.title, p.title, w.id)
+            XCTAssertEqual(w.body, p.body, w.id)
+            XCTAssertEqual(wall(w.fireDate, cal), p.fireLocal, w.id)
+            XCTAssertEqual(w.category, p.category, w.id)
+            XCTAssertEqual(w.threadId, p.threadId, w.id)
+            XCTAssertEqual(w.timeSensitive, p.timeSensitive, w.id)
+            XCTAssertEqual(w.payload, p.payload, w.id)
+        }
+    }
+
+    func testNoDuplicatesAndEachSettingIsRespected() throws {
+        var s = try fixture()
+        let now = try XCTUnwrap(WatchReminders.moment("2026-10-20", "08:00"))
+        let ids = WatchReminders.plan(s, now: now).map(\.id)
+        XCTAssertEqual(Set(ids).count, ids.count)
+        XCTAssertTrue(WatchReminders.watchSchedules(s))
+        s.notifications?.remindOn = "both"
+        XCTAssertTrue(WatchReminders.watchSchedules(s))
+        s.notifications?.remindOn = "iphone"
+        XCTAssertFalse(WatchReminders.watchSchedules(s))
+        s.notifications?.nudges = false
+        XCTAssertTrue(WatchReminders.plan(s, now: now).allSatisfy { $0.id.contains(".dose.") })
+        s.notifications?.doses = false
+        XCTAssertTrue(WatchReminders.plan(s, now: now).isEmpty)
+    }
+
+    func testALoggedSlotHasNoReminderAndNoNudge() throws {
+        var s = try fixture()
+        for i in s.days[0].items.indices where s.days[0].items[i].slot == .am { s.days[0].items[i].status = .logged }
+        let now = try XCTUnwrap(WatchReminders.moment("2026-10-20", "06:00"))
+        let ids = WatchReminders.plan(s, now: now).map(\.id)
+        XCTAssertFalse(ids.contains("pepito.sched.dose.2026-10-20.AM"))
+        XCTAssertFalse(ids.contains("pepito.sched.nudge.2026-10-20.AM"))
+        XCTAssertTrue(ids.contains("pepito.sched.dose.2026-10-20.PM"))
+    }
+}
+
+final class RelevanceTests: XCTestCase {
+    var cal: Calendar = {
+        var c = Calendar(identifier: .gregorian)
+        c.timeZone = TimeZone(identifier: "Australia/Sydney")!
+        return c
+    }()
+    func at(_ h: Int, _ m: Int = 0) -> Date { cal.date(from: DateComponents(year: 2026, month: 10, day: 20, hour: h, minute: m))! }
+
+    func testNextDoseRisesHalfAnHourBeforeItsSlot() throws {
+        var s = try fixture()
+        for i in s.days[0].items.indices where s.days[0].items[i].slot == .am { s.days[0].items[i].status = .logged }
+        XCTAssertEqual(WidgetRelevance.nextDose(s, at: at(19, 0), calendar: cal).score, 10)
+        let r = WidgetRelevance.nextDose(s, at: at(19, 30), calendar: cal)
+        XCTAssertEqual(r.score, 80)
+        XCTAssertEqual(r.duration, 2 * 3600)  // until the nudge at 21:30
+        XCTAssertEqual(WidgetRelevance.nextDose(nil, at: at(19, 30)), .low)
+    }
+
+    func testSaunaWhileRunningAndReadinessInTheMorning() throws {
+        var s = try fixture()
+        let start = s.sauna.active!.startDate
+        XCTAssertEqual(WidgetRelevance.sauna(s, at: start.addingTimeInterval(60)).score, 100)
+        s.sauna.active = nil
+        XCTAssertEqual(WidgetRelevance.sauna(s, at: start).score, 5)
+        XCTAssertEqual(WidgetRelevance.readiness(s, at: at(7), calendar: cal).score, 60)
+        XCTAssertEqual(WidgetRelevance.readiness(s, at: at(7), calendar: cal).duration, 4 * 3600)
+        XCTAssertEqual(WidgetRelevance.readiness(s, at: at(15), calendar: cal).score, 10)
+    }
+
+    func testTimelineMomentsIncludeTheLeadTime() throws {
+        var s = try fixture()
+        s.sauna.active = nil
+        let m = WidgetRelevance.moments(s, from: at(6), calendar: cal)
+        XCTAssertTrue(m.contains(at(6, 30)))   // 30 min before AM
+        XCTAssertTrue(m.contains(at(19, 30)))  // 30 min before PM
+        XCTAssertTrue(m.contains(at(11)))      // end of the morning
+        XCTAssertEqual(m, m.sorted())
+    }
+}
+
+final class LiveSaunaTests: XCTestCase {
+    func testRoundTripsThroughAMessage() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let l = LiveSauna(heartRate: 128, rounds: 2, at: now)
+        XCTAssertEqual(LiveSauna.from(message: l.message()), l)
+        XCTAssertTrue(l.isFresh(now: now.addingTimeInterval(60)))
+        XCTAssertFalse(l.isFresh(now: now.addingTimeInterval(120)))
+    }
+
+    func testZonePositionIsSmooth() {
+        let f = [0.5, 0.6, 0.7, 0.8, 0.9]
+        XCTAssertEqual(SaunaHeartRate.zonePosition(bpm: 100, maxHR: 200, floors: f), 1, accuracy: 0.001)
+        XCTAssertEqual(SaunaHeartRate.zonePosition(bpm: 110, maxHR: 200, floors: f), 1.5, accuracy: 0.001)
+        XCTAssertEqual(SaunaHeartRate.zonePosition(bpm: 190, maxHR: 200, floors: f), 5, accuracy: 0.001)
+        XCTAssertEqual(SaunaHeartRate.zonePosition(bpm: 50, maxHR: 200, floors: f), 0.5, accuracy: 0.001)
     }
 }
 

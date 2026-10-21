@@ -21,11 +21,16 @@ import { isPausedOn, activePause, reasonWords, pauseEnd } from '../lib/pauses'
 import { weekSummary, usualFor } from '../sauna/sauna'
 
 export const SNAPSHOT_SCHEMA = 1
-/** Today and the next two days, so surfaces roll over at midnight without the app. */
-export const SNAPSHOT_DAYS = 3
+/**
+ * Today and the next six days: surfaces roll over at midnight without the app,
+ * and the Watch can schedule the same week of reminders the iPhone does.
+ */
+export const SNAPSHOT_DAYS = 7
 /** Home switches to PM at this hour (currentSlot in lib/daily). */
 export const SLOT_SPLIT_HOUR = 14
 export const DEFAULT_SLOT_TIMES = { AM: '07:00', PM: '20:00' }
+/** Where dose reminders go (More › Notifications › Remind me on). */
+export const REMIND_ON = ['watch', 'iphone', 'both']
 /** Zone floors as fractions of max heart rate (src/health/engine/config.ts). */
 export const ZONE_FLOORS = [0.5, 0.6, 0.7, 0.8, 0.9]
 
@@ -269,6 +274,12 @@ export function buildSnapshot(state, { now = new Date(), verdictOf = null, readi
       zoneFloors: ZONE_FLOORS,
       countTowardMove: !!state.watchSettings?.countSaunaTowardMove,
     },
-    notifications: { timeSensitive: ns.timeSensitive !== false },
+    notifications: {
+      timeSensitive: ns.timeSensitive !== false,
+      remindOn: REMIND_ON.includes(ns.remindOn) ? ns.remindOn : 'watch',
+      doses: ns.doses !== false,
+      nudges: ns.nudges !== false,
+      nudgeDelayMin: ns.nudgeDelayMin || 90,
+    },
   }
 }

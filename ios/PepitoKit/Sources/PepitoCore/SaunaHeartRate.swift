@@ -16,6 +16,20 @@ public enum SaunaHeartRate {
         public init(t: Double, bpm: Double) { self.t = t; self.bpm = bpm }
     }
 
+    /// Where a heart rate sits on a smooth 0 to 5 scale: 1.0 at the zone 1
+    /// floor, 1.5 halfway to zone 2, 5.0 at and above the zone 5 floor. Drives
+    /// the colour of the running ring, which moves with the heart rate rather
+    /// than jumping at each zone edge.
+    public static func zonePosition(bpm: Double, maxHR: Int, floors: [Double]) -> Double {
+        guard maxHR > 0, let first = floors.first else { return 0 }
+        let frac = bpm / Double(maxHR)
+        if frac < first { return max(0, frac / first) }
+        for k in 0..<(floors.count - 1) where frac < floors[k + 1] {
+            return Double(k + 1) + (frac - floors[k]) / (floors[k + 1] - floors[k])
+        }
+        return Double(floors.count)
+    }
+
     /// Zone 1 to 5 for a heart rate (0 below zone 1).
     public static func zone(bpm: Double, maxHR: Int, floors: [Double]) -> Int {
         guard maxHR > 0 else { return 0 }
@@ -87,28 +101,5 @@ public enum SaunaHeartRate {
         let first = Int((a / 300).rounded(.down)) + 1
         let last = Int((b / 300).rounded(.down))
         return first <= last ? Array(first...last).map { $0 * 5 } : []
-    }
-}
-
-/// Which screen the Watch app opens to.
-public enum WatchLaunch: String, Sendable {
-    case sauna, today, readiness
-
-    /// A running session first, then doses still due in the current slot, else readiness.
-    public static func screen(for snap: Snapshot?, now: Date, calendar: Calendar = .current) -> WatchLaunch {
-        guard let snap else { return .readiness }
-        if snap.sauna.active != nil { return .sauna }
-        if !DoseBoard.dueNow(snap, now: now, calendar: calendar).rows.isEmpty { return .today }
-        return .readiness
-    }
-
-    /// Readiness older than six hours shows its "as of" time.
-    public static func readinessIsStale(_ snap: Snapshot, now: Date) -> Bool {
-        guard let iso = snap.readiness?.asOf ?? Optional(snap.generatedAt) else { return true }
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let d = f.date(from: iso) ?? ISO8601DateFormatter().date(from: iso)
-        guard let d else { return true }
-        return now.timeIntervalSince(d) > 6 * 3600
     }
 }

@@ -1,0 +1,523 @@
+[
+  {
+    "title": "AM doses",
+    "category": "DOSE_LOG",
+    "threadId": "pepito.slot.AM",
+    "timeSensitive": true,
+    "payload": {
+      "kind": "dose",
+      "date": "2026-10-20",
+      "slot": "AM",
+      "groups": [
+        {
+          "id": "2026-10-20:AM:group:0",
+          "refIds": [
+            "bpc157",
+            "tb500"
+          ]
+        }
+      ],
+      "items": [
+        {
+          "refId": "fish",
+          "kind": "supplement",
+          "canPush": false
+        }
+      ],
+      "pushable": [],
+      "nudge": true
+    },
+    "id": "pepito.sched.nudge.2026-10-20.AM",
+    "body": "Still to log:\nDraw together: BPC-157 + TB-500, 50 units\nFish oil 2 capsules",
+    "fireLocal": "2026-10-20T08:30"
+  },
+  {
+    "title": "PM doses",
+    "category": "DOSE_LOG_PUSH",
+    "threadId": "pepito.slot.PM",
+    "timeSensitive": true,
+    "payload": {
+      "kind": "dose",
+      "date": "2026-10-20",
+      "slot": "PM",
+      "groups": [],
+      "items": [
+        {
+          "refId": "reta",
+          "kind": "peptide",
+          "canPush": true
+        }
+      ],
+      "pushable": [
+        "reta"
+      ]
+    },
+    "id": "pepito.sched.dose.2026-10-20.PM",
+    "body": "Reta 3 mg, 30 units",
+    "fireLocal": "2026-10-20T20:00"
+  },
+  {
+    "title": "PM doses",
+    "category": "DOSE_LOG_PUSH",
+    "threadId": "pepito.slot.PM",
+    "timeSensitive": true,
+    "payload": {
+      "kind": "dose",
+      "date": "2026-10-20",
+      "slot": "PM",
+      "groups": [],
+      "items": [
+        {
+          "refId": "reta",
+          "kind": "peptide",
+          "canPush": true
+        }
+      ],
+      "pushable": [
+        "reta"
+      ],
+      "nudge": true
+    },
+    "id": "pepito.sched.nudge.2026-10-20.PM",
+    "body": "Still to log:\nReta 3 mg, 30 units",
+    "fireLocal": "2026-10-20T21:30"
+  },
+  {
+    "title": "AM doses",
+    "category": "DOSE_LOG",
+    "threadId": "pepito.slot.AM",
+    "timeSensitive": true,
+    "payload": {
+      "kind": "dose",
+      "date": "2026-10-21",
+      "slot": "AM",
+      "groups": [
+        {
+          "id": "2026-10-21:AM:group:0",
+          "refIds": [
+            "bpc157",
+            "tb500"
+          ]
+        }
+      ],
+      "items": [
+        {
+          "refId": "semax",
+          "kind": "peptide",
+          "canPush": false
+        },
+        {
+          "refId": "fish",
+          "kind": "supplement",
+          "canPush": false
+        }
+      ],
+      "pushable": []
+    },
+    "id": "pepito.sched.dose.2026-10-21.AM",
+    "body": "Draw together: BPC-157 + TB-500, 50 units\nSemax 1 spray\nFish oil 2 capsules",
+    "fireLocal": "2026-10-21T07:00"
+  },
+  {
+    "title": "AM doses",
+    "category": "DOSE_LOG",
+    "threadId": "pepito.slot.AM",
+    "timeSensitive": true,
+    "payload": {
+      "kind": "dose",
+      "date": "2026-10-21",
+      "slot": "AM",
+      "groups": [
+        {
+          "id": "2026-10-21:AM:group:0",
+          "refIds": [
+            "bpc157",
+            "tb500"
+          ]
+        }
+      ],
+      "items": [
+        {
+          "refId": "semax",
+          "kind": "peptide",
+          "canPush": false
+        },
+        {
+          "refId": "fish",
+          "kind": "supplement",
+          "canPush": false
+        }
+      ],
+      "pushable": [],
+      "nudge": true
+    },
+    "id": "pepito.sched.nudge.2026-10-21.AM",
+    "body": "Still to log:\nDraw together: BPC-157 + TB-500, 50 units\nSemax 1 spray\nFish oil 2 capsules",
+    "fireLocal": "2026-10-21T08:30"
+  },
+  {
+    "title": "AM doses",
+    "category": "DOSE_LOG",
+    "threadId": "pepito.slot.AM",
+    "timeSensitive": true,
+    "payload": {
+      "kind": "dose",
+      "date": "2026-10-22",
+      "slot": "AM",
+      "groups": [
+        {
+          "id": "2026-10-22:AM:group:0",
+          "refIds": [
+            "bpc157",
+            "tb500"
+          ]
+        }
+      ],
+      "items": [
+        {
+          "refId": "semax",
+          "kind": "peptide",
+          "canPush": false
+        },
+        {
+          "refId": "fish",
+          "kind": "supplement",
+          "canPush": false
+        }
+      ],
+      "pushable": []
+    },
+    "id": "pepito.sched.dose.2026-10-22.AM",
+    "body": "Draw together: BPC-157 + TB-500, 50 units\nSemax 1 spray\nFish oil 2 capsules",
+    "fireLocal": "2026-10-22T07:00"
+  },
+  {
+    "title": "AM doses",
+    "category": "DOSE_LOG",
+    "threadId": "pepito.slot.AM",
+    "timeSensitive": true,
+    "payload": {
+      "kind": "dose",
+      "date": "2026-10-22",
+      "slot": "AM",
+      "groups": [
+        {
+          "id": "2026-10-22:AM:group:0",
+          "refIds": [
+            "bpc157",
+            "tb500"
+          ]
+        }
+      ],
+      "items": [
+        {
+          "refId": "semax",
+          "kind": "peptide",
+          "canPush": false
+        },
+        {
+          "refId": "fish",
+          "kind": "supplement",
+          "canPush": false
+        }
+      ],
+      "pushable": [],
+      "nudge": true
+    },
+    "id": "pepito.sched.nudge.2026-10-22.AM",
+    "body": "Still to log:\nDraw together: BPC-157 + TB-500, 50 units\nSemax 1 spray\nFish oil 2 capsules",
+    "fireLocal": "2026-10-22T08:30"
+  },
+  {
+    "title": "AM doses",
+    "category": "DOSE_LOG",
+    "threadId": "pepito.slot.AM",
+    "timeSensitive": true,
+    "payload": {
+      "kind": "dose",
+      "date": "2026-10-23",
+      "slot": "AM",
+      "groups": [
+        {
+          "id": "2026-10-23:AM:group:0",
+          "refIds": [
+            "bpc157",
+            "tb500"
+          ]
+        }
+      ],
+      "items": [
+        {
+          "refId": "semax",
+          "kind": "peptide",
+          "canPush": false
+        },
+        {
+          "refId": "fish",
+          "kind": "supplement",
+          "canPush": false
+        }
+      ],
+      "pushable": []
+    },
+    "id": "pepito.sched.dose.2026-10-23.AM",
+    "body": "Draw together: BPC-157 + TB-500, 50 units\nSemax 1 spray\nFish oil 2 capsules",
+    "fireLocal": "2026-10-23T07:00"
+  },
+  {
+    "title": "AM doses",
+    "category": "DOSE_LOG",
+    "threadId": "pepito.slot.AM",
+    "timeSensitive": true,
+    "payload": {
+      "kind": "dose",
+      "date": "2026-10-23",
+      "slot": "AM",
+      "groups": [
+        {
+          "id": "2026-10-23:AM:group:0",
+          "refIds": [
+            "bpc157",
+            "tb500"
+          ]
+        }
+      ],
+      "items": [
+        {
+          "refId": "semax",
+          "kind": "peptide",
+          "canPush": false
+        },
+        {
+          "refId": "fish",
+          "kind": "supplement",
+          "canPush": false
+        }
+      ],
+      "pushable": [],
+      "nudge": true
+    },
+    "id": "pepito.sched.nudge.2026-10-23.AM",
+    "body": "Still to log:\nDraw together: BPC-157 + TB-500, 50 units\nSemax 1 spray\nFish oil 2 capsules",
+    "fireLocal": "2026-10-23T08:30"
+  },
+  {
+    "title": "AM doses",
+    "category": "DOSE_LOG",
+    "threadId": "pepito.slot.AM",
+    "timeSensitive": true,
+    "payload": {
+      "kind": "dose",
+      "date": "2026-10-24",
+      "slot": "AM",
+      "groups": [
+        {
+          "id": "2026-10-24:AM:group:0",
+          "refIds": [
+            "bpc157",
+            "tb500"
+          ]
+        }
+      ],
+      "items": [
+        {
+          "refId": "semax",
+          "kind": "peptide",
+          "canPush": false
+        },
+        {
+          "refId": "fish",
+          "kind": "supplement",
+          "canPush": false
+        }
+      ],
+      "pushable": []
+    },
+    "id": "pepito.sched.dose.2026-10-24.AM",
+    "body": "Draw together: BPC-157 + TB-500, 50 units\nSemax 1 spray\nFish oil 2 capsules",
+    "fireLocal": "2026-10-24T07:00"
+  },
+  {
+    "title": "AM doses",
+    "category": "DOSE_LOG",
+    "threadId": "pepito.slot.AM",
+    "timeSensitive": true,
+    "payload": {
+      "kind": "dose",
+      "date": "2026-10-24",
+      "slot": "AM",
+      "groups": [
+        {
+          "id": "2026-10-24:AM:group:0",
+          "refIds": [
+            "bpc157",
+            "tb500"
+          ]
+        }
+      ],
+      "items": [
+        {
+          "refId": "semax",
+          "kind": "peptide",
+          "canPush": false
+        },
+        {
+          "refId": "fish",
+          "kind": "supplement",
+          "canPush": false
+        }
+      ],
+      "pushable": [],
+      "nudge": true
+    },
+    "id": "pepito.sched.nudge.2026-10-24.AM",
+    "body": "Still to log:\nDraw together: BPC-157 + TB-500, 50 units\nSemax 1 spray\nFish oil 2 capsules",
+    "fireLocal": "2026-10-24T08:30"
+  },
+  {
+    "title": "AM doses",
+    "category": "DOSE_LOG",
+    "threadId": "pepito.slot.AM",
+    "timeSensitive": true,
+    "payload": {
+      "kind": "dose",
+      "date": "2026-10-25",
+      "slot": "AM",
+      "groups": [
+        {
+          "id": "2026-10-25:AM:group:0",
+          "refIds": [
+            "bpc157",
+            "tb500"
+          ]
+        }
+      ],
+      "items": [
+        {
+          "refId": "semax",
+          "kind": "peptide",
+          "canPush": false
+        },
+        {
+          "refId": "fish",
+          "kind": "supplement",
+          "canPush": false
+        }
+      ],
+      "pushable": []
+    },
+    "id": "pepito.sched.dose.2026-10-25.AM",
+    "body": "Draw together: BPC-157 + TB-500, 50 units\nSemax 1 spray\nFish oil 2 capsules",
+    "fireLocal": "2026-10-25T07:00"
+  },
+  {
+    "title": "AM doses",
+    "category": "DOSE_LOG",
+    "threadId": "pepito.slot.AM",
+    "timeSensitive": true,
+    "payload": {
+      "kind": "dose",
+      "date": "2026-10-25",
+      "slot": "AM",
+      "groups": [
+        {
+          "id": "2026-10-25:AM:group:0",
+          "refIds": [
+            "bpc157",
+            "tb500"
+          ]
+        }
+      ],
+      "items": [
+        {
+          "refId": "semax",
+          "kind": "peptide",
+          "canPush": false
+        },
+        {
+          "refId": "fish",
+          "kind": "supplement",
+          "canPush": false
+        }
+      ],
+      "pushable": [],
+      "nudge": true
+    },
+    "id": "pepito.sched.nudge.2026-10-25.AM",
+    "body": "Still to log:\nDraw together: BPC-157 + TB-500, 50 units\nSemax 1 spray\nFish oil 2 capsules",
+    "fireLocal": "2026-10-25T08:30"
+  },
+  {
+    "title": "AM doses",
+    "category": "DOSE_LOG",
+    "threadId": "pepito.slot.AM",
+    "timeSensitive": true,
+    "payload": {
+      "kind": "dose",
+      "date": "2026-10-26",
+      "slot": "AM",
+      "groups": [
+        {
+          "id": "2026-10-26:AM:group:0",
+          "refIds": [
+            "bpc157",
+            "tb500"
+          ]
+        }
+      ],
+      "items": [
+        {
+          "refId": "semax",
+          "kind": "peptide",
+          "canPush": false
+        },
+        {
+          "refId": "fish",
+          "kind": "supplement",
+          "canPush": false
+        }
+      ],
+      "pushable": []
+    },
+    "id": "pepito.sched.dose.2026-10-26.AM",
+    "body": "Draw together: BPC-157 + TB-500, 50 units\nSemax 1 spray\nFish oil 2 capsules",
+    "fireLocal": "2026-10-26T07:00"
+  },
+  {
+    "title": "AM doses",
+    "category": "DOSE_LOG",
+    "threadId": "pepito.slot.AM",
+    "timeSensitive": true,
+    "payload": {
+      "kind": "dose",
+      "date": "2026-10-26",
+      "slot": "AM",
+      "groups": [
+        {
+          "id": "2026-10-26:AM:group:0",
+          "refIds": [
+            "bpc157",
+            "tb500"
+          ]
+        }
+      ],
+      "items": [
+        {
+          "refId": "semax",
+          "kind": "peptide",
+          "canPush": false
+        },
+        {
+          "refId": "fish",
+          "kind": "supplement",
+          "canPush": false
+        }
+      ],
+      "pushable": [],
+      "nudge": true
+    },
+    "id": "pepito.sched.nudge.2026-10-26.AM",
+    "body": "Still to log:\nDraw together: BPC-157 + TB-500, 50 units\nSemax 1 spray\nFish oil 2 capsules",
+    "fireLocal": "2026-10-26T08:30"
+  }
+]

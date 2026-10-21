@@ -146,6 +146,15 @@ public struct Snapshot: Codable, Equatable, Sendable {
 
     public struct NotificationInfo: Codable, Equatable, Sendable {
         public var timeSensitive: Bool
+        /// "watch", "iphone" or "both": where dose reminders go (3C). Older snapshots have none.
+        public var remindOn: String?
+        public var doses: Bool?
+        public var nudges: Bool?
+        public var nudgeDelayMin: Int?
+        public init(timeSensitive: Bool, remindOn: String? = nil, doses: Bool? = nil, nudges: Bool? = nil, nudgeDelayMin: Int? = nil) {
+            self.timeSensitive = timeSensitive; self.remindOn = remindOn; self.doses = doses
+            self.nudges = nudges; self.nudgeDelayMin = nudgeDelayMin
+        }
     }
 }
 
