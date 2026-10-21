@@ -399,6 +399,13 @@ final class NotificationActionTests: XCTestCase {
         XCTAssertTrue(NotificationAction.actions(for: NotificationAction.openStock, payload: payload).isEmpty)
     }
 
+    func testTheWatchOffersLogAllSkipAndRemind() {
+        let cats = Dictionary(uniqueKeysWithValues: NotificationAction.watchCategories.map { ($0.0, $0.1.map(\.1)) })
+        XCTAssertEqual(cats["DOSE_LOG_PUSH"], ["Log all", "Skip", "Remind in 30 min"])
+        XCTAssertEqual(cats["DOSE_TAKE"], ["Take all", "Skip", "Remind in 30 min"])
+        XCTAssertEqual(cats["STOCK"], ["Open Stock"])
+    }
+
     func testPayloadRoundTripsThroughUserInfo() {
         let info: [AnyHashable: Any] = [NotificationPayload.userInfoKey: payload.json()]
         XCTAssertEqual(NotificationPayload.from(userInfo: info), payload)

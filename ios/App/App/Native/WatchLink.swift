@@ -101,6 +101,10 @@ final class WatchLink: NSObject, WCSessionDelegate {
         replyHandler(["ok": true])
     }
 
+    func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
+        receive(message)
+    }
+
     func sessionWatchStateDidChange(_ session: WCSession) {
         if session.isWatchAppInstalled, let data = SharedStore.shared().snapshotData() { push(snapshot: data) }
         PepitoBridgePlugin.emit("watchChanged", status())
@@ -108,6 +112,10 @@ final class WatchLink: NSObject, WCSessionDelegate {
 
     /// Actions arrive as JSON (one PendingAction, or a list).
     private func receive(_ info: [String: Any]) {
+        if let live = LiveSauna.from(message: info) {
+            DispatchQueue.main.async { SaunaActivityController.shared.live(live) }
+            return
+        }
         let decoder = JSONDecoder()
         var actions: [PendingAction] = []
         if let data = info["action"] as? Data, let a = try? decoder.decode(PendingAction.self, from: data) { actions.append(a) }

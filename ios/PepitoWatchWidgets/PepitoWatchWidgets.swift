@@ -2,49 +2,71 @@ import WidgetKit
 import SwiftUI
 import PepitoCore
 import PepitoTheme
+import PepitoWatchUI
 
 // Complications and Smart Stack widgets. They read the snapshot the Watch app
 // keeps in the Watch's App Group; the app reloads them the moment a new
-// snapshot arrives from the iPhone, so readiness, the next dose and the sauna
-// state are always current.
+// snapshot arrives from the iPhone or a dose is ticked here. Each opens its
+// own screen. Each entry carries a relevance, so the Smart Stack brings the
+// next dose up half an hour before its slot, the sauna while a session runs
+// and readiness in the morning.
 
 struct WatchEntry: TimelineEntry {
     let date: Date
     let snapshot: Snapshot?
+    var relevance: TimelineEntryRelevance?
 }
 
+enum WatchWidgetKind { case readiness, nextDose, sauna }
+
 struct WatchProvider: TimelineProvider {
+    let kind: WatchWidgetKind
+
     func placeholder(in context: Context) -> WatchEntry { WatchEntry(date: Date(), snapshot: nil) }
+
     func getSnapshot(in context: Context, completion: @escaping (WatchEntry) -> Void) {
-        completion(WatchEntry(date: Date(), snapshot: SharedStore.shared().readSnapshot()))
+        let snap = SharedStore.shared().readSnapshot()
+        completion(entry(snap, at: Date()))
     }
+
     func getTimeline(in context: Context, completion: @escaping (Timeline<WatchEntry>) -> Void) {
         let snap = SharedStore.shared().readSnapshot()
         let now = Date()
-        let cal = Calendar.current
-        var dates = [now]
-        let start = cal.startOfDay(for: now)
-        if let split = cal.date(byAdding: .hour, value: snap?.slotSplitHour ?? 14, to: start), split > now { dates.append(split) }
-        if let midnight = cal.date(byAdding: .day, value: 1, to: start) { dates.append(midnight) }
-        completion(Timeline(entries: dates.map { WatchEntry(date: $0, snapshot: snap) }, policy: .after(now.addingTimeInterval(30 * 60))))
+        let entries = WidgetRelevance.moments(snap, from: now).map { entry(snap, at: $0) }
+        completion(Timeline(entries: entries, policy: .after(now.addingTimeInterval(6 * 3600))))
+    }
+
+    private func entry(_ snap: Snapshot?, at date: Date) -> WatchEntry {
+        let r: WidgetRelevance.Score
+        switch kind {
+        case .readiness: r = WidgetRelevance.readiness(snap, at: date)
+        case .nextDose: r = WidgetRelevance.nextDose(snap, at: date)
+        case .sauna: r = WidgetRelevance.sauna(snap, at: date)
+        }
+        return WatchEntry(date: date, snapshot: snap, relevance: TimelineEntryRelevance(score: r.score, duration: r.duration))
+    }
+}
+
+/// Passes on how the face is rendering the widget.
+struct WatchWidgetRoot<Content: View>: View {
+    @Environment(\.widgetRenderingMode) private var renderingMode
+    let route: WatchRoute
+    let content: Content
+    init(_ route: WatchRoute, @ViewBuilder _ content: () -> Content) { self.route = route; self.content = content() }
+
+    var body: some View {
+        content
+            .environment(\.surfaceMode, renderingMode == .accented ? .accented : renderingMode == .vibrant ? .vibrant : .fullColor)
+            .widgetURL(route.url)
+            .containerBackground(PepitoTheme.Palette.bg, for: .widget)
     }
 }
 
 /// Readiness (circular).
 struct WatchReadinessWidget: Widget {
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: "PepitoWatchReadiness", provider: WatchProvider()) { entry in
-            let r = entry.snapshot?.readiness
-            Gauge(value: Double(r?.score ?? 0), in: 0...100) {
-                Text("Ready")
-            } currentValueLabel: {
-                Text(r?.score.map(String.init) ?? "–").monospacedDigit()
-            }
-            .gaugeStyle(.accessoryCircular)
-            .tint(PepitoTheme.bandColor(r?.band))
-            .widgetAccentable()
-            .accessibilityLabel(r?.score.map { "Readiness \($0), \(r?.bandLabel ?? "")" } ?? "Readiness not available")
-            .containerBackground(PepitoTheme.Palette.bg, for: .widget)
+        StaticConfiguration(kind: "PepitoWatchReadiness", provider: WatchProvider(kind: .readiness)) { entry in
+            WatchWidgetRoot(.readiness) { ReadinessComplication(readiness: entry.snapshot?.readiness) }
         }
         .configurationDisplayName("Readiness")
         .description("Today's readiness score.")
@@ -52,50 +74,51 @@ struct WatchReadinessWidget: Widget {
     }
 }
 
-/// The next dose (rectangular).
+/// The next dose (rectangular, and in the Smart Stack) and inline.
 struct WatchNextDoseWidget: Widget {
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: "PepitoWatchNextDose", provider: WatchProvider()) { entry in
-            let next = entry.snapshot.flatMap { DoseBoard.next($0, now: entry.date) }
-            VStack(alignment: .leading, spacing: 2) {
-                Text(next.map { "\($0.slot.title), \(DoseBoard.clockLabel($0.time))" } ?? "Pepito+")
-                    .font(.system(.caption2, design: .default).weight(.heavy))
-                    .textCase(.uppercase)
-                    .foregroundStyle(PepitoTheme.Palette.text3)
-                Text(next?.line ?? (entry.snapshot == nil ? "Open Pepito+" : "All logged"))
-                    .font(.system(.headline, design: .default).weight(.bold).monospacedDigit())
-                    .foregroundStyle(PepitoTheme.Palette.text)
-                    .lineLimit(2)
-                    .widgetAccentable()
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .accessibilityElement(children: .combine)
-            .containerBackground(PepitoTheme.Palette.bg, for: .widget)
+        StaticConfiguration(kind: "PepitoWatchNextDose", provider: WatchProvider(kind: .nextDose)) { entry in
+            WatchWidgetRoot(.doses) { NextDoseFamilyView(entry: entry) }
         }
         .configurationDisplayName("Next dose")
         .description("The next dose and when it is due.")
-        .supportedFamilies([.accessoryRectangular])
+        .supportedFamilies([.accessoryRectangular, .accessoryInline])
     }
 }
 
-/// Sauna quick start (circular): opens straight into the Sauna start screen.
+struct NextDoseFamilyView: View {
+    let entry: WatchEntry
+    @Environment(\.widgetFamily) private var family
+    var body: some View {
+        if family == .accessoryInline {
+            NextDoseInlineComplication(snap: entry.snapshot, now: entry.date)
+        } else {
+            NextDoseComplication(snap: entry.snapshot, now: entry.date)
+        }
+    }
+}
+
+/// The sauna (circular, and corner on faces that have corners): opens the sauna screen.
 struct WatchSaunaWidget: Widget {
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: "PepitoWatchSauna", provider: WatchProvider()) { entry in
-            ZStack {
-                AccessoryWidgetBackground()
-                Image(systemName: entry.snapshot?.sauna.active != nil ? "flame.fill" : "flame")
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundStyle(PepitoTheme.Palette.sauna)
-                    .widgetAccentable()
-            }
-            .widgetURL(URL(string: "pepito://sauna"))
-            .accessibilityLabel(entry.snapshot?.sauna.active != nil ? "Sauna running" : "Start sauna")
-            .containerBackground(PepitoTheme.Palette.bg, for: .widget)
+        StaticConfiguration(kind: "PepitoWatchSauna", provider: WatchProvider(kind: .sauna)) { entry in
+            WatchWidgetRoot(.sauna) { SaunaFamilyView(entry: entry) }
         }
         .configurationDisplayName("Sauna")
-        .description("Open the sauna start screen in one tap.")
-        .supportedFamilies([.accessoryCircular])
+        .description("This week's sessions; opens the sauna in one tap.")
+        .supportedFamilies([.accessoryCircular, .accessoryCorner])
+    }
+}
+
+struct SaunaFamilyView: View {
+    let entry: WatchEntry
+    @Environment(\.widgetFamily) private var family
+    var body: some View {
+        if family == .accessoryCorner {
+            SaunaCornerComplication(sauna: entry.snapshot?.sauna)
+        } else {
+            SaunaCircularComplication(sauna: entry.snapshot?.sauna)
+        }
     }
 }
 

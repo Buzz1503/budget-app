@@ -42,7 +42,7 @@ export async function rebuildSchedule() {
   if ((await permission()) !== 'granted') return 0
   const state = useStore.getState()
   const now = new Date()
-  let watchReady = false
+  let watchReady
   try { watchReady = !!(await PepitoBridge.watchStatus())?.installed } catch { watchReady = false }
   const planned = buildSchedule(state, { now, verdictOf: await verdictOf(), watchReady })
   const stock = stockAlerts(state, { now, alerted: state.nativeState?.stockAlerted || [] })

@@ -43,10 +43,18 @@ def group_for(project, dir)
     project.main_group.new_group(File.basename(dir), path)
 end
 
-# Add every .swift file under `dir` to `target` (missing ones only).
+# Add every .swift file under `dir` to `target` (missing ones only), and drop
+# the ones that were deleted from the folder.
 def add_sources(project, target, dir, group = nil)
   return unless Dir.exist?(dir)
   group ||= group_for(project, dir)
+  target.source_build_phase.files.dup.each do |bf|
+    path = bf.file_ref&.real_path&.to_s
+    next unless path && path.start_with?(dir + '/') && path.end_with?('.swift') && !File.exist?(path)
+    ref = bf.file_ref
+    target.source_build_phase.remove_build_file(bf)
+    ref.remove_from_project if ref.build_files.empty?
+  end
   existing = target.source_build_phase.files_references.map { |f| f&.real_path&.to_s }
   Dir.glob(File.join(dir, '**', '*.swift')).sort.each do |file|
     sub = File.dirname(file)
@@ -162,6 +170,7 @@ if Dir.exist?(widgets_dir)
   add_sources(project, w, File.join(IOS, 'Shared'))
   link_product(project, w, 'PepitoCore')
   link_product(project, w, 'PepitoTheme')
+  link_product(project, w, 'PepitoWidgetUI')
   w_ent = {}
   w_ent['com.apple.security.application-groups'] = [APP_GROUP] if FEATURES['appGroup']
   entitlements(File.join(widgets_dir, 'PepitoWidgets.entitlements'), w_ent)
@@ -212,6 +221,7 @@ if Dir.exist?(watch_dir)
   add_resource(project, wa, File.join(watch_dir, 'Assets.xcassets'), wa_group)
   link_product(project, wa, 'PepitoCore')
   link_product(project, wa, 'PepitoTheme')
+  link_product(project, wa, 'PepitoWatchUI')
   wa_ent = {}
   if FEATURES['watchHealthKit']
     wa_ent['com.apple.developer.healthkit'] = true
@@ -269,6 +279,7 @@ if Dir.exist?(watch_widgets_dir) && (wa = project.targets.find { |t| t.name == '
   add_sources(project, ww, watch_shared)
   link_product(project, ww, 'PepitoCore')
   link_product(project, ww, 'PepitoTheme')
+  link_product(project, ww, 'PepitoWatchUI')
   ww_ent = {}
   ww_ent['com.apple.security.application-groups'] = [APP_GROUP] if FEATURES['appGroup']
   entitlements(File.join(watch_widgets_dir, 'PepitoWatchWidgets.entitlements'), ww_ent)

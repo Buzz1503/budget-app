@@ -29,7 +29,7 @@ struct StartSaunaWorkoutIntent: StartWorkoutIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult {
-        WatchStore.shared.launch = .sauna
+        WatchStore.shared.open(.sauna)
         await SaunaWorkoutManager.shared.startOrNextRound()
         return .result()
     }
@@ -42,7 +42,7 @@ struct WatchStartSaunaIntent: AppIntent {
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
         if SaunaWorkoutManager.shared.isRunning { return .result(dialog: "A sauna session is already running.") }
-        WatchStore.shared.launch = .sauna
+        WatchStore.shared.open(.sauna)
         await SaunaWorkoutManager.shared.start()
         let m = SaunaWorkoutManager.shared
         return .result(dialog: "Sauna started: \(m.targetMin) min at \(m.tempC) C.")

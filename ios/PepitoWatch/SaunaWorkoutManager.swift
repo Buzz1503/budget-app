@@ -5,9 +5,10 @@ import PepitoCore
 
 /// The sauna on the wrist: an indoor "other" workout session with a live
 /// builder, so heart rate is recorded the whole time and the session is saved
-/// to Health with its metadata. Haptics at every 5-minute mark and a stronger
-/// one at the target; a round split on Next round (or the Ultra's Action
-/// Button). Stop saves the workout and sends the session to the phone, which
+/// to Health with its metadata. Haptics at start and stop, at every 5-minute
+/// mark and a distinct one at the target; a round split on Next round (or the
+/// Ultra's Action Button); Pause holds the clock. Every 30 seconds the heart
+/// rate, round and pause go to the iPhone for its Live Activity. Stop saves the workout and sends the session to the phone, which
 /// adds it to the app (source Watch, linked to the workout) with the full
 /// heart-rate series, so it is never offered as "Was this a sauna?".
 @MainActor
@@ -24,6 +25,8 @@ final class SaunaWorkoutManager: NSObject, ObservableObject {
         var avgHR: Int?
         var peakHR: Int?
         var zoneMinutes: [Double]
+        var samples: [SaunaHeartRate.Sample]
+        var activeSec: Double
     }
 
     @Published private(set) var phase: Phase = .idle
@@ -33,6 +36,12 @@ final class SaunaWorkoutManager: NSObject, ObservableObject {
     @Published private(set) var tempC = 60
     @Published private(set) var roundSplits: [Date] = []
     @Published private(set) var summary: Summary?
+    /// The last ten minutes of heart rate, for the running screen's line.
+    @Published private(set) var recent: [SaunaHeartRate.Sample] = []
+    /// The heart rate as Always On shows it: refreshed once a minute.
+    @Published private(set) var minuteHeartRate: Double?
+    @Published private(set) var pausedAt: Date?
+    @Published private(set) var pausedSec: Double = 0
 
     private let health = HKHealthStore()
     private var session: HKWorkoutSession?
@@ -42,9 +51,18 @@ final class SaunaWorkoutManager: NSObject, ObservableObject {
     private var lastElapsed: TimeInterval = 0
     private var targetBuzzed = false
     private var stoppedFromPhone = false
+    private var lastLiveSent = Date.distantPast
+    private var lastMinute = -1
 
     var rounds: Int { roundSplits.count + 1 }
     var isRunning: Bool { phase == .running }
+    var isPaused: Bool { pausedAt != nil }
+
+    /// Time in the session, not counting pauses.
+    func elapsed(at now: Date = Date()) -> TimeInterval {
+        guard let start = startDate else { return 0 }
+        return max(0, (pausedAt ?? now).timeIntervalSince(start) - pausedSec)
+    }
 
     // MARK: - authorization
 
@@ -72,6 +90,12 @@ final class SaunaWorkoutManager: NSObject, ObservableObject {
         roundSplits = []
         samples = []
         heartRate = nil
+        minuteHeartRate = nil
+        recent = []
+        pausedAt = nil
+        pausedSec = 0
+        lastLiveSent = .distantPast
+        lastMinute = -1
         targetBuzzed = false
         lastElapsed = 0
         stoppedFromPhone = false
@@ -79,6 +103,7 @@ final class SaunaWorkoutManager: NSObject, ObservableObject {
         let start = Date()
         startDate = start
         phase = .running
+        WKInterfaceDevice.current().play(.start)
 
         if NativeFeatures.watchHealthKit, await requestAuthorization() {
             let config = HKWorkoutConfiguration()
@@ -123,6 +148,31 @@ final class SaunaWorkoutManager: NSObject, ObservableObject {
         guard isRunning else { return }
         roundSplits.append(Date())
         WKInterfaceDevice.current().play(.directionUp)
+        sendLive(force: true)
+    }
+
+    func togglePause() {
+        guard isRunning else { return }
+        let now = Date()
+        if let p = pausedAt {
+            pausedSec += now.timeIntervalSince(p)
+            pausedAt = nil
+            session?.resume()
+            WKInterfaceDevice.current().play(.start)
+        } else {
+            pausedAt = now
+            session?.pause()
+            WKInterfaceDevice.current().play(.stop)
+        }
+        sendLive(force: true)
+    }
+
+    private func sendLive(force: Bool = false, now: Date = Date()) {
+        guard force || now.timeIntervalSince(lastLiveSent) >= LiveSauna.interval else { return }
+        lastLiveSent = now
+        WatchStore.shared.sendLive(LiveSauna(heartRate: heartRate.map { Int($0.rounded()) }, rounds: rounds, at: now,
+                                             pausedSec: pausedSec + (pausedAt.map { now.timeIntervalSince($0) } ?? 0),
+                                             paused: pausedAt != nil))
     }
 
     // MARK: - haptics
@@ -135,8 +185,13 @@ final class SaunaWorkoutManager: NSObject, ObservableObject {
     }
 
     private func tick() {
-        guard isRunning, let start = startDate else { return }
-        let elapsed = Date().timeIntervalSince(start)
+        guard isRunning else { return }
+        let now = Date()
+        let minute = Int(now.timeIntervalSince1970 / 60)
+        if minute != lastMinute { lastMinute = minute; minuteHeartRate = heartRate }
+        sendLive(now: now)
+        guard pausedAt == nil else { return }
+        let elapsed = self.elapsed(at: now)
         let marks = SaunaHeartRate.fiveMinuteMarks(elapsedFrom: lastElapsed, to: elapsed)
         lastElapsed = elapsed
         if !targetBuzzed, elapsed >= TimeInterval(targetMin * 60) {
@@ -153,7 +208,9 @@ final class SaunaWorkoutManager: NSObject, ObservableObject {
         guard isRunning else { return }
         stoppedFromPhone = fromPhone
         ticker?.invalidate()
+        if let p = pausedAt { pausedSec += Date().timeIntervalSince(p); pausedAt = nil }
         phase = .saving
+        WKInterfaceDevice.current().play(.stop)
         let end = Date()
         Task { await finish(at: end) }
     }
@@ -189,7 +246,8 @@ final class SaunaWorkoutManager: NSObject, ObservableObject {
         let sum = SaunaHeartRate.summary(samples, start: s0, end: s1, maxHR: maxHR, floors: floors)
         let fiveSec = SaunaHeartRate.resample(samples, from: s0, to: s1)
 
-        summary = Summary(start: start, end: end, tempC: tempC, rounds: rounds, avgHR: sum.avg, peakHR: sum.peak, zoneMinutes: sum.zoneMinutes)
+        summary = Summary(start: start, end: end, tempC: tempC, rounds: rounds, avgHR: sum.avg, peakHR: sum.peak,
+                          zoneMinutes: sum.zoneMinutes, samples: samples, activeSec: max(0, s1 - s0 - pausedSec))
         phase = .summary
 
         WatchStore.shared.send(PendingAction(
@@ -210,7 +268,12 @@ final class SaunaWorkoutManager: NSObject, ObservableObject {
 
     fileprivate func record(bpm: Double, at date: Date) {
         heartRate = bpm
-        samples.append(.init(t: date.timeIntervalSince1970, bpm: bpm))
+        if minuteHeartRate == nil { minuteHeartRate = bpm }
+        let sample = SaunaHeartRate.Sample(t: date.timeIntervalSince1970, bpm: bpm)
+        samples.append(sample)
+        recent.append(sample)
+        let cutoff = date.timeIntervalSince1970 - 600
+        recent.removeAll { $0.t < cutoff }
     }
 
     var zone: Int? {

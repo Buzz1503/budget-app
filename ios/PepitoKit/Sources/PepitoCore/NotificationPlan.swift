@@ -83,6 +83,15 @@ public enum NotificationAction {
         ("STOCK", [(openStock, "Open Stock", true)])
     ]
 
+    /// The same categories as the Watch shows them: a dose reminder has
+    /// Log all (Take all for supplements), Skip and Remind in 30 min, each
+    /// handled on the Watch and queued for the iPhone.
+    public static let watchCategories: [(String, [(String, String, Bool)])] = categories.map { id, buttons in
+        guard id.hasPrefix("DOSE_") else { return (id, buttons) }
+        let main = id == "DOSE_TAKE" ? (take, "Take all", false) : (log, "Log all", false)
+        return (id, [main, (skip, "Skip", false), (snooze, "Remind in 30 min", false)])
+    }
+
     /// The queued actions a button on a dose notification stands for. A group
     /// logs (or skips) as one; Push moves only what can be pushed.
     public static func actions(for button: String, payload p: NotificationPayload, now: Date = Date()) -> [PendingAction] {

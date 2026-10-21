@@ -30,6 +30,21 @@ final class SaunaActivityController {
         _ = try? Activity.request(attributes: SaunaActivityAttributes(targetMin: targetMin), content: content, pushType: nil)
     }
 
+    /// The Watch's live heart rate, round and pause, every 30 seconds while
+    /// its session runs. Only the Live Activity shows it; nothing is stored.
+    func live(_ l: LiveSauna, now: Date = Date()) {
+        guard enabled, l.isFresh(now: now), let base = SharedStore.shared().readSnapshot()?.sauna.active else { return }
+        let start = base.startDate.addingTimeInterval(l.pausedSec)
+        let state = SaunaActivityAttributes.ContentState(
+            startedAt: start,
+            targetAt: start.addingTimeInterval(TimeInterval(base.targetMin * 60)),
+            tempC: base.tempC, rounds: l.rounds, heartRate: l.heartRate,
+            pausedAt: l.paused ? l.date : nil)
+        for activity in Activity<SaunaActivityAttributes>.activities {
+            Task { await activity.update(ActivityContent(state: state, staleDate: base.startDate.addingTimeInterval(SaunaLimits.autoEndAfter))) }
+        }
+    }
+
     func endAll() {
         for activity in Activity<SaunaActivityAttributes>.activities {
             Task { await activity.end(nil, dismissalPolicy: .immediate) }
