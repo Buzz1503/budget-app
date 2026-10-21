@@ -124,13 +124,27 @@ struct TimerBar: View {
     var body: some View {
         if snapshot {
             let total = range.upperBound.timeIntervalSince(range.lowerBound)
-            let f = total > 0 ? min(1, max(0, Date().timeIntervalSince(range.lowerBound) / total)) : 0
-            ProgressView(value: f).progressViewStyle(.linear).tint(tint)
+            StillBar(fraction: total > 0 ? min(1, max(0, Date().timeIntervalSince(range.lowerBound) / total)) : 0, tint: tint)
         } else {
             ProgressView(timerInterval: range, countsDown: false) { EmptyView() } currentValueLabel: { EmptyView() }
                 .progressViewStyle(.linear)
                 .tint(tint)
         }
+    }
+}
+
+/// A thin bar held at one point (a paused session, and the design snapshots).
+struct StillBar: View {
+    let fraction: Double
+    let tint: Color
+    var body: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                Capsule().fill(Color.white.opacity(0.18))
+                Capsule().fill(tint).frame(width: max(4, geo.size.width * fraction))
+            }
+        }
+        .frame(height: 4)
     }
 }
 

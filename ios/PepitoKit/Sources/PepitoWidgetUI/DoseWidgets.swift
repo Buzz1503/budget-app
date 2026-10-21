@@ -278,7 +278,7 @@ struct TodayRow: View {
                 ViewThatFits(in: .horizontal) {
                     rowLine(done: done, detail: detail)
                     rowLine(done: done, detail: doseOnly)
-                    rowLine(done: done, detail: doseOnly, squeeze: true)
+                    rowLine(done: done, detail: nil, squeeze: true)
                 }
                 tick(done: done)
             }
@@ -295,7 +295,7 @@ struct TodayRow: View {
         HStack(spacing: PepitoTheme.Space.s8) {
             names(done: done)
                 .fixedSize(horizontal: !squeeze, vertical: false)
-                .minimumScaleFactor(squeeze ? 0.7 : 1)
+                .minimumScaleFactor(squeeze ? 0.85 : 1)
             Spacer(minLength: 0)
             if let detail {
                 Text(detail)

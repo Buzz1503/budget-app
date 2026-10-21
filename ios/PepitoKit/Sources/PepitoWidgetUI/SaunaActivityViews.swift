@@ -43,7 +43,7 @@ struct SaunaProgressBar: View {
     var body: some View {
         Group {
             if live.pausedAt != nil {
-                ProgressView(value: live.fractionAtPause).progressViewStyle(.linear).tint(Pal.accent)
+                StillBar(fraction: live.fractionAtPause, tint: Pal.accent)
             } else {
                 TimerBar(range: live.startedAt...live.targetAt, tint: Pal.accent)
             }

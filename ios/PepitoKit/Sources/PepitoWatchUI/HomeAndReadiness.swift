@@ -116,6 +116,7 @@ public struct WatchReadinessContent: View {
                         .font(.system(size: 15, weight: .medium))
                         .foregroundStyle(Pal.text2)
                         .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
             if let asOf {

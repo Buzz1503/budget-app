@@ -161,6 +161,7 @@ public struct WatchMessageContent: View {
             Text(title).font(.system(size: 17, weight: .semibold)).foregroundStyle(Pal.text).multilineTextAlignment(.center)
             if let detail {
                 Text(detail).font(.system(size: 15, weight: .medium)).foregroundStyle(Pal.text2).multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
