@@ -22,7 +22,8 @@ final class WatchSnapshotTests: XCTestCase {
     static let screens = [Screen(name: "49mm", size: CGSize(width: 205, height: 251), mm: "49mm"),
                           Screen(name: "41mm", size: CGSize(width: 176, height: 215), mm: "41mm")]
 
-    enum Chrome { case home(String), child(String), none }
+    /// `running`: the session screen hides the system clock (persistentSystemOverlays).
+    enum Chrome { case home(String), child(String), none, running }
 
     /// A Watch screen: the page background, the clock, the title and back
     /// button watchOS draws, and the content clipped to the display.
@@ -42,10 +43,18 @@ final class WatchSnapshotTests: XCTestCase {
                         .frame(width: s.size.width, height: s.size.height, alignment: .top)
                 }
             }
-            bar(s, chrome: chrome, aod: aod)
+            if case .running = chrome {} else { bar(s, chrome: chrome, aod: aod) }
             if let bottom {
-                VStack { Spacer(); bottom.padding(.bottom, 8) }
-                    .frame(width: s.size.width, height: s.size.height)
+                VStack(spacing: 0) {
+                    Spacer()
+                    // watchOS fades the content under the bottom toolbar
+                    ZStack(alignment: .bottom) {
+                        LinearGradient(colors: [.clear, .black.opacity(0.85)], startPoint: .top, endPoint: .bottom)
+                            .frame(height: 64)
+                        bottom.padding(.bottom, 8)
+                    }
+                }
+                .frame(width: s.size.width, height: s.size.height)
             }
         }
         .frame(width: s.size.width, height: s.size.height)
@@ -67,14 +76,14 @@ final class WatchSnapshotTests: XCTestCase {
                     .foregroundStyle(.white)
                     .frame(width: 28, height: 28)
                     .background(Circle().fill(.white.opacity(0.18)))
-                Text(t).font(.system(size: 15, weight: .semibold)).foregroundStyle(PepitoTheme.Palette.text).lineLimit(1)
-            case .none:
+                Text(t).font(.system(size: s.size.width < 190 ? 14 : 15, weight: .semibold)).foregroundStyle(PepitoTheme.Palette.text).lineLimit(1)
+            case .none, .running:
                 EmptyView()
             }
             Spacer(minLength: 0)
-            Text("10:09").font(.system(size: 15, weight: .semibold)).monospacedDigit().foregroundStyle(.white.opacity(aod ? 0.7 : 1))
+            Text("10:09").font(.system(size: s.size.width < 190 ? 14 : 15, weight: .semibold)).monospacedDigit().foregroundStyle(.white.opacity(aod ? 0.7 : 1))
         }
-        .padding(.horizontal, s.side + 4)
+        .padding(.horizontal, s.side + (s.size.width < 190 ? 0 : 4))
         .padding(.top, 6)
         .frame(width: s.size.width, height: 36, alignment: .center)
     }
@@ -111,7 +120,7 @@ final class WatchSnapshotTests: XCTestCase {
         func doses(_ name: String, _ sample: (Snapshot, Date), loggedAt: [String: Date] = [:], willSync: Bool = false, aodToo: Bool = true) {
             guard let screen = WatchHome.doseScreen(sample.0, now: sample.1) else { return }
             let verb = screen.rows.first { $0.status == .due }?.verb ?? "Log"
-            let bottom = screen.allLogged ? nil : AnyView(
+            let bottom = screen.dueCount < 2 ? nil : AnyView(
                 WatchLogAllLabel(count: screen.dueCount, verb: verb)
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(PepitoTheme.Palette.accentForeground)
@@ -167,7 +176,7 @@ final class WatchSnapshotTests: XCTestCase {
             ("no-hr", run(1.2, hr: nil)), ("paused", run(8.1, hr: 112, paused: true)),
         ]
         for (name, st) in runs {
-            shoot("sauna-running-\(name)", BG.sauna, chrome: .none, fullScreen: true, aodToo: name == "zone3" || name == "after-target") {
+            shoot("sauna-running-\(name)", BG.sauna, chrome: .running, fullScreen: true, aodToo: name == "zone3" || name == "after-target") {
                 WatchSaunaRunningContent(state: st, now: now)
             }
         }

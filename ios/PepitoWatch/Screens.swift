@@ -64,6 +64,8 @@ struct DosesScreen: View {
             }
             .navigationTitle(screen.slot.title)
             .toolbar {
+                // one row left: its own tick is the action, no Log all
+                if due.count > 1 {
                 ToolbarItemGroup(placement: .bottomBar) {
                     Spacer()
                     Button {
@@ -76,6 +78,7 @@ struct DosesScreen: View {
                     .foregroundStyle(PepitoTheme.Palette.accentForeground)
                     .buttonStyle(.borderedProminent)
                     Spacer()
+                }
                 }
             }
         } else {
@@ -171,6 +174,7 @@ struct SaunaRunningScreen: View {
                 .tag(1)
         }
         .tabViewStyle(.page)
+        .persistentSystemOverlays(.hidden)
         .navigationBarBackButtonHidden(true)
         .toolbar(.hidden, for: .navigationBar)
         .confirmationDialog("Stop and save this session?", isPresented: $confirmStop, titleVisibility: .visible) {
