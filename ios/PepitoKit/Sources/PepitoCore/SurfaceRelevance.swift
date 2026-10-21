@@ -4,7 +4,7 @@ import Foundation
 /// dose rises from 30 minutes before its slot until the nudge, the sauna
 /// while a session runs, readiness in the morning. Plain numbers here; the
 /// widget turns them into TimelineEntryRelevance.
-public enum WidgetRelevance {
+public enum SurfaceRelevance {
     public struct Score: Equatable, Sendable {
         public var score: Float
         public var duration: TimeInterval

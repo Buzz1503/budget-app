@@ -32,16 +32,16 @@ struct WatchProvider: TimelineProvider {
     func getTimeline(in context: Context, completion: @escaping (Timeline<WatchEntry>) -> Void) {
         let snap = SharedStore.shared().readSnapshot()
         let now = Date()
-        let entries = WidgetRelevance.moments(snap, from: now).map { entry(snap, at: $0) }
+        let entries = SurfaceRelevance.moments(snap, from: now).map { entry(snap, at: $0) }
         completion(Timeline(entries: entries, policy: .after(now.addingTimeInterval(6 * 3600))))
     }
 
     private func entry(_ snap: Snapshot?, at date: Date) -> WatchEntry {
-        let r: WidgetRelevance.Score
+        let r: SurfaceRelevance.Score
         switch kind {
-        case .readiness: r = WidgetRelevance.readiness(snap, at: date)
-        case .nextDose: r = WidgetRelevance.nextDose(snap, at: date)
-        case .sauna: r = WidgetRelevance.sauna(snap, at: date)
+        case .readiness: r = SurfaceRelevance.readiness(snap, at: date)
+        case .nextDose: r = SurfaceRelevance.nextDose(snap, at: date)
+        case .sauna: r = SurfaceRelevance.sauna(snap, at: date)
         }
         return WatchEntry(date: date, snapshot: snap, relevance: TimelineEntryRelevance(score: r.score, duration: r.duration))
     }

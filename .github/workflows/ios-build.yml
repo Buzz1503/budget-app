@@ -34,32 +34,31 @@ jobs:
 
       - name: iPhone app (embeds the widgets and the Watch app)
         run: |
-          set -o pipefail
           xcodebuild -version
           xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug \
             -destination 'generic/platform=iOS Simulator' -skipPackagePluginValidation \
-            CODE_SIGNING_ALLOWED=NO build 2>&1 | tail -n 80
+            CODE_SIGNING_ALLOWED=NO build > /tmp/xb.log 2>&1; rc=$?; grep -E 'error:|BUILD (SUCCEEDED|FAILED)' /tmp/xb.log | sort -u | head -80; exit $rc
 
       - name: Widget extension
+        if: always()
         run: |
-          set -o pipefail
           xcodebuild -project ios/App/App.xcodeproj -scheme PepitoWidgets -configuration Debug \
             -destination 'generic/platform=iOS Simulator' -skipPackagePluginValidation \
-            CODE_SIGNING_ALLOWED=NO build 2>&1 | tail -n 60
+            CODE_SIGNING_ALLOWED=NO build > /tmp/xb.log 2>&1; rc=$?; grep -E 'error:|BUILD (SUCCEEDED|FAILED)' /tmp/xb.log | sort -u | head -80; exit $rc
 
       - name: Watch app
+        if: always()
         run: |
-          set -o pipefail
           xcodebuild -project ios/App/App.xcodeproj -scheme PepitoWatch -configuration Debug \
             -destination 'generic/platform=watchOS Simulator' -skipPackagePluginValidation \
-            CODE_SIGNING_ALLOWED=NO build 2>&1 | tail -n 60
+            CODE_SIGNING_ALLOWED=NO build > /tmp/xb.log 2>&1; rc=$?; grep -E 'error:|BUILD (SUCCEEDED|FAILED)' /tmp/xb.log | sort -u | head -80; exit $rc
 
       - name: Watch widgets
+        if: always()
         run: |
-          set -o pipefail
           xcodebuild -project ios/App/App.xcodeproj -scheme PepitoWatchWidgets -configuration Debug \
             -destination 'generic/platform=watchOS Simulator' -skipPackagePluginValidation \
-            CODE_SIGNING_ALLOWED=NO build 2>&1 | tail -n 60
+            CODE_SIGNING_ALLOWED=NO build > /tmp/xb.log 2>&1; rc=$?; grep -E 'error:|BUILD (SUCCEEDED|FAILED)' /tmp/xb.log | sort -u | head -80; exit $rc
 
   # Renders every widget, the Live Activity and every Watch screen to PNG
   # (ios/PepitoKit/Tests/PepitoSnapshotTests) and commits them to
@@ -67,6 +66,9 @@ jobs:
   # by image. The commit says [skip ci].
   snapshots:
     runs-on: macos-latest
+    concurrency:
+      group: snapshots-${{ github.ref }}
+      cancel-in-progress: true
     permissions:
       contents: write
     steps:
@@ -97,17 +99,15 @@ jobs:
       - name: Render iPhone widgets and Live Activity
         working-directory: ios/PepitoKit
         run: |
-          set -o pipefail
           xcodebuild test -scheme PepitoKit-Package -destination "id=${{ steps.sims.outputs.iphone }}" \
-            -only-testing:PepitoSnapshotTests -skipPackagePluginValidation 2>&1 | tail -n 80
+            -only-testing:PepitoSnapshotTests -skipPackagePluginValidation > /tmp/xt.log 2>&1; rc=$?; grep -E 'error:|failed|TEST (SUCCEEDED|FAILED)|Executed' /tmp/xt.log | sort -u | head -80; exit $rc
 
       - name: Render Watch screens and complications
         if: always()
         working-directory: ios/PepitoKit
         run: |
-          set -o pipefail
           xcodebuild test -scheme PepitoKit-Package -destination "id=${{ steps.sims.outputs.watch }}" \
-            -only-testing:PepitoSnapshotTests -skipPackagePluginValidation 2>&1 | tail -n 80
+            -only-testing:PepitoSnapshotTests -skipPackagePluginValidation > /tmp/xt.log 2>&1; rc=$?; grep -E 'error:|failed|TEST (SUCCEEDED|FAILED)|Executed' /tmp/xt.log | sort -u | head -80; exit $rc
 
       - name: Commit the snapshots to the branch
         if: always()

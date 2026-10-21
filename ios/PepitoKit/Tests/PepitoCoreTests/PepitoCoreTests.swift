@@ -327,28 +327,28 @@ final class RelevanceTests: XCTestCase {
     func testNextDoseRisesHalfAnHourBeforeItsSlot() throws {
         var s = try fixture()
         for i in s.days[0].items.indices where s.days[0].items[i].slot == .am { s.days[0].items[i].status = .logged }
-        XCTAssertEqual(WidgetRelevance.nextDose(s, at: at(19, 0), calendar: cal).score, 10)
-        let r = WidgetRelevance.nextDose(s, at: at(19, 30), calendar: cal)
+        XCTAssertEqual(SurfaceRelevance.nextDose(s, at: at(19, 0), calendar: cal).score, 10)
+        let r = SurfaceRelevance.nextDose(s, at: at(19, 30), calendar: cal)
         XCTAssertEqual(r.score, 80)
         XCTAssertEqual(r.duration, 2 * 3600)  // until the nudge at 21:30
-        XCTAssertEqual(WidgetRelevance.nextDose(nil, at: at(19, 30)), .low)
+        XCTAssertEqual(SurfaceRelevance.nextDose(nil, at: at(19, 30)), .low)
     }
 
     func testSaunaWhileRunningAndReadinessInTheMorning() throws {
         var s = try fixture()
         let start = s.sauna.active!.startDate
-        XCTAssertEqual(WidgetRelevance.sauna(s, at: start.addingTimeInterval(60)).score, 100)
+        XCTAssertEqual(SurfaceRelevance.sauna(s, at: start.addingTimeInterval(60)).score, 100)
         s.sauna.active = nil
-        XCTAssertEqual(WidgetRelevance.sauna(s, at: start).score, 5)
-        XCTAssertEqual(WidgetRelevance.readiness(s, at: at(7), calendar: cal).score, 60)
-        XCTAssertEqual(WidgetRelevance.readiness(s, at: at(7), calendar: cal).duration, 4 * 3600)
-        XCTAssertEqual(WidgetRelevance.readiness(s, at: at(15), calendar: cal).score, 10)
+        XCTAssertEqual(SurfaceRelevance.sauna(s, at: start).score, 5)
+        XCTAssertEqual(SurfaceRelevance.readiness(s, at: at(7), calendar: cal).score, 60)
+        XCTAssertEqual(SurfaceRelevance.readiness(s, at: at(7), calendar: cal).duration, 4 * 3600)
+        XCTAssertEqual(SurfaceRelevance.readiness(s, at: at(15), calendar: cal).score, 10)
     }
 
     func testTimelineMomentsIncludeTheLeadTime() throws {
         var s = try fixture()
         s.sauna.active = nil
-        let m = WidgetRelevance.moments(s, from: at(6), calendar: cal)
+        let m = SurfaceRelevance.moments(s, from: at(6), calendar: cal)
         XCTAssertTrue(m.contains(at(6, 30)))   // 30 min before AM
         XCTAssertTrue(m.contains(at(19, 30)))  // 30 min before PM
         XCTAssertTrue(m.contains(at(11)))      // end of the morning
