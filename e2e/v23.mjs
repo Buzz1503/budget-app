@@ -398,7 +398,7 @@ await step('the protocol overview lists everything and exports', async () => {
   const st = await state()
   if (rows !== st.peptides.length) throw new Error(`${rows} rows for ${st.peptides.length} compounds`)
   const body = await page.textContent('main')
-  for (const want of [/cycle|ongoing/i, /SubQ|Nasal|IM/]) {
+  for (const want of [/cycle|ongoing|On, day|Off, back/i, /SubQ|Nasal|IM/]) {
     if (!want.test(body)) throw new Error(`the overview is missing ${want}`)
   }
   const dl = page.waitForEvent('download', { timeout: 15000 })
@@ -442,6 +442,7 @@ await step('nothing overflows horizontally at 390px on the new screens', async (
     ['more', 'Stock'], ['more', 'History & adherence'],
   ]) {
     if (how === 'nav') await nav(label); else await more(label)
+    await page.waitForTimeout(700) // let the page transition settle before measuring
     const over = await page.evaluate(() =>
       document.documentElement.scrollWidth > document.documentElement.clientWidth + 1)
     if (over) bad.push(label)

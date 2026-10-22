@@ -240,6 +240,7 @@ await step('nothing overflows horizontally at 390px', async () => {
   const bad = []
   for (const [how, label] of [['nav', 'Home'], ['nav', 'Calendar'], ['more', 'Protocol overview'], ['more', 'History & adherence']]) {
     if (how === 'nav') await nav(label); else await more(label)
+    await page.waitForTimeout(700) // let the page transition settle before measuring
     const over = await page.evaluate(() =>
       document.documentElement.scrollWidth > document.documentElement.clientWidth + 1)
     if (over) bad.push(label)
