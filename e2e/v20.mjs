@@ -119,8 +119,10 @@ await step('a skip is not a dose — nothing is logged and no stock moves', asyn
   }
   const vial = st.openVials?.[pid]
   const seeded = st.peptides.find((p) => p.id === pid)?.recon?.vialMg
-  if (vial && seeded != null && vial.remainingMg !== seeded) {
-    throw new Error(`inventory moved on a skip: ${vial.remainingMg} vs ${seeded}`)
+  // what is left is worked out from the log now: a skip writes no log, so the vial is as full as it was
+  const drawn = st.doseLogs.filter((l) => l.peptideId === pid).length
+  if (vial && seeded != null && (drawn > 0 || (vial.adjustments || []).length > 0 || vial.vialMg !== seeded)) {
+    throw new Error(`inventory moved on a skip: ${drawn} logs, ${(vial.adjustments || []).length} adjustments, ${vial.vialMg} vs ${seeded}`)
   }
 })
 
