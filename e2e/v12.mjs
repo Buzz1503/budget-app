@@ -154,7 +154,7 @@ await step('vials to order come from real burn-rate over the horizon', async () 
   const doseMg = unit === 'mcg' ? Number(dose) / 1000 : Number(dose)
   const neededMg = Number(doses) * doseMg
   const stockMg = s.vials.filter((v) => v.peptideId === 'tesamorelin')
-    .reduce((t, v) => t + v.qtyOnHand * v.vialMg, 0) + (s.openVials.tesamorelin?.remainingMg || 0)
+    .reduce((t, v) => t + v.qtyOnHand * v.vialMg, 0) + (s.openVials.tesamorelin?.vialMg || 0)
   const expect = Math.max(0, Math.ceil((neededMg - stockMg) / p.recon.vialMg))
   const qty = Number((shown.match(/−\s*(\d+)\s*\+/) || [])[1])
   if (qty !== expect) throw new Error(`suggests ${qty} vials, arithmetic says ${expect} (${neededMg} mg needed, ${stockMg} on hand)`)
