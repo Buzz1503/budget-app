@@ -168,6 +168,7 @@ await step('deleting a stock batch leaves the protocol and history intact', asyn
   if (after.vials.some((v) => v.peptideId === 'tb500')) throw new Error('the batch was not deleted')
   if (after.peptides.length !== peptidesBefore) throw new Error('deleting stock changed the protocol')
   if (after.doseLogs.length !== logsBefore) throw new Error('deleting stock changed the history')
+  await closeModal()
 })
 
 // =================================== 2 · Build/rebuild manages the whole protocol
