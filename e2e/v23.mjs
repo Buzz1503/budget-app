@@ -48,6 +48,14 @@ const stockRoom = async () => {
   if (await t.count()) { await t.click(); await page.waitForTimeout(500) }
 }
 const groupFor = (name) => page.locator('[data-testid="stock-group"]').filter({ hasText: name }).first()
+// what is left in a compound's open vial is worked out from the log: the total less every dose since it was opened
+const leftMg = (st, id) => {
+  const o = st.openVials?.[id]
+  if (!o || !o.vialMg) return 0
+  const mg = (l) => (l.unit === 'mcg' ? l.doseValue / 1000 : l.unit === 'g' ? l.doseValue * 1000 : l.doseValue)
+  const drawn = st.doseLogs.filter((l) => l.peptideId === id && l.movedStock !== false && (!o.activatedAt || String(l.loggedAt || l.date) >= o.activatedAt)).reduce((n, l) => n + mg(l), 0)
+  return o.vialMg - drawn + (o.adjustments || []).reduce((n, a) => n + a.mg, 0)
+}
 const wizard = () => modal()
 const openWizard = async () => {
   await nav('More')
@@ -145,10 +153,9 @@ await step('deleting a stock batch leaves the protocol and history intact', asyn
   const logsBefore = before.doseLogs.length
 
   await stockRoom()
-  const group = groupFor('TB-500')
-  await group.locator('button').first().click()
+  await groupFor('TB-500').click()
   await page.waitForTimeout(600)
-  await group.locator('[data-testid="batch-row"]').first().locator('button[aria-label^="Delete the"]').click()
+  await page.locator('[data-testid="vial-sheet"] [data-testid="batch-row"]').first().locator('button[aria-label^="Delete the"]').click()
   await page.waitForTimeout(500)
   const warn = await page.locator('[data-testid="confirm-delete-batch"]').textContent()
   if (!/protocol and your logged doses are untouched/i.test(warn.replace(/\s+/g, ' '))) {
@@ -338,7 +345,7 @@ await step('a past dose can be corrected, and the correction moves the vial', as
   await page.click('[data-testid="sheet-tab-history"]')
   await page.waitForTimeout(500)
 
-  const beforeMg = (await state()).openVials.selank?.remainingMg
+  const beforeMg = leftMg(await state(), 'selank')
   await page.locator('[data-testid="history-edit"]').first().click()
   await page.waitForTimeout(500)
   await page.fill('input[aria-label="Dose value"]', '900')
@@ -350,7 +357,7 @@ await step('a past dose can be corrected, and the correction moves the vial', as
   const edited = st.doseLogs.filter((l) => l.peptideId === 'selank').find((l) => l.doseValue === 900)
   if (!edited) throw new Error('the dose was not corrected')
   if (!edited.edited) throw new Error('the log does not record that it was edited')
-  if (st.openVials.selank?.remainingMg === beforeMg) throw new Error('the vial did not move with the correction')
+  if (leftMg(st, 'selank') === beforeMg) throw new Error('the vial did not move with the correction')
   await closeModal()
 })
 
@@ -363,7 +370,7 @@ await step('a past dose can be deleted, and the drug goes back in the vial', asy
 
   const before = await state()
   const beforeCount = before.doseLogs.length
-  const beforeMg = before.openVials.selank?.remainingMg ?? 0
+  const beforeMg = leftMg(before, 'selank')
 
   await page.locator('[data-testid="history-edit"]').first().click()
   await page.waitForTimeout(500)
@@ -375,7 +382,7 @@ await step('a past dose can be deleted, and the drug goes back in the vial', asy
 
   const st = await state()
   if (st.doseLogs.length !== beforeCount - 1) throw new Error('the dose was not deleted')
-  if ((st.openVials.selank?.remainingMg ?? 0) <= beforeMg) throw new Error('the drug did not go back in the vial')
+  if (leftMg(st, 'selank') <= beforeMg) throw new Error('the drug did not go back in the vial')
   await closeModal()
 })
 

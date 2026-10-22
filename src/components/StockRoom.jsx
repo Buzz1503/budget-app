@@ -4,7 +4,7 @@ import {
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import useStore, { todayStr } from '../store/useStore'
-import { blankBatch, openVialRemainingMg } from '../lib/stock'
+import { blankBatch, openVialRemainingMg, groupStock } from '../lib/stock'
 import { drawdown, emptiesInWords, FREQUENCIES } from '../lib/drawdown'
 import { putBlob, getBlob, deleteBlob } from '../lib/blobStore'
 import { round } from '../lib/calc'
@@ -52,6 +52,8 @@ export default function StockRoom({ goTo }) {
     useNativeFeed.setState({ openCount: false })
   }, [openCountFlag])
 
+  // batches for compounds that are not in my protocol: owned, so still listed
+  const others = useMemo(() => groupStock(vials, peptides).filter((g) => !g.inStack), [vials, peptides])
   const waste = wasteInYear(finishedVials, t.slice(0, 4))
   const due = countDue({ now: new Date(), last: lastCount, time: notif?.countTime || '18:00', on: notif?.countCheck !== false })
   const anySealed = vials.some((v) => (v.qtyOnHand || 0) > 0)
@@ -72,12 +74,26 @@ export default function StockRoom({ goTo }) {
         )}
       </div>
 
-      {rows.length === 0 && (
+      {rows.length === 0 && others.length === 0 && (
         <div className="card p-5 text-center text-sm" style={{ color: 'var(--text-2)' }}>Nothing in stock yet.</div>
       )}
 
       <div className="space-y-2" data-testid="stock-groups">
         {rows.map((r) => <StockRow key={r.peptideId} row={r} onOpen={() => setDetailId(r.peptideId)} />)}
+        {others.map((g) => (
+          <button key={g.peptideId} onClick={() => setDetailId(g.peptideId)} data-testid="stock-group" data-peptide={g.peptideId}
+            className="card block w-full p-4 text-left">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-bold leading-tight">{g.name}</p>
+                <p className="mt-1 text-xs tabular-nums leading-tight" style={{ color: 'var(--text-2)' }}>
+                  {g.vialCount} sealed, not in my protocol
+                </p>
+              </div>
+              <ChevronRight size={16} className="mt-0.5 shrink-0" style={{ color: 'var(--text-3)' }} />
+            </div>
+          </button>
+        ))}
       </div>
 
       <p className="px-1 text-xs leading-relaxed" style={{ color: 'var(--text-3)' }} data-testid="stock-waste">
@@ -145,7 +161,8 @@ function StockRow({ row: r, onOpen }) {
  */
 function VialSheet({ peptideId, onClose, goTo }) {
   const rows = useStockRows()
-  const peptide = useStore((s) => s.peptides.find((p) => p.id === peptideId))
+  const inProtocol = useStore((s) => s.peptides.some((p) => p.id === peptideId))
+  const protocolPeptide = useStore((s) => s.peptides.find((p) => p.id === peptideId))
   const vials = useStore((s) => s.vials)
   const doseLogs = useStore((s) => s.doseLogs)
   const sharedDraws = useStore((s) => s.sharedDraws)
@@ -162,8 +179,11 @@ function VialSheet({ peptideId, onClose, goTo }) {
   const [about, setAbout] = useState(false)
 
   const row = rows.find((r) => r.peptideId === peptideId)
-  if (!peptide || !row) return <Modal open={false} onClose={onClose} title="" />
-  const open = row.open
+  // stock for a compound that is not in my protocol: the batches only, nothing to count down or forecast
+  const heldName = vials.find((v) => v.peptideId === peptideId)?.name || peptideId
+  const peptide = protocolPeptide || (peptideId ? { id: peptideId, name: heldName, recon: {} } : null)
+  if (!peptide || (inProtocol && !row)) return <Modal open={false} onClose={onClose} title="" />
+  const open = row?.open
   const left = open ? remainingMg(open, doseLogs, sharedDraws) : 0
   const batches = vials.filter((v) => v.peptideId === peptideId)
   const history = vialHistory(finishedVials, peptideId)
@@ -176,7 +196,7 @@ function VialSheet({ peptideId, onClose, goTo }) {
       <Modal open={!!peptideId} onClose={close} title={peptide.name}>
         <div className="space-y-5 pb-2" data-testid="vial-sheet">
           {/* the open vial */}
-          <section className="space-y-2" data-testid="open-vial">
+          {inProtocol && (<section className="space-y-2" data-testid="open-vial">
             <h3 className="t-caption" style={{ color: 'var(--text-3)' }}>Open vial</h3>
             {open ? (
               <>
@@ -254,10 +274,10 @@ function VialSheet({ peptideId, onClose, goTo }) {
                 )}
               </>
             )}
-          </section>
+          </section>)}
 
           {/* forecast */}
-          {!row.untracked && row.setUp && (
+          {inProtocol && !row.untracked && row.setUp && (
             <section className="space-y-1" data-testid="forecast">
               <h3 className="t-caption" style={{ color: 'var(--text-3)' }}>Forecast</h3>
               <p className="text-sm tabular-nums">
@@ -283,7 +303,7 @@ function VialSheet({ peptideId, onClose, goTo }) {
           </section>
 
           {/* settings */}
-          <section className="space-y-3">
+          {inProtocol && (<section className="space-y-3">
             <h3 className="t-caption" style={{ color: 'var(--text-3)' }}>Settings</h3>
             <div className="grid grid-cols-2 gap-3">
               <Field label="Fridge life after mixing (days)">
@@ -298,7 +318,7 @@ function VialSheet({ peptideId, onClose, goTo }) {
             <p className="text-xs" style={{ color: 'var(--text-3)' }}>
               Zero days for fridge life means no clock. The order date is the run-out date less the delivery time.
             </p>
-          </section>
+          </section>)}
 
           {/* history */}
           {history.length > 0 && (
@@ -308,9 +328,11 @@ function VialSheet({ peptideId, onClose, goTo }) {
             </section>
           )}
 
-          <button onClick={() => setAbout(true)} className="flex w-full items-center justify-center gap-2 rounded-full py-3 text-xs font-black" style={GHOST}>
-            <FileText size={12} /> About {peptide.name}
-          </button>
+          {inProtocol && (
+            <button onClick={() => setAbout(true)} className="flex w-full items-center justify-center gap-2 rounded-full py-3 text-xs font-black" style={GHOST}>
+              <FileText size={12} /> About {peptide.name}
+            </button>
+          )}
         </div>
       </Modal>
       <CompoundSheet open={about} compoundId={peptideId} onClose={() => setAbout(false)} goTo={goTo} />

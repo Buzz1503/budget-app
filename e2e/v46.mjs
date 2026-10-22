@@ -309,6 +309,38 @@ await step('Order arrived adds vials with batch and price, and shows cost per mg
   if (!s.stockAdjustments.some((x) => x.reason === 'order arrived')) throw new Error('no order-arrived record')
 })
 
+await step('sealed batches: quantity moves by one, never below zero, with the reason kept; the price and a COA are kept', async () => {
+  await closeAll()
+  await fresh()
+  await goStock()
+  await page.click('[data-testid="stock-group"][data-peptide="ss31"]')
+  const sheet = page.locator('[data-testid="vial-sheet"]')
+  await sheet.waitFor()
+  const row = sheet.locator('[data-testid="batch-row"]').first()
+  const qty = async () => (await state()).vials.find((v) => v.peptideId === 'ss31').qtyOnHand
+  const start = await qty()
+  await row.locator('button[aria-label^="One more"]').click(); await page.waitForTimeout(250)
+  if ((await qty()) !== start + 1) throw new Error('plus did not add one')
+  for (let i = 0; i < start + 4; i++) { await row.locator('button[aria-label^="One fewer"]').click(); await page.waitForTimeout(80) }
+  if ((await qty()) !== 0) throw new Error(`quantity went to ${await qty()}`)
+  const s = await state()
+  if (!s.stockAdjustments.some((x) => x.reason === 'adjusted' && x.delta === 1)) throw new Error('the change was not kept with its reason')
+  // price
+  await row.locator('[data-testid="vial-cost"]').click()
+  await page.fill('input[aria-label="USD per vial"]', '150')
+  await page.click('[data-testid="vial-price-save"]'); await page.waitForTimeout(300)
+  if ((await state()).vials.find((v) => v.peptideId === 'ss31').usdPerVial !== 150) throw new Error('price not saved')
+  // COA
+  await row.locator('input[type="file"]').setInputFiles({ name: 'coa.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4 test') })
+  await page.waitForTimeout(800)
+  const v = (await state()).vials.find((x) => x.peptideId === 'ss31')
+  if (!v.coaKey || v.coaMeta?.name !== 'coa.pdf') throw new Error('COA not attached')
+  await reload()
+  await goStock()
+  await page.click('[data-testid="stock-group"][data-peptide="ss31"]')
+  await page.locator('[data-testid="coa-view"]').waitFor({ timeout: 4000 })
+})
+
 console.log(errors.length ? `\n${errors.length} problem(s):\n` + errors.join('\n') : '\nno console errors')
 await browser.close()
 process.exit(failures || errors.some((e) => e.startsWith('pageerror') || e.startsWith('console')) ? 1 : 0)

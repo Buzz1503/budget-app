@@ -202,7 +202,7 @@ await step('typing into the batch form keeps the field it is typing in on screen
   await closeKeyboard()
   await page.locator('[data-testid="stock-results"] > button').first().click()
   await page.waitForTimeout(600)
-  const field = page.locator('input[aria-label="Lot number"]')
+  const field = page.locator('input[aria-label="Batch"]')
   await field.click()
   await openKeyboard()
   await page.waitForTimeout(700)
@@ -362,10 +362,17 @@ await step('the backfill comes out of the vial, so the run-out date catches up',
     console.log('  that day ran on a vial since finished — the open vial was left alone, as it should be')
     return
   }
+  // what is left is worked out from the log: a dose dated before the vial was opened is not drawn from it
+  if (open.activatedAt && String(log.loggedAt || log.date) < open.activatedAt) {
+    console.log('  that day is before this vial was opened, so it is left alone, as it should be')
+    return
+  }
   const p = s.peptides.find((x) => x.id === log.peptideId)
-  const full = p.recon.vialMg
-  if (!(open.remainingMg < full)) throw new Error(`the vial still reads full (${open.remainingMg}/${full} mg)`)
-  console.log(`  ${log.peptideId}: ${open.remainingMg} of ${full} mg left`)
+  const full = open.vialMg || p.recon.vialMg
+  const mg = (l) => (l.unit === 'mcg' ? l.doseValue / 1000 : l.doseValue)
+  const left = full - s.doseLogs.filter((l) => l.peptideId === log.peptideId && l.movedStock !== false && String(l.loggedAt || l.date) >= (open.activatedAt || '')).reduce((n, l) => n + mg(l), 0)
+  if (!(left < full)) throw new Error(`the vial still reads full (${left}/${full} mg)`)
+  console.log(`  ${log.peptideId}: ${left} of ${full} mg left`)
 })
 
 await step('that day now reads as logged rather than missed', async () => {

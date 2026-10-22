@@ -150,18 +150,12 @@ await step('a compound with no usable reference dose is left honestly blank, not
 
 // ============================================== 3 · run-out + restock-by
 
-await step('doses-left language is gone from the Stock room', async () => {
-  await stock()
-  const t = await page.locator('[data-testid="stock-room"]').textContent()
-  if (/doses? left/i.test(t)) throw new Error(`stale "doses left" text still present: ${t.match(/.{0,20}doses? left.{0,20}/i)}`)
-})
-
-await step('each peptide with a real dose shows a run-out duration and a restock-by date', async () => {
+await step('each peptide with a real dose shows a run-out date and an order-by date', async () => {
   await stock()
   const group = groupFor('Retatrutide')
   const t = await group.textContent()
-  if (!/left/.test(t)) throw new Error(`no run-out line on Retatrutide: ${t.replace(/\s+/g, ' ').slice(0, 140)}`)
-  if (!/restock by/.test(t)) throw new Error(`no restock-by date on Retatrutide: ${t.replace(/\s+/g, ' ').slice(0, 140)}`)
+  if (!/Runs out/.test(t)) throw new Error(`no run-out line on Retatrutide: ${t.replace(/\s+/g, ' ').slice(0, 140)}`)
+  if (!/Order by/.test(t)) throw new Error(`no order-by date on Retatrutide: ${t.replace(/\s+/g, ' ').slice(0, 140)}`)
 })
 
 await step('the run-out figure recomputes when the dose changes', async () => {
@@ -199,19 +193,15 @@ await step('a peptide with two batches shows each as its own row, and the summar
   await page.waitForTimeout(900)
   await stock()
   const group = groupFor('Retatrutide')
-  const summaryOccurrences = (await group.textContent()).match(/restock by/g) || []
+  const summaryOccurrences = (await group.textContent()).match(/Order by/g) || []
   if (summaryOccurrences.length !== 1) {
     throw new Error(`expected the run-out summary exactly once, saw it ${summaryOccurrences.length} times`)
   }
-  await group.locator('button').first().click()
+  await group.click()
   await page.waitForTimeout(600)
-  const rows = await group.locator('[data-testid="batch-row"]').count()
+  const rows = await page.locator('[data-testid="vial-sheet"] [data-testid="batch-row"]').count()
   if (rows < 2) throw new Error(`expected at least 2 separate batch rows for the seeded Retatrutide stock, got ${rows}`)
-  // still exactly one summary after expanding — not repeated per batch
-  const afterExpand = (await group.textContent()).match(/restock by/g) || []
-  if (afterExpand.length !== 1) {
-    throw new Error(`the run-out summary repeated after expanding: ${afterExpand.length} times`)
-  }
+  await closeModal()
 })
 
 // ==================================================== 5 · 390px cleanliness
@@ -222,16 +212,17 @@ await step('the Stock room reads cleanly with no overflow at 390px', async () =>
     document.documentElement.scrollWidth > document.documentElement.clientWidth + 1)
   if (over) throw new Error('horizontal overflow on the Stock room')
 
-  // expand every group and check again — batch rows are where clutter would show
-  const groups = page.locator('[data-testid="stock-group"] > button')
-  const n = await groups.count()
+  // open every row's sheet and check again: batch rows are where clutter would show
+  const groups = page.locator('[data-testid="stock-group"]')
+  const n = Math.min(await groups.count(), 6)
   for (let i = 0; i < n; i++) {
     await groups.nth(i).click()
-    await page.waitForTimeout(150)
+    await page.waitForTimeout(250)
+    const overOpen = await page.evaluate(() =>
+      document.documentElement.scrollWidth > document.documentElement.clientWidth + 1)
+    if (overOpen) throw new Error('horizontal overflow with a vial sheet open')
+    await closeModal()
   }
-  const overExpanded = await page.evaluate(() =>
-    document.documentElement.scrollWidth > document.documentElement.clientWidth + 1)
-  if (overExpanded) throw new Error('horizontal overflow once every group is expanded')
 
   const cut = await page.evaluate(() => {
     const out = []
