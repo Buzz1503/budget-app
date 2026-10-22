@@ -29,6 +29,9 @@ APP_GROUP = 'group.com.buzz.pepito'
 IOS_TARGET = '17.0'
 WATCH_TARGET = '10.0'
 BUNDLE = 'com.buzz.pepito'
+# One build number for the iPhone app and everything it embeds. Raise it with
+# each native release, so the Watch never keeps an older copy of its app.
+BUILD_NUMBER = '2'
 
 project = Xcodeproj::Project.open(PROJECT_PATH)
 app = project.targets.find { |t| t.name == 'App' } or abort('App target not found')
@@ -139,7 +142,7 @@ features_plist = FEATURES.slice('appGroup', 'timeSensitive', 'watchHealthKit', '
 
 # ---------------------------------------------------------------- App
 
-configure(app, 'IPHONEOS_DEPLOYMENT_TARGET' => IOS_TARGET)
+configure(app, 'IPHONEOS_DEPLOYMENT_TARGET' => IOS_TARGET, 'CURRENT_PROJECT_VERSION' => BUILD_NUMBER, 'MARKETING_VERSION' => '1.0')
 project.build_configurations.each { |c| c.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = IOS_TARGET }
 app_group = project.main_group.children.find { |g| g.isa == 'PBXGroup' && g.path == 'App' } or abort('App group not found')
 add_sources(project, app, File.join(SRCROOT, 'App', 'Native'), nested_group(app_group, File.join(SRCROOT, 'App'), File.join(SRCROOT, 'App', 'Native')))
@@ -199,7 +202,7 @@ if Dir.exist?(widgets_dir)
     'TARGETED_DEVICE_FAMILY' => '1,2',
     'SKIP_INSTALL' => 'YES',
     'MARKETING_VERSION' => '1.0',
-    'CURRENT_PROJECT_VERSION' => '1',
+    'CURRENT_PROJECT_VERSION' => BUILD_NUMBER,
     'LD_RUNPATH_SEARCH_PATHS' => ['$(inherited)', '@executable_path/Frameworks', '@executable_path/../../Frameworks'],
     'APPLICATION_EXTENSION_API_ONLY' => 'YES',
     'SWIFT_ACTIVE_COMPILATION_CONDITIONS' => '$(inherited) WIDGET_EXTENSION',
@@ -260,7 +263,7 @@ if Dir.exist?(watch_dir)
     'TARGETED_DEVICE_FAMILY' => '4',
     'SKIP_INSTALL' => 'YES',
     'MARKETING_VERSION' => '1.0',
-    'CURRENT_PROJECT_VERSION' => '1',
+    'CURRENT_PROJECT_VERSION' => BUILD_NUMBER,
     'ASSETCATALOG_COMPILER_APPICON_NAME' => 'AppIcon',
     'ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME' => 'AccentColor',
     'LD_RUNPATH_SEARCH_PATHS' => ['$(inherited)', '@executable_path/Frameworks'],
@@ -309,7 +312,7 @@ if Dir.exist?(watch_widgets_dir) && (wa = project.targets.find { |t| t.name == '
     'TARGETED_DEVICE_FAMILY' => '4',
     'SKIP_INSTALL' => 'YES',
     'MARKETING_VERSION' => '1.0',
-    'CURRENT_PROJECT_VERSION' => '1',
+    'CURRENT_PROJECT_VERSION' => BUILD_NUMBER,
     'LD_RUNPATH_SEARCH_PATHS' => ['$(inherited)', '@executable_path/Frameworks', '@executable_path/../../Frameworks'],
     'APPLICATION_EXTENSION_API_ONLY' => 'YES'
   })
