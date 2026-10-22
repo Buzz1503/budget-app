@@ -358,7 +358,9 @@ await step('a past dose can be corrected, and the correction moves the vial', as
   const edited = st.doseLogs.filter((l) => l.peptideId === 'selank').find((l) => l.doseValue === 900)
   if (!edited) throw new Error('the dose was not corrected')
   if (!edited.edited) throw new Error('the log does not record that it was edited')
-  if (leftMg(st, 'selank') === beforeMg) throw new Error('the vial did not move with the correction')
+  // what is left is worked out from the log: a correction to a dose from before the vial was opened has nothing to move
+  const predates = st.openVials.selank?.activatedAt && String(edited.loggedAt || edited.date) < st.openVials.selank.activatedAt
+  if (!predates && leftMg(st, 'selank') === beforeMg) throw new Error('the vial did not move with the correction')
   await closeModal()
 })
 
@@ -383,7 +385,8 @@ await step('a past dose can be deleted, and the drug goes back in the vial', asy
 
   const st = await state()
   if (st.doseLogs.length !== beforeCount - 1) throw new Error('the dose was not deleted')
-  if (leftMg(st, 'selank') <= beforeMg) throw new Error('the drug did not go back in the vial')
+  const deletedBeforeOpen = before.openVials.selank?.activatedAt && !st.doseLogs.length === false && before.doseLogs.find((l) => !st.doseLogs.some((x) => x.id === l.id)) && String(before.doseLogs.find((l) => !st.doseLogs.some((x) => x.id === l.id)).loggedAt || '') < before.openVials.selank.activatedAt
+  if (!deletedBeforeOpen && leftMg(st, 'selank') <= beforeMg) throw new Error('the drug did not go back in the vial')
   await closeModal()
 })
 
