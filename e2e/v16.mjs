@@ -114,7 +114,7 @@ await step('v23 removed levels and XP from Home entirely', async () => {
 await step('standing nudges are one small alert row, not cards', async () => {
   await page.evaluate(() => {
     const raw = JSON.parse(localStorage.getItem('peptide-command-center'))
-    raw.state.openVials.bpc157 = { remainingMg: 0.2, reconstitutedAt: new Date(Date.now() - 27 * 86400000).toISOString().slice(0, 10) }
+    raw.state.openVials.bpc157 = { peptideId: 'bpc157', vialMg: 5, adjustments: [], reconstitutedAt: new Date(Date.now() - 27 * 86400000).toISOString().slice(0, 10), activatedAt: new Date(Date.now() - 27 * 86400000).toISOString() }
     raw.state.backupMeta = { lastBackupAt: null, lastBackupEntryCount: 0, nudgeDismissedAt: null }
     localStorage.setItem('peptide-command-center', JSON.stringify(raw))
   })
@@ -129,7 +129,7 @@ await step('standing nudges are one small alert row, not cards', async () => {
   if (/Back up now|restock soon/.test(txt)) throw new Error('a nudge is still expanded in the column')
   await bell.click()
   await page.waitForTimeout(400)
-  if (!/Back up now|expires|runs out/i.test(await page.locator('[data-testid="alert-panel"]').textContent())) {
+  if (!/Back up now|expires|runs out|Use by|fridge life/i.test(await page.locator('[data-testid="alert-panel"]').textContent())) {
     throw new Error('the row does not expand to the nudges')
   }
   // v30.2 made the panel a proper overlay — the bell is behind its backdrop

@@ -80,7 +80,7 @@ await step('the AM motivation quote is gone, and nothing empty is left behind', 
 // ---------- 2 · Home declutter ----------
 await step('standing nudges are collapsed into one alert bell', async () => {
   await patch(`
-    s.openVials.bpc157 = { remainingMg: 0.2, reconstitutedAt: new Date(Date.now() - 27*86400000).toISOString().slice(0,10) };
+    s.openVials.bpc157 = { peptideId: 'bpc157', vialMg: 5, adjustments: [], reconstitutedAt: new Date(Date.now() - 27 * 86400000).toISOString().slice(0, 10), activatedAt: new Date(Date.now() - 27 * 86400000).toISOString() };
     s.backupMeta = { lastBackupAt: null, lastBackupEntryCount: 0, nudgeDismissedAt: null };
   `)
   await page.reload({ waitUntil: 'networkidle' })
@@ -97,7 +97,7 @@ await step('standing nudges are collapsed into one alert bell', async () => {
   await page.waitForTimeout(400)
   const panel = page.locator('[data-testid="alert-panel"]')
   if (!(await panel.count())) throw new Error('the bell did not expand')
-  if (!/Back up now|expires|runs out/i.test(await panel.textContent())) {
+  if (!/Back up now|expires|runs out|Use by|fridge life/i.test(await panel.textContent())) {
     throw new Error('the panel carries none of the nudges')
   }
   await page.keyboard.press('Escape')
