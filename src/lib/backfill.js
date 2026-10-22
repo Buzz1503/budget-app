@@ -179,10 +179,14 @@ export function vialOnDate(peptideId, dateStr, { openVials = {}, finishedVials =
   if (finished) {
     return { where: 'finished', batchId: finished.batchId || null, vialMg: finished.vialMg ?? null, movesStock: false }
   }
-  if (open && !open.finished && (!openedOn || dateStr >= openedOn)) {
+  // the open vial counts every dose logged from the moment it was opened, and a
+  // backfilled dose is dated noon of its day: so that is the comparison
+  const noon = new Date(`${dateStr}T12:00:00`).toISOString()
+  const before = open?.activatedAt ? noon < open.activatedAt : !!openedOn && dateStr < openedOn
+  if (open && !open.finished && !before) {
     return { where: 'current', batchId: open.batchId || null, vialMg: open.vialMg ?? null, movesStock: !open.unlinked }
   }
-  if (open && !open.finished && openedOn && dateStr < openedOn) {
+  if (open && !open.finished && before) {
     return { where: 'before', batchId: null, vialMg: null, movesStock: false }
   }
   return { where: 'none', batchId: null, vialMg: null, movesStock: false }

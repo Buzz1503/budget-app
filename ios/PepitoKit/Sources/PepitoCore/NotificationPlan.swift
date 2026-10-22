@@ -38,11 +38,15 @@ public struct NotificationPayload: Codable, Equatable, Sendable {
     public var pushable: [String]?
     public var route: String?
     public var nudge: Bool?
+    /// A stock notice's compound
+    public var refId: String?
+    /// A vial question: change (the vial should be about empty) or expired (past its fridge life)
+    public var vialKind: String?
 
     public init(kind: String, date: String? = nil, slot: String? = nil, groups: [GroupRef]? = nil, items: [ItemRef]? = nil,
-                pushable: [String]? = nil, route: String? = nil, nudge: Bool? = nil) {
+                pushable: [String]? = nil, route: String? = nil, nudge: Bool? = nil, refId: String? = nil, vialKind: String? = nil) {
         self.kind = kind; self.date = date; self.slot = slot; self.groups = groups; self.items = items
-        self.pushable = pushable; self.route = route; self.nudge = nudge
+        self.pushable = pushable; self.route = route; self.nudge = nudge; self.refId = refId; self.vialKind = vialKind
     }
 
     /// Stored in the notification's userInfo as JSON under this key.
@@ -68,6 +72,11 @@ public enum NotificationAction {
     public static let stopSauna = "pepito.sauna.stop"
     public static let openStock = "pepito.stock.open"
     public static let openReaction = "pepito.reaction.open"
+    public static let vialYes = "pepito.vial.yes"
+    public static let vialStill = "pepito.vial.still"
+    public static let vialNotYet = "pepito.vial.notyet"
+    public static let orderSnooze = "pepito.order.snooze"
+    public static let openCount = "pepito.count.open"
 
     public static let snoozeMinutes = 30
     public static let schedulePrefix = "pepito.sched."
@@ -80,7 +89,12 @@ public enum NotificationAction {
         ("DOSE_TAKE", [(take, "Take", false), (skip, "Skip", false), (snooze, "Remind in 30 min", false)]),
         ("REACTION", [(openReaction, "Check now", true)]),
         ("SAUNA_DONE", [(stopSauna, "Stop session", false)]),
-        ("STOCK", [(openStock, "Open Stock", true)])
+        ("STOCK", [(openStock, "Open Stock", true)]),
+        // order-by notice, the question after a log, the fridge-life question, the weekly count
+        ("ORDER", [(orderSnooze, "Remind me in 3 days", false), (openStock, "Open Stock", true)]),
+        ("VIAL_CHANGE", [(vialYes, "Yes", false), (vialStill, "Still some left", false)]),
+        ("VIAL_EXPIRED", [(vialYes, "Yes", false), (vialNotYet, "Not yet", false)]),
+        ("COUNT", [(openCount, "Count now", true)])
     ]
 
     /// The same categories as the Watch shows them: a dose reminder has
@@ -95,6 +109,18 @@ public enum NotificationAction {
     /// The queued actions a button on a dose notification stands for. A group
     /// logs (or skips) as one; Push moves only what can be pushed.
     public static func actions(for button: String, payload p: NotificationPayload, now: Date = Date()) -> [PendingAction] {
+        switch button {
+        case vialYes, vialStill, vialNotYet:
+            guard p.kind == "vial", let id = p.refId else { return [] }
+            let answer = button == vialYes ? "yes" : button == vialStill ? "still" : "notyet"
+            return [PendingAction(type: .vialChange, at: now, source: .notification,
+                                  payload: .init(kind: p.vialKind ?? "change", refId: id, answer: answer))]
+        case orderSnooze:
+            guard p.kind == "order", let id = p.refId else { return [] }
+            return [PendingAction(type: .snoozeOrder, at: now, source: .notification, payload: .init(refId: id))]
+        default:
+            break
+        }
         guard p.kind == "dose", let date = p.date else { return [] }
         let groups = p.groups ?? []
         let items = p.items ?? []

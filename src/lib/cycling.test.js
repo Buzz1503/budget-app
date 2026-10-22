@@ -11,9 +11,9 @@ import { describe, it, expect, beforeAll, beforeEach } from 'vitest'
 import { isDue, canPushOn, pushDestination, cycleStatus, offCycleOn, offCycleLine, restartsOn, restartWords, cycleEvents, isResting } from './due'
 import { cycleInfo, levelStateOn, rungOn, projectSchedule, stepUpDue, nextStepUpDate, onDaysBetween, offCycleDaysBetween, restartMode, addDaysStr } from './schedule'
 import { adherenceFor, scheduledCount } from './adherence'
-import { runwayFor, coverageFor } from './stock'
+import { runwayFor } from './stock'
 import { runOutInfo } from './inventory'
-import { lowStockItems } from './lowStock'
+import { stockRows, orderDot } from './vials'
 import { tenureFor, doseTenure } from './tenure'
 import { buildCalendar } from './calendarView'
 import { eventsForPeptide, buildIcs } from './calendar'
@@ -198,61 +198,63 @@ describe('adherence and the calendar leave rests alone', () => {
 // ------------------------------------------------------------------ stock
 
 describe('stock counts only on-cycle days', () => {
+  // a flat 1 mg: these are about rests and pauses, not titration (that has its own tests in vials.test.js)
+  const flat = (over = {}) => pep({ ladder: { floor: 1, step: 0, intervalWeeks: 1, ceiling: 1, unit: 'mg' }, ...over })
   const vial = (qty = 1, mg = 5) => [{ id: 'v', peptideId: 'epithalon', vialMg: mg, qtyOnHand: qty, qtyPurchased: qty }]
   const tState = { level: 0, levelStartDate: '2026-01-20' }
   const asOf = (p, d) => runwayFor(p, tState, null, vial(), [], d, 30)
 
   it('5 mg at 1 mg a day lasts 5 on days, and the rest in the middle costs none', () => {
     // from 30 Jan (resting): the 5 doses are 14 to 18 Feb, so it runs out on 19 Feb
-    const r = asOf(pep(), '2026-01-30')
+    const r = asOf(flat(), '2026-01-30')
     expect(r.runOutDate).toBe('2026-02-19')
     expect(r.days).toBe(20)
     expect(r.consumingDays).toBe(5)
     expect(r.offCycleDays).toBe(15)
     // with no cycle it would have run out in 5 days
-    expect(asOf(pep({ cycleOnDays: 0, cycleOffDays: 0 }), '2026-01-30').days).toBe(5)
+    expect(asOf(flat({ cycleOnDays: 0, cycleOffDays: 0 }), '2026-01-30').days).toBe(5)
   })
 
   it('runs out inside an on stretch when that is where the stock ends', () => {
     // from 14 Feb, 5 mg is gone after 18 Feb
-    expect(asOf(pep(), '2026-02-14')).toMatchObject({ runOutDate: '2026-02-19', days: 5 })
+    expect(asOf(flat(), '2026-02-14')).toMatchObject({ runOutDate: '2026-02-19', days: 5 })
   })
 
   it('a stretch of rest then a pause on it does not move the date twice', () => {
     const pauses = [{ id: 'p', startedOn: '2026-02-01', endsOn: '2026-02-10', peptideIds: ['epithalon'] }]
-    const withPause = runwayFor(pep(), tState, null, vial(), [], '2026-01-30', 30, pauses)
+    const withPause = runwayFor(flat(), tState, null, vial(), [], '2026-01-30', 30, pauses)
     expect(withPause.runOutDate).toBe('2026-02-19')
   })
 
   it('a pause inside an on stretch does move it, by the days paused', () => {
     const pauses = [{ id: 'p', startedOn: '2026-02-15', endsOn: '2026-02-16', peptideIds: ['epithalon'] }]
-    const r = runwayFor(pep(), tState, null, vial(), [], '2026-02-14', 30, pauses)
+    const r = runwayFor(flat(), tState, null, vial(), [], '2026-02-14', 30, pauses)
     expect(r.runOutDate).toBe('2026-02-21')
     expect(r.pausedDays).toBe(2)
   })
 
-  it('the sealed shelf, the dot and the alerts use the same walk', () => {
-    const cov = coverageFor(pep(), tState, vial(), '2026-01-30')
-    expect(cov.runOutDate).toBe('2026-02-19')
-    expect(cov.days).toBe(20)
-    const items = lowStockItems({ peptides: [pep()], titration: { epithalon: tState }, vials: vial(), today: '2026-01-30', leadDays: 30 })
-    expect(items).toHaveLength(1)
-    // 10 mg is used up on 23 Feb and the next dose is not until 11 Mar, so it runs out in 40 days: not low
-    const long = lowStockItems({ peptides: [pep()], titration: { epithalon: tState }, vials: vial(2), today: '2026-01-30', leadDays: 30 })
-    expect(long).toEqual([])
-    expect(coverageFor(pep(), tState, vial(2), '2026-01-30').days).toBe(40)
+  it('the Stock rows, the dot and the order date use the same walk', () => {
+    const rows = (qty) => stockRows({ peptides: [flat()], titration: { epithalon: tState }, vials: vial(qty), openVials: {}, todayStr: '2026-01-30' })
+    const [one] = rows(1)
+    expect(one.runOutDate).toBe('2026-02-19')
+    expect(one.orderBy).toBe('2026-02-05') // 14 days of delivery before it
+    expect(orderDot(rows(1))).toBe(true)
+    // 10 mg is used up on 23 Feb and the next dose is not until 11 Mar: ordering can wait
+    const [two] = rows(2)
+    expect(two.runOutDate).toBe('2026-03-11')
+    expect(orderDot(rows(2))).toBe(false)
   })
 
   it('the calendar and restock figure agrees with the Stock room', () => {
-    const info = runOutInfo(pep(), tState, vial(), null, '2026-01-30')
+    const info = runOutInfo(flat(), tState, vial(), null, '2026-01-30')
     expect(info.runOutDate).toBe('2026-02-19')
     expect(info.daysLeft).toBe(20)
   })
 
   it('someone else drawing from the same vial does not rest when the owner does', () => {
     const shared = [{ id: 'v', peptideId: 'epithalon', vialMg: 5, qtyOnHand: 1, qtyPurchased: 1, drawProfiles: [{ doseMg: 0.5, frequency: 'daily' }] }]
-    const alone = runwayFor(pep(), tState, null, vial(), [], '2026-01-30', 30)
-    const together = runwayFor(pep(), tState, null, shared, [], '2026-01-30', 30)
+    const alone = runwayFor(flat(), tState, null, vial(), [], '2026-01-30', 30)
+    const together = runwayFor(flat(), tState, null, shared, [], '2026-01-30', 30)
     expect(together.days).toBeLessThan(alone.days)
   })
 })

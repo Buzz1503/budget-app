@@ -13,12 +13,12 @@
 // different things to draw from, and lumping them into one number would lose
 // both the size and the provenance.
 
-import { unitsFor, concentration, isPremixed, isNasal } from './calc'
-import { currentRung, dosesPerWeek, addDaysStr, prettyDate } from './schedule'
 import { toMg } from './calc'
+import { currentRung, dosesPerWeek, addDaysStr, daysBetween } from './schedule'
 import { referenceUsdPerVial } from './cost'
 import { drawsPerWeek } from './drawdown'
-import { runOutWalk } from './runOutWalk'
+import { isPausedOn } from './pauses'
+import { remainingMg, forecastRunOut, sharedMgPerDay, orderLeadDays } from './vials'
 
 export const VIAL_STATES = ['sealed', 'active', 'finished']
 
@@ -116,78 +116,13 @@ export function blankBatch(peptide) {
 // ------------------------------------------------------- the active vial
 
 /**
- * How much has been drawn out of the vial currently in use.
- *
- * Read from the dose log rather than kept as a running total, so it never
- * drifts out of step with what was actually recorded — and so changing dose,
- * titration, frequency or cycle simply changes the drain rate with no
- * recalibration anywhere. Deleting a mis-logged dose puts the volume back.
+ * How much drug (mg) is left in the vial currently in use: its total less every
+ * dose logged since it was opened (lib/vials). Never negative here; an overfilled
+ * vial shows its overrun in the Stock screen, not in a total.
  */
-export function mlDrawnSince(doseLogs = [], peptideId, sinceIso) {
-  let units = 0
-  for (const l of doseLogs) {
-    if (l.peptideId !== peptideId) continue
-    const stamp = String(l.loggedAt || l.date || '')
-    if (sinceIso && stamp < sinceIso) continue
-    units += Number(l.insulinUnits) || 0
-  }
-  return Math.round(units) / 100 // 1 unit = 0.01 mL on a U-100 syringe
-}
-
-/** The volume the active vial holds once made up (or as supplied, pre-mixed). */
-export function vialVolumeMl(peptide, openVial) {
-  const mg = openVial?.vialMg ?? peptide?.recon?.vialMg ?? 0
-  if (isPremixed(peptide)) return peptide?.recon?.bacMl || 0
-  // a reconstituted vial holds whatever water went in, whatever its mg
-  return peptide?.recon?.bacMl || 0
-}
-
-/**
- * "~X doses left in this vial", from what's actually been logged.
- *
- * Returns null where the question doesn't apply — a nasal spray isn't drawn,
- * and a vial that was never activated has nothing to count down.
- */
-export function activeVialStatus(peptide, tState, openVial, doseLogs = []) {
-  if (!peptide || isNasal(peptide)) return null
-  const capacityMl = vialVolumeMl(peptide, openVial)
-  if (!(capacityMl > 0)) return null
-
-  const drawnMl = mlDrawnSince(doseLogs, peptide.id, openVial?.activatedAt)
-  const leftMl = Math.max(0, Math.round((capacityMl - drawnMl) * 1000) / 1000)
-
-  const { dose } = currentRung(peptide, tState)
-  const perDoseUnits = unitsFor(peptide, dose)
-  const perDoseMl = (perDoseUnits || 0) / 100
-  // Rounded a hair before flooring: 1.4 / 0.2 is 6.999… in binary floating
-  // point, and a vial with exactly seven doses left must not read as six.
-  const dosesLeft = perDoseMl > 0
-    ? Math.floor(Math.round((leftMl / perDoseMl) * 1e6) / 1e6)
-    : null
-
-  return {
-    capacityMl,
-    drawnMl: Math.round(drawnMl * 1000) / 1000,
-    leftMl,
-    perDoseMl: Math.round(perDoseMl * 1000) / 1000,
-    perDoseUnits,
-    dosesLeft,
-    pctLeft: capacityMl > 0 ? Math.max(0, Math.min(1, leftMl / capacityMl)) : 0,
-    empty: dosesLeft != null && dosesLeft <= 0,
-    activatedAt: openVial?.activatedAt || null,
-    vialMg: openVial?.vialMg ?? peptide?.recon?.vialMg ?? 0,
-  }
-}
-
-/** How much drug (mg) is left in the vial currently in use — the open half of the total. */
-export function openVialRemainingMg(peptide, openVial, doseLogs = []) {
-  if (!peptide || isNasal(peptide)) return 0
-  const capacityMl = vialVolumeMl(peptide, openVial)
-  const vialMg = openVial?.vialMg ?? 0
-  if (!(capacityMl > 0) || !(vialMg > 0)) return 0
-  const drawnMl = mlDrawnSince(doseLogs, peptide.id, openVial?.activatedAt)
-  const leftMl = Math.max(0, capacityMl - drawnMl)
-  return Math.max(0, (leftMl / capacityMl) * vialMg)
+export function openVialRemainingMg(peptide, openVial, doseLogs = [], sharedDraws = []) {
+  if (!peptide || !openVial) return 0
+  return Math.max(0, remainingMg(openVial, doseLogs, sharedDraws))
 }
 
 // ------------------------------------------------------------ low stock
@@ -212,12 +147,6 @@ export function cycleDutyFraction(peptide) {
   return on / (on + off)
 }
 
-/** mg/week while the compound is on cycle: what one week of an on-stretch uses. */
-export function onCycleWeeklyMg(peptide, tState) {
-  const { dose } = currentRung(peptide, tState)
-  return dosesPerWeek(peptide.frequency) * toMg(dose, peptide.ladder?.unit)
-}
-
 /** Real mg/week burn rate at the current rung, averaged over the cycle (a rest uses nothing). */
 export function weeklyUsageMg(peptide, tState) {
   const { dose } = currentRung(peptide, tState)
@@ -240,38 +169,6 @@ export function sharedWeeklyUsageMg(peptide, tState, vials = []) {
     .flatMap((v) => v.drawProfiles || [])
     .reduce((sum, d) => sum + (d.doseMg > 0 ? d.doseMg * drawsPerWeek(d) : 0), 0)
   return mine + others
-}
-
-export function coverageFor(peptide, tState, vials = [], todayStr) {
-  const mgOnShelf = sealedMg(vials, peptide.id)
-  // The figure shown as a rate is the average over the cycle; the date comes
-  // from walking the days, so rest days draw nothing.
-  const perWeekMg = weeklyUsageMg(peptide, tState)
-  const onWeekMg = onCycleWeeklyMg(peptide, tState)
-  if (!(perWeekMg > 0)) return { weeks: Infinity, days: Infinity, mgOnShelf, vials: sealedCount(vials, peptide.id) }
-  if (!todayStr) {
-    const weeks = mgOnShelf / perWeekMg
-    return { weeks: Math.round(weeks * 10) / 10, days: Math.floor(weeks * 7), runOutDate: null, mgOnShelf, vials: sealedCount(vials, peptide.id), perWeekMg }
-  }
-  const walk = runOutWalk({ peptide, totalMg: mgOnShelf, onDayMg: onWeekMg / 7, todayStr })
-  const days = walk.days
-  return {
-    weeks: Math.round((days / 7) * 10) / 10,
-    days,
-    runOutDate: walk.runOutDate,
-    mgOnShelf,
-    vials: sealedCount(vials, peptide.id),
-    perWeekMg,
-  }
-}
-
-/** Plain wording for how much runway is left. */
-export function coverageWords(weeks) {
-  if (!isFinite(weeks)) return 'plenty'
-  if (weeks < 1) return 'under a week'
-  if (weeks < 2) return '~1 week'
-  if (weeks < 8) return `~${Math.round(weeks)} weeks`
-  return `~${Math.round(weeks / 4)} months`
 }
 
 /**
@@ -303,140 +200,58 @@ export function durationWords(days) {
  * which neither the open vial's countdown nor the sealed shelf's coverage
  * answers alone.
  */
-export function runwayFor(peptide, tState, openVial, vials = [], doseLogs = [], todayStr, leadDays = 30, pauses = []) {
-  // A nasal bottle used to be excluded here, which left the one compound whose
-  // stock is hardest to eyeball — sprays, not vials — as the only one with no
-  // answer. Milligrams are milligrams: toMg converts a spray like any other
-  // unit, so the burn rate and the run-out date are as real as anyone else's.
+export function runwayFor(peptide, tState, openVial, vials = [], doseLogs = [], todayStr, _leadDays = 30, pauses = [], extra = {}) {
+  // Milligrams are milligrams: toMg converts a spray like any other unit, so a
+  // nasal bottle has a run-out date like anyone else.
   if (!peptide) return null
-  // shared, so the restock date agrees with the vial's own "empties in" figure
+  const { pushes = [], sharedDraws = [] } = extra
+  // shared, so the restock date agrees with the vial's own figure
   const perWeekMg = sharedWeeklyUsageMg(peptide, tState, vials)
-  const openMg = openVialRemainingMg(peptide, openVial, doseLogs)
+  const openMg = openVialRemainingMg(peptide, openVial, doseLogs, sharedDraws)
   const shelfMg = sealedMg(vials, peptide.id)
   const totalMg = openMg + shelfMg
+  const lead = orderLeadDays(peptide)
+  const nSealed = sealedCount(vials, peptide.id)
 
   if (!(perWeekMg > 0)) {
     return {
       totalMg, perWeekMg: 0, days: Infinity, runOutDate: null, restockByDate: null,
-      low: false, out: totalMg <= 1e-9, vials: sealedCount(vials, peptide.id),
+      low: false, out: totalMg <= 1e-9, vials: nSealed,
     }
   }
+  if (!todayStr) {
+    const days = Math.floor((totalMg / perWeekMg) * 7)
+    return { totalMg: Math.round(totalMg * 100) / 100, perWeekMg, days, runOutDate: null, restockByDate: null, low: days <= lead, out: totalMg <= 1e-9, vials: nSealed }
+  }
 
-  // Walked a day at a time: a rest or a pause draws nothing from the compound's
-  // own dose, so each one moves the date the supply runs out further into the
-  // calendar. Somebody else drawing off the same vial does not rest with it.
-  const others = perWeekMg - weeklyUsageMg(peptide, tState)
-  const walk = runOutWalk({
-    peptide, totalMg, onDayMg: onCycleWeeklyMg(peptide, tState) / 7, otherDayMg: others / 7,
-    todayStr: todayStr || '2000-01-01', pauses: todayStr ? pauses : [],
+  // Walked through the real future schedule (titration steps, cycles, pauses,
+  // frequency), the same walk the Stock screen and the order notice use.
+  const fc = forecastRunOut({
+    peptide, tState, totalMg, todayStr, pushes, pauses, sharedPerDay: sharedMgPerDay(vials, peptide.id),
   })
-
-  if (walk.open) {
-    // paused with no end set: there is no date on which this runs out, and
-    // inventing one would be worse than saying so
+  if (fc.none) {
+    return { totalMg, perWeekMg, days: Infinity, runOutDate: null, restockByDate: null, low: false, out: totalMg <= 1e-9, vials: nSealed }
+  }
+  if (!fc.runOutDate) {
+    // nothing is owed for the whole horizon: paused with no end, or a long rest
+    const stopped = !!pauses.length && isPausedOn(pauses, peptide.id, addDaysStr(todayStr, 539))
     return {
-      totalMg: Math.round(totalMg * 100) / 100,
-      perWeekMg, days: Infinity, consumingDays: walk.consumingDays, pausedDays: walk.pausedDays, offCycleDays: walk.offCycleDays,
-      runOutDate: null, restockByDate: null, pausedIndefinitely: true,
-      low: false, out: totalMg <= 1e-9, vials: sealedCount(vials, peptide.id),
+      totalMg: Math.round(totalMg * 100) / 100, perWeekMg, days: Infinity, runOutDate: null, restockByDate: null,
+      pausedIndefinitely: stopped, low: false, out: totalMg <= 1e-9, vials: nSealed,
     }
   }
-
-  const days = walk.days
-  const runOutDate = todayStr ? walk.runOutDate : null
-  const restockByDate = runOutDate ? addDaysStr(runOutDate, -leadDays) : null
-
+  const days = daysBetween(todayStr, fc.runOutDate)
   return {
     totalMg: Math.round(totalMg * 100) / 100,
     perWeekMg,
     days,
-    consumingDays: walk.consumingDays,
-    pausedDays: walk.pausedDays,
-    offCycleDays: walk.offCycleDays,
-    runOutDate,
-    restockByDate,
-    low: days <= leadDays,
+    consumingDays: fc.consumingDays,
+    pausedDays: fc.pausedDays,
+    offCycleDays: fc.offCycleDays,
+    runOutDate: fc.runOutDate,
+    restockByDate: addDaysStr(fc.runOutDate, -lead),
+    low: days <= lead,
     out: totalMg <= 1e-9,
-    vials: sealedCount(vials, peptide.id),
-  }
-}
-
-/**
- * Low-stock alerts across the stack, ordered by urgency.
- *
- * Tied to the restock lead time rather than a fixed threshold: the point at
- * which to reorder is the point at which a new order would not arrive in time,
- * and that depends on how long delivery takes. Counts the open vial as well as
- * the sealed shelf, so a peptide with nothing sealed but a nearly-full vial in
- * use doesn't read as urgent when it isn't.
- */
-export function lowStockAlerts({ peptides = [], titration = {}, vials = [], openVials = {}, doseLogs = [], todayStr, leadDays = 30, pauses = [] }) {
-  const out = []
-  for (const p of peptides) {
-    if (isNasal(p)) continue
-    const r = runwayFor(p, titration[p.id], openVials[p.id], vials, doseLogs, todayStr, leadDays, pauses)
-    if (!r || !isFinite(r.days) || !r.low) continue
-    out.push({
-      peptideId: p.id,
-      name: p.name,
-      days: r.days,
-      runOutDate: r.runOutDate,
-      restockByDate: r.restockByDate,
-      vials: r.vials,
-      level: r.out ? 'out' : r.days <= Math.round(leadDays / 2) ? 'urgent' : 'soon',
-      message: r.out
-        ? `No ${p.name} left — reorder`
-        : `${durationWords(r.days)} of ${p.name} left — restock by ${prettyDate(r.restockByDate)}`,
-    })
-  }
-  return out.sort((a, b) => a.days - b.days)
-}
-
-// --------------------------------------------------------- the replace flow
-
-/**
- * What can replace a finished vial: any sealed batch of the same peptide,
- * whatever size or vendor. Size differences are fine — the concentration and
- * the units are recomputed from whatever actually gets activated.
- */
-export function replacementsFor(vials = [], peptideId) {
-  return batchesFor(vials, peptideId)
-    .filter((b) => (b.qtyOnHand || 0) > 0)
-    .sort((a, b) => {
-      // oldest sealed-expiry first, so the one closest to turning is used up
-      if (a.sealedExpiry && b.sealedExpiry) return a.sealedExpiry.localeCompare(b.sealedExpiry)
-      if (a.sealedExpiry) return -1
-      if (b.sealedExpiry) return 1
-      return (a.vialMg || 0) - (b.vialMg || 0)
-    })
-}
-
-/**
- * What activating a given batch would change, so the screen can say it before
- * the user commits. A different vial size means a different concentration and
- * therefore a different number of units for the very same dose — which is
- * exactly the sort of change that deserves to be stated out loud.
- */
-export function activationPreview(peptide, tState, batch) {
-  if (!peptide || !batch) return null
-  const oldMg = peptide.recon?.vialMg || 0
-  const newMg = batch.vialMg || 0
-  const bacMl = peptide.recon?.bacMl || 0
-  const { dose } = currentRung(peptide, tState)
-
-  const oldConc = concentration(oldMg, bacMl)
-  const newConc = concentration(newMg, bacMl)
-  const oldUnits = unitsFor(peptide, dose)
-  const newUnits = unitsFor({ ...peptide, recon: { ...peptide.recon, vialMg: newMg } }, dose)
-
-  return {
-    sameSize: oldMg === newMg,
-    oldMg, newMg, bacMl,
-    oldConc: Math.round(oldConc * 1000) / 1000,
-    newConc: Math.round(newConc * 1000) / 1000,
-    oldUnits: Math.round((oldUnits || 0) * 10) / 10,
-    newUnits: Math.round((newUnits || 0) * 10) / 10,
-    dose,
-    unit: peptide.ladder?.unit,
+    vials: nSealed,
   }
 }

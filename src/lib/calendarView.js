@@ -189,7 +189,7 @@ export function buildCalendar({
     if (exp?.expiresAt) {
       pushEvent(exp.expiresAt, { kind: 'vial-expiry', peptideId: p.id, text: `${p.name} — open vial expires` })
     }
-    const ro = runOutInfo(p, titration[p.id], vials, openVials[p.id], todayStr, pauses)
+    const ro = runOutInfo(p, titration[p.id], vials, openVials[p.id], todayStr, pauses, { pushes })
     if (ro.runOutDate && isFinite(ro.daysLeft)) {
       pushEvent(ro.runOutDate, {
         kind: 'restock-by', peptideId: p.id,

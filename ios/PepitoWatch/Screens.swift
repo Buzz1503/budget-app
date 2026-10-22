@@ -38,6 +38,18 @@ struct DosesScreen: View {
         .onChange(of: WatchHome.doseScreen(store.snapshot, now: Date())?.allLogged ?? false) { _, done in
             if done { bounce += 1 }
         }
+        // the tick left a vial about empty: one question right after it
+        .sheet(item: Binding(
+            get: { store.vialQuestions.first },
+            set: { if $0 == nil, let q = store.vialQuestions.first { store.dismissVial(q) } }
+        )) { q in
+            ScrollView {
+                WatchVialQuestionContent(
+                    name: q.name,
+                    onYes: { WKInterfaceDevice.current().play(.success); store.answerVial(q, yes: true) },
+                    onStill: { WKInterfaceDevice.current().play(.click); store.answerVial(q, yes: false) })
+            }
+        }
     }
 
     @ViewBuilder

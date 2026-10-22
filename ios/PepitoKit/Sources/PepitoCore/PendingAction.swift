@@ -7,6 +7,10 @@ import Foundation
 public struct PendingAction: Codable, Equatable, Identifiable, Sendable {
     public enum ActionType: String, Codable, Sendable {
         case logDose, logSlot, skipDose, snoozeDose, pushDose, startSauna, stopSauna, saunaCompleted
+        /// The answer to "Start a new one?" (payload.answer: yes, still or notyet; payload.kind: change or expired)
+        case vialChange
+        /// "Remind me in 3 days" on an order-by notice
+        case snoozeOrder
     }
     public enum Source: String, Codable, Sendable {
         case widget, notification, siri, watch, liveActivity, app
@@ -42,6 +46,8 @@ public struct PendingAction: Codable, Equatable, Identifiable, Sendable {
         public var refIds: [String]?
         public var supplementIds: [String]?
         public var group: Bool?
+        /// vialChange: yes, still or notyet
+        public var answer: String?
         // sauna
         public var startedAt: Double?
         public var stoppedAt: Double?
@@ -61,12 +67,12 @@ public struct PendingAction: Codable, Equatable, Identifiable, Sendable {
         public var workoutId: String?
 
         public init(date: String? = nil, slot: String? = nil, kind: String? = nil, refId: String? = nil, refIds: [String]? = nil,
-                    supplementIds: [String]? = nil, group: Bool? = nil, startedAt: Double? = nil, stoppedAt: Double? = nil,
+                    supplementIds: [String]? = nil, group: Bool? = nil, answer: String? = nil, startedAt: Double? = nil, stoppedAt: Double? = nil,
                     targetMin: Int? = nil, tempC: Int? = nil, rounds: Int? = nil, autoEnded: Bool? = nil,
                     start: Double? = nil, end: Double? = nil, type: String? = nil, avgHR: Int? = nil, peakHR: Int? = nil,
                     samples: [[Double]]? = nil, roundSplits: [Double]? = nil, workoutId: String? = nil) {
             self.date = date; self.slot = slot; self.kind = kind; self.refId = refId; self.refIds = refIds
-            self.supplementIds = supplementIds; self.group = group; self.startedAt = startedAt; self.stoppedAt = stoppedAt
+            self.supplementIds = supplementIds; self.group = group; self.answer = answer; self.startedAt = startedAt; self.stoppedAt = stoppedAt
             self.targetMin = targetMin; self.tempC = tempC; self.rounds = rounds; self.autoEnded = autoEnded
             self.start = start; self.end = end; self.type = type; self.avgHR = avgHR; self.peakHR = peakHR
             self.samples = samples; self.roundSplits = roundSplits; self.workoutId = workoutId

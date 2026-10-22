@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, Suspense } from 'react'
 import { HEALTH_BUILD, HomeHealthCard } from '../health/ui'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Check, Info, Clock, AlertTriangle, Sun, Moon, ChevronRight, Syringe, X, ShieldCheck, Layers, Bell, Zap, SkipForward, Undo2, PackageOpen, MoreHorizontal, CalendarArrowDown, SlidersHorizontal, Pause, Play, PersonStanding } from 'lucide-react'
+import { Check, Info, Clock, AlertTriangle, Sun, Moon, ChevronRight, Syringe, X, ShieldCheck, Layers, Bell, Zap, SkipForward, Undo2, MoreHorizontal, CalendarArrowDown, SlidersHorizontal, Pause, Play, PersonStanding } from 'lucide-react'
 import useStore, { todayStr } from '../store/useStore'
 import { currentRung, stepUpDue, addDaysStr, prettyDate } from '../lib/schedule'
 import { slotOf, currentSlot } from '../lib/daily'
@@ -10,7 +10,8 @@ import { displayName } from '../lib/naming'
 import { tenureFor, milestonesFor } from '../lib/tenure'
 import { loadMatrix, LIB_TO_COMPOUND } from '../lib/mixMatrix'
 import { planShots, MAX_GROUP_ML } from '../lib/grouping'
-import { expiryInfo } from '../lib/inventory'
+import { useStockRows } from '../lib/useStock'
+import { stockAlertsFor } from '../lib/vials'
 import { backupNudge, countEntries } from '../lib/backup'
 import Modal from './ui/Modal'
 import CoachTip from './ui/CoachTip'
@@ -22,7 +23,6 @@ import { isDue, canPushOn, offCycleOn, offCycleLine } from '../lib/due'
 import {
   activePause, pausedDays, reasonWords, scopeWords, pauseEnd, pauseDates,
 } from '../lib/pauses'
-import ReplaceVial from './ReplaceVial'
 import CompoundSheet from './CompoundSheet'
 import DoseChangeSheet from './DoseChangeSheet'
 import PauseSheet, { HeldStepUpSheet } from './PauseSheet'
@@ -39,7 +39,6 @@ export default function Home({ goTo }) {
   const titration = useStore((s) => s.titration)
   const doseLogs = useStore((s) => s.doseLogs)
   const runs = useStore((s) => s.runs)
-  const openVials = useStore((s) => s.openVials)
   const settings = useStore((s) => s.settings)
   const sections = homeSections({ health: HEALTH_BUILD, saunaOnHome: useStore((s) => s.saunaSettings?.showOnHome !== false) })
   const updateSettings = useStore((s) => s.updateSettings)
@@ -98,8 +97,6 @@ export default function Home({ goTo }) {
   // the sheet that asks why, shared by both kinds
   const [skipping, setSkipping] = useState(null)
   // the peptide whose vial just ran out, and which now needs a replacement
-  const finishVial = useStore((s) => s.finishVial)
-  const [replacing, setReplacing] = useState(null)
   const [sheetId, setSheetId] = useState(null)
   const [dosing, setDosing] = useState(null)
   const [logOnBody, setLogOnBody] = useState(null)
@@ -235,22 +232,8 @@ export default function Home({ goTo }) {
     setCoDraw(true)
   }
 
-  const alerts = useMemo(() => {
-    const out = []
-    for (const p of peptides) {
-      const exp = expiryInfo(p, openVials[p.id], t)
-      if (exp && exp.daysLeft <= 5) {
-        out.push({
-          id: `exp-${p.id}`, kind: exp.daysLeft < 0 ? 'expired' : 'expiring',
-          text: exp.daysLeft < 0
-            ? `${p.name} vial expired ${-exp.daysLeft}d ago — discard and reconstitute fresh`
-            : `${p.name} vial expires in ${exp.daysLeft}d (fridge)`,
-        })
-      }
-      // low stock is a dot on More and on the Stock row since stage 2D, not a Home alert
-    }
-    return out
-  }, [peptides, openVials, t])
+  const stockRows = useStockRows()
+  const alerts = useMemo(() => stockAlertsFor(stockRows), [stockRows])
 
   /**
    * The titration question, moved off the card list.
@@ -417,7 +400,6 @@ export default function Home({ goTo }) {
             skipReason={skipFor(skips, p.id, t)?.reason}
             onSkip={() => setSkipping({ kind: 'peptide', ids: [p.id], name: p.name })}
             onUnskip={() => unskipToday(p.id)}
-            onFinishVial={() => { finishVial(p.id); setReplacing(p.id) }}
             onChangeDose={() => setDosing(p.id)}
             canPush={canPushOn(p, { pushes, loggedIds: loggedToday, skippedIds, dateStr: t })}
             pushedFrom={pushedLabel(pushes, p.id, t)}
@@ -468,10 +450,6 @@ export default function Home({ goTo }) {
 
       {/* keeps the last card clear of the floating co-draw bar */}
       {selected.size > 0 && <div aria-hidden className="h-20" />}
-
-      <ReplaceVial
-        open={!!replacing} peptideId={replacing}
-        onClose={() => setReplacing(null)} goTo={goTo} />
 
       <CompoundSheet open={!!sheetId} compoundId={sheetId}
         onClose={() => setSheetId(null)} goTo={goTo} />
@@ -1057,7 +1035,7 @@ function ShotPlan({ plan, slot, onAccept }) {
  * all belong somewhere you go to read rather than somewhere you go to tap —
  * they are on the compound page and in the bell now.
  */
-function DueCard({ peptide: p, index, done, titration, onLog, onLogOnBody, onUnlog, onChangeDose, selected, onToggleSelect, skipped, skipReason, onSkip, onUnskip, onFinishVial, onOpenSheet, beckon, canPush, pushedFrom, onPush }) {
+function DueCard({ peptide: p, index, done, titration, onLog, onLogOnBody, onUnlog, onChangeDose, selected, onToggleSelect, skipped, skipReason, onSkip, onUnskip, onOpenSheet, beckon, canPush, pushedFrom, onPush }) {
   const tState = titration[p.id]
   const { dose } = currentRung(p, tState)
   const nasal = isNasal(p)
@@ -1216,10 +1194,6 @@ function DueCard({ peptide: p, index, done, titration, onLog, onLogOnBody, onUnl
               {canPush && (
                 <MenuAction icon={CalendarArrowDown} label="Push to tomorrow" testid="push-peptide"
                   onClick={() => { setMenu(false); onPush?.() }} />
-              )}
-              {!nasal && onFinishVial && (
-                <MenuAction icon={PackageOpen} label="Vial done" testid="finish-vial"
-                  onClick={() => { setMenu(false); onFinishVial() }} />
               )}
               {!nasal && !p.alwaysSeparate && !done && (
                 <MenuAction icon={Layers} label={selected ? 'In co-draw' : 'Log together'} testid="row-codraw"

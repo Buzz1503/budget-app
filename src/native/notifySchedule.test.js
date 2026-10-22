@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildSchedule, stockAlerts, rowLine, doseCategory, doseReminderDevices, ID_PREFIX, SCHEDULE_DAYS } from './notifySchedule'
+import { buildSchedule, rowLine, doseCategory, doseReminderDevices, ID_PREFIX, SCHEDULE_DAYS } from './notifySchedule'
 
 // Tuesday 20 Oct 2026, 06:00 local
 const NOW = new Date(2026, 9, 20, 6, 0, 0)
@@ -113,28 +113,6 @@ describe('reaction and sauna reminders', () => {
     const sauna = s.find((n) => n.category === 'SAUNA_DONE')
     expect(new Date(sauna.fireAt).getTime()).toBe(start + 20 * 60000)
     expect(sauna.body).toBe('20 min is up.')
-  })
-})
-
-describe('low stock', () => {
-  const lowState = state({
-    peptides: [reta],
-    vials: [], // nothing sealed left: low
-  })
-  it('notifies once when an item first runs low, then stays quiet', () => {
-    const first = stockAlerts(lowState, { now: NOW, alerted: [] })
-    expect(first.notify).toHaveLength(1)
-    expect(first.notify[0].payload.route).toBe('supplies')
-    expect(first.alerted).toEqual(['reta'])
-    const second = stockAlerts(lowState, { now: NOW, alerted: first.alerted })
-    expect(second.notify).toEqual([])
-  })
-
-  it('alerts again after a restock has run low again', () => {
-    const restocked = stockAlerts(state({ peptides: [reta], vials: [{ id: 'v', peptideId: 'reta', qtyOnHand: 20, vialMg: 20 }] }), { now: NOW, alerted: ['reta'] })
-    expect(restocked.alerted).toEqual([])
-    const lowAgain = stockAlerts(lowState, { now: NOW, alerted: restocked.alerted })
-    expect(lowAgain.notify).toHaveLength(1)
   })
 })
 

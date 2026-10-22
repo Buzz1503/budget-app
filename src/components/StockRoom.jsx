@@ -1,16 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Package, Plus, Minus, ChevronRight, FileText, Trash2, Search,
-  Paperclip, AlertTriangle, Boxes, CheckCircle2, Clock, Users, HelpCircle,
+  Plus, Minus, ChevronRight, FileText, Trash2, Search, Paperclip, CheckCircle2, Users, Package, Check,
 } from 'lucide-react'
+import { format, parseISO } from 'date-fns'
 import useStore, { todayStr } from '../store/useStore'
-import { groupStock, blankBatch, openVialRemainingMg } from '../lib/stock'
-import { stockRunway } from '../lib/runway'
+import { blankBatch, openVialRemainingMg } from '../lib/stock'
 import { drawdown, emptiesInWords, FREQUENCIES } from '../lib/drawdown'
-import { prettyDate } from '../lib/schedule'
 import { putBlob, getBlob, deleteBlob } from '../lib/blobStore'
-import { isNasal, round } from '../lib/calc'
+import { round } from '../lib/calc'
 import { loadMatrix } from '../lib/mixMatrix'
 import Modal from './ui/Modal'
 import CompoundSheet from './CompoundSheet'
@@ -18,204 +15,328 @@ import NumberField from './ui/NumberField'
 import { useMoney } from '../lib/useMoney'
 import { sizesFor, referencePrice } from '../lib/cost'
 import PickerField from './ui/PickerField'
+import { useStockRows } from '../lib/useStock'
+import {
+  wasteInYear, vialHistory, dosesLeftWords, countRows, countDue, remainingMg, sealedBatches,
+  fridgeLifeDays, orderLeadDays, ORDER_DOT_DAYS,
+} from '../lib/vials'
+import { useNativeFeed } from '../native/feed'
+
+const shortDate = (d) => (d ? format(parseISO(d), 'd MMM') : '')
+const GHOST = { background: 'var(--surface-sunk)', color: 'var(--text-2)' }
 
 /**
- * The stock room: every vial you physically own, grouped by peptide.
- *
- * Grouped rather than flat because "how much Retatrutide do I have" is the
- * question actually being asked, and a flat list of batches makes you add it up
- * yourself. The total leads; the breakdown sits under it, because a total that
- * hides two different vial sizes is worse than no total.
+ * Stock: one row per compound, in the order to order them. Each row says what
+ * is open (as doses left), how many vials are sealed, when it runs out and
+ * when to order by. Nothing here is typed in to keep it right: the open vial
+ * counts down from the log, and the question after a log changes the vial.
  */
 export default function StockRoom({ goTo }) {
+  const rows = useStockRows()
+  const finishedVials = useStore((s) => s.finishedVials)
   const peptides = useStore((s) => s.peptides)
   const vials = useStore((s) => s.vials)
-  const openVials = useStore((s) => s.openVials)
-  const titration = useStore((s) => s.titration)
-  const doseLogs = useStore((s) => s.doseLogs)
-  const leadDays = useStore((s) => s.settings.restockLeadDays)
+  const notif = useStore((s) => s.notificationSettings)
+  const lastCount = useStore((s) => s.nativeState?.countCheckOn)
+  const openCountFlag = useNativeFeed((s) => s.openCount)
   const t = todayStr()
 
   const [adding, setAdding] = useState(false)
-  const [openId, setOpenId] = useState(null)
-  const [sheetId, setSheetId] = useState(null)
+  const [detailId, setDetailId] = useState(null)
+  const [counting, setCounting] = useState(false)
 
-  const groups = useMemo(() => groupStock(vials, peptides), [vials, peptides])
-  const totalVials = groups.reduce((n, g) => n + g.vialCount, 0)
+  // a notification asked for the count
+  useEffect(() => {
+    if (!openCountFlag) return
+    setCounting(true)
+    useNativeFeed.setState({ openCount: false })
+  }, [openCountFlag])
+
+  const waste = wasteInYear(finishedVials, t.slice(0, 4))
+  const due = countDue({ now: new Date(), last: lastCount, time: notif?.countTime || '18:00', on: notif?.countCheck !== false })
+  const anySealed = vials.some((v) => (v.qtyOnHand || 0) > 0)
 
   return (
-    <div className="space-y-3" data-testid="stock-room">
-      <div className="flex items-start justify-between gap-2">
-        <p className="text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
-          Every sealed vial you hold, kept apart from what's running.
-        </p>
-        <span className="chip shrink-0 !py-2" style={{ color: 'var(--good)' }}>
-          <Boxes size={13} /> {totalVials} sealed
-        </span>
+    <div className="space-y-4" data-testid="stock-room">
+      <div className="flex gap-2">
+        <button onClick={() => setAdding(true)} data-testid="add-stock"
+          className="btn-primary flex flex-1 items-center justify-center gap-2 rounded-full py-3 text-sm font-black">
+          <Plus size={16} /> Order arrived
+        </button>
+        {anySealed && (
+          <button onClick={() => setCounting(true)} data-testid="open-count"
+            className="rounded-full px-5 py-3 text-sm font-black"
+            style={due ? { background: 'var(--surface-sunk)', color: 'var(--text)' } : GHOST}>
+            {due ? 'Count due' : 'Count'}
+          </button>
+        )}
       </div>
 
-      <button onClick={() => setAdding(true)} data-testid="add-stock"
-        className="btn-primary flex w-full items-center justify-center gap-2 rounded-full py-3 text-sm font-black">
-        <Plus size={16} /> Add stock
-      </button>
-
-      {groups.length === 0 && (
-        <div className="card p-5 text-center text-sm font-medium" style={{ color: 'var(--text-2)' }}>
-          Nothing in the stock room yet.
-        </div>
+      {rows.length === 0 && (
+        <div className="card p-5 text-center text-sm" style={{ color: 'var(--text-2)' }}>Nothing in stock yet.</div>
       )}
 
-      <div className="space-y-3" data-testid="stock-groups">
-        {groups.map((g) => {
-          const peptide = peptides.find((p) => p.id === g.peptideId)
-          // Every row gets a duration: yours if you have a protocol, the
-          // reference's if you don't, and a stated reason if neither exists.
-          const runway = stockRunway({
-            peptideId: g.peptideId, peptide, tState: titration[g.peptideId],
-            openVial: openVials[g.peptideId], vials, doseLogs, todayStr: t, leadDays,
-          })
-          return (
-            <StockGroup
-              key={g.peptideId}
-              group={g}
-              peptide={peptide}
-              open={openId === g.peptideId}
-              onToggle={() => setOpenId(openId === g.peptideId ? null : g.peptideId)}
-              onOpenSheet={() => setSheetId(g.peptideId)}
-              runway={runway}
-            />
-          )
-        })}
+      <div className="space-y-2" data-testid="stock-groups">
+        {rows.map((r) => <StockRow key={r.peptideId} row={r} onOpen={() => setDetailId(r.peptideId)} />)}
       </div>
 
-      <p className="px-1 pb-1 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
-        Batches are kept apart on purpose — a 10 mg from one vendor and a 20 mg from another are
-        different things to draw from. Activating one pulls a vial from that batch and carries the
-        protocol's dosing across.
+      <p className="px-1 text-xs leading-relaxed" style={{ color: 'var(--text-3)' }} data-testid="stock-waste">
+        Wasted this year: {round(waste.mg, 1)} mg{waste.vials ? ` (${waste.vials} vial${waste.vials === 1 ? '' : 's'})` : ''}
+      </p>
+      <p className="px-1 pb-1 text-xs leading-relaxed" style={{ color: 'var(--text-3)' }}>
+        Sorted by order date. The open vial counts down from your log, so there is nothing to update by hand.
       </p>
 
-      <AddBatchModal open={adding} onClose={() => setAdding(false)} />
-      <CompoundSheet open={!!sheetId} compoundId={sheetId}
-        onClose={() => setSheetId(null)} goTo={goTo} />
+      <OrderArrivedSheet open={adding} onClose={() => setAdding(false)} />
+      <CountCheck open={counting} onClose={() => setCounting(false)} />
+      <VialSheet peptideId={detailId} onClose={() => setDetailId(null)} goTo={goTo} peptides={peptides} />
     </div>
   )
 }
 
-/**
- * How long this compound lasts — open vial and sealed shelf combined.
- *
- * An estimate against the reference dose is drawn differently from a figure
- * off your own protocol, and says so in the line itself. Showing them
- * identically would be claiming to know somebody else's dose as well as you
- * know your own.
- */
-function RunwayLine({ runway }) {
-  if (!runway) return null
-
-  if (runway.out) {
-    return (
-      <p className="mt-1 flex items-center gap-1 text-xs font-bold leading-tight" data-testid="runway"
-        style={{ color: 'var(--danger)' }}>
-        <AlertTriangle size={11} /> Nothing left — reorder
-      </p>
-    )
-  }
-
-  if (runway.basis === 'none') {
-    return (
-      <p className="mt-1 flex items-start gap-1 text-xs font-medium leading-tight" data-testid="runway"
-        style={{ color: 'var(--text-3)' }}>
-        <HelpCircle size={11} className="mt-0.5 shrink-0" />
-        <span>No dose to measure against — {runway.note}</span>
-      </p>
-    )
-  }
-
-  const estimate = runway.basis === 'anecdotal'
+function StockRow({ row: r, onOpen }) {
+  const orderSoon = r.orderByDays != null && r.orderByDays <= ORDER_DOT_DAYS
+  const orderColor = r.out ? 'var(--danger)' : orderSoon ? 'var(--warn)' : 'var(--text-2)'
   return (
-    <p className="mt-1 flex items-start gap-1 text-xs leading-tight" data-testid="runway"
-      style={{ color: runway.low ? 'var(--warn)' : estimate ? 'var(--text-3)' : 'var(--text-2)' }}>
-      <Clock size={11} className="mt-0.5 shrink-0" />
-      <span>
-        {/* durationWords already writes its own ~ on anything over a
-            fortnight; a second one is the app stuttering. */}
-        <span className="font-bold">{runway.words} left</span>
-        {estimate
-          ? <span className="font-medium"> · estimate at {runway.doseWords} {runway.freqWords}</span>
-          : runway.restockByDate
-            ? <span className="font-medium"> · restock by {prettyDate(runway.restockByDate)}</span>
-            : null}
-      </span>
-    </p>
+    <button onClick={onOpen} data-testid="stock-group" data-peptide={r.peptideId}
+      className="card block w-full p-4 text-left">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-bold leading-tight">{r.name}</p>
+          <p className="mt-1 text-xs tabular-nums leading-tight"
+            style={{ color: r.out ? 'var(--danger)' : 'var(--text-2)' }} data-testid="stock-open-line">
+            {dosesLeftWords(r)}{r.untracked ? '' : ` · ${r.sealed} sealed`}
+          </p>
+        </div>
+        <ChevronRight size={16} className="mt-0.5 shrink-0" style={{ color: 'var(--text-3)' }} />
+      </div>
+      {!r.untracked && r.setUp && (
+        <p className="mt-2 text-xs tabular-nums leading-tight" style={{ color: orderColor }} data-testid="stock-order-line">
+          {r.out
+            ? 'Order now'
+            : r.runOutDate
+              ? `Runs out ${shortDate(r.runOutDate)} · Order by ${shortDate(r.orderBy)}`
+              : 'No run-out date yet'}
+        </p>
+      )}
+      {!r.untracked && !r.setUp && (
+        <p className="mt-2 text-xs leading-tight" style={{ color: 'var(--text-3)' }}>No dose set, so no run-out date.</p>
+      )}
+      {r.expiry?.showUseBy && (
+        <p className="mt-1 text-xs tabular-nums leading-tight"
+          style={{ color: r.expiry.expired ? 'var(--danger)' : 'var(--warn)' }} data-testid="stock-use-by">
+          {r.expiry.expired ? `Past its fridge life, ${r.expiry.useBy.toLowerCase()}` : r.expiry.useBy}
+        </p>
+      )}
+      {r.needsMixing && (
+        <p className="mt-1 text-xs leading-tight" style={{ color: 'var(--text-2)' }}>Not mixed yet</p>
+      )}
+    </button>
   )
 }
 
-function StockGroup({ group: g, peptide, open, onToggle, onOpenSheet, runway }) {
+// -------------------------------------------------------------- one compound
+
+/**
+ * Everything about one compound's vials: the open one, the sealed batches, the
+ * history, and the two settings that drive the forecast. Mark finished and
+ * Adjust are here for the odd case; the normal way a vial changes is the
+ * question after a log.
+ */
+function VialSheet({ peptideId, onClose, goTo }) {
+  const rows = useStockRows()
+  const peptide = useStore((s) => s.peptides.find((p) => p.id === peptideId))
+  const vials = useStore((s) => s.vials)
+  const doseLogs = useStore((s) => s.doseLogs)
+  const sharedDraws = useStore((s) => s.sharedDraws)
+  const finishedVials = useStore((s) => s.finishedVials)
+  const finishVial = useStore((s) => s.finishVial)
+  const startNewVial = useStore((s) => s.startNewVial)
+  const adjustOpenVial = useStore((s) => s.adjustOpenVial)
+  const markVialMixed = useStore((s) => s.markVialMixed)
   const adjustVialQty = useStore((s) => s.adjustVialQty)
   const removeVial = useStore((s) => s.removeVial)
-  const activateBatch = useStore((s) => s.activateBatch)
-  const low = !!(runway && (runway.out || runway.low))
+  const updatePeptide = useStore((s) => s.updatePeptide)
+  const [confirming, setConfirming] = useState(false)
+  const [adjusting, setAdjusting] = useState(null)
+  const [about, setAbout] = useState(false)
+
+  const row = rows.find((r) => r.peptideId === peptideId)
+  if (!peptide || !row) return <Modal open={false} onClose={onClose} title="" />
+  const open = row.open
+  const left = open ? remainingMg(open, doseLogs, sharedDraws) : 0
+  const batches = vials.filter((v) => v.peptideId === peptideId)
+  const history = vialHistory(finishedVials, peptideId)
+  const batch = open ? vials.find((v) => v.id === open.batchId) : null
+
+  const close = () => { setConfirming(false); setAdjusting(null); onClose() }
 
   return (
-    <motion.div layout className="card overflow-hidden" data-testid="stock-group">
-      <button onClick={onToggle} className="flex w-full items-start gap-3 p-3 text-left">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
-          style={g.vialCount === 0
-            ? { background: 'var(--surface-sunk)', color: 'var(--danger)' }
-            : { background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
-          <span className="text-sm font-black tabular-nums">{g.vialCount}</span>
-        </div>
-        <div className="min-w-0 flex-1">
-          {/* Wraps rather than truncates: some catalogue names are genuinely
-              long, and a stock list that hides which compound a row is about
-              has lost the only thing the row is for. */}
-          <p className="text-sm font-bold leading-tight">{g.name}</p>
-          <p className="text-xs font-semibold leading-tight" style={{ color: 'var(--text-2)' }}>
-            {g.vialCount === 0
-              ? 'none in stock'
-              : `${g.batchCount} batch${g.batchCount === 1 ? '' : 'es'} · ${g.vialCount} sealed vial${g.vialCount === 1 ? '' : 's'}`}
-            {!g.inStack && ' · not in my protocol'}
-          </p>
-          <RunwayLine runway={runway} />
-        </div>
-        {low && <AlertTriangle size={14} className="mt-1 shrink-0" style={{ color: 'var(--warn)' }} />}
-        <ChevronRight size={16} className="mt-1 shrink-0 transition-transform"
-          style={{ color: 'var(--text-2)', transform: open ? 'rotate(90deg)' : 'none' }} />
-      </button>
-
-      <AnimatePresence initial={false}>
-        {open && (
-          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-            <div className="space-y-2 px-3 pb-3">
-              {/* Inside the expanded panel rather than on the header, so it can
-                  never fight the collapse toggle for the same tap. */}
-              <button onClick={onOpenSheet} data-testid="stock-open-sheet"
-                className="flex w-full items-center justify-center gap-2 rounded-full py-2 text-xs font-black"
-                style={{ background: 'var(--surface-sunk)', color: 'var(--info)' }}>
-                <FileText size={12} /> About {g.name}
-              </button>
-              {g.batches.length === 0 && (
-                <p className="text-xs font-medium" style={{ color: 'var(--text-2)' }}>
-                  No batches recorded for this one.
+    <>
+      <Modal open={!!peptideId} onClose={close} title={peptide.name}>
+        <div className="space-y-5 pb-2" data-testid="vial-sheet">
+          {/* the open vial */}
+          <section className="space-y-2" data-testid="open-vial">
+            <h3 className="t-caption" style={{ color: 'var(--text-3)' }}>Open vial</h3>
+            {open ? (
+              <>
+                <p className="text-sm font-bold tabular-nums" data-testid="open-left">
+                  {round(Math.max(0, left), 2)} of {open.vialMg} mg left
+                  <span className="font-medium" style={{ color: 'var(--text-2)' }}> · {dosesLeftWords(row)}</span>
                 </p>
-              )}
-              {g.batches.map((b) => (
-                <BatchRow key={b.id} batch={b} peptide={peptide}
-                  firstBatch={b.id === g.batches[0]?.id}
-                  onAdjust={(d) => adjustVialQty(b.id, d)}
-                  onRemove={() => removeVial(b.id)}
-                  onActivate={() => activateBatch(b.peptideId, b.id)} />
-              ))}
+                {left < -1e-6 && (
+                  <p className="text-xs" style={{ color: 'var(--text-2)' }}>
+                    {round(-left, 2)} mg more than the label so far. This is kept when the vial is finished.
+                  </p>
+                )}
+                <p className="text-xs tabular-nums" style={{ color: 'var(--text-2)' }}>
+                  {open.reconstitutedAt ? `Mixed ${shortDate(open.reconstitutedAt)}` : 'Not mixed yet'}
+                  {open.volumeMl ? ` · ${open.volumeMl} mL` : ''}
+                  {open.lot ? ` · batch ${open.lot}` : ''}
+                </p>
+                {row.expiry && (
+                  <p className="text-xs tabular-nums" style={{ color: row.expiry.showUseBy ? 'var(--warn)' : 'var(--text-2)' }}>
+                    {row.expiry.useBy}
+                  </p>
+                )}
+                {!open.reconstitutedAt && (
+                  <button onClick={() => markVialMixed(peptideId)} data-testid="mixed-today"
+                    className="rounded-full px-4 py-2 text-xs font-black" style={GHOST}>Mixed today</button>
+                )}
+
+                {adjusting == null ? (
+                  <div className="flex gap-2 pt-1">
+                    <button onClick={() => setAdjusting(String(round(Math.max(0, left), 2)))} data-testid="adjust-open"
+                      className="flex-1 rounded-full py-2 text-xs font-black" style={GHOST}>Adjust</button>
+                    {!confirming ? (
+                      <button onClick={() => setConfirming(true)} data-testid="finish-open"
+                        className="flex-1 rounded-full py-2 text-xs font-black" style={GHOST}>Mark vial finished</button>
+                    ) : (
+                      <button onClick={() => { finishVial(peptideId); setConfirming(false) }} data-testid="finish-open-yes"
+                        className="flex-1 rounded-full py-2 text-xs font-black" style={{ background: 'var(--surface-sunk)', color: 'var(--danger)' }}>
+                        Finish it
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-2 rounded-[14px] p-3" style={{ background: 'var(--surface-sunk)' }}>
+                    <Field label="What is left (mg)">
+                      <NumberField value={Number(adjusting) || 0} min={0} aria-label="mg left" data-testid="adjust-value"
+                        onChange={(v) => setAdjusting(String(v ?? 0))} />
+                    </Field>
+                    <p className="text-xs" style={{ color: 'var(--text-3)' }}>
+                      Use this for a dose that was never logged or a spill. It is kept as an adjustment on this vial.
+                    </p>
+                    <div className="flex gap-2">
+                      <button onClick={() => setAdjusting(null)} className="flex-1 rounded-full py-2 text-xs font-black" style={GHOST}>Cancel</button>
+                      <button onClick={() => { adjustOpenVial(peptideId, Number(adjusting), 'adjusted'); setAdjusting(null) }}
+                        data-testid="adjust-save" className="btn-primary flex-1 rounded-full py-2 text-xs font-black">Save</button>
+                    </div>
+                  </div>
+                )}
+                {confirming && (
+                  <p className="text-xs" style={{ color: 'var(--text-3)' }}>
+                    This marks the vial finished and does not open another. Tap Finish it to confirm.
+                  </p>
+                )}
+                {batch && (open.vialMg || 0) > 0 && (
+                  <SharedVial batch={batch} peptide={peptide} openVial={open} />
+                )}
+              </>
+            ) : (
+              <>
+                <p className="text-sm" style={{ color: row.out ? 'var(--danger)' : 'var(--text-2)' }}>
+                  {row.out ? 'Out of stock. No sealed vial is left.' : row.untracked ? 'Not tracked.' : 'No vial is open.'}
+                </p>
+                {row.sealed > 0 && (
+                  <button onClick={() => { startNewVial(peptideId, { reason: 'open' }); close() }} data-testid="open-a-vial"
+                    className="btn-primary rounded-full px-5 py-2 text-xs font-black">Open a vial</button>
+                )}
+              </>
+            )}
+          </section>
+
+          {/* forecast */}
+          {!row.untracked && row.setUp && (
+            <section className="space-y-1" data-testid="forecast">
+              <h3 className="t-caption" style={{ color: 'var(--text-3)' }}>Forecast</h3>
+              <p className="text-sm tabular-nums">
+                {row.out ? 'Out now.' : row.runOutDate ? `Runs out ${shortDate(row.runOutDate)}.` : 'No run-out date yet.'}
+                {row.orderBy && !row.out ? ` Order by ${shortDate(row.orderBy)}.` : ''}
+              </p>
+              <p className="text-xs leading-relaxed" style={{ color: 'var(--text-2)' }}>
+                Walked through your real schedule: titration steps, cycles, pauses and how often you dose, across the open vial and {row.sealed} sealed.
+              </p>
+            </section>
+          )}
+
+          {/* sealed batches */}
+          <section className="space-y-2">
+            <h3 className="t-caption" style={{ color: 'var(--text-3)' }}>Sealed</h3>
+            {batches.length === 0 && <p className="text-sm" style={{ color: 'var(--text-2)' }}>No batches on the shelf.</p>}
+            {batches.map((b) => (
+              <BatchRow key={b.id} batch={b} peptide={peptide} inUse={open?.batchId === b.id}
+                oldest={sealedBatches(vials, peptideId)[0]?.id === b.id}
+                onAdjust={(d) => adjustVialQty(b.id, d, 'adjusted')} onRemove={() => removeVial(b.id)} />
+            ))}
+            <p className="text-xs" style={{ color: 'var(--text-3)' }}>The oldest batch is opened first.</p>
+          </section>
+
+          {/* settings */}
+          <section className="space-y-3">
+            <h3 className="t-caption" style={{ color: 'var(--text-3)' }}>Settings</h3>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Fridge life after mixing (days)">
+                <NumberField value={fridgeLifeDays(peptide)} min={0} integer aria-label="Fridge life in days" data-testid="fridge-life"
+                  onChange={(v) => updatePeptide(peptideId, { recon: { ...peptide.recon, expiryDays: Math.max(0, v ?? 0) } })} />
+              </Field>
+              <Field label="Delivery takes (days)">
+                <NumberField value={orderLeadDays(peptide)} min={0} integer aria-label="Delivery lead time in days" data-testid="order-lead"
+                  onChange={(v) => updatePeptide(peptideId, { orderLeadDays: Math.max(0, v ?? 0) })} />
+              </Field>
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </motion.div>
+            <p className="text-xs" style={{ color: 'var(--text-3)' }}>
+              Zero days for fridge life means no clock. The order date is the run-out date less the delivery time.
+            </p>
+          </section>
+
+          {/* history */}
+          {history.length > 0 && (
+            <section className="space-y-2" data-testid="vial-history">
+              <h3 className="t-caption" style={{ color: 'var(--text-3)' }}>Vial history</h3>
+              {history.map((f) => <HistoryRow key={f.id} f={f} />)}
+            </section>
+          )}
+
+          <button onClick={() => setAbout(true)} className="flex w-full items-center justify-center gap-2 rounded-full py-3 text-xs font-black" style={GHOST}>
+            <FileText size={12} /> About {peptide.name}
+          </button>
+        </div>
+      </Modal>
+      <CompoundSheet open={about} compoundId={peptideId} onClose={() => setAbout(false)} goTo={goTo} />
+    </>
   )
 }
 
-/** One batch, one row: size, quantity, vendor — never merged with a sibling batch. */
+function HistoryRow({ f }) {
+  const days = f.activatedAt && f.finishedAt ? Math.max(0, Math.round((Date.parse(f.finishedAt) - Date.parse(f.activatedAt)) / 86400000)) : null
+  const bits = [
+    `${f.vialMg} mg`,
+    f.activatedAt ? `${shortDate(f.activatedAt.slice(0, 10))} to ${shortDate(f.date)}` : shortDate(f.date),
+    days != null ? `${days} day${days === 1 ? '' : 's'}` : null,
+  ].filter(Boolean)
+  const notes = []
+  if (f.overfillMg > 0) notes.push(`overfill ${round(f.overfillMg, 2)} mg`)
+  if (f.wasteMg > 0) notes.push(`thrown out with ${round(f.wasteMg, 2)} mg left`)
+  if (f.leftoverMg > 0) notes.push(`${round(f.leftoverMg, 2)} mg left when finished`)
+  return (
+    <div className="text-xs tabular-nums leading-snug" data-testid="history-row" style={{ color: 'var(--text-2)' }}>
+      {bits.join(' · ')}
+      {notes.length > 0 && <span style={{ color: 'var(--text-3)' }}>{` · ${notes.join(', ')}`}</span>}
+    </div>
+  )
+}
+
 /**
  * What this batch costs, in money rather than in USD.
  *
@@ -256,9 +377,9 @@ function VialCost({ batch: b, peptide }) {
       className="mt-1 block text-left text-xs font-bold leading-tight">
       {perVial == null ? (
         <>
-          <span style={{ color: 'var(--warn)' }}>No price set</span>
+          <span style={{ color: 'var(--warn)' }}>No price set.</span>
           <span className="ml-1 font-medium" style={{ color: 'var(--text-2)' }}>
-            — tap to enter USD per vial
+            Tap to enter USD per vial
             {sizes.length > 0 && ` (priced at ${sizes.map((s) => `${s.mg_per_vial} mg`).join(', ')})`}
           </span>
         </>
@@ -279,41 +400,21 @@ function VialCost({ batch: b, peptide }) {
   )
 }
 
-function BatchRow({ batch: b, peptide, firstBatch, onAdjust, onRemove, onActivate }) {
-  const openVial = useStore((s) => s.openVials?.[b.peptideId])
-  // An open vial carries no batchId until a batch is explicitly activated, but
-  // doses still come out of it from day one. Without this, a shelf nobody has
-  // activated has no vial to attach draw profiles to — which is every fresh
-  // install, and exactly the case where sharing gets set up.
-  const isActive = openVial?.batchId
-    ? openVial.batchId === b.id
-    : !!firstBatch && (openVial?.remainingMg ?? 0) > 0
-  const canActivate = peptide && !isNasal(peptide) && (b.qtyOnHand || 0) > 0
+
+function BatchRow({ batch: b, peptide, inUse, oldest, onAdjust, onRemove }) {
   const [confirmDelete, setConfirmDelete] = useState(false)
 
   if (confirmDelete) {
     return (
-      <div className="rounded-[14px] p-3" data-testid="confirm-delete-batch"
-        style={{ background: 'color-mix(in srgb, var(--danger) 14%, transparent)' }}>
-        <p className="flex items-start gap-2 text-xs font-black" style={{ color: 'var(--danger)' }}>
-          <AlertTriangle size={14} className="mt-px shrink-0" />
-          Delete this {b.vialMg} mg batch?
-        </p>
-        <p className="mt-2 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
-          {b.qtyOnHand || 0} sealed vial{(b.qtyOnHand || 0) === 1 ? '' : 's'} and any COA come off the shelf.
-          <span className="font-bold" style={{ color: 'var(--text)' }}> Your protocol and your logged doses
-          are untouched</span> — this only says you no longer have these.
+      <div className="rounded-[14px] p-3" data-testid="confirm-delete-batch" style={{ background: 'var(--surface-sunk)' }}>
+        <p className="text-xs font-black" style={{ color: 'var(--danger)' }}>Delete this {b.vialMg} mg batch?</p>
+        <p className="mt-2 text-xs leading-relaxed" style={{ color: 'var(--text-2)' }}>
+          {b.qtyOnHand || 0} sealed vial{(b.qtyOnHand || 0) === 1 ? '' : 's'} and any COA come off the shelf. Your protocol and your logged doses are untouched.
         </p>
         <div className="mt-3 flex gap-2">
-          <button onClick={() => setConfirmDelete(false)} className="flex-1 rounded-full py-2 text-xs font-black"
-            style={{ background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
-            Keep it
-          </button>
+          <button onClick={() => setConfirmDelete(false)} className="flex-1 rounded-full py-2 text-xs font-black" style={GHOST}>Keep it</button>
           <button onClick={() => { setConfirmDelete(false); onRemove() }} data-testid="confirm-delete-batch-yes"
-            className="flex-1 rounded-full py-2 text-xs font-black"
-            style={{ background: 'color-mix(in srgb, var(--danger) 25%, transparent)', color: 'var(--danger)' }}>
-            Delete
-          </button>
+            className="flex-1 rounded-full py-2 text-xs font-black" style={{ background: 'var(--surface)', color: 'var(--danger)' }}>Delete</button>
         </div>
       </div>
     )
@@ -322,23 +423,17 @@ function BatchRow({ batch: b, peptide, firstBatch, onAdjust, onRemove, onActivat
   return (
     <div className="rounded-[14px] p-3" style={{ background: 'var(--surface-sunk)' }} data-testid="batch-row">
       <div className="flex items-start gap-3">
-        <span className="mt-1 flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full px-2 text-xs font-black tabular-nums"
-          style={{ background: 'var(--surface)', color: 'var(--text)' }}>
-          {b.qtyOnHand || 0}
-        </span>
+        <span className="mt-0.5 flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full px-2 text-xs font-black tabular-nums"
+          style={{ background: 'var(--surface)', color: 'var(--text)' }}>{b.qtyOnHand || 0}</span>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-black leading-tight">
+          <p className="text-sm font-bold leading-tight">
             {b.vialMg} mg
-            {isActive && (
-              <span className="ml-2 text-xs font-bold" style={{ color: 'var(--good)' }}>· in use</span>
-            )}
+            {inUse && <span className="ml-2 text-xs font-medium" style={{ color: 'var(--text-2)' }}>in use</span>}
+            {!inUse && oldest && (b.qtyOnHand || 0) > 0 && <span className="ml-2 text-xs font-medium" style={{ color: 'var(--text-2)' }}>next</span>}
           </p>
-          <p className="truncate text-xs font-semibold leading-tight" style={{ color: 'var(--text-2)' }}>
-            {b.vendor || 'No vendor recorded'}
-          </p>
-          <p className="truncate text-xs font-medium leading-tight" style={{ color: 'var(--text-2)' }}>
-            {b.lot ? `lot ${b.lot}` : 'No lot recorded'}
-            {b.sealedExpiry ? ` · exp ${b.sealedExpiry}` : ''}
+          <p className="text-xs leading-tight" style={{ color: 'var(--text-2)' }}>{b.vendor || 'No vendor recorded'}</p>
+          <p className="text-xs leading-tight" style={{ color: 'var(--text-2)' }}>
+            {b.lot ? `batch ${b.lot}` : 'No batch recorded'}{b.sealedExpiry ? ` · exp ${b.sealedExpiry}` : ''}
           </p>
           <VialCost batch={b} peptide={peptide} />
         </div>
@@ -346,33 +441,19 @@ function BatchRow({ batch: b, peptide, firstBatch, onAdjust, onRemove, onActivat
           <CoaButton batch={b} />
           <div className="flex items-center gap-1">
             <button onClick={() => onAdjust(-1)} aria-label={`One fewer ${b.vialMg} mg`}
-              className="flex h-6 w-6 items-center justify-center rounded-full"
-              style={{ background: 'var(--surface)', color: 'var(--text-2)' }}>
+              className="flex h-6 w-6 items-center justify-center rounded-full" style={{ background: 'var(--surface)', color: 'var(--text-2)' }}>
               <Minus size={12} />
             </button>
             <button onClick={() => onAdjust(1)} aria-label={`One more ${b.vialMg} mg`}
-              className="flex h-6 w-6 items-center justify-center rounded-full"
-              style={{ background: 'var(--surface)', color: 'var(--good)' }}>
+              className="flex h-6 w-6 items-center justify-center rounded-full" style={{ background: 'var(--surface)', color: 'var(--text-2)' }}>
               <Plus size={12} />
             </button>
           </div>
         </div>
       </div>
-
-      {isActive && peptide && !isNasal(peptide) && (
-        <SharedVial batch={b} peptide={peptide} openVial={openVial} />
-      )}
-
-      <div className="mt-3 flex gap-2">
-        {canActivate && !isActive && (
-          <button onClick={onActivate} data-testid="activate-batch"
-            className="flex-1 rounded-full py-2 text-xs font-black"
-            style={{ background: 'var(--accent)', color: 'var(--accent-fg)' }}>
-            Activate this vial
-          </button>
-        )}
+      <div className="mt-2 flex justify-end">
         <button onClick={() => setConfirmDelete(true)} aria-label={`Delete the ${b.vialMg} mg batch`}
-          className="rounded-full px-3 py-2" style={{ background: 'var(--surface)', color: 'var(--danger)' }}>
+          className="rounded-full px-3 py-1" style={{ background: 'var(--surface)', color: 'var(--text-3)' }}>
           <Trash2 size={12} />
         </button>
       </div>
@@ -474,7 +555,7 @@ function SharedVial({ batch: b, peptide, openVial }) {
             <Plus size={12} /> Someone else draws from this vial
           </button>
           <p className="text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
-            Each person's "left" is how many more <em>they</em> could get out of it on their own — those
+            Each person's "left" is how many more <em>they</em> could get out of it on their own. Those
             counts overlap, because there is only one vial. The days figure is the one that empties it.
           </p>
         </div>
@@ -536,9 +617,9 @@ export function CoaButton({ batch: b }) {
   )
 }
 
-// -------------------------------------------------------------- adding stock
+// ------------------------------------------------------------- order arrived
 
-function AddBatchModal({ open, onClose }) {
+export function OrderArrivedSheet({ open, onClose, presetId = null }) {
   const peptides = useStore((s) => s.peptides)
   const addVial = useStore((s) => s.addVial)
   const [picked, setPicked] = useState(null)
@@ -567,6 +648,14 @@ function AddBatchModal({ open, onClose }) {
       (c) => c.name.toLowerCase().includes(q) || c.class.toLowerCase().includes(q) || c.id.includes(q)
     )
   }, [matrix, query])
+
+  // opened from a compound's own row: skip the picker
+  useEffect(() => {
+    if (!open || !presetId || picked || !matrix) return
+    const c = matrix.compounds.find((x) => x.id === presetId)
+    if (c) choose(c)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, presetId, matrix])
 
   const close = () => { setPicked(null); setDraft(null); setQuery(''); setCoa(null); onClose() }
 
@@ -631,7 +720,7 @@ function AddBatchModal({ open, onClose }) {
   }
 
   return (
-    <Modal open={open} onClose={close} title={picked ? `Add ${picked.name}` : 'Add stock'}
+    <Modal open={open} onClose={close} title={picked ? `Order arrived: ${picked.name}` : 'Order arrived'}
       pinned={picked ? null : (
         // pinned rather than scrolled with the results: typing is what makes
         // the list change, so the field that drives it has to stay on screen
@@ -645,7 +734,7 @@ function AddBatchModal({ open, onClose }) {
         <div className="space-y-3" data-testid="stock-picker">
           {loadFailed ? (
             <p className="py-6 text-center text-xs font-semibold" style={{ color: 'var(--warn)' }}>
-              Couldn't load the compound list — try again in a moment.
+              Could not load the compound list. Try again in a moment.
             </p>
           ) : !matrix ? (
             <p className="py-6 text-center text-xs font-semibold" style={{ color: 'var(--text-2)' }}>Loading compounds…</p>
@@ -687,7 +776,7 @@ function AddBatchModal({ open, onClose }) {
               <NumberField value={draft.vialMg} aria-label="Vial size in mg"
                 onChange={(v) => setVialMg(v ?? 0)} min={0} />
             </Field>
-            <Field label="How many">
+            <Field label="How many arrived">
               <NumberField value={draft.qtyOnHand} aria-label="How many vials" integer
                 onChange={(v) => setDraft({ ...draft, qtyOnHand: v ?? 0 })} min={0} />
             </Field>
@@ -703,8 +792,8 @@ function AddBatchModal({ open, onClose }) {
                 data-testid="batch-usd"
                 onChange={(v) => setDraft({ ...draft, usdPerVial: v > 0 ? v : null })} min={0} />
             </Field>
-            <Field label="Lot (optional)">
-              <input className="input" value={draft.lot} aria-label="Lot number"
+            <Field label="Batch (optional)">
+              <input className="input" value={draft.lot} aria-label="Batch"
                 onChange={(e) => setDraft({ ...draft, lot: e.target.value })} />
             </Field>
           </div>
@@ -712,6 +801,8 @@ function AddBatchModal({ open, onClose }) {
             <PickerField kind="date" label="Sealed expiry" value={draft.sealedExpiry || null} emptyText="None"
               testid="sealed-expiry" onChange={(v) => setDraft({ ...draft, sealedExpiry: v || '' })} />
           </Field>
+
+          <CostLine draft={draft} peptideId={picked.id} />
 
           <input ref={fileRef} type="file" accept="application/pdf,image/*" className="hidden"
             aria-label="COA file" onChange={(e) => setCoa(e.target.files?.[0] || null)} />
@@ -737,6 +828,96 @@ function AddBatchModal({ open, onClose }) {
         </div>
       )}
     </Modal>
+  )
+}
+
+
+// ------------------------------------------------------------ the weekly count
+
+/**
+ * One screen: each batch with how many sealed vials are expected, a tick to
+ * confirm it and plus and minus to correct it. "All correct" confirms the lot.
+ * Only a difference is written, with the reason "count check".
+ */
+export function CountCheck({ open, onClose }) {
+  const vials = useStore((s) => s.vials)
+  const peptides = useStore((s) => s.peptides)
+  const applyCountCheck = useStore((s) => s.applyCountCheck)
+  const skipCountCheck = useStore((s) => s.skipCountCheck)
+  const groups = useMemo(() => countRows(vials, peptides), [vials, peptides])
+  const [counts, setCounts] = useState({})
+  const [ticked, setTicked] = useState({})
+
+  const value = (b) => (b.id in counts ? counts[b.id] : b.expected)
+  const changed = groups.some((g) => g.batches.some((b) => value(b) !== b.expected))
+  const close = () => { setCounts({}); setTicked({}); onClose() }
+  const save = () => { applyCountCheck(counts); close() }
+  const skip = () => { skipCountCheck(); close() }
+
+  return (
+    <Modal open={open} onClose={close} title="Weekly count">
+      <div className="space-y-4 pb-2" data-testid="count-check">
+        <p className="text-xs leading-relaxed" style={{ color: 'var(--text-2)' }}>
+          Check the sealed vials against the shelf. Tick what is right, or change the number.
+        </p>
+        {groups.length === 0 && <p className="text-sm" style={{ color: 'var(--text-2)' }}>Nothing sealed to count.</p>}
+        {groups.map((g) => (
+          <section key={g.peptideId} className="space-y-2">
+            <h3 className="text-sm font-bold">{g.name}</h3>
+            {g.batches.map((b) => {
+              const n = value(b)
+              const ok = !!ticked[b.id] || n !== b.expected
+              return (
+                <div key={b.id} className="flex items-center gap-2 rounded-[14px] p-3" style={{ background: 'var(--surface-sunk)' }} data-testid="count-row">
+                  <button onClick={() => setTicked({ ...ticked, [b.id]: !ticked[b.id] })} aria-label={`Confirm ${g.name} ${b.vialMg} mg`}
+                    aria-pressed={ok} data-testid="count-tick"
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full"
+                    style={ok ? { background: 'var(--accent)', color: 'var(--accent-fg)' } : { background: 'var(--surface)', color: 'var(--text-3)' }}>
+                    <Check size={14} />
+                  </button>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold leading-tight tabular-nums">{b.vialMg} mg</p>
+                    <p className="text-xs leading-tight" style={{ color: 'var(--text-2)' }}>
+                      {b.lot ? `batch ${b.lot}` : b.vendor || 'Expected ' + b.expected}
+                    </p>
+                  </div>
+                  <button onClick={() => setCounts({ ...counts, [b.id]: Math.max(0, n - 1) })} aria-label="One fewer"
+                    className="flex h-7 w-7 items-center justify-center rounded-full" style={{ background: 'var(--surface)', color: 'var(--text-2)' }}>
+                    <Minus size={12} />
+                  </button>
+                  <span className="w-6 text-center text-sm font-black tabular-nums" data-testid="count-value">{n}</span>
+                  <button onClick={() => setCounts({ ...counts, [b.id]: n + 1 })} aria-label="One more"
+                    className="flex h-7 w-7 items-center justify-center rounded-full" style={{ background: 'var(--surface)', color: 'var(--text-2)' }}>
+                    <Plus size={12} />
+                  </button>
+                </div>
+              )
+            })}
+          </section>
+        ))}
+        <div className="flex gap-2">
+          <button onClick={skip} data-testid="count-skip" className="rounded-full px-5 py-3 text-sm font-black" style={GHOST}>Skip</button>
+          <button onClick={save} data-testid="count-all-correct" className="btn-primary flex-1 rounded-full py-3 text-sm font-black">
+            {changed ? 'Save counts' : 'All correct'}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+/** What the order costs per mg and per dose, from the price just typed. */
+function CostLine({ draft, peptideId }) {
+  const m = useMoney()
+  const doseMg = m.doseMgFor(peptideId)
+  const perVial = draft.usdPerVial
+  if (!(perVial > 0) || !(draft.vialMg > 0)) return null
+  const perMg = m.vial(perVial / draft.vialMg)
+  const perDose = doseMg > 0 ? m.dose(perVial, draft.vialMg, doseMg) : null
+  return (
+    <p className="text-xs tabular-nums" style={{ color: 'var(--text-2)' }} data-testid="order-cost">
+      {m.fmt(perMg)} per mg{perDose != null ? ` · ${m.fmt(perDose)} per dose` : ''}
+    </p>
   )
 }
 

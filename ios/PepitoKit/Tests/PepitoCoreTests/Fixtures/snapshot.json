@@ -26,7 +26,8 @@
           "groupId": null,
           "verb": "Log",
           "speech": "Log Retatrutide 3 milligrams",
-          "canPush": true
+          "canPush": true,
+          "vialAsk": false
         },
         {
           "id": "2026-10-20:peptide:bpc157",
@@ -43,7 +44,8 @@
           "groupId": "2026-10-20:AM:group:0",
           "verb": "Log",
           "speech": "Log BPC-157 250 micrograms",
-          "canPush": false
+          "canPush": false,
+          "vialAsk": false
         },
         {
           "id": "2026-10-20:peptide:tb500",
@@ -60,7 +62,8 @@
           "groupId": "2026-10-20:AM:group:0",
           "verb": "Log",
           "speech": "Log TB-500 2 milligrams",
-          "canPush": false
+          "canPush": false,
+          "vialAsk": false
         },
         {
           "id": "2026-10-20:peptide:semax",
@@ -77,7 +80,8 @@
           "groupId": null,
           "verb": "Log",
           "speech": "Log Semax 1 spray",
-          "canPush": false
+          "canPush": false,
+          "vialAsk": false
         },
         {
           "id": "2026-10-20:supplement:fish",
@@ -134,7 +138,8 @@
           "groupId": "2026-10-21:AM:group:0",
           "verb": "Log",
           "speech": "Log BPC-157 250 micrograms",
-          "canPush": false
+          "canPush": false,
+          "vialAsk": false
         },
         {
           "id": "2026-10-21:peptide:tb500",
@@ -151,7 +156,8 @@
           "groupId": "2026-10-21:AM:group:0",
           "verb": "Log",
           "speech": "Log TB-500 2 milligrams",
-          "canPush": false
+          "canPush": false,
+          "vialAsk": false
         },
         {
           "id": "2026-10-21:peptide:semax",
@@ -168,7 +174,8 @@
           "groupId": null,
           "verb": "Log",
           "speech": "Log Semax 1 spray",
-          "canPush": false
+          "canPush": false,
+          "vialAsk": false
         },
         {
           "id": "2026-10-21:peptide:epithalon",
@@ -185,7 +192,8 @@
           "groupId": null,
           "verb": "Log",
           "speech": "Log Epithalon 5 milligrams",
-          "canPush": false
+          "canPush": false,
+          "vialAsk": false
         },
         {
           "id": "2026-10-21:supplement:fish",
@@ -242,7 +250,8 @@
           "groupId": "2026-10-22:AM:group:0",
           "verb": "Log",
           "speech": "Log BPC-157 250 micrograms",
-          "canPush": false
+          "canPush": false,
+          "vialAsk": false
         },
         {
           "id": "2026-10-22:peptide:tb500",
@@ -259,7 +268,8 @@
           "groupId": "2026-10-22:AM:group:0",
           "verb": "Log",
           "speech": "Log TB-500 2 milligrams",
-          "canPush": false
+          "canPush": false,
+          "vialAsk": false
         },
         {
           "id": "2026-10-22:peptide:semax",
@@ -276,7 +286,8 @@
           "groupId": null,
           "verb": "Log",
           "speech": "Log Semax 1 spray",
-          "canPush": false
+          "canPush": false,
+          "vialAsk": false
         },
         {
           "id": "2026-10-22:peptide:epithalon",
@@ -293,7 +304,8 @@
           "groupId": null,
           "verb": "Log",
           "speech": "Log Epithalon 5 milligrams",
-          "canPush": false
+          "canPush": false,
+          "vialAsk": false
         },
         {
           "id": "2026-10-22:supplement:fish",
@@ -350,7 +362,8 @@
           "groupId": "2026-10-23:AM:group:0",
           "verb": "Log",
           "speech": "Log BPC-157 250 micrograms",
-          "canPush": false
+          "canPush": false,
+          "vialAsk": false
         },
         {
           "id": "2026-10-23:peptide:tb500",
@@ -367,7 +380,8 @@
           "groupId": "2026-10-23:AM:group:0",
           "verb": "Log",
           "speech": "Log TB-500 2 milligrams",
-          "canPush": false
+          "canPush": false,
+          "vialAsk": false
         },
         {
           "id": "2026-10-23:peptide:semax",
@@ -384,7 +398,8 @@
           "groupId": null,
           "verb": "Log",
           "speech": "Log Semax 1 spray",
-          "canPush": false
+          "canPush": false,
+          "vialAsk": false
         },
         {
           "id": "2026-10-23:peptide:epithalon",
@@ -401,7 +416,8 @@
           "groupId": null,
           "verb": "Log",
           "speech": "Log Epithalon 5 milligrams",
-          "canPush": false
+          "canPush": false,
+          "vialAsk": false
         },
         {
           "id": "2026-10-23:supplement:fish",
@@ -458,7 +474,8 @@
           "groupId": "2026-10-24:AM:group:0",
           "verb": "Log",
           "speech": "Log BPC-157 250 micrograms",
-          "canPush": false
+          "canPush": false,
+          "vialAsk": false
         },
         {
           "id": "2026-10-24:peptide:tb500",
@@ -475,7 +492,8 @@
           "groupId": "2026-10-24:AM:group:0",
           "verb": "Log",
           "speech": "Log TB-500 2 milligrams",
-          "canPush": false
+          "canPush": false,
+          "vialAsk": false
         },
         {
           "id": "2026-10-24:peptide:semax",
@@ -492,7 +510,8 @@
           "groupId": null,
           "verb": "Log",
           "speech": "Log Semax 1 spray",
-          "canPush": false
+          "canPush": false,
+          "vialAsk": false
         },
         {
           "id": "2026-10-24:peptide:epithalon",
@@ -509,7 +528,8 @@
           "groupId": null,
           "verb": "Log",
           "speech": "Log Epithalon 5 milligrams",
-          "canPush": false
+          "canPush": false,
+          "vialAsk": false
         },
         {
           "id": "2026-10-24:supplement:fish",
@@ -566,7 +586,8 @@
           "groupId": "2026-10-25:AM:group:0",
           "verb": "Log",
           "speech": "Log BPC-157 250 micrograms",
-          "canPush": false
+          "canPush": false,
+          "vialAsk": false
         },
         {
           "id": "2026-10-25:peptide:tb500",
@@ -583,7 +604,8 @@
           "groupId": "2026-10-25:AM:group:0",
           "verb": "Log",
           "speech": "Log TB-500 2 milligrams",
-          "canPush": false
+          "canPush": false,
+          "vialAsk": false
         },
         {
           "id": "2026-10-25:peptide:semax",
@@ -600,7 +622,8 @@
           "groupId": null,
           "verb": "Log",
           "speech": "Log Semax 1 spray",
-          "canPush": false
+          "canPush": false,
+          "vialAsk": false
         },
         {
           "id": "2026-10-25:peptide:epithalon",
@@ -617,7 +640,8 @@
           "groupId": null,
           "verb": "Log",
           "speech": "Log Epithalon 5 milligrams",
-          "canPush": false
+          "canPush": false,
+          "vialAsk": false
         },
         {
           "id": "2026-10-25:supplement:fish",
@@ -674,7 +698,8 @@
           "groupId": "2026-10-26:AM:group:0",
           "verb": "Log",
           "speech": "Log BPC-157 250 micrograms",
-          "canPush": false
+          "canPush": false,
+          "vialAsk": false
         },
         {
           "id": "2026-10-26:peptide:tb500",
@@ -691,7 +716,8 @@
           "groupId": "2026-10-26:AM:group:0",
           "verb": "Log",
           "speech": "Log TB-500 2 milligrams",
-          "canPush": false
+          "canPush": false,
+          "vialAsk": false
         },
         {
           "id": "2026-10-26:peptide:semax",
@@ -708,7 +734,8 @@
           "groupId": null,
           "verb": "Log",
           "speech": "Log Semax 1 spray",
-          "canPush": false
+          "canPush": false,
+          "vialAsk": false
         },
         {
           "id": "2026-10-26:peptide:epithalon",
@@ -725,7 +752,8 @@
           "groupId": null,
           "verb": "Log",
           "speech": "Log Epithalon 5 milligrams",
-          "canPush": false
+          "canPush": false,
+          "vialAsk": false
         },
         {
           "id": "2026-10-26:supplement:fish",
@@ -829,6 +857,10 @@
         ]
       }
     ]
+  },
+  "stock": {
+    "notices": [],
+    "outOfStock": []
   },
   "notifications": {
     "timeSensitive": true,

@@ -24,6 +24,13 @@ final class WatchStore: NSObject, ObservableObject {
     @Published private(set) var loggedAt: [String: Date] = [:]
     /// Something ticked here has not reached the iPhone yet.
     @Published private(set) var willSync = false
+    /// Ticks that left a vial about empty, each waiting for its answer.
+    @Published private(set) var vialQuestions: [VialQuestion] = []
+
+    struct VialQuestion: Identifiable, Equatable {
+        let id: String
+        let name: String
+    }
 
     private let store = SharedStore.shared()
     private var outbox = WatchOutbox()
@@ -106,7 +113,27 @@ final class WatchStore: NSObject, ObservableObject {
         case .group(let g, _): send(.log(group: g, source: .watch))
         case .single(let i): send(.log(i, date: row.date, source: .watch))
         }
+        askAboutVials(row.items)
     }
+
+    // MARK: - vials
+
+    /// After a tick: the question for each item whose vial it leaves about empty.
+    private func askAboutVials(_ items: [Snapshot.Item]) {
+        for i in items where i.kind == .peptide && i.vialAsk == true && !vialQuestions.contains(where: { $0.id == i.refId }) {
+            vialQuestions.append(VialQuestion(id: i.refId, name: i.name))
+        }
+    }
+
+    /// Yes starts a new vial, Still some left keeps this one. Either way it goes to the iPhone as a queued action.
+    func answerVial(_ q: VialQuestion, yes: Bool) {
+        vialQuestions.removeAll { $0.id == q.id }
+        send(PendingAction(type: .vialChange, source: .watch,
+                           payload: .init(kind: "change", refId: q.id, answer: yes ? "yes" : "still")))
+    }
+
+    /// Swiped away without answering: the iPhone asks instead.
+    func dismissVial(_ q: VialQuestion) { vialQuestions.removeAll { $0.id == q.id } }
 
     func skip(_ row: DoseBoard.Row) {
         send(row.items.filter { $0.status == .due }.map { .skip($0, date: row.date, source: .watch) })
@@ -122,6 +149,7 @@ final class WatchStore: NSObject, ObservableObject {
             case .single(let i): return .log(i, date: row.date, source: .watch)
             }
         })
+        askAboutVials(due.flatMap(\.items))
     }
 
     func logAllDue(now: Date = Date()) {
@@ -134,6 +162,7 @@ final class WatchStore: NSObject, ObservableObject {
             case .single(let i): return .log(i, date: row.date, source: .watch)
             }
         })
+        askAboutVials(due.rows.flatMap(\.items))
     }
 }
 

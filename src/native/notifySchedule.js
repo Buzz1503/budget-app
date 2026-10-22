@@ -13,7 +13,8 @@
 //   restart  the evening before a compound's next on-cycle stretch begins
 //            ("Epithalon restarts tomorrow"); goes where dose reminders go
 //   reaction one daily reminder to check an open reaction
-//   stock    one notification when an item first runs low (see stockAlerts)
+//   stock    order-by, fridge-life and weekly-count notices, and the question after a
+//            log that left a vial about empty (see stockNotices.js)
 //   sauna    at the session target time
 //
 // Logged, skipped and paused items are left out. A slot with nothing left in
@@ -23,7 +24,6 @@ import { dayPlan, slotRows, localDate, DEFAULT_SLOT_TIMES, REMIND_ON } from './s
 import { openReactions, dueForCheck } from '../lib/reactionCourse'
 import { restartsOn, restartWords } from '../lib/due'
 import { displayName } from '../lib/naming'
-import { lowStockItems } from '../lib/lowStock'
 
 export const SCHEDULE_DAYS = 7
 export const ID_PREFIX = 'pepito.sched.'
@@ -181,34 +181,4 @@ export function buildSchedule(state, { now = new Date(), verdictOf = null, watch
     }
   }
   return out
-}
-
-/**
- * Low stock: one notification when an item first drops to the run-out warning
- * (the same rule as the dot on More), and again only after it has been
- * restocked and run low again. `alerted` is the list remembered in the store.
- *
- * @returns {{ notify: Array<{ id, title, body, ... }>, alerted: string[] }}
- */
-export function stockAlerts(state, { now = new Date(), alerted = [] } = {}) {
-  const ns = { ...DEFAULT_NOTIFICATION_SETTINGS, ...(state.notificationSettings || {}) }
-  const low = lowStockItems({
-    peptides: state.peptides || [], titration: state.titration || {}, vials: state.vials || [],
-    restock: state.restock || {}, today: localDate(now),
-  }).filter((x) => x.kind === 'low')
-  const lowIds = new Set(low.map((x) => x.peptideId))
-  const before = new Set(alerted)
-  const fresh = low.filter((x) => !before.has(x.peptideId))
-  const notify = ns.stock ? fresh.map((x) => ({
-    id: `pepito.stock.${x.peptideId}.${localDate(now)}`,
-    title: 'Running low',
-    body: x.text,
-    fireAt: new Date(now.getTime() + 2000).toISOString(),
-    category: 'STOCK',
-    threadId: 'pepito.stock',
-    timeSensitive: false,
-    payload: { kind: 'stock', route: 'supplies' },
-  })) : []
-  // remember what is low now; anything restocked drops out and can alert again later
-  return { notify, alerted: [...lowIds].sort() }
 }

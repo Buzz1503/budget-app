@@ -38,7 +38,10 @@ import { captureFor, normaliseNeedle, coDrawInfo } from '../lib/injectionCapture
 import { lastNeedle, rememberNeedle } from '../lib/needle'
 import { DEFAULT_SAUNA_SETTINGS, newSession, sessionFromTimer, hhmmOf } from '../sauna/sauna'
 import { applyPendingActions } from '../native/actions'
-import { vialOnDate } from '../lib/backfill'
+import {
+  changeVial, vialChangeNeeded, hasOpenVial, remainingMg as openRemainingMg, expiryOf, migrateVialModel,
+  SNOOZE_ORDER_DAYS, recipeFor,
+} from '../lib/vials'
 import { DEFAULT_FX_USD_TO_AUD, referenceUsdPerVial } from '../lib/cost'
 
 export const todayStr = () => format(new Date(), 'yyyy-MM-dd')
@@ -72,7 +75,7 @@ function initialState() {
     doseLogs: [],
     knownGoodMixes: [...SEED_KNOWN_GOOD],
     titration: seedTitration(peptides, t),
-    openVials: seedOpenVials(peptides),
+    openVials: seedOpenVials(peptides, t, new Date().toISOString()),
     mixExplored: [], // codex: sorted-pair keys the user has revealed
     symptomLogs: [],
     measurements: [], // body-comp entries (structured; no blobs)
@@ -181,19 +184,30 @@ function initialState() {
       amTime: '07:00', pmTime: '20:00', nudgeDelayMin: 90,
       doses: true, nudges: true, timeSensitive: true,
       reactions: true, reactionTime: '19:00', stock: true, sauna: true,
+      countCheck: true, countTime: '18:00', // Sunday, once a week
       permissionAsked: false,
       remindOn: 'watch',                 // dose reminders on 'watch' | 'iphone' | 'both' (3C)
       restarts: true, restartTime: '19:00', // the evening before a cycled compound restarts
     },
     watchSettings: { countSaunaTowardMove: false },
     securitySettings: { faceIdLock: false, graceSec: 0 },
-    nativeState: { processedActionIds: [], stockAlerted: [], lastWatchSync: null },
+    nativeState: { processedActionIds: [], stockAlerted: [], lastWatchSync: null, ordersSent: {}, orderSnoozed: {}, countCheckOn: null },
     // Vials that have been used up. Kept as a record rather than deleted: it is
     // the only trace of how long a vial actually lasted.
     finishedVials: [],
     // Draws taken out of a shared vial by someone who is not on this protocol.
     // Deliberately not doseLogs: they move the vial, and nothing else.
     sharedDraws: [],
+    // Every hand change to what is on the shelf (a count check, a typo fixed,
+    // an order that arrived), with the reason. Kept so the shelf never changes
+    // without a trace.
+    stockAdjustments: [],
+    // What the v25 move to the open-vial model did, per compound.
+    stockMigration: null,
+    // Not persisted: the questions waiting to be answered (change the vial,
+    // thrown out?) and the change just made, for the recipe and its Undo.
+    vialPrompts: [],
+    lastVialChange: null,
     /**
      * How long each compound has been run, across stops and restarts.
      *
@@ -242,6 +256,316 @@ function initialState() {
 }
 
 let toastNonce = 0
+
+/**
+ * The v25 move onto the open-vial model, run after every earlier migration has
+ * brought the save up to the shape this one starts from. Nothing is deleted:
+ * sealed batches, finished vials, shared draws and dose logs are left exactly
+ * as they were; the open vial keeps what the screen said was left in it.
+ */
+function migrateStock(s) {
+  const t = todayStr()
+  const now = new Date()
+  const batches = (s.vials || []).map((v) => {
+    if (v.addedAt) return v
+    // batch ids carry the moment they were added, where they were made in the app
+    const ms = Number(String(v.id || '').split('-')[1])
+    return { ...v, addedAt: ms > 1e12 ? new Date(ms).toISOString() : null }
+  })
+  const moved = migrateVialModel({
+    peptides: s.peptides || [], openVials: s.openVials || {}, vials: batches, doseLogs: s.doseLogs || [], todayStr: t, now,
+  })
+  return {
+    ...s,
+    openVials: moved.openVials,
+    vials: moved.vials,
+    stockAdjustments: s.stockAdjustments || [],
+    stockMigration: { at: now.toISOString(), rows: moved.report },
+  }
+}
+
+function migrateBefore25(persisted, from) {
+  if (!persisted || from >= 23) return persisted
+  const s = { ...persisted }
+  const t = todayStr()
+  if (from < 22) {
+    // v21/v22: the Evolt history and the estimated starting scan. Scans
+    // already on record are left alone; an untimed copy of a scan is
+    // replaced by the timed import; a starting point chosen by hand stays.
+    const next = applyScanHistory(s.measurements || [], s.bodyStart, EVOLT_HISTORY)
+    s.measurements = next.measurements
+    s.bodyStart = next.bodyStart
+    // a target wake time outside 03:00 to 12:00 was stored by mistake
+    if (s.healthSettings?.wakeTarget && !validWakeTarget(s.healthSettings.wakeTarget)) {
+      s.healthSettings = { ...s.healthSettings, wakeTarget: null }
+    }
+  }
+  // v24 (stage 3B): notification, Watch and lock settings arrive with their
+  // defaults through merge; nothing stored changes.
+  if (from < 23) {
+    // the estimated starting entry moves from 13 Jan to 1 Jan 2025, then
+    // every entry is stamped with its family (Scale, Evolt or DEXA) and
+    // keeps the source it had. Values are untouched; nothing is deleted.
+    const moved = moveStartEntry(s.measurements || [], s.bodyStart)
+    s.bodyStart = moved.bodyStart
+    s.measurements = migrateSourceFamilies(moved.measurements).measurements
+  }
+  if (from < 20) {
+    // Idempotent: a topical already on the shelf is reused and a night
+    // that already has a log is left alone, so running this over a save
+    // that has partly done it adds only what is missing.
+    const next = backfillTopicals({
+      supplements: s.supplements || [], supplementLogs: s.supplementLogs || [],
+    }, t)
+    s.supplements = next.supplements
+    s.supplementLogs = next.supplementLogs
+    // Reactions grow a lifecycle and injections remember who shared the
+    // syringe. Past injections gain the co-draw fields from the dose they
+    // hang off; their needle stays unrecorded rather than guessed, and
+    // every reaction keeps the ratings it already had.
+    s.injectionRecords = (s.injectionRecords || []).map((r) => {
+      if (r.coDrawPeptideIds !== undefined) return r
+      const co = coDrawInfo(s.doseLogs || [], r.doseLogId)
+      return {
+        ...r,
+        coDraw: co.coDraw, coDrawId: co.coDrawId,
+        coDrawPeptideIds: co.peptideIds.length ? co.peptideIds : [r.peptideId].filter(Boolean),
+        needle: r.needle ?? null,
+      }
+    })
+  }
+  if (from < 19) {
+    // Only ever added, never replaced: a save that somehow already has an
+    // inventory keeps it. Nothing outside the three gear keys is touched,
+    // which is the whole point of keeping it a separate ledger.
+    s.gearItems = s.gearItems || seedGear()
+    s.gearSwaps = s.gearSwaps || []
+    s.gearOptions = s.gearOptions || {}
+  }
+  if (from < 18) {
+    // Codes and colours are added, never overwritten: a library edited by
+    // hand keeps whatever it was given.
+    s.peptides = withIdentity(s.peptides || [])
+    s.reactionSettings = {
+      ...(s.reactionSettings || {}),
+      windowDays: s.reactionSettings?.windowDays ?? DEFAULT_WINDOW_DAYS,
+    }
+  }
+  if (from < 17) {
+    // "Include map photo in backup" is meant to be off until somebody
+    // turns it on. Nothing but the switch could ever have set it, and the
+    // switch did not record that it had been used — so a `true` here
+    // cannot be shown to be the user's choice, and a full-body photograph
+    // is not a thing to leave in a backup file on the balance of doubt.
+    if (s.siteMap && !s.siteMap.includePhotoInBackupSetAt) {
+      s.siteMap = { ...s.siteMap, includePhotoInBackup: false }
+    }
+  }
+  if (from < 16) {
+    // Reaction Lab is gone. Its records are not: every injection is
+    // re-pinned to the nearest site on the photo map, every check-in is
+    // read as one of the four words, and every resolved date becomes a
+    // "Gone" date. Anything that had no site to re-pin to is kept with
+    // `needsPinning` set, so it can be placed by hand instead of being
+    // dropped — the one thing a migration must never do.
+    const { records, reactions, unmapped } = migrateReactionLab({
+      injectionRecords: s.injectionRecords || [],
+      reactions: s.reactions || [],
+      reactionCheckins: s.reactionCheckins || [],
+      reactionPhotos: s.reactionPhotos || [],
+    })
+    s.injectionRecords = records
+    s.reactions = reactions
+    s.safetyFlags = s.safetyFlags || []
+    s.siteMap = s.siteMap || {
+      photoKey: null, importedAt: null, pinOverrides: {}, includePhotoInBackup: false,
+    }
+    s.reactionSettings = {
+      checkTime: s.reactionSettings?.windowTimes?.evening || '20:00',
+      lastCheckAt: null,
+    }
+    if (unmapped.length) {
+      // eslint-disable-next-line no-console
+      console.warn(`[v16] ${unmapped.length} injection(s) had no site on the photo map and need pinning by hand:`, unmapped)
+    }
+    delete s.reactionCheckins
+    delete s.reactionPhotos
+    delete s.reactionTreatments
+    delete s.investigations
+    delete s.investigationSteps
+  }
+  if (from < 14) {
+    // A save written before pauses existed has none. The key is created
+    // so nothing downstream has to guard for it.
+    s.pauses = s.pauses || []
+  }
+  if (from < 13) {
+    // A save written before the Bloods tab existed has no results at all,
+    // so it gets the seed — the same import a fresh install gets. A save
+    // that somehow already has some keeps them untouched.
+    // Anything the save already said about markers is kept; only the
+    // results themselves are seeded, and only when there are none.
+    s.bloods = {
+      customMarkers: [],
+      rangeOverrides: {},
+      markerNotes: {},
+      retestIntervals: {},
+      ...(s.bloods || {}),
+      tests: s.bloods?.tests?.length ? s.bloods.tests : seedBloodTests(),
+    }
+  }
+  if (from < 12) {
+    // Nothing to backfill — a save written before pushes existed simply
+    // has none. The key is created so nothing downstream has to guard.
+    s.pushes = s.pushes || []
+  }
+  if (from < 11) {
+    // The app is dark only now. Nothing reads settings.theme any more, and
+    // a dead key would otherwise ride along in every backup from here on.
+    if (s.settings) {
+      const { theme, ...settings } = s.settings
+      s.settings = settings
+    }
+  }
+  if (from < 10) {
+    // Tenure needs a starting point and an open run for everything
+    // already on the protocol. The honest one is the schedule's own
+    // startDate — the first day the app believed a dose was due — and
+    // the user can move it backwards from there.
+    s.doseEvents = s.doseEvents || []
+    s.runs = s.runs || {}
+    for (const p of (s.peptides || [])) {
+      if (!p.startedOn) p.startedOn = p.startDate || t
+      if (!s.runs[p.id]?.length) {
+        s.runs[p.id] = [{ id: `run-${p.id}`, startedOn: p.startedOn, endedOn: null }]
+      }
+      // The rung standing now is the only dose history that was ever
+      // stored, so it becomes the first point on the line rather than
+      // the line starting empty for everyone who upgrades.
+      if (!s.doseEvents.some((e) => e.peptideId === p.id)) {
+        s.doseEvents.push({
+          id: `de-mig-${p.id}`, peptideId: p.id, kind: 'start', date: p.startedOn, at: null,
+          to: p.ladder?.floor ?? null, unit: p.ladder?.unit ?? null,
+        })
+      }
+    }
+    // Rotation is gone: the reaction log, the path mode and the per-
+    // compound zone described a feature that no longer exists, and a
+    // dead slice in storage is a dead slice in every future backup.
+    //
+    // The siteId already on a dose log is left exactly where it is. Those
+    // are records of things that happened, the app simply stops reading
+    // the field — deleting history to tidy up a removed feature would be
+    // the app editing the past to match its own present.
+    delete s.siteReactions
+    delete s.rotation
+    s.peptides = (s.peptides || []).map(({ allowedZone, ...p }) => p)
+  }
+  if (from < 9) {
+    // Money stops being stored in AUD. An existing costAud was entered at
+    // whatever rate was in force then, and nothing recorded what that was
+    // — so the default rate is the only honest divisor available, and the
+    // result is the figure that reproduces what the user already sees.
+    // A zero is dropped rather than carried across: it always meant
+    // "never filled in", and keeping it would read as "this was free" and
+    // block the reference price from ever standing in.
+    const fx = DEFAULT_FX_USD_TO_AUD
+    s.settings = { fx_usd_to_aud: fx, ...(s.settings || {}) }
+    s.sharedDraws = s.sharedDraws || []
+    s.vials = (s.vials || []).map((v) => {
+      const { costAud, ...rest } = v
+      const usd = rest.usdPerVial != null
+        ? rest.usdPerVial
+        : (costAud > 0 ? Math.round((costAud / fx) * 100) / 100 : null)
+      return { ...rest, usdPerVial: usd, drawProfiles: rest.drawProfiles || [] }
+    })
+    // The restock list kept its own per-unit AUD overrides. Same rule.
+    if (s.restock?.unitCosts) {
+      s.restock = {
+        ...s.restock,
+        unitCostsUsd: Object.fromEntries(
+          Object.entries(s.restock.unitCosts)
+            .filter(([, aud]) => aud > 0)
+            .map(([id, aud]) => [id, Math.round((aud / fx) * 100) / 100])
+        ),
+      }
+      delete s.restock.unitCosts
+    }
+  }
+  if (from < 8) {
+    // XP, levels, badges and streaks are gone. Dropping the slice rather
+    // than leaving it inert keeps a stale streak count out of every
+    // future backup file, and there is nothing here worth restoring: it
+    // only ever described how the app was used, never what was taken.
+    delete s.gamification
+    delete s.recapSeen
+    delete s.needleNotes
+  }
+  if (from < 7) {
+    s.finishedVials = s.finishedVials || []
+    // Existing rows are already one-batch-per-peptide; they just predate
+    // the extra fields. Nothing is restructured — the array always allowed
+    // several rows per peptide, there was simply no way to add them.
+    s.vials = (s.vials || []).map((v) => ({
+      sealedExpiry: '', coaKey: null, coaMeta: null, ...v,
+    }))
+    // The active vial gains the clock the "doses left" count reads from.
+    // Backdated to when it was reconstituted where that is known, so an
+    // existing part-used vial does not suddenly read as full.
+    s.openVials = Object.fromEntries(
+      Object.entries(s.openVials || {}).map(([id, o]) => [id, {
+        ...o,
+        vialMg: o?.vialMg ?? (s.peptides || []).find((p) => p.id === id)?.recon?.vialMg ?? null,
+        activatedAt: o?.activatedAt || (o?.reconstitutedAt ? `${o.reconstitutedAt}T00:00:00.000Z` : null),
+      }])
+    )
+  }
+  if (from < 6) s.skips = s.skips || []
+  if (from < 5) {
+    // The zone this step used to set is gone with rotation; the route
+    // change it also made is not, so that half stays.
+    s.peptides = (s.peptides || []).map((p) => (
+      p.id === TEST_E_ID && p.route === 'IM' ? { ...p, route: 'SubQ' } : p
+    ))
+  }
+  if (from < 4) {
+    // new slices, empty — nothing to convert, just present
+    s.supplements = s.supplements || []
+    s.supplementLogs = s.supplementLogs || []
+  }
+  if (from < 3) {
+    // v3: one reconstitution volume across the board. Only peptides still
+    // sitting on their original seeded value are moved — a volume the user
+    // chose themselves is theirs, and gets left alone.
+    s.peptides = (s.peptides || []).map((p) => {
+      const wasSeeded = LEGACY_BAC_ML[p.id]
+      if (!wasSeeded || p.recon?.bacMl !== wasSeeded) return p
+      return { ...p, recon: { ...p.recon, bacMl: DEFAULT_BAC_ML } }
+    })
+  }
+  if (from < 2) {
+    // v2: Semax and Selank can be switched to a nasal spray. The flag only
+    // offers the choice — the route itself stays whatever the user has.
+    s.peptides = (s.peptides || []).map((p) => (
+      ['semax', 'selank'].includes(p.id) ? { ...p, intranasalCapable: true } : p
+    ))
+  }
+  if (from >= 1) return s
+  if (!s.peptides?.some((p) => p.id === TEST_E_ID)) {
+    const te = testosteroneEnanthate(t)
+    s.peptides = [...(s.peptides || []), te]
+    s.titration = { ...(s.titration || {}), [TEST_E_ID]: { level: 0, levelStartDate: t } }
+    s.openVials = {
+      ...(s.openVials || {}),
+      [TEST_E_ID]: { remainingMg: te.recon.vialMg, reconstitutedAt: null },
+    }
+    s.vials = [...(s.vials || []), {
+      id: `vial-${TEST_E_ID}`, peptideId: TEST_E_ID, vialMg: te.recon.vialMg,
+      usdPerVial: null, vendor: '', lot: '', drawProfiles: [], qtyPurchased: 1, qtyOnHand: 1,
+    }]
+  }
+  return s
+}
 
 const useStore = create(
   persist(
@@ -365,7 +689,6 @@ const useStore = create(
         set((s) => ({
           peptides: [...s.peptides, peptide],
           titration: { ...s.titration, [id]: { level: 0, levelStartDate: t } },
-          openVials: { ...s.openVials, [id]: { remainingMg: peptide.recon.vialMg || 0, reconstitutedAt: null } },
         }))
         get()._openRun(id, peptide.startedOn)
         get()._recordDoseEvent(id, 'start', {
@@ -589,41 +912,19 @@ const useStore = create(
           loggedAt: loggedAt || new Date(`${t}T12:00:00`).toISOString(),
           coDrawId: coDrawId || null,
         }
-        const open = { ...(s.openVials[peptideId] || { remainingMg: 0, reconstitutedAt: null }) }
-        let vials = s.vials
-        // An unlinked item has no vial behind it: the dose is still recorded,
-        // because it was still taken, but there is nothing to draw it out of.
-        // Silently decrementing a vial that does not exist is how an inventory
-        // drifts away from the shelf it is supposed to describe.
+        // Nothing is taken out of a vial here. What is left in the open vial is
+        // worked out from the log (lib/vials), so this log is the whole record
+        // and deleting or editing it puts the drug back with no bookkeeping.
         //
         // A backfill onto a day that ran on a vial since finished passes
-        // movesStock: false for the same reason — that drug came out of a vial
-        // that is already gone, and taking it out of today's instead would make
-        // this vial read emptier than it is and move every date downstream.
+        // movesStock: false for the same reason: that drug came out of a vial
+        // that is already gone, so it must not count against the one now open.
         if (opts.movesStock === false) {
           log.drawnFrom = opts.drawnFrom || null
           log.movedStock = false
-        } else if (!open.unlinked) {
-          open.remainingMg = Math.round((open.remainingMg - doseMg) * 1e6) / 1e6
-          if (open.remainingMg <= 1e-9) {
-            const idx = vials.findIndex((v) => v.peptideId === peptideId && v.qtyOnHand > 0)
-            if (idx >= 0) {
-              vials = vials.map((v, i) => (i === idx ? { ...v, qtyOnHand: v.qtyOnHand - 1 } : v))
-              open.remainingMg = Math.round((open.remainingMg + s.vials[idx].vialMg) * 1e6) / 1e6
-              open.batchId = s.vials[idx].id
-              open.vialMg = s.vials[idx].vialMg
-              open.reconstitutedAt = t
-              open.activatedAt = new Date().toISOString()
-            } else {
-              open.remainingMg = Math.max(0, open.remainingMg)
-            }
-          }
         }
-        set((st) => ({
-          doseLogs: [...st.doseLogs, log],
-          vials,
-          openVials: { ...st.openVials, [peptideId]: open },
-        }))
+        set((st) => ({ doseLogs: [...st.doseLogs, log] }))
+        if (opts.prompt !== false) get()._queueVialPrompt(peptideId)
         return p
       },
 
@@ -637,11 +938,11 @@ const useStore = create(
        */
       backfillDose(peptideId, dateStr, { doseValue = null, coDrawId = null } = {}) {
         if (!peptideId || !dateStr) return null
-        const s = get()
-        const v = vialOnDate(peptideId, dateStr, { openVials: s.openVials, finishedVials: s.finishedVials })
+        // A dose from before the open vial was opened is dated before it, so it
+        // never counts against it: no special case needed here.
         const p = get()._recordDose(
           peptideId, new Date(`${dateStr}T12:00:00`).toISOString(), coDrawId, dateStr,
-          { doseValue, movesStock: v.movesStock, drawnFrom: v.batchId },
+          { doseValue, prompt: false },
         )
         if (!p) return null
         set((st) => ({
@@ -674,34 +975,21 @@ const useStore = create(
       /**
        * Correct a log that was recorded wrong.
        *
-       * Changing the dose moves the inventory by the difference rather than
-       * re-running the whole draw, so a correction of 0.1 mg costs the vial
-       * 0.1 mg — not a second full dose on top of the first.
+       * The open vial is worked out from the log, so changing the dose changes
+       * what is left by the difference with no further bookkeeping.
        */
       editLog(logId, patch = {}) {
         set((s) => {
           const log = s.doseLogs.find((l) => l.id === logId)
           if (!log) return {}
           const next = { ...log, ...patch, edited: true }
-          const openVials = { ...s.openVials }
-          const oldMg = toMg(log.doseValue, log.unit)
-          const newMg = toMg(next.doseValue, next.unit)
-          if (oldMg !== newMg && log.movedStock !== false) {
-            const open = { ...(openVials[log.peptideId] || { remainingMg: 0 }) }
-            if (!open.unlinked) {
-              open.remainingMg = Math.round((open.remainingMg + oldMg - newMg) * 1e6) / 1e6
-              openVials[log.peptideId] = open
-            }
-          }
           // a date change keeps loggedAt in step, so history sorts correctly
           if (patch.date && patch.date !== log.date) {
             next.loggedAt = new Date(`${patch.date}T12:00:00`).toISOString()
           }
-          return {
-            doseLogs: s.doseLogs.map((l) => (l.id === logId ? next : l)),
-            openVials,
-          }
+          return { doseLogs: s.doseLogs.map((l) => (l.id === logId ? next : l)) }
         })
+        get()._refreshVialPrompts()
       },
 
       // The ids just written to the log, newest batch first — what an Undo of
@@ -830,16 +1118,12 @@ const useStore = create(
           () => { for (const id of ids) get().undoLog(id) }
         )
       },
-      // Deleting a log puts the drug back in the vial it came out of — the dose
-      // never happened, so the inventory must not go on believing it did.
+      // Deleting a log puts the drug back in the open vial: what is left is
+      // worked out from the log, so the dose that never happened no longer counts.
       undoLog(logId) {
         set((s) => {
           const log = s.doseLogs.find((l) => l.id === logId)
           if (!log) return {}
-          const p = s.peptides.find((x) => x.id === log.peptideId)
-          const open = { ...(s.openVials[log.peptideId] || { remainingMg: 0 }) }
-          // a backfill that never moved the stock has nothing to give back
-          if (p && !open.unlinked && log.movedStock !== false) open.remainingMg += toMg(log.doseValue, log.unit)
           // the injection record hangs off the dose: undoing one that was never
           // rated leaves nothing behind. A record that has been rated is kept,
           // because somebody looked at that site and said what they saw.
@@ -847,12 +1131,12 @@ const useStore = create(
           const rated = rx && s.reactions.some((x) => x.injectionRecordId === rx.id)
           return {
             doseLogs: s.doseLogs.filter((l) => l.id !== logId),
-            openVials: { ...s.openVials, [log.peptideId]: open },
             injectionRecords: rx && !rated
               ? s.injectionRecords.filter((r) => r.id !== rx.id)
               : s.injectionRecords,
           }
         })
+        get()._refreshVialPrompts()
       },
 
       /**
@@ -1042,14 +1326,24 @@ const useStore = create(
       // a 10 mg from one vendor and a 20 mg from another are different things
       // to draw from, and one merged number would lose both facts.
       addVial(peptideId, data) {
+        const now = new Date()
         const vial = {
-          id: `vial-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+          id: `vial-${now.getTime()}-${Math.random().toString(36).slice(2, 5)}`,
           peptideId, vialMg: 10, usdPerVial: null, vendor: '', lot: '',
           sealedExpiry: '', coaKey: null,
           drawProfiles: [],
+          // the order the batches arrived in: the oldest is opened first
+          addedAt: now.toISOString(),
           qtyPurchased: 1, qtyOnHand: 1, ...data,
         }
-        set((s) => ({ vials: [...s.vials, vial] }))
+        set((s) => ({
+          vials: [...s.vials, vial],
+          stockAdjustments: [...(s.stockAdjustments || []), {
+            id: `sa-${now.getTime()}-${Math.random().toString(36).slice(2, 5)}`,
+            batchId: vial.id, peptideId, from: 0, to: vial.qtyOnHand, delta: vial.qtyOnHand,
+            reason: 'order arrived', at: now.toISOString(), date: todayStr(),
+          }],
+        }))
         return vial.id
       },
 
@@ -1106,33 +1400,13 @@ const useStore = create(
         const profile = (batch?.drawProfiles || []).find((d) => d.id === profileId)
         const doseMg = Number(profile?.doseMg)
         if (!(doseMg > 0)) return null
-
-        const next = { ...open }
-        let vials = s.vials
-        next.remainingMg = Math.round((next.remainingMg - doseMg) * 1e6) / 1e6
-        if (next.remainingMg <= 1e-9) {
-          const idx = vials.findIndex((v) => v.peptideId === peptideId && v.qtyOnHand > 0)
-          if (idx >= 0) {
-            vials = vials.map((v, i) => (i === idx ? { ...v, qtyOnHand: v.qtyOnHand - 1 } : v))
-            next.remainingMg = Math.round((next.remainingMg + s.vials[idx].vialMg) * 1e6) / 1e6
-            next.batchId = s.vials[idx].id
-            next.vialMg = s.vials[idx].vialMg
-            next.reconstitutedAt = todayStr()
-            next.activatedAt = new Date().toISOString()
-          } else {
-            next.remainingMg = Math.max(0, next.remainingMg)
-          }
-        }
         const draw = {
           id: `sd-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
           peptideId, profileId, label: profile.label || '', doseMg,
           date: todayStr(), at: new Date().toISOString(),
         }
-        set((st) => ({
-          openVials: { ...st.openVials, [peptideId]: next },
-          vials,
-          sharedDraws: [...(st.sharedDraws || []), draw],
-        }))
+        set((st) => ({ sharedDraws: [...(st.sharedDraws || []), draw] }))
+        get()._queueVialPrompt(peptideId)
         get().showToast(
           `${profile.label || 'Draw'} · ${doseMg} mg out of the vial`,
           () => get().undoSharedDraw(draw.id),
@@ -1140,31 +1414,30 @@ const useStore = create(
         return draw.id
       },
       undoSharedDraw(drawId) {
+        set((s) => ({ sharedDraws: (s.sharedDraws || []).filter((d) => d.id !== drawId) }))
+        get()._refreshVialPrompts()
+      },
+      /** Bought more, was given some, binned one: a signed nudge either way, with the reason kept. */
+      adjustVialQty(id, delta, reason = 'adjusted') {
+        const now = new Date()
         set((s) => {
-          const draw = (s.sharedDraws || []).find((d) => d.id === drawId)
-          if (!draw) return {}
-          const open = { ...(s.openVials[draw.peptideId] || { remainingMg: 0 }) }
-          if (!open.unlinked) open.remainingMg = Math.round((open.remainingMg + draw.doseMg) * 1e6) / 1e6
+          const v = s.vials.find((x) => x.id === id)
+          if (!v) return {}
+          const qtyOnHand = Math.max(0, (v.qtyOnHand || 0) + delta)
+          // buying more raises the purchased total too, so cost-per-mg stays
+          // honest; binning one does not un-buy it
+          const qtyPurchased = delta > 0
+            ? (v.qtyPurchased ?? v.qtyOnHand ?? 0) + delta
+            : (v.qtyPurchased ?? v.qtyOnHand ?? 0)
           return {
-            sharedDraws: s.sharedDraws.filter((d) => d.id !== drawId),
-            openVials: { ...s.openVials, [draw.peptideId]: open },
+            vials: s.vials.map((x) => (x.id === id ? { ...x, qtyOnHand, qtyPurchased } : x)),
+            stockAdjustments: [...(s.stockAdjustments || []), {
+              id: `sa-${now.getTime()}-${Math.random().toString(36).slice(2, 5)}`,
+              batchId: id, peptideId: v.peptideId, from: v.qtyOnHand || 0, to: qtyOnHand, delta: qtyOnHand - (v.qtyOnHand || 0),
+              reason, at: now.toISOString(), date: todayStr(),
+            }],
           }
         })
-      },
-      /** Bought more, was given some, binned one — a signed nudge either way. */
-      adjustVialQty(id, delta) {
-        set((s) => ({
-          vials: s.vials.map((v) => {
-            if (v.id !== id) return v
-            const qtyOnHand = Math.max(0, (v.qtyOnHand || 0) + delta)
-            // buying more raises the purchased total too, so cost-per-mg stays
-            // honest; binning one does not un-buy it
-            const qtyPurchased = delta > 0
-              ? (v.qtyPurchased ?? v.qtyOnHand ?? 0) + delta
-              : (v.qtyPurchased ?? v.qtyOnHand ?? 0)
-            return { ...v, qtyOnHand, qtyPurchased }
-          }),
-        }))
       },
       setBatchCoa(id, coaKey, coaMeta = null) {
         set((s) => ({
@@ -1173,84 +1446,22 @@ const useStore = create(
       },
 
       /**
-       * Pull one sealed vial out of a batch and make it the active vial.
-       *
-       * The library's dosing, ladder, cycle and water carry across untouched —
-       * only the vial size follows the batch, which is what makes the units
-       * recompute when a 10 mg is replaced by a 20 mg.
-       */
-      activateBatch(peptideId, batchId) {
-        const s = get()
-        const batch = s.vials.find((v) => v.id === batchId && v.peptideId === peptideId)
-        if (!batch || (batch.qtyOnHand || 0) <= 0) return false
-        const p = s.peptides.find((x) => x.id === peptideId)
-        if (!p) return false
-        const t = todayStr()
-        set({
-          vials: s.vials.map((v) => (v.id === batchId ? { ...v, qtyOnHand: v.qtyOnHand - 1 } : v)),
-          peptides: s.peptides.map((x) => (
-            x.id === peptideId ? { ...x, recon: { ...x.recon, vialMg: batch.vialMg } } : x
-          )),
-          openVials: {
-            ...s.openVials,
-            [peptideId]: {
-              remainingMg: batch.vialMg,
-              vialMg: batch.vialMg,
-              batchId,
-              vendor: batch.vendor || '',
-              lot: batch.lot || '',
-              reconstitutedAt: t,
-              // the clock the run-out figure reads from — only doses logged
-              // after this instant came out of this vial
-              activatedAt: new Date().toISOString(),
-              unlinked: false,
-            },
-          },
-        })
-        return true
-      },
-
-      /**
        * Break the link between a protocol item and any vial.
        *
        * "Not in stock" is a real, supportable state: the compound still
-       * schedules, still logs, still counts for adherence — it just has no vial
-       * behind it, so nothing is decremented and the screens say so out loud.
-       * The alternative (refusing to schedule what you have not bought) hides
-       * the very doses you most need reminding about.
+       * schedules, still logs, still counts for adherence. It just has no vial
+       * behind it, so nothing is counted down and nothing is asked. The
+       * alternative (refusing to schedule what you have not bought) hides the
+       * very doses you most need reminding about.
        */
       unlinkVial(peptideId) {
         set((s) => ({
           openVials: {
             ...s.openVials,
-            [peptideId]: { remainingMg: 0, vialMg: null, batchId: null, reconstitutedAt: null, activatedAt: null, unlinked: true },
+            [peptideId]: { peptideId, vialMg: null, batchId: null, reconstitutedAt: null, activatedAt: null, unlinked: true, adjustments: [] },
           },
+          vialPrompts: s.vialPrompts.filter((x) => x.peptideId !== peptideId),
         }))
-      },
-
-      /**
-       * The vial in use is done. Nothing else is decremented — finishing is not
-       * consuming, and picking a replacement is what takes one off the shelf.
-       */
-      finishVial(peptideId) {
-        const s = get()
-        const open = s.openVials[peptideId]
-        set({
-          openVials: {
-            ...s.openVials,
-            [peptideId]: { remainingMg: 0, vialMg: open?.vialMg ?? null, batchId: null, reconstitutedAt: null, activatedAt: null, finished: true },
-          },
-          finishedVials: [...(s.finishedVials || []), {
-            id: `fin-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
-            peptideId,
-            name: s.peptides.find((x) => x.id === peptideId)?.name || '',
-            vialMg: open?.vialMg ?? null,
-            batchId: open?.batchId || null,
-            activatedAt: open?.activatedAt || null,
-            finishedAt: new Date().toISOString(),
-            date: todayStr(),
-          }],
-        })
       },
       updateVial(id, patch) {
         set((s) => ({ vials: s.vials.map((v) => (v.id === id ? { ...v, ...patch } : v)) }))
@@ -1258,18 +1469,236 @@ const useStore = create(
       removeVial(id) {
         set((s) => ({ vials: s.vials.filter((v) => v.id !== id) }))
       },
-      reconstituteVial(peptideId) {
+
+      // ---------- the open vial ----------
+      // At most one open vial per compound. What is left in it is never stored:
+      // it is the total less every dose logged since it was opened (lib/vials).
+
+      /** The question to ask about a compound's vial right now, or null. */
+      _vialPromptFor(peptideId) {
         const s = get()
-        const p = s.peptides.find((x) => x.id === peptideId)
+        const peptide = s.peptides.find((x) => x.id === peptideId)
+        if (!peptide) return null
+        const r = vialChangeNeeded({
+          peptide, tState: s.titration[peptideId], open: s.openVials[peptideId], vials: s.vials,
+          doseLogs: s.doseLogs, sharedDraws: s.sharedDraws, todayStr: todayStr(), pushes: s.pushes, pauses: s.pauses,
+        })
+        if (!r.needed) return null
+        return {
+          id: `vp-change-${peptideId}`, kind: 'change', peptideId, name: peptide.name,
+          noOpen: !!r.noOpen, remainingMg: r.remainingMg, nextMg: r.nextMg, at: Date.now(),
+        }
+      },
+      /** Right after a log: ask once whether the vial should be changed. */
+      _queueVialPrompt(peptideId) {
+        const prompt = get()._vialPromptFor(peptideId)
+        if (!prompt) return null
+        set((s) => (s.vialPrompts.some((x) => x.id === prompt.id) ? {} : { vialPrompts: [...s.vialPrompts, prompt] }))
+        return prompt
+      },
+      /** Drop a question that no longer applies (the dose was undone, the vial was changed another way). */
+      _refreshVialPrompts() {
+        const s = get()
+        if (!s.vialPrompts.length) return
+        const t = todayStr()
+        const keep = s.vialPrompts.filter((pr) => {
+          if (pr.kind === 'expired') {
+            const p = s.peptides.find((x) => x.id === pr.peptideId)
+            return !!p && !!expiryOf(s.openVials[pr.peptideId], p, t)?.askNow
+          }
+          return !!get()._vialPromptFor(pr.peptideId)
+        })
+        if (keep.length !== s.vialPrompts.length) set({ vialPrompts: keep })
+      },
+      /** On open and once a day: the vials that have reached the end of their fridge life. */
+      checkVialExpiry() {
+        const s = get()
+        const t = todayStr()
+        const have = new Set(s.vialPrompts.map((x) => x.id))
+        const add = []
+        for (const p of s.peptides) {
+          if (!expiryOf(s.openVials[p.id], p, t)?.askNow) continue
+          const id = `vp-expired-${p.id}`
+          if (!have.has(id)) add.push({ id, kind: 'expired', peptideId: p.id, name: p.name, at: Date.now() })
+        }
+        if (add.length) set((st) => ({ vialPrompts: [...st.vialPrompts, ...add] }))
+        return add
+      },
+      dismissVialPrompt(id) {
+        set((s) => ({ vialPrompts: s.vialPrompts.filter((x) => x.id !== id) }))
+      },
+
+      /**
+       * Finish the open vial and open the next sealed one, oldest batch first.
+       *
+       * `reason`: 'empty' (it ran out), 'expired' (thrown out, what was left is
+       * recorded as waste) or 'manual'. With `openNext: false` the vial is only
+       * marked finished, for the odd case where the next one is opened later.
+       */
+      startNewVial(peptideId, { reason = 'empty', openNext = true } = {}) {
+        const s = get()
+        const peptide = s.peptides.find((x) => x.id === peptideId)
+        if (!peptide) return null
+        const open = s.openVials[peptideId]
+        if (open?.unlinked) return null
+        const now = new Date()
+        const t = todayStr()
+        const res = changeVial({
+          peptide, open, vials: s.vials, doseLogs: s.doseLogs, sharedDraws: s.sharedDraws, reason, openNext, now, todayStr: t,
+        })
+        const prev = { open: open ?? null, vials: s.vials, vialMg: peptide.recon?.vialMg ?? null, finishedId: res.finished?.id || null }
+        set((st) => ({
+          openVials: { ...st.openVials, [peptideId]: res.open },
+          vials: res.vials,
+          finishedVials: res.finished ? [...(st.finishedVials || []), res.finished] : st.finishedVials,
+          peptides: res.opened
+            ? st.peptides.map((x) => (x.id === peptideId ? { ...x, recon: { ...x.recon, vialMg: res.open.vialMg } } : x))
+            : st.peptides,
+          vialPrompts: st.vialPrompts.filter((x) => x.peptideId !== peptideId),
+          lastVialChange: {
+            peptideId, name: peptide.name, reason,
+            opened: res.opened, outOfStock: res.outOfStock, needsMixing: !!res.needsMixing,
+            overfillMg: res.finished?.overfillMg || 0, wasteMg: res.finished?.wasteMg || 0,
+            recipe: res.opened && res.needsMixing ? recipeFor(peptide, st.titration[peptideId], res.open.vialMg, t) : null,
+            at: now.getTime(), prev,
+          },
+        }))
+        return get().lastVialChange
+      },
+      /** Take back the change just made (offered for ten seconds). */
+      undoVialChange() {
+        const s = get()
+        const c = s.lastVialChange
+        if (!c) return false
+        set((st) => ({
+          openVials: c.prev.open ? { ...st.openVials, [c.peptideId]: c.prev.open } : st.openVials,
+          vials: c.prev.vials,
+          finishedVials: (st.finishedVials || []).filter((f) => f.id !== c.prev.finishedId),
+          peptides: st.peptides.map((x) => (x.id === c.peptideId && c.prev.vialMg != null ? { ...x, recon: { ...x.recon, vialMg: c.prev.vialMg } } : x)),
+          lastVialChange: null,
+        }))
+        get()._refreshVialPrompts()
+        return true
+      },
+      dismissVialChange() {
+        if (get().lastVialChange) set({ lastVialChange: null })
+      },
+      /**
+       * Answer a question. 'yes' starts a new vial. 'still' (the vial has some
+       * left) keeps it open and asks again at the next log; what it runs over by
+       * is recorded when it is finally finished. 'notyet' on a vial past its
+       * fridge life keeps it for now and does not ask again.
+       */
+      answerVialPrompt(id, answer) {
+        const s = get()
+        const pr = s.vialPrompts.find((x) => x.id === id)
+        if (!pr) return null
+        set({ vialPrompts: s.vialPrompts.filter((x) => x.id !== id) })
+        const open = s.openVials[pr.peptideId]
+        if (answer === 'yes') return get().startNewVial(pr.peptideId, { reason: pr.kind === 'expired' ? 'expired' : 'empty' })
+        if (pr.kind === 'expired') {
+          if (open) set((st) => ({ openVials: { ...st.openVials, [pr.peptideId]: { ...open, expiryAskedOn: todayStr() } } }))
+          return { kept: true }
+        }
+        if (open) {
+          set((st) => ({
+            openVials: {
+              ...st.openVials,
+              [pr.peptideId]: { ...open, stillSomeAt: [...(open.stillSomeAt || []), new Date().toISOString()] },
+            },
+          }))
+        }
+        return { kept: true }
+      },
+      /** The recipe was followed: the vial is mixed as of now. */
+      markVialMixed(peptideId) {
+        set((s) => {
+          const o = s.openVials[peptideId]
+          if (!o) return {}
+          return {
+            openVials: { ...s.openVials, [peptideId]: { ...o, reconstitutedAt: todayStr(), needsMixing: false } },
+            lastVialChange: s.lastVialChange?.peptideId === peptideId ? { ...s.lastVialChange, needsMixing: false, mixed: true } : s.lastVialChange,
+          }
+        })
+      },
+      /** Mark the open vial finished by hand (an edge case: the usual way is the question after a log). */
+      finishVial(peptideId) {
+        return get().startNewVial(peptideId, { reason: 'manual', openNext: false })
+      },
+      /** Set what is left by hand (a dose never logged, a spill). Kept as an adjustment with a reason. */
+      adjustOpenVial(peptideId, targetMg, reason = 'adjusted') {
+        const s = get()
+        const o = s.openVials[peptideId]
+        if (!hasOpenVial(o)) return false
+        const current = openRemainingMg(o, s.doseLogs, s.sharedDraws)
+        const delta = Math.round((Number(targetMg) - current) * 1e6) / 1e6
+        if (!isFinite(delta) || delta === 0) return false
         set((st) => ({
           openVials: {
             ...st.openVials,
             [peptideId]: {
-              remainingMg: st.openVials[peptideId]?.remainingMg ?? p?.recon.vialMg ?? 0,
-              reconstitutedAt: todayStr(),
+              ...o,
+              adjustments: [...(o.adjustments || []), { id: `adj-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`, mg: delta, reason, at: new Date().toISOString() }],
             },
           },
         }))
+        get()._refreshVialPrompts()
+        return true
+      },
+
+      // ---------- the weekly count ----------
+      /**
+       * Apply what was counted on the shelf: { batchId: sealed vials counted }.
+       * Only a difference is written, each with the reason "count check".
+       */
+      applyCountCheck(counts = {}) {
+        const now = new Date()
+        const t = todayStr()
+        const written = []
+        set((s) => {
+          const vials = s.vials.map((v) => {
+            if (!(v.id in counts)) return v
+            const to = Math.max(0, Math.round(Number(counts[v.id])))
+            const from = v.qtyOnHand || 0
+            if (!isFinite(to) || to === from) return v
+            written.push({
+              id: `sa-${now.getTime()}-${written.length}-${Math.random().toString(36).slice(2, 5)}`,
+              batchId: v.id, peptideId: v.peptideId, from, to, delta: to - from,
+              reason: 'count check', at: now.toISOString(), date: t,
+            })
+            return { ...v, qtyOnHand: to }
+          })
+          return {
+            vials,
+            stockAdjustments: [...(s.stockAdjustments || []), ...written],
+            nativeState: { ...s.nativeState, countCheckOn: t },
+          }
+        })
+        return written
+      },
+      /** Skipped: not asked again until next week. */
+      skipCountCheck() {
+        set((s) => ({ nativeState: { ...s.nativeState, countCheckOn: todayStr() } }))
+      },
+
+      // ---------- order notices ----------
+      snoozeOrder(peptideId) {
+        const until = addDaysStr(todayStr(), SNOOZE_ORDER_DAYS)
+        set((s) => ({ nativeState: { ...s.nativeState, orderSnoozed: { ...(s.nativeState.orderSnoozed || {}), [peptideId]: until } } }))
+        return until
+      },
+      /** Remember what order notices were delivered or scheduled, so none is sent twice. */
+      markOrdersSent(map = {}) {
+        set((s) => {
+          const sent = { ...(s.nativeState.ordersSent || {}) }
+          const snoozed = { ...(s.nativeState.orderSnoozed || {}) }
+          for (const [id, key] of Object.entries(map)) {
+            // a new order date starts afresh: an old snooze no longer applies to it
+            if (sent[id] !== key && snoozed[id] && snoozed[id] < todayStr()) delete snoozed[id]
+            sent[id] = key
+          }
+          return { nativeState: { ...s.nativeState, ordersSent: sent, orderSnoozed: snoozed } }
+        })
       },
 
       // ---------- mixing ----------
@@ -2020,6 +2449,23 @@ const useStore = create(
               done.forEach((pid, i) => get()._recordUnsited(pid, ids[i]))
               break
             }
+            case 'vialChange': {
+              const kind = o.kind === 'expired' ? 'expired' : 'change'
+              const id = `vp-${kind}-${o.peptideId}`
+              if (!get().vialPrompts.some((x) => x.id === id)) {
+                // answered from a notification or the Watch before the phone showed it:
+                // still only applies if the question still stands
+                const pr = kind === 'expired'
+                  ? get().checkVialExpiry().find((x) => x.id === id)
+                  : get()._queueVialPrompt(o.peptideId)
+                if (!pr) break
+              }
+              get().answerVialPrompt(id, o.answer)
+              break
+            }
+            case 'snoozeOrder':
+              get().snoozeOrder(o.peptideId)
+              break
             case 'takeSupplement':
               get().toggleSupplementTaken(o.supplementId, o.date, { quiet: true })
               break
@@ -2467,7 +2913,7 @@ const useStore = create(
     }),
     {
       name: 'peptide-command-center', // storage key is history — renaming it would orphan existing data
-      version: 24,
+      version: 25,
       storage: createJSONStorage(() => safeStorage),
       // Saves written before a release can't pick new library entries up from
       // the seed, so each version bump backfills them here — once. Deleting one
@@ -2497,289 +2943,11 @@ const useStore = create(
       //   v23: body sources are Scale, Evolt and DEXA (every entry stamped, none deleted);
       //        the estimated start moves to 1 Jan 2025
       migrate: (persisted, from) => {
-        if (!persisted || from >= 23) return persisted
-        const s = { ...persisted }
-        const t = todayStr()
-        if (from < 22) {
-          // v21/v22: the Evolt history and the estimated starting scan. Scans
-          // already on record are left alone; an untimed copy of a scan is
-          // replaced by the timed import; a starting point chosen by hand stays.
-          const next = applyScanHistory(s.measurements || [], s.bodyStart, EVOLT_HISTORY)
-          s.measurements = next.measurements
-          s.bodyStart = next.bodyStart
-          // a target wake time outside 03:00 to 12:00 was stored by mistake
-          if (s.healthSettings?.wakeTarget && !validWakeTarget(s.healthSettings.wakeTarget)) {
-            s.healthSettings = { ...s.healthSettings, wakeTarget: null }
-          }
-        }
-        // v24 (stage 3B): notification, Watch and lock settings arrive with their
-        // defaults through merge; nothing stored changes.
-        if (from < 23) {
-          // the estimated starting entry moves from 13 Jan to 1 Jan 2025, then
-          // every entry is stamped with its family (Scale, Evolt or DEXA) and
-          // keeps the source it had. Values are untouched; nothing is deleted.
-          const moved = moveStartEntry(s.measurements || [], s.bodyStart)
-          s.bodyStart = moved.bodyStart
-          s.measurements = migrateSourceFamilies(moved.measurements).measurements
-        }
-        if (from < 20) {
-          // Idempotent: a topical already on the shelf is reused and a night
-          // that already has a log is left alone, so running this over a save
-          // that has partly done it adds only what is missing.
-          const next = backfillTopicals({
-            supplements: s.supplements || [], supplementLogs: s.supplementLogs || [],
-          }, t)
-          s.supplements = next.supplements
-          s.supplementLogs = next.supplementLogs
-          // Reactions grow a lifecycle and injections remember who shared the
-          // syringe. Past injections gain the co-draw fields from the dose they
-          // hang off; their needle stays unrecorded rather than guessed, and
-          // every reaction keeps the ratings it already had.
-          s.injectionRecords = (s.injectionRecords || []).map((r) => {
-            if (r.coDrawPeptideIds !== undefined) return r
-            const co = coDrawInfo(s.doseLogs || [], r.doseLogId)
-            return {
-              ...r,
-              coDraw: co.coDraw, coDrawId: co.coDrawId,
-              coDrawPeptideIds: co.peptideIds.length ? co.peptideIds : [r.peptideId].filter(Boolean),
-              needle: r.needle ?? null,
-            }
-          })
-        }
-        if (from < 19) {
-          // Only ever added, never replaced: a save that somehow already has an
-          // inventory keeps it. Nothing outside the three gear keys is touched,
-          // which is the whole point of keeping it a separate ledger.
-          s.gearItems = s.gearItems || seedGear()
-          s.gearSwaps = s.gearSwaps || []
-          s.gearOptions = s.gearOptions || {}
-        }
-        if (from < 18) {
-          // Codes and colours are added, never overwritten: a library edited by
-          // hand keeps whatever it was given.
-          s.peptides = withIdentity(s.peptides || [])
-          s.reactionSettings = {
-            ...(s.reactionSettings || {}),
-            windowDays: s.reactionSettings?.windowDays ?? DEFAULT_WINDOW_DAYS,
-          }
-        }
-        if (from < 17) {
-          // "Include map photo in backup" is meant to be off until somebody
-          // turns it on. Nothing but the switch could ever have set it, and the
-          // switch did not record that it had been used — so a `true` here
-          // cannot be shown to be the user's choice, and a full-body photograph
-          // is not a thing to leave in a backup file on the balance of doubt.
-          if (s.siteMap && !s.siteMap.includePhotoInBackupSetAt) {
-            s.siteMap = { ...s.siteMap, includePhotoInBackup: false }
-          }
-        }
-        if (from < 16) {
-          // Reaction Lab is gone. Its records are not: every injection is
-          // re-pinned to the nearest site on the photo map, every check-in is
-          // read as one of the four words, and every resolved date becomes a
-          // "Gone" date. Anything that had no site to re-pin to is kept with
-          // `needsPinning` set, so it can be placed by hand instead of being
-          // dropped — the one thing a migration must never do.
-          const { records, reactions, unmapped } = migrateReactionLab({
-            injectionRecords: s.injectionRecords || [],
-            reactions: s.reactions || [],
-            reactionCheckins: s.reactionCheckins || [],
-            reactionPhotos: s.reactionPhotos || [],
-          })
-          s.injectionRecords = records
-          s.reactions = reactions
-          s.safetyFlags = s.safetyFlags || []
-          s.siteMap = s.siteMap || {
-            photoKey: null, importedAt: null, pinOverrides: {}, includePhotoInBackup: false,
-          }
-          s.reactionSettings = {
-            checkTime: s.reactionSettings?.windowTimes?.evening || '20:00',
-            lastCheckAt: null,
-          }
-          if (unmapped.length) {
-            // eslint-disable-next-line no-console
-            console.warn(`[v16] ${unmapped.length} injection(s) had no site on the photo map and need pinning by hand:`, unmapped)
-          }
-          delete s.reactionCheckins
-          delete s.reactionPhotos
-          delete s.reactionTreatments
-          delete s.investigations
-          delete s.investigationSteps
-        }
-        if (from < 14) {
-          // A save written before pauses existed has none. The key is created
-          // so nothing downstream has to guard for it.
-          s.pauses = s.pauses || []
-        }
-        if (from < 13) {
-          // A save written before the Bloods tab existed has no results at all,
-          // so it gets the seed — the same import a fresh install gets. A save
-          // that somehow already has some keeps them untouched.
-          // Anything the save already said about markers is kept; only the
-          // results themselves are seeded, and only when there are none.
-          s.bloods = {
-            customMarkers: [],
-            rangeOverrides: {},
-            markerNotes: {},
-            retestIntervals: {},
-            ...(s.bloods || {}),
-            tests: s.bloods?.tests?.length ? s.bloods.tests : seedBloodTests(),
-          }
-        }
-        if (from < 12) {
-          // Nothing to backfill — a save written before pushes existed simply
-          // has none. The key is created so nothing downstream has to guard.
-          s.pushes = s.pushes || []
-        }
-        if (from < 11) {
-          // The app is dark only now. Nothing reads settings.theme any more, and
-          // a dead key would otherwise ride along in every backup from here on.
-          if (s.settings) {
-            const { theme, ...settings } = s.settings
-            s.settings = settings
-          }
-        }
-        if (from < 10) {
-          // Tenure needs a starting point and an open run for everything
-          // already on the protocol. The honest one is the schedule's own
-          // startDate — the first day the app believed a dose was due — and
-          // the user can move it backwards from there.
-          s.doseEvents = s.doseEvents || []
-          s.runs = s.runs || {}
-          for (const p of (s.peptides || [])) {
-            if (!p.startedOn) p.startedOn = p.startDate || t
-            if (!s.runs[p.id]?.length) {
-              s.runs[p.id] = [{ id: `run-${p.id}`, startedOn: p.startedOn, endedOn: null }]
-            }
-            // The rung standing now is the only dose history that was ever
-            // stored, so it becomes the first point on the line rather than
-            // the line starting empty for everyone who upgrades.
-            if (!s.doseEvents.some((e) => e.peptideId === p.id)) {
-              s.doseEvents.push({
-                id: `de-mig-${p.id}`, peptideId: p.id, kind: 'start', date: p.startedOn, at: null,
-                to: p.ladder?.floor ?? null, unit: p.ladder?.unit ?? null,
-              })
-            }
-          }
-          // Rotation is gone: the reaction log, the path mode and the per-
-          // compound zone described a feature that no longer exists, and a
-          // dead slice in storage is a dead slice in every future backup.
-          //
-          // The siteId already on a dose log is left exactly where it is. Those
-          // are records of things that happened, the app simply stops reading
-          // the field — deleting history to tidy up a removed feature would be
-          // the app editing the past to match its own present.
-          delete s.siteReactions
-          delete s.rotation
-          s.peptides = (s.peptides || []).map(({ allowedZone, ...p }) => p)
-        }
-        if (from < 9) {
-          // Money stops being stored in AUD. An existing costAud was entered at
-          // whatever rate was in force then, and nothing recorded what that was
-          // — so the default rate is the only honest divisor available, and the
-          // result is the figure that reproduces what the user already sees.
-          // A zero is dropped rather than carried across: it always meant
-          // "never filled in", and keeping it would read as "this was free" and
-          // block the reference price from ever standing in.
-          const fx = DEFAULT_FX_USD_TO_AUD
-          s.settings = { fx_usd_to_aud: fx, ...(s.settings || {}) }
-          s.sharedDraws = s.sharedDraws || []
-          s.vials = (s.vials || []).map((v) => {
-            const { costAud, ...rest } = v
-            const usd = rest.usdPerVial != null
-              ? rest.usdPerVial
-              : (costAud > 0 ? Math.round((costAud / fx) * 100) / 100 : null)
-            return { ...rest, usdPerVial: usd, drawProfiles: rest.drawProfiles || [] }
-          })
-          // The restock list kept its own per-unit AUD overrides. Same rule.
-          if (s.restock?.unitCosts) {
-            s.restock = {
-              ...s.restock,
-              unitCostsUsd: Object.fromEntries(
-                Object.entries(s.restock.unitCosts)
-                  .filter(([, aud]) => aud > 0)
-                  .map(([id, aud]) => [id, Math.round((aud / fx) * 100) / 100])
-              ),
-            }
-            delete s.restock.unitCosts
-          }
-        }
-        if (from < 8) {
-          // XP, levels, badges and streaks are gone. Dropping the slice rather
-          // than leaving it inert keeps a stale streak count out of every
-          // future backup file, and there is nothing here worth restoring: it
-          // only ever described how the app was used, never what was taken.
-          delete s.gamification
-          delete s.recapSeen
-          delete s.needleNotes
-        }
-        if (from < 7) {
-          s.finishedVials = s.finishedVials || []
-          // Existing rows are already one-batch-per-peptide; they just predate
-          // the extra fields. Nothing is restructured — the array always allowed
-          // several rows per peptide, there was simply no way to add them.
-          s.vials = (s.vials || []).map((v) => ({
-            sealedExpiry: '', coaKey: null, coaMeta: null, ...v,
-          }))
-          // The active vial gains the clock the "doses left" count reads from.
-          // Backdated to when it was reconstituted where that is known, so an
-          // existing part-used vial does not suddenly read as full.
-          s.openVials = Object.fromEntries(
-            Object.entries(s.openVials || {}).map(([id, o]) => [id, {
-              ...o,
-              vialMg: o?.vialMg ?? (s.peptides || []).find((p) => p.id === id)?.recon?.vialMg ?? null,
-              activatedAt: o?.activatedAt || (o?.reconstitutedAt ? `${o.reconstitutedAt}T00:00:00.000Z` : null),
-            }])
-          )
-        }
-        if (from < 6) s.skips = s.skips || []
-        if (from < 5) {
-          // The zone this step used to set is gone with rotation; the route
-          // change it also made is not, so that half stays.
-          s.peptides = (s.peptides || []).map((p) => (
-            p.id === TEST_E_ID && p.route === 'IM' ? { ...p, route: 'SubQ' } : p
-          ))
-        }
-        if (from < 4) {
-          // new slices, empty — nothing to convert, just present
-          s.supplements = s.supplements || []
-          s.supplementLogs = s.supplementLogs || []
-        }
-        if (from < 3) {
-          // v3: one reconstitution volume across the board. Only peptides still
-          // sitting on their original seeded value are moved — a volume the user
-          // chose themselves is theirs, and gets left alone.
-          s.peptides = (s.peptides || []).map((p) => {
-            const wasSeeded = LEGACY_BAC_ML[p.id]
-            if (!wasSeeded || p.recon?.bacMl !== wasSeeded) return p
-            return { ...p, recon: { ...p.recon, bacMl: DEFAULT_BAC_ML } }
-          })
-        }
-        if (from < 2) {
-          // v2: Semax and Selank can be switched to a nasal spray. The flag only
-          // offers the choice — the route itself stays whatever the user has.
-          s.peptides = (s.peptides || []).map((p) => (
-            ['semax', 'selank'].includes(p.id) ? { ...p, intranasalCapable: true } : p
-          ))
-        }
-        if (from >= 1) return s
-        if (!s.peptides?.some((p) => p.id === TEST_E_ID)) {
-          const te = testosteroneEnanthate(t)
-          s.peptides = [...(s.peptides || []), te]
-          s.titration = { ...(s.titration || {}), [TEST_E_ID]: { level: 0, levelStartDate: t } }
-          s.openVials = {
-            ...(s.openVials || {}),
-            [TEST_E_ID]: { remainingMg: te.recon.vialMg, reconstitutedAt: null },
-          }
-          s.vials = [...(s.vials || []), {
-            id: `vial-${TEST_E_ID}`, peptideId: TEST_E_ID, vialMg: te.recon.vialMg,
-            usdPerVial: null, vendor: '', lot: '', drawProfiles: [], qtyPurchased: 1, qtyOnHand: 1,
-          }]
-        }
-        return s
+        const s = migrateBefore25(persisted, from)
+        return s && from < 25 ? migrateStock(s) : s
       },
       partialize: (s) => {
-        const { toast, ...rest } = s
+        const { toast, vialPrompts, lastVialChange, ...rest } = s
         return Object.fromEntries(Object.entries(rest).filter(([, v]) => typeof v !== 'function'))
       },
       // Older saves predate backupMeta and the reference attachment; fill both
@@ -2798,6 +2966,8 @@ const useStore = create(
         skips: persisted?.skips || current.skips,
         finishedVials: persisted?.finishedVials || current.finishedVials,
         sharedDraws: persisted?.sharedDraws || current.sharedDraws,
+        stockAdjustments: persisted?.stockAdjustments || current.stockAdjustments,
+        stockMigration: persisted?.stockMigration ?? current.stockMigration,
         doseEvents: persisted?.doseEvents || current.doseEvents,
         pushes: persisted?.pushes || current.pushes,
         pauses: persisted?.pauses || current.pauses,

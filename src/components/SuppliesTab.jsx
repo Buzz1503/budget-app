@@ -9,6 +9,7 @@ import useStore, { todayStr } from '../store/useStore'
 import { restockPlan, HORIZONS, DEFAULT_UNIT_COSTS_USD } from '../lib/restock'
 import { totalSpendUsd, vialsFor } from '../lib/inventory'
 import { useMoney } from '../lib/useMoney'
+import { useOpenVialsView } from '../lib/useStock'
 import { loadMatrix, LIB_TO_COMPOUND } from '../lib/mixMatrix'
 import { formatDose, round } from '../lib/calc'
 import CoachTip from './ui/CoachTip'
@@ -38,7 +39,7 @@ export default function SuppliesTab({ goTo }) {
   const peptides = useStore((s) => s.peptides)
   const titration = useStore((s) => s.titration)
   const vials = useStore((s) => s.vials)
-  const openVials = useStore((s) => s.openVials)
+  const openVials = useOpenVialsView()
   const restock = useStore((s) => s.restock)
   const settings = useStore((s) => s.settings)
   const leadDays = useStore((s) => s.settings.restockLeadDays)
@@ -73,9 +74,11 @@ export default function SuppliesTab({ goTo }) {
     <div className="space-y-3">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <h1 className="text-2xl font-black tracking-tight">Stock &amp; restock</h1>
+          <h1 className="text-2xl font-black tracking-tight">Stock</h1>
           <p className="text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
-            What you hold, and what to order for {plan.label.toLowerCase()} — through {plan.until}
+            {view === 'stock'
+              ? 'Open vials, sealed vials and when to order'
+              : `What to order for ${plan.label.toLowerCase()}, through ${plan.until}`}
           </p>
         </div>
         <span className="chip shrink-0 !py-2" style={{ color: 'var(--warn)' }}>
@@ -84,7 +87,7 @@ export default function SuppliesTab({ goTo }) {
       </div>
 
       <div className="flex rounded-full p-1" data-testid="stock-view" style={{ background: 'var(--surface-sunk)' }}>
-        {[['stock', 'Stock room'], ['restock', 'Restock list']].map(([id, label]) => (
+        {[['stock', 'Stock'], ['restock', 'Restock list']].map(([id, label]) => (
           <button key={id} onClick={() => setView(id)} aria-label={label}
             className="relative flex-1 rounded-full py-2 text-xs font-black">
             {view === id && (
@@ -264,7 +267,7 @@ function CompoundCard({ row, days, currency }) {
   const addVial = useStore((s) => s.addVial)
   const updateVial = useStore((s) => s.updateVial)
   const removeVial = useStore((s) => s.removeVial)
-  const reconstituteVial = useStore((s) => s.reconstituteVial)
+  const markVialMixed = useStore((s) => s.markVialMixed)
   const peptides = useStore((s) => s.peptides)
   const [expanded, setExpanded] = useState(false)
 
@@ -313,11 +316,11 @@ function CompoundCard({ row, days, currency }) {
           <Droplets size={12} /> Open vial: {round(row.openMg, 1)} mg — not reconstituted yet
         </p>
       )}
-      {!exp && !row.premixed && (
+      {!exp && !row.premixed && row.openMg > 0 && (
         <button className="mt-2 rounded-full px-3 py-2 text-xs font-bold"
-          style={{ background: 'var(--surface-sunk)', color: 'var(--good)' }}
-          onClick={() => reconstituteVial(row.peptideId)}>
-          Mark reconstituted today → starts {p?.recon?.expiryDays ?? 28}d fridge timer
+          style={{ background: 'var(--surface-sunk)', color: 'var(--text-2)' }}
+          onClick={() => markVialMixed(row.peptideId)}>
+          Mixed today (starts the {p?.recon?.expiryDays ?? 28} day fridge clock)
         </button>
       )}
 

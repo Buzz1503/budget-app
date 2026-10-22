@@ -121,6 +121,37 @@ struct DoneRow: View {
     }
 }
 
+/// Right after a tick that leaves a vial about empty: one question, two answers.
+/// Yes starts the next vial (the iPhone shows the mixing recipe); Still some left
+/// keeps this one open and asks again at the next log.
+public struct WatchVialQuestionContent: View {
+    let name: String
+    let onYes: () -> Void
+    let onStill: () -> Void
+
+    public init(name: String, onYes: @escaping () -> Void, onStill: @escaping () -> Void) {
+        self.name = name; self.onYes = onYes; self.onStill = onStill
+    }
+
+    public var body: some View {
+        VStack(alignment: .leading, spacing: PepitoTheme.Space.s12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(name).font(.system(size: 13, weight: .medium)).foregroundStyle(Pal.text2).lineLimit(1)
+                Text("This vial should be about empty. Start a new one?")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(Pal.text)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .accessibilityElement(children: .combine)
+            Button(action: onYes) { Text("Yes") }
+                .buttonStyle(WatchPrimaryButtonStyle())
+            Button(action: onStill) { Text("Still some left").lineLimit(1).minimumScaleFactor(0.85) }
+                .buttonStyle(WatchSecondaryButtonStyle())
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
 /// Everything in the slot is logged: a full-screen tick, "All logged" and the next slot.
 public struct WatchAllLoggedContent: View {
     let next: String?

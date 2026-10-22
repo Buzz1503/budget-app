@@ -1,6 +1,7 @@
 // Seed data — editable anecdotal starting points, not medical advice.
 import { format } from 'date-fns'
 import { referenceUsdPerVial } from '../lib/cost'
+import { isPremixed, isNasal } from '../lib/calc'
 
 const wk = (n) => n * 7
 
@@ -173,14 +174,25 @@ export function seedDoseEvents(peptides, todayStr) {
 }
 
 // One open vial per peptide, not yet reconstituted (expiry timer starts on reconstitution).
-export function seedOpenVials(peptides) {
+export function seedOpenVials(peptides, todayStr, nowIso) {
+  // One vial open per compound, full, from the first batch on the shelf. What is
+  // left in it is never stored: it is the total less the doses logged since
+  // `activatedAt` (lib/vials). A premixed or nasal form has nothing to mix, so
+  // it is dated from today; the rest are mixed on the day it is first used.
   const o = {}
-  // `activatedAt` is null until a vial is actually put into use — the "doses
-  // left" count reads from it, and a vial nobody has opened has drawn nothing.
   for (const p of peptides) {
+    const noMix = isPremixed(p) || isNasal(p)
     o[p.id] = {
-      remainingMg: p.recon.vialMg, vialMg: p.recon.vialMg,
-      batchId: null, reconstitutedAt: null, activatedAt: null,
+      id: `open-${p.id}`,
+      peptideId: p.id,
+      batchId: `vial-${p.id}`,
+      vialMg: p.recon.vialMg,
+      volumeMl: noMix ? null : (p.recon.bacMl || null),
+      reconstitutedAt: noMix ? todayStr : null,
+      activatedAt: nowIso,
+      lot: '', vendor: '',
+      adjustments: [],
+      expiryAskedOn: null,
     }
   }
   return o

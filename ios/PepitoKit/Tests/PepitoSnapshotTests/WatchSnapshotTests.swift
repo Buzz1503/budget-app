@@ -149,6 +149,10 @@ final class WatchSnapshotTests: XCTestCase {
             WatchMessageContent(symbol: "iphone", title: "Open Pepito+ on your iPhone", detail: "Your doses appear here after that.")
         }
 
+        shoot("doses-vial-question", BG.doses, chrome: .child("Doses"), aodToo: false) {
+            WatchVialQuestionContent(name: "Retatrutide", onYes: {}, onStill: {})
+        }
+
         // Sauna: start, warning, target picker
         shoot("sauna-start", BG.sauna, chrome: .child("Sauna")) {
             WatchSaunaStartContent(tempC: 55, targetMin: 20, onStart: {}, onTarget: {})

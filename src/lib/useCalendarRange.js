@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useOpenVialsView } from './useStock'
 import useStore, { todayStr } from '../store/useStore'
 import { buildCalendar } from './calendarView'
 import { loadMatrix, LIB_TO_COMPOUND } from './mixMatrix'
@@ -30,7 +31,7 @@ export function useCalendarRange(from, to) {
   const peptides = useStore((s) => s.peptides)
   const titration = useStore((s) => s.titration)
   const doseLogs = useStore((s) => s.doseLogs)
-  const openVials = useStore((s) => s.openVials)
+  const openVials = useOpenVialsView()
   const vials = useStore((s) => s.vials)
   const restock = useStore((s) => s.restock)
   const supplements = useStore((s) => s.supplements)

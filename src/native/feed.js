@@ -9,5 +9,7 @@ export const useNativeFeed = create((set) => ({
   maxHR: null,
   // a screen a notification tap asked for; App opens it and clears it
   route: null,
+  // the weekly count was asked for by a notification: the Stock screen opens it and clears this
+  openCount: false,
   setHealth: (patch) => set(patch),
 }))

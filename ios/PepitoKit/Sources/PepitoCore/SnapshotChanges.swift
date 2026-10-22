@@ -33,7 +33,8 @@ public extension Snapshot {
             if let d = days.firstIndex(where: { $0.date == date }) {
                 days[d].items.removeAll { $0.kind == .peptide && refs.contains($0.refId) && $0.status == .due }
             }
-        case .snoozeDose:
+        case .snoozeDose, .vialChange, .snoozeOrder:
+            // nothing on screen changes until the phone applies it and writes the snapshot again
             break
         case .startSauna:
             if sauna.active == nil {

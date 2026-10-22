@@ -20,6 +20,9 @@ import { canPush } from '../lib/pushes'
 import { isDue, restartsOn } from '../lib/due'
 import { isPausedOn, activePause, reasonWords, pauseEnd } from '../lib/pauses'
 import { weekSummary, usualFor } from '../sauna/sauna'
+import { toMg } from '../lib/calc'
+import { vialAskAfter, isOutOfStock } from '../lib/vials'
+import { stockNotices } from './stockNotices'
 
 export const SNAPSHOT_SCHEMA = 1
 /**
@@ -61,7 +64,7 @@ export function spokenAction(verb, name, dose) {
  * each with its status. A dose the protocol is paused for is left out: it is
  * not owed.
  */
-function itemsFor(state, date) {
+function itemsFor(state, date, askOn = null) {
   const { peptides = [], titration = {}, doseLogs = [], pushes = [], pauses = [], skips = [], supplements = [], supplementLogs = [] } = state
   const logged = new Set(doseLogs.filter((l) => l.date === date).map((l) => l.peptideId))
   const skipped = new Set(skips.filter((k) => k.kind === 'peptide' && k.date === date).map((k) => k.peptideId))
@@ -76,6 +79,11 @@ function itemsFor(state, date) {
     const units = nasal ? null : unitsFor(p, dose)
     const name = displayName(p)
     const doseText = doseWords(p, dose)
+    // logging this today would leave the vial about empty: the Watch asks right after the tick
+    const vialAsk = date === askOn && !logged.has(p.id) && vialAskAfter({
+      peptide: p, tState: titration[p.id], open: state.openVials?.[p.id], vials: state.vials || [], doseLogs, sharedDraws: state.sharedDraws || [],
+      todayStr: date, doseMg: toMg(dose, p.ladder.unit), pushes, pauses,
+    })
     const unitsText = units == null || !isFinite(units) ? null : formatUnitsLong(units)
     out.push({
       id: `${date}:peptide:${p.id}`,
@@ -93,6 +101,7 @@ function itemsFor(state, date) {
       verb: 'Log',
       speech: spokenAction('Log', p.name, doseText),
       canPush: canPush(p),
+      vialAsk: !!vialAsk,
       separate: !!p.alwaysSeparate || nasal || TESTOSTERONE.test(p.name || ''),
       ml: units == null ? null : units / 100,
     })
@@ -158,8 +167,8 @@ function groupsFor(items, date, slot, verdictOf) {
 }
 
 /** One day's items and draw-together groups, as every surface shows them. */
-export function dayPlan(state, date, verdictOf = null) {
-  const items = itemsFor(state, date)
+export function dayPlan(state, date, verdictOf = null, askOn = null) {
+  const items = itemsFor(state, date, askOn)
   const groups = [...groupsFor(items, date, 'AM', verdictOf), ...groupsFor(items, date, 'PM', verdictOf)]
   for (const g of groups) for (const id of g.itemIds) items.find((x) => x.id === id).groupId = g.id
   return { date, items: items.map(({ separate: _separate, ml: _ml, ...rest }) => rest), groups }
@@ -242,6 +251,18 @@ export function restartsAhead(state, today) {
   return out
 }
 
+/** Order-by, fridge-life and weekly-count notices for the days ahead, and the compounds that are out. */
+function stockSection(state, now) {
+  const ahead = stockNotices(state, { now }).notices.filter((n) => !n.immediate)
+  const outOfStock = (state.peptides || [])
+    .filter((p) => isOutOfStock(state.openVials?.[p.id], state.vials || [], p.id))
+    .map((p) => displayName(p))
+  return {
+    notices: ahead.map((n) => ({ id: n.id, title: n.title, body: n.body, fireAt: n.fireAt, category: n.category, threadId: n.threadId, payload: n.payload })),
+    outOfStock,
+  }
+}
+
 /**
  * The snapshot.
  *
@@ -256,7 +277,7 @@ export function buildSnapshot(state, { now = new Date(), verdictOf = null, readi
   const ns = state.notificationSettings || {}
   const slotTimes = { AM: ns.amTime || DEFAULT_SLOT_TIMES.AM, PM: ns.pmTime || DEFAULT_SLOT_TIMES.PM }
   const days = []
-  for (let i = 0; i < SNAPSHOT_DAYS; i++) days.push(dayPlan(state, addDaysStr(today, i), verdictOf))
+  for (let i = 0; i < SNAPSHOT_DAYS; i++) days.push(dayPlan(state, addDaysStr(today, i), verdictOf, today))
   const pause = activePause(state.pauses || [], today)
   const sessions = state.saunaSessions || []
   const saunaSettings = state.saunaSettings || {}
@@ -290,6 +311,8 @@ export function buildSnapshot(state, { now = new Date(), verdictOf = null, readi
     // Compounds that begin a new on-cycle stretch in the days ahead. The Watch
     // plans the evening-before reminder from this, the same as the iPhone does.
     cycles: { restarts: restartsAhead(state, today) },
+    // Stock notices still ahead (the Watch plans them with the rest) and who is out.
+    stock: stockSection(state, now),
     notifications: {
       timeSensitive: ns.timeSensitive !== false,
       restarts: ns.restarts !== false,

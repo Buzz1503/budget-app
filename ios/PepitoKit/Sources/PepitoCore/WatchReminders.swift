@@ -96,7 +96,19 @@ public enum WatchReminders {
             }
         }
         out += restartReminders(snap, now: now, calendar: calendar)
+        out += stockReminders(snap, now: now)
         return out
+    }
+
+    /// Order-by, fridge-life and weekly-count notices still ahead. The iPhone builds
+    /// them (src/native/stockNotices.js) and puts the same entries in the snapshot, so
+    /// the ids match and with Both the wrist shows one of each.
+    static func stockReminders(_ snap: Snapshot, now: Date) -> [Reminder] {
+        (snap.stock?.notices ?? []).compactMap { n in
+            guard let fire = n.fireDate, fire > now else { return nil }
+            return Reminder(id: n.id, title: n.title, body: n.body, fireDate: fire, category: n.category,
+                            threadId: n.threadId ?? "pepito.stock", timeSensitive: false, payload: n.payload)
+        }
     }
 
     /// "Epithalon restarts tomorrow", "Epithalon and KPV restart tomorrow", "A, B and C restart tomorrow".

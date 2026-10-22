@@ -1,6 +1,7 @@
 // Queued native actions run through the same store logic as an in-app tap.
 import 'fake-indexeddb/auto'
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest'
+import { remainingMg } from '../lib/vials'
 
 const mem = new Map()
 globalThis.localStorage = {
@@ -32,7 +33,12 @@ beforeEach(() => {
     skips: [],
     pushes: [],
     vials: [],
-    openVials: { reta: { remainingMg: 20 }, bpc157: { remainingMg: 5 } },
+    openVials: {
+      reta: { peptideId: 'reta', vialMg: 20, activatedAt: '2026-01-01T00:00:00.000Z', adjustments: [] },
+      bpc157: { peptideId: 'bpc157', vialMg: 5, activatedAt: '2026-01-01T00:00:00.000Z', adjustments: [] },
+    },
+    sharedDraws: [],
+    vialPrompts: [],
     saunaSessions: [],
     saunaTimer: null,
     nativeState: { processedActionIds: [], stockAlerted: [], lastWatchSync: null },
@@ -47,7 +53,7 @@ describe('applyNativeActions', () => {
     const s = useStore.getState()
     expect(s.doseLogs).toHaveLength(1)
     expect(s.doseLogs[0]).toMatchObject({ peptideId: 'reta', date: t, doseValue: 3, insulinUnits: 30, loggedAt: a.at })
-    expect(s.openVials.reta.remainingMg).toBe(17)
+    expect(remainingMg(s.openVials.reta, s.doseLogs, s.sharedDraws)).toBe(17)
     // the same queue drained again (an app relaunch) changes nothing
     useStore.getState().applyNativeActions([a])
     expect(useStore.getState().doseLogs).toHaveLength(1)

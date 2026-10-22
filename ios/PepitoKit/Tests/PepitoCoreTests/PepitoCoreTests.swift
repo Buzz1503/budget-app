@@ -481,3 +481,107 @@ final class WatchOutboxTests: XCTestCase {
         XCTAssertTrue(box.actions.isEmpty)
     }
 }
+
+/// Stock tracking: the question after a log, the order-by notice and the weekly
+/// count, from a notification, the Watch or the snapshot.
+final class StockNativeTests: XCTestCase {
+    let vial = NotificationPayload(kind: "vial", route: "supplies", refId: "reta", vialKind: "change")
+
+    func testTheQuestionAfterALogHasYesAndStillSomeLeft() {
+        let cats = Dictionary(uniqueKeysWithValues: NotificationAction.categories.map { ($0.0, $0.1.map(\.1)) })
+        XCTAssertEqual(cats["VIAL_CHANGE"], ["Yes", "Still some left"])
+        XCTAssertEqual(cats["VIAL_EXPIRED"], ["Yes", "Not yet"])
+        XCTAssertEqual(cats["ORDER"], ["Remind me in 3 days", "Open Stock"])
+        XCTAssertEqual(cats["COUNT"], ["Count now"])
+        // the same on the wrist
+        let watch = Dictionary(uniqueKeysWithValues: NotificationAction.watchCategories.map { ($0.0, $0.1.map(\.1)) })
+        XCTAssertEqual(watch["VIAL_CHANGE"], ["Yes", "Still some left"])
+    }
+
+    func testEachAnswerIsAQueuedAction() throws {
+        let yes = try XCTUnwrap(NotificationAction.actions(for: NotificationAction.vialYes, payload: vial).first)
+        XCTAssertEqual(yes.type, .vialChange)
+        XCTAssertEqual(yes.payload.refId, "reta")
+        XCTAssertEqual(yes.payload.answer, "yes")
+        XCTAssertEqual(yes.payload.kind, "change")
+        XCTAssertEqual(yes.source, .notification)
+        XCTAssertEqual(NotificationAction.actions(for: NotificationAction.vialStill, payload: vial).first?.payload.answer, "still")
+        var expired = vial; expired.vialKind = "expired"
+        let notYet = try XCTUnwrap(NotificationAction.actions(for: NotificationAction.vialNotYet, payload: expired).first)
+        XCTAssertEqual(notYet.payload.answer, "notyet")
+        XCTAssertEqual(notYet.payload.kind, "expired")
+    }
+
+    func testRemindMeInThreeDaysIsAnAction() throws {
+        let order = NotificationPayload(kind: "order", route: "supplies", refId: "reta")
+        let a = try XCTUnwrap(NotificationAction.actions(for: NotificationAction.orderSnooze, payload: order).first)
+        XCTAssertEqual(a.type, .snoozeOrder)
+        XCTAssertEqual(a.payload.refId, "reta")
+        // a stock button on the wrong kind of notification does nothing
+        XCTAssertTrue(NotificationAction.actions(for: NotificationAction.vialYes, payload: order).isEmpty)
+    }
+
+    func testTheAnswerIsJSONTheWebLayerReads() throws {
+        let a = PendingAction(type: .vialChange, source: .watch, payload: .init(kind: "change", refId: "reta", answer: "yes"))
+        let data = try JSONEncoder().encode(a)
+        let obj = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertEqual(obj["type"] as? String, "vialChange")
+        let p = try XCTUnwrap(obj["payload"] as? [String: Any])
+        XCTAssertEqual(p["answer"] as? String, "yes")
+        XCTAssertEqual(p["refId"] as? String, "reta")
+        XCTAssertEqual(try JSONDecoder().decode(PendingAction.self, from: data), a)
+    }
+
+    func testAnAnswerChangesNothingOnScreenUntilThePhoneApplysIt() throws {
+        var s = try fixture()
+        let before = s.days
+        s.apply(PendingAction(type: .vialChange, source: .watch, payload: .init(kind: "change", refId: "reta", answer: "yes")))
+        s.apply(PendingAction(type: .snoozeOrder, source: .notification, payload: .init(refId: "reta")))
+        XCTAssertEqual(s.days, before)
+    }
+
+    func testTheSnapshotCarriesWhichTickLeavesAVialAboutEmpty() throws {
+        let s = try fixture()
+        let reta = try XCTUnwrap(s.days[0].items.first { $0.refId == "reta" })
+        XCTAssertEqual(reta.vialAsk, false)
+        var asked = reta
+        asked.vialAsk = true
+        let data = try JSONEncoder().encode(asked)
+        XCTAssertEqual(try JSONDecoder().decode(Snapshot.Item.self, from: data).vialAsk, true)
+    }
+
+    func notice(_ id: String, at fire: String) -> Snapshot.Notice {
+        Snapshot.Notice(id: id, title: "Order by date", body: "Order Retatrutide by 3 Nov, runs out 17 Nov", fireAt: fire,
+                        category: "ORDER", threadId: "pepito.stock",
+                        payload: NotificationPayload(kind: "order", route: "supplies", refId: "reta"))
+    }
+
+    func testTheWatchPlansTheStockNoticesTheSnapshotCarries() throws {
+        var s = try fixture()
+        s.stock = Snapshot.Stock(notices: [
+            notice("pepito.sched.order.reta.2026-11-03", at: "2026-11-03T09:00:00.000Z"),
+            notice("pepito.sched.order.reta.2026-10-01", at: "2026-10-01T09:00:00.000Z"),
+        ], outOfStock: ["Retatrutide"])
+        let now = ISO8601DateFormatter().date(from: "2026-10-20T08:00:00Z")!
+        let plan = WatchReminders.plan(s, now: now)
+        let stock = plan.filter { $0.category == "ORDER" }
+        XCTAssertEqual(stock.map(\.id), ["pepito.sched.order.reta.2026-11-03"]) // the one already past is not planned
+        XCTAssertEqual(stock.first?.body, "Order Retatrutide by 3 Nov, runs out 17 Nov")
+        XCTAssertEqual(stock.first?.payload.refId, "reta")
+        XCTAssertEqual(stock.first?.threadId, "pepito.stock")
+        XCTAssertTrue(stock.first!.id.hasPrefix(NotificationAction.schedulePrefix))
+    }
+
+    func testAnOlderSnapshotWithNoStockSectionPlansNoStockNotices() throws {
+        var s = try fixture()
+        s.stock = nil
+        let now = ISO8601DateFormatter().date(from: "2026-10-20T08:00:00Z")!
+        XCTAssertTrue(WatchReminders.plan(s, now: now).filter { $0.category == "ORDER" || $0.category == "COUNT" }.isEmpty)
+    }
+
+    func testTheStockSectionRoundTrips() throws {
+        var s = try fixture()
+        s.stock = Snapshot.Stock(notices: [notice("pepito.sched.order.reta.2026-11-03", at: "2026-11-03T09:00:00.000Z")], outOfStock: ["Retatrutide"])
+        XCTAssertEqual(try Snapshot.decode(s.encoded()), s)
+    }
+}

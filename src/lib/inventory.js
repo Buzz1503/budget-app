@@ -2,7 +2,8 @@
 import { dosesPerWeek, currentRung, addDaysStr, daysBetween } from './schedule'
 import { toMg } from './calc'
 import { referenceUsdPerVial } from './cost'
-import { runOutWalk } from './runOutWalk'
+import { forecastRunOut, sharedMgPerDay, fridgeLifeDays } from './vials'
+import { isPausedOn } from './pauses'
 
 export function vialsFor(vials, peptideId) {
   return vials.filter((v) => v.peptideId === peptideId)
@@ -23,29 +24,30 @@ export function burnRatePerDay(peptide, tState) {
 /**
  * When the stock on hand runs out.
  *
- * Stock is drawn down by doses, not by dates, so a pause or a rest between
- * cycles moves the run-out date further into the calendar rather than letting
- * it arrive on time with the vial still full. `daysLeft` stays what it has always been — calendar days until
- * there is none left — so everything reading it for restock timing accounts for
- * the break without being told. An open-ended pause has no end to count to, and
- * says so rather than inventing one.
+ * Walked through the real future schedule (titration steps, cycles, pauses,
+ * frequency), the same walk the Stock screen and the order notice use, so a rest
+ * or a pause moves the date later by exactly that many days and a step up moves
+ * it earlier. `daysLeft` is calendar days until there is none left. An open-ended
+ * pause has no end to count to, and says so rather than inventing one.
+ *
+ * `openVial` is the open-vial record with `remainingMg` filled in (see
+ * `withRemaining` in lib/vials): what is left is worked out from the log.
  */
-export function runOutInfo(peptide, tState, vials, openVial, todayStr, pauses = []) {
+export function runOutInfo(peptide, tState, vials, openVial, todayStr, pauses = [], { pushes = [] } = {}) {
   const rate = burnRatePerDay(peptide, tState)
   const mg = totalMgOnHand(peptide, vials, openVial)
   if (rate <= 0) return { daysLeft: Infinity, runOutDate: null, mg }
-  // Walked day by day: rest days and paused days draw nothing, so the run-out
-  // date lands later by exactly that many days.
-  const walk = runOutWalk({ peptide, totalMg: mg, onDayMg: rate, todayStr, pauses })
-  if (walk.open) {
-    return {
-      daysLeft: Infinity, runOutDate: null, mg, rate, consumingDays: walk.consumingDays,
-      pausedDays: walk.pausedDays, offCycleDays: walk.offCycleDays, pausedIndefinitely: true,
-    }
+  const fc = forecastRunOut({
+    peptide, tState, totalMg: mg, todayStr, pushes, pauses, sharedPerDay: sharedMgPerDay(vials, peptide.id),
+  })
+  if (fc.none) return { daysLeft: Infinity, runOutDate: null, mg, rate }
+  if (!fc.runOutDate) {
+    const stopped = !!pauses.length && isPausedOn(pauses, peptide.id, addDaysStr(todayStr, 539))
+    return { daysLeft: Infinity, runOutDate: null, mg, rate, pausedIndefinitely: stopped }
   }
   return {
-    daysLeft: walk.days, runOutDate: walk.runOutDate, mg, rate,
-    consumingDays: walk.consumingDays, pausedDays: walk.pausedDays, offCycleDays: walk.offCycleDays,
+    daysLeft: daysBetween(todayStr, fc.runOutDate), runOutDate: fc.runOutDate, mg, rate,
+    consumingDays: fc.consumingDays, pausedDays: fc.pausedDays, offCycleDays: fc.offCycleDays,
   }
 }
 
@@ -78,7 +80,7 @@ export function expiryInfo(peptide, openVial, todayStr) {
   if (!openVial?.reconstitutedAt) return null
   // expiryDays 0 = no post-reconstitution clock to run (a pre-mixed oil vial
   // isn't reconstituted, so there's nothing to count down from).
-  const days = peptide.recon?.expiryDays ?? 28
+  const days = fridgeLifeDays(peptide)
   if (!(days > 0)) return null
   const expiresAt = addDaysStr(openVial.reconstitutedAt, days)
   return { expiresAt, daysLeft: daysBetween(todayStr, expiresAt) }

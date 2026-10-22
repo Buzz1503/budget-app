@@ -180,7 +180,8 @@ describe('your own protocol always wins over the anecdote', () => {
   const peptide = {
     id: 'tb500', name: 'TB-500', route: 'SubQ', startDate: T, frequency: 'weekly',
     cycleOnDays: 0, cycleOffDays: 0,
-    ladder: { floor: 1, step: 1, intervalWeeks: 4, ceiling: 5, unit: 'mg' },
+    // flat: titration steps are the subject of vials.test.js, this is about whose dose is used
+    ladder: { floor: 1, step: 0, intervalWeeks: 4, ceiling: 1, unit: 'mg' },
     recon: { vialMg: 10, bacMl: 2, expiryDays: 28 },
   }
 

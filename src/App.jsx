@@ -25,6 +25,7 @@ import BloodsTab from './components/BloodsTab'
 import ScheduleWizard from './components/ScheduleWizard'
 import MoreHub from './components/MoreHub'
 import Toast from './components/Toast'
+import VialPromptHost from './components/stock/VialPromptHost'
 import UpdatePrompt from './components/UpdatePrompt'
 import ImportScans from './components/ImportScans'
 import { HEALTH_BUILD, HealthBoot, HealthSettings, SleepTab } from './health/ui'
@@ -97,7 +98,10 @@ export default function App() {
   const nativeRoute = useNativeFeed((s) => s.route)
   useEffect(() => {
     if (!nativeRoute) return
-    if (SCREENS[ALIASES[nativeRoute] || nativeRoute]) setTab(ALIASES[nativeRoute] || nativeRoute)
+    if (nativeRoute === 'count') {
+      setTab('supplies')
+      useNativeFeed.setState({ openCount: true })
+    } else if (SCREENS[ALIASES[nativeRoute] || nativeRoute]) setTab(ALIASES[nativeRoute] || nativeRoute)
     useNativeFeed.setState({ route: null })
   }, [nativeRoute])
 
@@ -105,7 +109,11 @@ export default function App() {
   // there. Checked on opening, on coming back to the app, and through the day,
   // so it is right across midnight even if the app was never closed.
   useEffect(() => {
-    const run = () => useStore.getState().applyCycleRestarts?.()
+    const run = () => {
+      useStore.getState().applyCycleRestarts?.()
+      // a mixed vial that has reached the end of its fridge life: asked once
+      useStore.getState().checkVialExpiry?.()
+    }
     run()
     const onVisible = () => { if (document.visibilityState === 'visible') run() }
     document.addEventListener('visibilitychange', onVisible)
@@ -240,6 +248,7 @@ export default function App() {
       <ScheduleWizard open={wizard} onClose={() => setWizard(false)} />
 
       <Toast />
+      <VialPromptHost goTo={goTo} />
       <UpdatePrompt />
 
       <AnimatePresence>

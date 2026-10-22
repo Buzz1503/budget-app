@@ -21,6 +21,37 @@ public struct Snapshot: Codable, Equatable, Sendable {
     public var notifications: NotificationInfo?
     /// Cycles ahead: who restarts when. Absent in snapshots written before cycling was checked everywhere.
     public var cycles: Cycles?
+    /// Stock: notices still ahead for the Watch to plan, and who is out. Absent in snapshots written before stock tracking.
+    public var stock: Stock?
+
+    public struct Stock: Codable, Equatable, Sendable {
+        public var notices: [Notice]
+        public var outOfStock: [String]
+        public init(notices: [Notice] = [], outOfStock: [String] = []) { self.notices = notices; self.outOfStock = outOfStock }
+    }
+
+    /// An order-by, fridge-life or weekly-count notice: the same entry the iPhone schedules, same id.
+    public struct Notice: Codable, Equatable, Sendable {
+        public var id: String
+        public var title: String
+        public var body: String
+        /// ISO 8601
+        public var fireAt: String
+        public var category: String
+        public var threadId: String?
+        public var payload: NotificationPayload
+
+        public init(id: String, title: String, body: String, fireAt: String, category: String, threadId: String? = nil, payload: NotificationPayload) {
+            self.id = id; self.title = title; self.body = body; self.fireAt = fireAt
+            self.category = category; self.threadId = threadId; self.payload = payload
+        }
+
+        public var fireDate: Date? {
+            let f = ISO8601DateFormatter()
+            f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            return f.date(from: fireAt) ?? ISO8601DateFormatter().date(from: fireAt)
+        }
+    }
 
     public struct Cycles: Codable, Equatable, Sendable {
         public var restarts: [Restart]
@@ -66,10 +97,13 @@ public struct Snapshot: Codable, Equatable, Sendable {
         public var verb: String
         public var speech: String
         public var canPush: Bool
+        /// Logging this today would leave the vial about empty: the Watch asks "Start a new one?" right after the tick.
+        public var vialAsk: Bool?
 
         public init(id: String, refId: String, kind: Kind, name: String, compound: String, dose: String, units: String?,
                     line: String, form: String, slot: Slot, status: Status, groupId: String?, verb: String,
-                    speech: String, canPush: Bool) {
+                    speech: String, canPush: Bool, vialAsk: Bool? = nil) {
+            self.vialAsk = vialAsk
             self.id = id; self.refId = refId; self.kind = kind; self.name = name; self.compound = compound
             self.dose = dose; self.units = units; self.line = line; self.form = form; self.slot = slot
             self.status = status; self.groupId = groupId; self.verb = verb; self.speech = speech; self.canPush = canPush

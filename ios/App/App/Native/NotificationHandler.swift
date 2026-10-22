@@ -5,7 +5,8 @@ import PepitoCore
 /// The app's notification delegate (Capacitor's own handling is switched off in
 /// capacitor.config.json, ios.handleApplicationNotifications = false).
 ///
-/// Log, Take, Skip, Remind in 30 min and Push to tomorrow run in the background
+/// Log, Take, Skip, Remind in 30 min, Push to tomorrow and the stock answers (Yes,
+/// Still some left, Not yet, Remind me in 3 days) run in the background
 /// without opening the app: each becomes a queued action through ActionSink,
 /// and the web layer applies it the next time it runs. Check now and Open Stock
 /// open the app on that screen. The same buttons appear on the Apple Watch
@@ -33,6 +34,11 @@ final class NotificationHandler: NSObject, UNUserNotificationCenterDelegate {
         switch button {
         case NotificationAction.log, NotificationAction.take, NotificationAction.skip, NotificationAction.push:
             if let p = payload { ActionSink.record(NotificationAction.actions(for: button, payload: p)) }
+        case NotificationAction.vialYes, NotificationAction.vialStill, NotificationAction.vialNotYet, NotificationAction.orderSnooze:
+            // the answer to a stock question: queued, and applied by the web layer once
+            if let p = payload { ActionSink.record(NotificationAction.actions(for: button, payload: p)) }
+        case NotificationAction.openCount:
+            RouteBox.open("count")
         case NotificationAction.snooze:
             if let p = payload {
                 PepitoNotifications.snooze(content, payload: p)

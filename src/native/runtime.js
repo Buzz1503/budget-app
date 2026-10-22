@@ -96,7 +96,7 @@ export async function startNativeSync() {
   started = true
   // the parts of the store any surface shows; a toast or a sheet opening is not a reason to write
   const watched = (s) => [s.peptides, s.titration, s.doseLogs, s.pushes, s.pauses, s.skips, s.supplements, s.supplementLogs,
-    s.saunaSessions, s.saunaSettings, s.saunaTimer, s.notificationSettings, s.watchSettings, s.healthSettings, s.openVials, s.vials, s.reactions]
+    s.saunaSessions, s.saunaSettings, s.saunaTimer, s.notificationSettings, s.watchSettings, s.healthSettings, s.openVials, s.vials, s.sharedDraws, s.reactions]
   let last = watched(useStore.getState())
   useStore.subscribe((s) => {
     const now = watched(s)

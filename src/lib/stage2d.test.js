@@ -4,7 +4,7 @@
 import 'fake-indexeddb/auto'
 import { describe, it, expect, beforeAll } from 'vitest'
 import { readFileSync } from 'fs'
-import { lowStockItems, showLowStockDot } from './lowStock'
+import { stockRows, orderDot } from './vials'
 import { cleanNeedle, lastNeedle, rememberNeedle, gaugeOptions, lengthOptions, NEEDLE_GAUGES } from './needle'
 import { captureFor } from './injectionCapture'
 import { addDaysStr } from './schedule'
@@ -100,24 +100,24 @@ describe('needles remember the last values used', () => {
   })
 })
 
-describe('low-stock dot', () => {
+describe('order-by dot', () => {
   const T = '2026-06-18'
-  const pep = { id: 'reta', name: 'Retatrutide', startDate: addDaysStr(T, -60), frequency: 'weekly', ladder: { unit: 'mg', floor: 1, step: 0, ceiling: 1, intervalWeeks: 4 }, route: 'SubQ', recon: { vialMg: 10, bacMl: 2, expiryDays: 28 } }
+  const pep = { id: 'reta', name: 'Retatrutide', startDate: addDaysStr(T, -60), startedOn: addDaysStr(T, -60), frequency: 'weekly', ladder: { unit: 'mg', floor: 1, step: 0, ceiling: 1, intervalWeeks: 4 }, route: 'SubQ', slot: 'AM', orderLeadDays: 70, recon: { vialMg: 10, bacMl: 2, expiryDays: 28 } }
   const titration = { reta: { level: 0, levelStartDate: addDaysStr(T, -60) } }
   const vials = (qty) => [{ id: 'b1', peptideId: 'reta', vialMg: 10, qtyOnHand: qty }]
+  const dot = (v, extra = {}) => orderDot(stockRows({ peptides: [pep], titration, vials: v, openVials: {}, todayStr: T, ...extra }))
 
-  it('shows when the sealed shelf covers no more than the lead time', () => {
-    // 1 mg a week: one 10 mg vial is 10 weeks, two are 20
-    expect(showLowStockDot({ peptides: [pep], titration, vials: vials(1), leadDays: 70, today: T })).toBe(true)
-    expect(showLowStockDot({ peptides: [pep], titration, vials: vials(2), leadDays: 70, today: T })).toBe(false)
-    expect(lowStockItems({ peptides: [pep], titration, vials: [], leadDays: 30, today: T })[0].text).toBe('No sealed Retatrutide left')
+  it('shows when the order-by date is within a week', () => {
+    // 1 mg a week: one 10 mg vial is 10 doses, the 11th is owed 74 days out; delivery takes 70 days, so order within days
+    expect(dot(vials(1))).toBe(true)
+    // two vials last twice as long: the order date is more than a week away
+    expect(dot(vials(2))).toBe(false)
   })
 
-  it('an order arriving in time answers it; no compounds, no dot', () => {
-    const restock = { delivery: { 'vial:reta': addDaysStr(T, 5) } }
-    expect(lowStockItems({ peptides: [pep], titration, vials: vials(1), restock, leadDays: 70, today: T })[0].kind).toBe('ordered')
-    expect(showLowStockDot({ peptides: [pep], titration, vials: vials(1), restock, leadDays: 70, today: T })).toBe(false)
-    expect(showLowStockDot({ peptides: [], today: T })).toBe(false)
+  it('shows for a compound that is out, and for nothing at all when there are no compounds', () => {
+    const out = { reta: { peptideId: 'reta', finished: true, vialMg: null, adjustments: [] } }
+    expect(dot([], { openVials: out })).toBe(true)
+    expect(orderDot(stockRows({ peptides: [], todayStr: T }))).toBe(false)
   })
 })
 

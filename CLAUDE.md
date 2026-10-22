@@ -19,7 +19,7 @@ an iOS app (bundle id com.buzz.pepito). State is one persisted Zustand store,
 - Never run a dev server in the foreground.
 - Plain, calm wording. No medical advice, no diagnosis, no causal claims, no em dashes in UI copy.
 - Tabs: Home, Body (Composition, Effects, Recovery), Sleep (native only), Sauna,
-  More (Calendar, Reactions, Bloods, Stock first; low-stock dot on More and Stock).
+  More (Calendar, Reactions, Bloods, Stock first; order-by dot on More and Stock).
 - Home is exactly: readiness card (native), today's log, sauna row (`homeSections`).
 - Removed in 2D, data kept in store and backup: Symptoms "how I feel", the daily
   check-in, Supplies (gear), Body › Training. Never delete stored data when
@@ -108,3 +108,32 @@ an iOS app (bundle id com.buzz.pepito). State is one persisted Zustand store,
 - Effects: `cycleEvents` adds cycle off and on as stop and restart points in
   `useCompounds`. Snapshot `cycles.restarts` feeds the evening-before notice on the Watch.
 
+## Stock
+
+- One open vial per compound; everything else on the shelf is sealed (`vials`, batches).
+  What is left in the open vial is **never stored**: `remainingMg` in `src/lib/vials.js`
+  is the total less every dose logged since `activatedAt` (and shared draws), plus hand
+  adjustments. Deleting or editing a log moves it. Nothing in the store decrements a vial.
+  Old readers that want `remainingMg` on the record use `withRemaining` / `useOpenVialsView`.
+- `src/lib/vials.js` is the pure authority: `vialChangeNeeded` (the question after a log:
+  remaining below the next scheduled dose, found with `nextDose`, which walks titration,
+  cycles via `isDue`, pushes and pauses), `changeVial` (oldest batch first by `addedAt`,
+  overfill and waste recorded), `expiryOf`, `forecastRunOut`, `stockRows` (sorted by order
+  by date), `orderNotices`, `countRows`, `migrateVialModel`.
+- Order by date = run-out date minus `peptide.orderLeadDays` (default 14). Fridge life is
+  `recon.expiryDays` (0 means no clock), else the playbook, else 28. Use by shows from 3 days
+  before. The dot on More and Stock: something to order within 7 days, or out of stock.
+- Store: `vialPrompts` and `lastVialChange` are ephemeral (not persisted, re-derived and
+  pruned by `_refreshVialPrompts`). `_recordDose` calls `_queueVialPrompt`; backfills do not.
+  `answerVialPrompt` (yes, still, notyet), `startNewVial`, `undoVialChange` (10 s in the UI),
+  `markVialMixed`, `finishVial` (manual, finish only), `adjustOpenVial`, `applyCountCheck`
+  (`stockAdjustments`, reason "count check"), `checkVialExpiry`. Persist v25 runs
+  `migrateStock`; `stockMigration` keeps what it did.
+- UI: `components/stock/VialPromptHost.jsx` (the question, the recipe and Mixed, Undo) mounted
+  in `App.jsx`; `StockRoom.jsx` (rows, vial sheet, Order arrived, count check). There is no
+  "Vial done" on Home any more.
+- Native: `src/native/stockNotices.js` builds the order, fridge-life and count notices (calendar
+  triggers have the `pepito.sched.` prefix and go in the snapshot's `stock.notices` for the
+  Watch; immediate ones use `pepito.stock.` and are added once, remembered in
+  `nativeState.ordersSent`). Items carry `vialAsk` so the Watch can ask right after its tick.
+  Answers are `vialChange` and `snoozeOrder` actions through the same queue.

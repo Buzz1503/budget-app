@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
-  cycleDutyFraction, weeklyUsageMg, coverageFor, openVialRemainingMg,
-  durationWords, runwayFor, lowStockAlerts,
+  cycleDutyFraction, weeklyUsageMg, openVialRemainingMg,
+  durationWords, runwayFor,
 } from './stock'
 import { addDaysStr } from './schedule'
 
@@ -22,9 +22,10 @@ const batch = (over = {}) => ({
   id: 'b1', peptideId: 'reta', name: 'Retatrutide', vialMg: 10, vendor: 'Vendor A',
   qtyOnHand: 2, qtyPurchased: 2, usdPerVial: 180, lot: '', sealedExpiry: '', coaKey: null, ...over,
 })
-const dose = (offset, units = 20, peptideId = 'reta') => ({
+// a dose of 1 mg (20 units at 5 mg/mL); `mg` overrides it
+const dose = (offset, units = 20, peptideId = 'reta', mg = units / 20) => ({
   id: `d${offset}`, peptideId, date: day(offset),
-  loggedAt: `${day(offset)}T09:00:00.000Z`, insulinUnits: units,
+  loggedAt: `${day(offset)}T09:00:00.000Z`, insulinUnits: units, doseValue: mg, unit: 'mg',
 })
 
 // ================================================== 1 · cycle-aware burn rate
@@ -51,25 +52,12 @@ describe('weekly usage respects the cycle', () => {
   })
 })
 
-describe('sealed-shelf coverage is now cycle-aware', () => {
-  const vials = [batch({ qtyOnHand: 2, vialMg: 10 })] // 20 mg sealed
-
-  it('matches the old ongoing-compound number when there is no cycle', () => {
-    expect(coverageFor(pep(), tState, vials, T).weeks).toBe(20)
-  })
-
-  it('lasts twice as long at half the duty cycle', () => {
-    const cycled = pep({ cycleOnDays: 14, cycleOffDays: 14 })
-    expect(coverageFor(cycled, tState, vials, T).weeks).toBe(40)
-  })
-})
-
 // ===================================================== 2 · combined runway
 
 describe('what is left in the open vial, in mg', () => {
-  it('matches the same fraction the doses-left readout uses', () => {
-    // 3 doses of 20 units = 0.6 mL drawn from a 2 mL vial → 1.4 mL left → 7 mg of 10
-    const open = { vialMg: 10, activatedAt: day(-30) }
+  it('is the total less every dose logged since it was opened', () => {
+    // 3 doses of 1 mg out of a 10 mg vial → 7 mg
+    const open = { peptideId: 'reta', vialMg: 10, activatedAt: `${day(-30)}T00:00:00.000Z`, adjustments: [] }
     const logs = [dose(-20), dose(-13), dose(-6)]
     expect(openVialRemainingMg(pep(), open, logs)).toBeCloseTo(7, 6)
   })
@@ -78,8 +66,10 @@ describe('what is left in the open vial, in mg', () => {
     expect(openVialRemainingMg(pep(), null, [])).toBe(0)
   })
 
-  it('is zero for a nasal spray, which is not drawn from a vial', () => {
-    expect(openVialRemainingMg(pep({ route: 'Nasal' }), { vialMg: 10 }, [])).toBe(0)
+  it('never goes below zero here, and counts a hand adjustment', () => {
+    const open = { peptideId: 'reta', vialMg: 10, activatedAt: `${day(-30)}T00:00:00.000Z`, adjustments: [{ mg: -2 }] }
+    expect(openVialRemainingMg(pep(), open, [dose(-6)])).toBeCloseTo(7, 6)
+    expect(openVialRemainingMg(pep(), open, Array.from({ length: 12 }, (_, i) => dose(-i - 1)))).toBe(0)
   })
 })
 
@@ -112,7 +102,7 @@ describe('run-out duration in words a person would use', () => {
 })
 
 describe('runwayFor combines the open vial and the sealed shelf', () => {
-  const open = { vialMg: 10, activatedAt: day(-30) }
+  const open = { peptideId: 'reta', vialMg: 10, activatedAt: `${day(-30)}T00:00:00.000Z`, adjustments: [] }
   const logs = [dose(-20), dose(-13), dose(-6)] // 7 mg left open, from the fixture above
   const vials = [batch({ qtyOnHand: 2, vialMg: 10 })] // 20 mg sealed
 
@@ -120,13 +110,15 @@ describe('runwayFor combines the open vial and the sealed shelf', () => {
     const r = runwayFor(pep(), tState, open, vials, logs, T, 30)
     expect(r.totalMg).toBe(27) // 7 open + 20 sealed
     expect(r.perWeekMg).toBe(1)
-    expect(r.days).toBe(189) // 27 mg ÷ 1 mg/week × 7
+    // 27 mg at 1 mg a week is 27 doses. The weekday falls tomorrow, so the 28th is owed on day 190
+    expect(r.days).toBe(190)
   })
 
-  it('sets the restock-by date to the run-out date minus the lead time', () => {
+  it('sets the restock-by date to the run-out date minus the compound\'s own delivery time (14 days unless set)', () => {
     const r = runwayFor(pep(), tState, open, vials, logs, T, 30)
-    expect(r.runOutDate).toBe(addDaysStr(T, 189))
-    expect(r.restockByDate).toBe(addDaysStr(r.runOutDate, -30))
+    expect(r.runOutDate).toBe(addDaysStr(T, 190))
+    expect(r.restockByDate).toBe(addDaysStr(r.runOutDate, -14))
+    expect(runwayFor(pep({ orderLeadDays: 30 }), tState, open, vials, logs, T, 30).restockByDate).toBe(addDaysStr(r.runOutDate, -30))
   })
 
   it('flags low stock once the restock-by date is inside the lead window', () => {
@@ -138,7 +130,8 @@ describe('runwayFor combines the open vial and the sealed shelf', () => {
   it('recomputes when the dose changes, with no other change', () => {
     const bigger = pep({ ladder: { unit: 'mg', floor: 2, step: 0, ceiling: 2, intervalWeeks: 4 } })
     const r = runwayFor(bigger, tState, open, vials, logs, T, 30)
-    expect(r.days).toBe(94) // same 27 mg, twice the weekly burn
+    // the same 27 mg at 2 mg a week covers 13 doses, so the 14th (day 92) cannot be
+    expect(r.days).toBe(92)
   })
 
   it('recomputes when the cycle changes, with no other change', () => {
@@ -149,7 +142,7 @@ describe('runwayFor combines the open vial and the sealed shelf', () => {
 
   it('is honest about having nothing left', () => {
     // fully drawn open vial (2 mL capacity, 2 mL logged since activation), nothing sealed
-    const r = runwayFor(pep(), tState, { vialMg: 10, activatedAt: day(-1) }, [], [dose(-1, 200)], T, 30)
+    const r = runwayFor(pep(), tState, { peptideId: 'reta', vialMg: 10, activatedAt: `${day(-1)}T00:00:00.000Z`, adjustments: [] }, [], [dose(-1, 200)], T, 30)
     expect(r.out).toBe(true)
   })
 
@@ -165,21 +158,5 @@ describe('runwayFor combines the open vial and the sealed shelf', () => {
 
   it('still returns null when there is no compound at all', () => {
     expect(runwayFor(null, tState, null, [], [], T, 30)).toBe(null)
-  })
-})
-
-describe('low-stock alerts speak in run-out + restock-by, not doses-left', () => {
-  it('no longer mentions doses left anywhere', () => {
-    const out = lowStockAlerts({
-      peptides: [pep({ frequency: 'daily' })],
-      titration: { reta: tState },
-      vials: [batch({ qtyOnHand: 1, vialMg: 10 })],
-      openVials: {},
-      doseLogs: [],
-      todayStr: T,
-      leadDays: 30,
-    })
-    expect(out[0].message).not.toMatch(/doses? left/i)
-    expect(out[0].message).toMatch(/restock by/)
   })
 })

@@ -11,7 +11,7 @@
 // which were applied and which were set aside and why. The store runs the
 // operations (useStore.applyNativeActions).
 
-export const ACTION_TYPES = ['logDose', 'logSlot', 'skipDose', 'snoozeDose', 'pushDose', 'startSauna', 'stopSauna', 'saunaCompleted']
+export const ACTION_TYPES = ['logDose', 'logSlot', 'skipDose', 'snoozeDose', 'pushDose', 'startSauna', 'stopSauna', 'saunaCompleted', 'vialChange', 'snoozeOrder']
 /** How many applied action ids are remembered, so a replayed queue changes nothing. */
 export const REMEMBER_IDS = 500
 
@@ -101,6 +101,22 @@ export function applyPendingActions(state, actions = [], { dueOn = null } = {}) 
         const live = refs.filter((id) => peptides.has(id) && !logged.has(`${date}|${id}`) && !skipped.has(`${date}|peptide|${id}`))
         if (!live.length) { set(a, refs.every((id) => !peptides.has(id)) ? 'missing' : 'already'); break }
         for (const id of live) ops.push({ op: 'pushDose', peptideId: id, date })
+        applied.push(a.id)
+        break
+      }
+      case 'vialChange': {
+        // the answer to "Start a new one?": from a notification or from the Watch
+        const id = p.refId || p.peptideId
+        if (!peptides.has(id)) { set(a, 'missing'); break }
+        const answer = ['still', 'notyet'].includes(p.answer) ? p.answer : 'yes'
+        ops.push({ op: 'vialChange', peptideId: id, answer, kind: p.kind === 'expired' ? 'expired' : 'change' })
+        applied.push(a.id)
+        break
+      }
+      case 'snoozeOrder': {
+        const id = p.refId || p.peptideId
+        if (!peptides.has(id)) { set(a, 'missing'); break }
+        ops.push({ op: 'snoozeOrder', peptideId: id })
         applied.push(a.id)
         break
       }

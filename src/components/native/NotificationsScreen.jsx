@@ -109,7 +109,13 @@ export default function NotificationsScreen() {
               <PickerField kind="time" label="Reaction check time" value={ns.reactionTime} onChange={(v) => v && set({ reactionTime: v })} clearable={false} fallback="19:00" testid="notify-reaction-time" />
             </div>
           )}
-          <Switch on={ns.stock} onChange={(v) => set({ stock: v })} label="Low stock" hint="Once when something reaches its run-out warning." testId="notify-stock" />
+          <Switch on={ns.stock} onChange={(v) => set({ stock: v })} label="Order by date" hint="Once on the order by date, and the morning a mixed vial reaches its fridge life. Follows Remind me on." testId="notify-stock" />
+          <Switch on={ns.countCheck !== false} onChange={(v) => set({ countCheck: v })} label="Weekly count" hint="Sunday evening, a quick count of the sealed vials. Follows Remind me on." testId="notify-count" />
+          {ns.countCheck !== false && (
+            <div className="py-3">
+              <PickerField kind="time" label="Weekly count time" value={ns.countTime || '18:00'} onChange={(v) => v && set({ countTime: v })} clearable={false} fallback="18:00" testid="notify-count-time" />
+            </div>
+          )}
           <Switch on={ns.sauna} onChange={(v) => set({ sauna: v })} label="Sauna target" hint="When a running session reaches its target." testId="notify-sauna" />
         </div>
       </section>

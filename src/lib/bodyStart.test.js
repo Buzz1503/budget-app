@@ -103,6 +103,6 @@ describe('v23 migration', () => {
     expect(byId[legacy.id]).toBeUndefined()
     expect(out.bodyStart).toMatchObject({ date: '2025-01-01', entryId: scan.EVOLT_START_ID })
     // a second pass is a no-op
-    expect(migrate()(out, 23)).toBe(out)
+    expect(migrate()(out, 25)).toBe(out)
   })
 })
