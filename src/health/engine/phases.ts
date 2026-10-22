@@ -39,6 +39,8 @@ export interface ChangeEvent {
   name: string
   kind: 'start' | 'change' | 'stop'
   dose: string | null
+  /** A rest beginning or ending on a cycle: a stop and a start as far as comparing goes, said differently. */
+  cycle?: boolean
 }
 
 const fmtDose = (to: number | null | undefined, unit: string | null | undefined) =>
@@ -52,8 +54,8 @@ export function trackedEvents(compounds: TrackedCompound[]): ChangeEvent[] {
     let on = false
     const pts = c.points.filter((p) => RELEVANT_KINDS.has(p.kind)).sort((a, b) => a.date.localeCompare(b.date))
     for (const p of pts) {
-      if (p.kind === 'stop') { out.push({ date: p.date, compoundId: c.id, name: c.name, kind: 'stop', dose: null }); on = false; continue }
-      out.push({ date: p.date, compoundId: c.id, name: c.name, kind: on ? 'change' : 'start', dose: fmtDose(p.to, p.unit) })
+      if (p.kind === 'stop') { out.push({ date: p.date, compoundId: c.id, name: c.name, kind: 'stop', dose: null, ...(p.cycle ? { cycle: true } : {}) }); on = false; continue }
+      out.push({ date: p.date, compoundId: c.id, name: c.name, kind: on ? 'change' : 'start', dose: fmtDose(p.to, p.unit), ...(p.cycle ? { cycle: true } : {}) })
       on = true
     }
   }
@@ -64,12 +66,16 @@ export { groupEvents } from '../../body/chartPoints'
 
 /** "Started Reta 1.5 mg, Test E 60 mg; Reta to 2 mg; Stopped BPC-157" */
 export function describeChanges(events: ChangeEvent[]): string {
-  const starts = events.filter((e) => e.kind === 'start').map((e) => `${e.name}${e.dose ? ` ${e.dose}` : ''}`)
+  const starts = events.filter((e) => e.kind === 'start' && !e.cycle).map((e) => `${e.name}${e.dose ? ` ${e.dose}` : ''}`)
   const changes = events.filter((e) => e.kind === 'change').map((e) => `${e.name} to ${e.dose ?? 'a new dose'}`)
-  const stops = events.filter((e) => e.kind === 'stop').map((e) => e.name)
+  const stops = events.filter((e) => e.kind === 'stop' && !e.cycle).map((e) => e.name)
+  const back = events.filter((e) => e.kind === 'start' && e.cycle).map((e) => e.name)
+  const rests = events.filter((e) => e.kind === 'stop' && e.cycle).map((e) => e.name)
   return [
     starts.length ? `Started ${starts.join(', ')}` : null,
+    back.length ? `${back.join(', ')} back on cycle` : null,
     changes.length ? changes.join(', ') : null,
+    rests.length ? `${rests.join(', ')} off cycle` : null,
     stops.length ? `Stopped ${stops.join(', ')}` : null,
   ].filter(Boolean).join('; ')
 }

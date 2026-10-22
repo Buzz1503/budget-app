@@ -100,6 +100,12 @@ function DayBody({
         ) : null}
       </div>
 
+      {day.offCycle?.length > 0 && (
+        <p className="text-xs font-medium" style={{ color: 'var(--text-3)' }} data-testid="day-off-cycle-list">
+          Off cycle: {day.offCycle.map((x) => x.name).join(', ')}
+        </p>
+      )}
+
       {nothing && (
         <p className="py-4 text-center text-sm font-bold" style={{ color: 'var(--text-2)' }}>
           Nothing scheduled — a clear day.

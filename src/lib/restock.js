@@ -4,7 +4,8 @@
 // the counts match what the app will actually ask you to do. Nothing is
 // estimated from averages when it can be counted exactly.
 import { addDaysStr, currentRung, cycleInfo, daysBetween } from './schedule'
-import { isDueToday, slotOf, needsProtocolSetup, SLOTS } from './daily'
+import { slotOf, needsProtocolSetup, SLOTS } from './daily'
+import { isDue } from './due'
 import { toMg, isNasal, isPremixed, nasalStrength, NASAL_RECIPE, fromMg } from './calc'
 import { totalMgOnHand, vialsFor, runOutInfo, costPerDoseUsd, expiryInfo } from './inventory'
 import { referenceUsdPerVial } from './cost'
@@ -47,7 +48,7 @@ export function horizonLabel(kind, days) {
 export function dosesInWindow(peptide, fromStr, days) {
   let n = 0
   for (let i = 0; i < days; i++) {
-    if (isDueToday(peptide, addDaysStr(fromStr, i))) n++
+    if (isDue(peptide, addDaysStr(fromStr, i))) n++
   }
   return n
 }
@@ -67,7 +68,7 @@ export function syringesInWindow(peptides, titration, fromStr, days, verdictOf) 
   for (let i = 0; i < days; i++) {
     const date = addDaysStr(fromStr, i)
     for (const slot of SLOTS) {
-      const due = injectables.filter((p) => isDueToday(p, date) && slotOf(p) === slot)
+      const due = injectables.filter((p) => isDue(p, date) && slotOf(p) === slot)
       if (!due.length) continue
       injections += due.length
       if (!verdictOf) { syringes += due.length; continue }

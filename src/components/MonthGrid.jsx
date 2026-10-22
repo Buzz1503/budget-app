@@ -158,6 +158,7 @@ function DayCell({ day: d, muted, onOpen }) {
     d.wholeDayPaused ? `paused${d.pauseReason ? ` — ${d.pauseReason}` : ''}`
       : owed > 0 ? `${d.done} of ${owed} logged` : 'nothing scheduled',
     d.missed > 0 ? `${d.missed} missed` : null,
+    d.offCycle?.length ? `${d.offCycle.length} off cycle` : null,
     hasBlood ? 'blood test' : null,
     hasSauna ? 'sauna' : null,
     hasWorkout ? 'workout' : null,
@@ -203,6 +204,11 @@ function DayCell({ day: d, muted, onOpen }) {
         ))}
         {extra > 0 && (
           <span className="text-[7px] font-black leading-none" style={{ color: 'var(--text-3)' }}>+{extra}</span>
+        )}
+        {/* a compound resting between cycles: a faint dash, never a missed dot */}
+        {d.offCycle?.length > 0 && (
+          <span data-testid="day-off-cycle" aria-hidden="true"
+            className="h-[1.5px] w-[7px] rounded-full" style={{ background: 'var(--text-3)', opacity: 0.55 }} />
         )}
       </span>
 

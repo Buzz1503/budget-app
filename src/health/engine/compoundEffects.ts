@@ -82,17 +82,19 @@ export function latestRun(events: ChangeEvent[], compoundId: string, today: stri
   return { start: s.date, end: stop ? stop.date : today, ongoing: !stop }
 }
 
-export interface Overlap { compoundId: string; name: string; kind: ChangeEvent['kind']; date: string; offsetDays: number }
+export interface Overlap { compoundId: string; name: string; kind: ChangeEvent['kind']; date: string; offsetDays: number; cycle?: boolean }
 
 /** Other tracked compounds that started, stopped or changed dose within 14 days of this one's start. */
 export function overlapsWith(events: ChangeEvent[], compoundId: string, startDate: string, days: number = PHASES.overlapDays): Overlap[] {
   return events
     .filter((e) => e.compoundId !== compoundId && Math.abs(daysBetween(startDate, e.date)) <= days)
-    .map((e) => ({ compoundId: e.compoundId, name: e.name, kind: e.kind, date: e.date, offsetDays: daysBetween(startDate, e.date) }))
+    .map((e) => ({ compoundId: e.compoundId, name: e.name, kind: e.kind, date: e.date, offsetDays: daysBetween(startDate, e.date), ...(e.cycle ? { cycle: true } : {}) }))
     .sort((a, b) => Math.abs(a.offsetDays) - Math.abs(b.offsetDays))
 }
 
 const VERB = { start: 'started', stop: 'stopped', change: 'changed dose' }
+const CYCLE_VERB = { start: 'came back on cycle', stop: 'went off cycle', change: 'changed dose' }
+export const overlapVerb = (o: { kind: ChangeEvent['kind']; cycle?: boolean }) => (o.cycle ? CYCLE_VERB : VERB)[o.kind]
 
 const joinNames = (xs: string[]) => (xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`)
 
@@ -105,17 +107,17 @@ export function overlapSentence(overlaps: Overlap[]): string | null {
   if (!overlaps.length) return null
   const firstPer = new Map<string, Overlap>()
   for (const o of overlaps) if (!firstPer.has(o.compoundId)) firstPer.set(o.compoundId, o)
-  const groups: Array<{ kind: Overlap['kind']; offset: number; names: string[] }> = []
+  const groups: Array<{ kind: Overlap['kind']; cycle?: boolean; offset: number; names: string[] }> = []
   for (const o of firstPer.values()) {
-    const g = groups.find((x) => x.kind === o.kind && x.offset === o.offsetDays)
+    const g = groups.find((x) => x.kind === o.kind && !!x.cycle === !!o.cycle && x.offset === o.offsetDays)
     if (g) g.names.push(o.name)
-    else groups.push({ kind: o.kind, offset: o.offsetDays, names: [o.name] })
+    else groups.push({ kind: o.kind, cycle: o.cycle, offset: o.offsetDays, names: [o.name] })
   }
   const parts = groups.map((g, i) => {
     const n = Math.abs(g.offset)
     const dist = n === 0 ? 'on the same day' : `${n} day${n === 1 ? '' : 's'} ${g.offset > 0 ? 'after' : 'before'}`
     // the verb is said once while it stays the same
-    const verb = i > 0 && groups[i - 1].kind === g.kind ? '' : `${VERB[g.kind]} `
+    const verb = i > 0 && groups[i - 1].kind === g.kind && !!groups[i - 1].cycle === !!g.cycle ? '' : `${overlapVerb(g)} `
     return `${joinNames(g.names)} ${verb}${dist}${i === 0 && n !== 0 ? ' this' : ''}`
   })
   const them = firstPer.size === 1 ? 'it' : 'them'

@@ -9,14 +9,15 @@
 // Pure. "now" and anything loaded lazily (the mix matrix, the Health model)
 // are passed in.
 import { addDaysStr } from '../lib/schedule'
-import { currentRung } from '../lib/schedule'
+import { rungOn } from '../lib/schedule'
 import { slotOf } from '../lib/daily'
 import { formatDose, formatUnitsLong, unitsFor, isNasal, round } from '../lib/calc'
 import { displayName } from '../lib/naming'
 import { LIB_TO_COMPOUND } from '../lib/mixMatrix'
 import { planShots } from '../lib/grouping'
 import { dueInSlot, takeVerb } from '../lib/supplements'
-import { dueWithPushes, canPush } from '../lib/pushes'
+import { canPush } from '../lib/pushes'
+import { isDue, restartsOn } from '../lib/due'
 import { isPausedOn, activePause, reasonWords, pauseEnd } from '../lib/pauses'
 import { weekSummary, usualFor } from '../sauna/sauna'
 
@@ -68,8 +69,9 @@ function itemsFor(state, date) {
   const taken = new Set(supplementLogs.filter((l) => l.date === date).map((l) => l.supplementId))
   const out = []
   for (const p of peptides) {
-    if (!dueWithPushes(p, pushes, date) || isPausedOn(pauses, p.id, date)) continue
-    const { dose } = currentRung(p, titration[p.id])
+    if (!isDue(p, date, { pushes, pauses })) continue
+    // the dose that applies that day: a compound restarting from the floor shows the floor
+    const { dose } = rungOn(p, titration[p.id], date)
     const nasal = isNasal(p)
     const units = nasal ? null : unitsFor(p, dose)
     const name = displayName(p)
@@ -229,6 +231,17 @@ export function nextDue(days, now, slotTimes) {
   return null
 }
 
+/** Who restarts on each of the next days: [{ date, names }], soonest first. Rests and the first stretch are not restarts. */
+export function restartsAhead(state, today) {
+  const out = []
+  for (let i = 1; i <= SNAPSHOT_DAYS; i++) {
+    const date = addDaysStr(today, i)
+    const names = restartsOn(state.peptides || [], date, state.pauses || []).map((p) => displayName(p))
+    if (names.length) out.push({ date, names })
+  }
+  return out
+}
+
 /**
  * The snapshot.
  *
@@ -274,8 +287,13 @@ export function buildSnapshot(state, { now = new Date(), verdictOf = null, readi
       zoneFloors: ZONE_FLOORS,
       countTowardMove: !!state.watchSettings?.countSaunaTowardMove,
     },
+    // Compounds that begin a new on-cycle stretch in the days ahead. The Watch
+    // plans the evening-before reminder from this, the same as the iPhone does.
+    cycles: { restarts: restartsAhead(state, today) },
     notifications: {
       timeSensitive: ns.timeSensitive !== false,
+      restarts: ns.restarts !== false,
+      restartTime: ns.restartTime || '19:00',
       remindOn: REMIND_ON.includes(ns.remindOn) ? ns.remindOn : 'watch',
       doses: ns.doses !== false,
       nudges: ns.nudges !== false,

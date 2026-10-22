@@ -107,6 +107,11 @@
           "canPush": false
         },
         {
+          "refId": "epithalon",
+          "kind": "peptide",
+          "canPush": false
+        },
+        {
           "refId": "fish",
           "kind": "supplement",
           "canPush": false
@@ -115,7 +120,7 @@
       "pushable": []
     },
     "id": "pepito.sched.dose.2026-10-21.AM",
-    "body": "Draw together: BPC-157 + TB-500, 50 units\nSemax 1 spray\nFish oil 2 capsules",
+    "body": "Draw together: BPC-157 + TB-500, 50 units\nSemax 1 spray\nEpithalon 5 mg, 20 units\nFish oil 2 capsules",
     "fireLocal": "2026-10-21T07:00"
   },
   {
@@ -143,6 +148,11 @@
           "canPush": false
         },
         {
+          "refId": "epithalon",
+          "kind": "peptide",
+          "canPush": false
+        },
+        {
           "refId": "fish",
           "kind": "supplement",
           "canPush": false
@@ -152,7 +162,7 @@
       "nudge": true
     },
     "id": "pepito.sched.nudge.2026-10-21.AM",
-    "body": "Still to log:\nDraw together: BPC-157 + TB-500, 50 units\nSemax 1 spray\nFish oil 2 capsules",
+    "body": "Still to log:\nDraw together: BPC-157 + TB-500, 50 units\nSemax 1 spray\nEpithalon 5 mg, 20 units\nFish oil 2 capsules",
     "fireLocal": "2026-10-21T08:30"
   },
   {
@@ -180,6 +190,11 @@
           "canPush": false
         },
         {
+          "refId": "epithalon",
+          "kind": "peptide",
+          "canPush": false
+        },
+        {
           "refId": "fish",
           "kind": "supplement",
           "canPush": false
@@ -188,7 +203,7 @@
       "pushable": []
     },
     "id": "pepito.sched.dose.2026-10-22.AM",
-    "body": "Draw together: BPC-157 + TB-500, 50 units\nSemax 1 spray\nFish oil 2 capsules",
+    "body": "Draw together: BPC-157 + TB-500, 50 units\nSemax 1 spray\nEpithalon 5 mg, 20 units\nFish oil 2 capsules",
     "fireLocal": "2026-10-22T07:00"
   },
   {
@@ -216,6 +231,11 @@
           "canPush": false
         },
         {
+          "refId": "epithalon",
+          "kind": "peptide",
+          "canPush": false
+        },
+        {
           "refId": "fish",
           "kind": "supplement",
           "canPush": false
@@ -225,7 +245,7 @@
       "nudge": true
     },
     "id": "pepito.sched.nudge.2026-10-22.AM",
-    "body": "Still to log:\nDraw together: BPC-157 + TB-500, 50 units\nSemax 1 spray\nFish oil 2 capsules",
+    "body": "Still to log:\nDraw together: BPC-157 + TB-500, 50 units\nSemax 1 spray\nEpithalon 5 mg, 20 units\nFish oil 2 capsules",
     "fireLocal": "2026-10-22T08:30"
   },
   {
@@ -253,6 +273,11 @@
           "canPush": false
         },
         {
+          "refId": "epithalon",
+          "kind": "peptide",
+          "canPush": false
+        },
+        {
           "refId": "fish",
           "kind": "supplement",
           "canPush": false
@@ -261,7 +286,7 @@
       "pushable": []
     },
     "id": "pepito.sched.dose.2026-10-23.AM",
-    "body": "Draw together: BPC-157 + TB-500, 50 units\nSemax 1 spray\nFish oil 2 capsules",
+    "body": "Draw together: BPC-157 + TB-500, 50 units\nSemax 1 spray\nEpithalon 5 mg, 20 units\nFish oil 2 capsules",
     "fireLocal": "2026-10-23T07:00"
   },
   {
@@ -289,6 +314,11 @@
           "canPush": false
         },
         {
+          "refId": "epithalon",
+          "kind": "peptide",
+          "canPush": false
+        },
+        {
           "refId": "fish",
           "kind": "supplement",
           "canPush": false
@@ -298,7 +328,7 @@
       "nudge": true
     },
     "id": "pepito.sched.nudge.2026-10-23.AM",
-    "body": "Still to log:\nDraw together: BPC-157 + TB-500, 50 units\nSemax 1 spray\nFish oil 2 capsules",
+    "body": "Still to log:\nDraw together: BPC-157 + TB-500, 50 units\nSemax 1 spray\nEpithalon 5 mg, 20 units\nFish oil 2 capsules",
     "fireLocal": "2026-10-23T08:30"
   },
   {
@@ -326,6 +356,11 @@
           "canPush": false
         },
         {
+          "refId": "epithalon",
+          "kind": "peptide",
+          "canPush": false
+        },
+        {
           "refId": "fish",
           "kind": "supplement",
           "canPush": false
@@ -334,7 +369,7 @@
       "pushable": []
     },
     "id": "pepito.sched.dose.2026-10-24.AM",
-    "body": "Draw together: BPC-157 + TB-500, 50 units\nSemax 1 spray\nFish oil 2 capsules",
+    "body": "Draw together: BPC-157 + TB-500, 50 units\nSemax 1 spray\nEpithalon 5 mg, 20 units\nFish oil 2 capsules",
     "fireLocal": "2026-10-24T07:00"
   },
   {
@@ -362,6 +397,11 @@
           "canPush": false
         },
         {
+          "refId": "epithalon",
+          "kind": "peptide",
+          "canPush": false
+        },
+        {
           "refId": "fish",
           "kind": "supplement",
           "canPush": false
@@ -371,7 +411,7 @@
       "nudge": true
     },
     "id": "pepito.sched.nudge.2026-10-24.AM",
-    "body": "Still to log:\nDraw together: BPC-157 + TB-500, 50 units\nSemax 1 spray\nFish oil 2 capsules",
+    "body": "Still to log:\nDraw together: BPC-157 + TB-500, 50 units\nSemax 1 spray\nEpithalon 5 mg, 20 units\nFish oil 2 capsules",
     "fireLocal": "2026-10-24T08:30"
   },
   {
@@ -399,6 +439,11 @@
           "canPush": false
         },
         {
+          "refId": "epithalon",
+          "kind": "peptide",
+          "canPush": false
+        },
+        {
           "refId": "fish",
           "kind": "supplement",
           "canPush": false
@@ -407,7 +452,7 @@
       "pushable": []
     },
     "id": "pepito.sched.dose.2026-10-25.AM",
-    "body": "Draw together: BPC-157 + TB-500, 50 units\nSemax 1 spray\nFish oil 2 capsules",
+    "body": "Draw together: BPC-157 + TB-500, 50 units\nSemax 1 spray\nEpithalon 5 mg, 20 units\nFish oil 2 capsules",
     "fireLocal": "2026-10-25T07:00"
   },
   {
@@ -435,6 +480,11 @@
           "canPush": false
         },
         {
+          "refId": "epithalon",
+          "kind": "peptide",
+          "canPush": false
+        },
+        {
           "refId": "fish",
           "kind": "supplement",
           "canPush": false
@@ -444,7 +494,7 @@
       "nudge": true
     },
     "id": "pepito.sched.nudge.2026-10-25.AM",
-    "body": "Still to log:\nDraw together: BPC-157 + TB-500, 50 units\nSemax 1 spray\nFish oil 2 capsules",
+    "body": "Still to log:\nDraw together: BPC-157 + TB-500, 50 units\nSemax 1 spray\nEpithalon 5 mg, 20 units\nFish oil 2 capsules",
     "fireLocal": "2026-10-25T08:30"
   },
   {
@@ -472,6 +522,11 @@
           "canPush": false
         },
         {
+          "refId": "epithalon",
+          "kind": "peptide",
+          "canPush": false
+        },
+        {
           "refId": "fish",
           "kind": "supplement",
           "canPush": false
@@ -480,7 +535,7 @@
       "pushable": []
     },
     "id": "pepito.sched.dose.2026-10-26.AM",
-    "body": "Draw together: BPC-157 + TB-500, 50 units\nSemax 1 spray\nFish oil 2 capsules",
+    "body": "Draw together: BPC-157 + TB-500, 50 units\nSemax 1 spray\nEpithalon 5 mg, 20 units\nFish oil 2 capsules",
     "fireLocal": "2026-10-26T07:00"
   },
   {
@@ -508,6 +563,11 @@
           "canPush": false
         },
         {
+          "refId": "epithalon",
+          "kind": "peptide",
+          "canPush": false
+        },
+        {
           "refId": "fish",
           "kind": "supplement",
           "canPush": false
@@ -517,7 +577,21 @@
       "nudge": true
     },
     "id": "pepito.sched.nudge.2026-10-26.AM",
-    "body": "Still to log:\nDraw together: BPC-157 + TB-500, 50 units\nSemax 1 spray\nFish oil 2 capsules",
+    "body": "Still to log:\nDraw together: BPC-157 + TB-500, 50 units\nSemax 1 spray\nEpithalon 5 mg, 20 units\nFish oil 2 capsules",
     "fireLocal": "2026-10-26T08:30"
+  },
+  {
+    "id": "pepito.sched.restart.2026-10-21",
+    "title": "Restarts tomorrow",
+    "body": "Epithalon restarts tomorrow",
+    "category": "RESTART",
+    "threadId": "pepito.restart",
+    "timeSensitive": false,
+    "payload": {
+      "kind": "restart",
+      "date": "2026-10-21",
+      "route": "protocol"
+    },
+    "fireLocal": "2026-10-20T19:00"
   }
 ]

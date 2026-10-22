@@ -10,7 +10,7 @@ import { registerPlugin } from '@capacitor/core'
 import useStore from '../store/useStore'
 import { buildSnapshot } from './snapshot'
 import { loadMatrix, LIB_TO_COMPOUND } from '../lib/mixMatrix'
-import { dueWithPushes } from '../lib/pushes'
+import { isDue } from '../lib/due'
 import { useNativeFeed } from './feed'
 
 export const PepitoBridge = registerPlugin('PepitoBridge')
@@ -68,7 +68,7 @@ export async function drainQueue() {
     const { actions = [] } = await PepitoBridge.readQueue()
     if (!actions.length) return null
     const result = useStore.getState().applyNativeActions(actions, {
-      dueOn: (p, date) => dueWithPushes(p, useStore.getState().pushes, date),
+      dueOn: (p, date) => isDue(p, date, { pushes: useStore.getState().pushes }),
     })
     for (const fn of afterApply) {
       try { await fn(result) } catch { /* follow-ups are best effort */ }

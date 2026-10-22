@@ -1,5 +1,5 @@
 // Titration ladder + cycle engine. All dates are 'yyyy-MM-dd' strings.
-import { parseISO, differenceInCalendarDays, addDays, format, getDay } from 'date-fns'
+import { parseISO, differenceInCalendarDays, addDays, format } from 'date-fns'
 
 export const DAY_FMT = 'yyyy-MM-dd'
 
@@ -116,30 +116,57 @@ export function dosesPerWeek(frequency) {
   }
 }
 
-// Does the frequency pattern hit this date? (independent of cycle on/off)
-export function frequencyHits(peptide, dateStr) {
-  const since = daysBetween(peptide.startDate, dateStr)
-  if (since < 0) return false
-  // An explicit weekday selection is what the user actually injects on, so it
-  // wins over the offset pattern — this keeps the projection in Plan agreeing
-  // with the Home due list rather than drifting a day or two off it.
-  const picked = peptide.scheduleWeekdays
-  if (Array.isArray(picked) && picked.length && !['daily', 'nightly'].includes(peptide.frequency)) {
-    return picked.includes(getDay(parseISO(dateStr)))
+// Whether a compound is owed on a date is decided in one place: isDue in
+// ./due.js. This file only knows the cycle and the ladder.
+
+/**
+ * Days of the half-open window [fromStr, toStr) that fall in an off-cycle
+ * stretch. A compound with no cycle, and any day before its start, is never
+ * counted as off: the cycle is only knowable from the day it began.
+ */
+export function offCycleDaysBetween(peptide, fromStr, toStr) {
+  const onDays = peptide?.cycleOnDays || 0
+  const offDays = peptide?.cycleOffDays || 0
+  if (!onDays || !offDays || !fromStr || !toStr) return 0
+  const n = daysBetween(fromStr, toStr)
+  if (n <= 0) return 0
+  const len = onDays + offDays
+  const since0 = daysBetween(peptide.startDate, fromStr)
+  let off = 0
+  for (let i = 0; i < n; i++) {
+    const s = since0 + i
+    if (s < 0) continue
+    if (s % len >= onDays) off += 1
   }
-  const inWeek = ((since % 7) + 7) % 7
-  switch (peptide.frequency) {
-    case 'weekly': return since % 7 === 0
-    case '2xweek': return inWeek === 0 || inWeek === 3
-    case '3xweek': return inWeek === 0 || inWeek === 2 || inWeek === 4
-    case '5on2off': return inWeek < 5
-    default: return true // daily / nightly
-  }
+  return off
 }
 
-export function isDueOn(peptide, dateStr) {
+/** Days between two dates that were not off cycle: time that actually counts as time on it. */
+export function onDaysBetween(peptide, fromStr, toStr) {
+  const n = daysBetween(fromStr, toStr)
+  if (n <= 0) return 0
+  return n - offCycleDaysBetween(peptide, fromStr, toStr)
+}
+
+/**
+ * Which on-stretch a date belongs to, counting the rest after a stretch as
+ * part of the next one. Something set during a rest is meant for the stretch
+ * that follows it, so a dose chosen then is not undone when that stretch starts.
+ */
+export function cycleKey(peptide, dateStr) {
   const c = cycleInfo(peptide, dateStr)
-  return c.isOn && frequencyHits(peptide, dateStr)
+  if (c.ongoing) return 0
+  // a level set before the cycle began belongs to the first stretch
+  if (c.beforeStart) return 1
+  return c.isOn ? c.cycleNumber : c.cycleNumber + 1
+}
+
+/** The first day of the on-stretch a date belongs to (or follows), for a cycled compound. */
+export function onStretchStart(peptide, dateStr) {
+  const c = cycleInfo(peptide, dateStr)
+  if (c.ongoing || c.beforeStart) return null
+  if (c.isOn) return addDaysStr(dateStr, -(c.cycleDay - 1))
+  return addDaysStr(dateStr, c.onDays + c.offDays - (c.cycleDay - 1))
 }
 
 // Confirmed current rung — tolerance-gated, never auto-advances.
@@ -149,12 +176,54 @@ export function currentRung(peptide, tState) {
   return { level, dose: rungs[level], maxLevel: rungs.length - 1, rungs }
 }
 
+/**
+ * What a compound does with its dose when a cycle restarts: pick up where it
+ * was ('resume') or climb the ladder again from the floor ('floor').
+ *
+ * A choice made on the compound wins. Otherwise the compound's own playbook,
+ * where it states one; no compound in the reference does, so the answer is to
+ * resume the last dose.
+ */
+export const RESTART_MODES = ['resume', 'floor']
+export function restartMode(peptide) {
+  if (RESTART_MODES.includes(peptide?.restartDose)) return peptide.restartDose
+  if (RESTART_MODES.includes(peptide?.playbook?.restartDose)) return peptide.playbook.restartDose
+  return 'resume'
+}
+
+/**
+ * The ladder position that applies on a date. Normally the confirmed one; on a
+ * compound set to restart from the floor, the first on-stretch after the one
+ * the level was set in starts again from the floor. Pure, so a widget or the
+ * Watch can show tomorrow's restart dose without the app having been opened.
+ */
+export function levelStateOn(peptide, tState, dateStr) {
+  const level = tState?.level ?? 0
+  const since = tState?.levelStartDate || peptide?.startDate
+  if (restartMode(peptide) !== 'floor' || !(peptide?.cycleOnDays > 0 && peptide?.cycleOffDays > 0) || !since) {
+    return { level, levelStartDate: tState?.levelStartDate }
+  }
+  const c = cycleInfo(peptide, dateStr)
+  if (!c.isOn || c.ongoing) return { level, levelStartDate: tState?.levelStartDate }
+  if (cycleKey(peptide, dateStr) > cycleKey(peptide, since) && level > 0) {
+    return { level: 0, levelStartDate: onStretchStart(peptide, dateStr), restarted: true }
+  }
+  return { level, levelStartDate: tState?.levelStartDate }
+}
+
+/** The rung in force on a date, restarts from the floor taken into account. */
+export function rungOn(peptide, tState, dateStr) {
+  const st = levelStateOn(peptide, tState, dateStr)
+  return { ...currentRung(peptide, { ...tState, level: st.level }), restarted: !!st.restarted }
+}
+
 // Is a step-up prompt due on `dateStr`?
 export function stepUpDue(peptide, tState, dateStr) {
   const { level, maxLevel } = currentRung(peptide, tState)
   if (level >= maxLevel) return false
   const interval = (peptide.ladder?.intervalWeeks || 1) * 7
-  if (daysBetween(tState.levelStartDate, dateStr) < interval) return false
+  // time at a dose is time on it: rest days do not count towards the interval
+  if (onDaysBetween(peptide, tState.levelStartDate, dateStr) < interval) return false
   return cycleInfo(peptide, dateStr).isOn
 }
 
@@ -162,7 +231,15 @@ export function nextStepUpDate(peptide, tState) {
   const { level, maxLevel } = currentRung(peptide, tState)
   if (level >= maxLevel) return null
   const interval = (peptide.ladder?.intervalWeeks || 1) * 7
-  return addDaysStr(tState.levelStartDate, interval)
+  const first = addDaysStr(tState.levelStartDate, interval)
+  if (!(peptide.cycleOnDays > 0 && peptide.cycleOffDays > 0)) return first
+  // the first on-cycle day by which the interval has been spent on the cycle
+  let d = first
+  for (let i = 0; i < 4000; i++) {
+    if (cycleInfo(peptide, d).isOn && onDaysBetween(peptide, tState.levelStartDate, d) >= interval) return d
+    d = addDaysStr(d, 1)
+  }
+  return first
 }
 
 // Project a dated schedule `days` ahead from `fromStr`. Dates on/before `todayStr`
@@ -171,17 +248,23 @@ export function nextStepUpDate(peptide, tState) {
 export function projectSchedule(peptide, tState, fromStr, days, todayStr) {
   const { rungs, maxLevel } = currentRung(peptide, tState)
   const interval = (peptide.ladder?.intervalWeeks || 1) * 7
-  let simLevel = Math.min(tState?.level ?? 0, maxLevel)
-  let simStart = tState?.levelStartDate || peptide.startDate
+  const first = levelStateOn(peptide, tState, fromStr)
+  let simLevel = Math.min(first.level ?? 0, maxLevel)
+  let simStart = first.levelStartDate || peptide.startDate
   const out = []
   for (let i = 0; i < days; i++) {
     const date = addDaysStr(fromStr, i)
     const c = cycleInfo(peptide, date)
     let stepUp = false
+    // a cycle that restarts from the floor climbs the ladder again
+    if (restartMode(peptide) === 'floor' && c.isOn && !c.ongoing && c.cycleDay === 1 && c.cycleNumber > 1 && simLevel > 0) {
+      simLevel = 0
+      simStart = date
+    }
     if (
       simLevel < maxLevel &&
       c.isOn &&
-      daysBetween(simStart, date) >= interval &&
+      onDaysBetween(peptide, simStart, date) >= interval &&
       daysBetween(todayStr, date) > 0
     ) {
       simLevel += 1
@@ -191,7 +274,6 @@ export function projectSchedule(peptide, tState, fromStr, days, todayStr) {
     out.push({
       date,
       isOn: c.isOn,
-      due: c.isOn && frequencyHits(peptide, date),
       dose: rungs[simLevel],
       level: simLevel,
       stepUp,

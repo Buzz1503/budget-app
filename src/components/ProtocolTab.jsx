@@ -6,6 +6,7 @@ import {
 import useStore, { todayStr } from '../store/useStore'
 import CompoundSheet from './CompoundSheet'
 import { currentRung, cycleInfo, prettyDate } from '../lib/schedule'
+import { cycleStatus } from '../lib/due'
 import { formatDose, isNasal } from '../lib/calc'
 import { stackCost, money } from '../lib/cost'
 import { scheduledWeekdaySet, WEEKDAYS, needsProtocolSetup } from '../lib/daily'
@@ -81,12 +82,13 @@ export default function ProtocolTab({ goTo }) {
     const list = peptides.map((p) => {
       const rung = currentRung(p, titration[p.id])
       const cyc = cycleInfo(p, t)
-      const runway = runwayFor(p, titration[p.id], openVials[p.id], vials, doseLogs, t, leadDays)
+      const runway = runwayFor(p, titration[p.id], openVials[p.id], vials, doseLogs, t, leadDays, pauses)
       return {
         p,
         dose: rung.dose,
         rung,
         cyc,
+        status: cycleStatus(p, t),
         runway,
         // how long, where in the cycle, and whether it is worth a second look
         ten: protocolTenure(p, { runs, titration, pauses, todayStr: t }),
@@ -124,7 +126,7 @@ export default function ProtocolTab({ goTo }) {
           daysWords(r.p),
           r.p.slot || 'AM',
           isNasal(r.p) ? 'Nasal' : (r.p.route || 'SubQ'),
-          r.cyc.ongoing ? 'ongoing' : `cycle day ${r.cyc.cycleDay} (${r.cyc.isOn ? 'on' : 'off'})`,
+          r.status ? r.status.words : 'ongoing',
           // how long it has been running travels with it
           r.ten?.tenure
             ? (r.ten.tenure.runCount > 1 ? r.ten.tenure.summary : `on ${r.ten.tenure.currentWords}`)
@@ -245,15 +247,17 @@ export default function ProtocolTab({ goTo }) {
                     ? (r.ten.tenure.currentDays === 0 ? 'started today' : `${r.ten.tenure.currentWords} on`)
                     : `stopped · ${r.ten.tenure.lifetimeWords} lifetime`}
                   {r.ten.tenure.runCount > 1 && ` · ${r.ten.tenure.runCount} runs`}
-                  {r.ten.cycle?.cycled && ` · ${r.ten.cycle.words}`}
                   {r.atCeiling && ' · at ceiling'}
+                </p>
+              )}
+              {r.status && (
+                <p className="truncate text-xs font-bold tabular-nums leading-tight" data-testid="protocol-cycle"
+                  style={{ color: r.status.on ? 'var(--text-2)' : 'var(--text-3)' }}>
+                  {r.status.words}
                 </p>
               )}
               <p className="truncate text-xs font-medium tabular-nums leading-tight" style={{ color: 'var(--text-2)' }}>
                 {daysWords(r.p)} · {isNasal(r.p) ? 'Nasal' : (r.p.route || 'SubQ')}
-                {r.ten?.cycle?.nextChange
-                  ? ` · ${r.ten.cycle.phase === 'on' ? 'rests' : 'back on'} ${prettyDate(r.ten.cycle.nextChange)}`
-                  : ''}
               </p>
               <p className="mt-1 flex items-center gap-1 truncate text-xs font-bold leading-tight"
                 style={{ color: r.unlinked ? 'var(--warn)' : r.runway?.low ? 'var(--warn)' : 'var(--text-2)' }}>

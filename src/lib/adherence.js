@@ -1,6 +1,6 @@
 // History + adherence: doses actually taken vs. doses scheduled over a window.
 import { addDaysStr, daysBetween } from './schedule'
-import { dueWithPushes } from './pushes'
+import { isDue } from './due'
 import { isPausedOn } from './pauses'
 
 export function dateRange(fromStr, toStr) {
@@ -23,7 +23,7 @@ export function dateRange(fromStr, toStr) {
  */
 export function scheduledCount(peptide, fromStr, toStr, pushes = [], pauses = []) {
   return dateRange(fromStr, toStr)
-    .filter((d) => dueWithPushes(peptide, pushes, d) && !isPausedOn(pauses, peptide.id, d))
+    .filter((d) => isDue(peptide, d, { pushes }) && !isPausedOn(pauses, peptide.id, d))
     .length
 }
 
@@ -48,13 +48,13 @@ export function takenCount(peptide, doseLogs, fromStr, toStr, pushes = [], pause
       .map((l) => l.date)
   )
   // only count a log on a day the dose was actually owed and the protocol running
-  return [...days].filter((d) => dueWithPushes(peptide, pushes, d) && !isPausedOn(pauses, peptide.id, d)).length
+  return [...days].filter((d) => isDue(peptide, d, { pushes }) && !isPausedOn(pauses, peptide.id, d)).length
 }
 
 /** Days in the window this compound spent paused — reported, never counted. */
 export function pausedCount(peptide, fromStr, toStr, pushes = [], pauses = []) {
   return dateRange(fromStr, toStr)
-    .filter((d) => dueWithPushes(peptide, pushes, d) && isPausedOn(pauses, peptide.id, d))
+    .filter((d) => isDue(peptide, d, { pushes }) && isPausedOn(pauses, peptide.id, d))
     .length
 }
 

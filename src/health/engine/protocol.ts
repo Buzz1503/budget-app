@@ -17,6 +17,8 @@ export interface TimelinePoint {
   kind: string
   to?: number | null
   unit?: string | null
+  /** A cycle going off or coming back on, rather than the compound being stopped or started. */
+  cycle?: boolean
 }
 
 const GLP1 = /(semaglutide|tirzepatide|retatrutide|survodutide|mazdutide|ozempic|wegovy|mounjaro|zepbound)/i

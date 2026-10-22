@@ -10,6 +10,8 @@
 //            snapshot (ios/PepitoKit WatchReminders.swift, same ids, so with
 //            Both the system shows one of each on the wrist)
 //   nudge    one follow-up per slot if something is still unlogged by then
+//   restart  the evening before a compound's next on-cycle stretch begins
+//            ("Epithalon restarts tomorrow"); goes where dose reminders go
 //   reaction one daily reminder to check an open reaction
 //   stock    one notification when an item first runs low (see stockAlerts)
 //   sauna    at the session target time
@@ -19,6 +21,8 @@
 import { addDaysStr } from '../lib/schedule'
 import { dayPlan, slotRows, localDate, DEFAULT_SLOT_TIMES, REMIND_ON } from './snapshot'
 import { openReactions, dueForCheck } from '../lib/reactionCourse'
+import { restartsOn, restartWords } from '../lib/due'
+import { displayName } from '../lib/naming'
 import { lowStockItems } from '../lib/lowStock'
 
 export const SCHEDULE_DAYS = 7
@@ -26,7 +30,7 @@ export const ID_PREFIX = 'pepito.sched.'
 export const DEFAULT_NOTIFICATION_SETTINGS = {
   amTime: DEFAULT_SLOT_TIMES.AM, pmTime: DEFAULT_SLOT_TIMES.PM, nudgeDelayMin: 90,
   doses: true, nudges: true, timeSensitive: true, reactions: true, reactionTime: '19:00', stock: true, sauna: true,
-  remindOn: 'watch',
+  remindOn: 'watch', restarts: true, restartTime: '19:00',
 }
 
 /**
@@ -111,6 +115,28 @@ export function buildSchedule(state, { now = new Date(), verdictOf = null, watch
       if (ns.nudges && later(nudge)) {
         out.push({ ...base, id: `${ID_PREFIX}nudge.${date}.${slot}`, body: `Still to log:\n${body}`, fireAt: nudge.toISOString(), payload: { ...base.payload, nudge: true } })
       }
+    }
+  }
+
+  // restarts: the evening before a compound comes back on cycle. Off days
+  // already have no dose reminder or nudge, since a rest is not a due day.
+  if (onPhone && ns.restarts) {
+    for (let i = 0; i < SCHEDULE_DAYS; i++) {
+      const date = addDaysStr(today, i)
+      const next = addDaysStr(today, i + 1)
+      const names = restartsOn(state.peptides || [], next, state.pauses || []).map((p) => displayName(p))
+      const fire = at(date, ns.restartTime)
+      if (!names.length || !later(fire)) continue
+      out.push({
+        id: `${ID_PREFIX}restart.${next}`,
+        title: 'Restarts tomorrow',
+        body: restartWords(names),
+        fireAt: fire.toISOString(),
+        category: 'RESTART',
+        threadId: 'pepito.restart',
+        timeSensitive: false,
+        payload: { kind: 'restart', date: next, route: 'protocol' },
+      })
     }
   }
 

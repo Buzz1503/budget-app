@@ -300,9 +300,45 @@ final class WatchReminderTests: XCTestCase {
         s.notifications?.remindOn = "iphone"
         XCTAssertFalse(WatchReminders.watchSchedules(s))
         s.notifications?.nudges = false
-        XCTAssertTrue(WatchReminders.plan(s, now: now).allSatisfy { $0.id.contains(".dose.") })
+        let doseOnly = WatchReminders.plan(s, now: now).filter { !$0.id.contains(".restart.") }
+        XCTAssertTrue(doseOnly.allSatisfy { $0.id.contains(".dose.") })
         s.notifications?.doses = false
-        XCTAssertTrue(WatchReminders.plan(s, now: now).isEmpty)
+        XCTAssertTrue(WatchReminders.plan(s, now: now).filter { !$0.id.contains(".restart.") }.isEmpty)
+    }
+
+    func testARestingCompoundIsNotDueAndComesBackOnItsFirstDay() throws {
+        let s = try fixture()
+        let rest = DoseBoard.rows(s, date: "2026-10-20", slot: .am).flatMap(\.items).map(\.name)
+        let back = DoseBoard.rows(s, date: "2026-10-21", slot: .am).flatMap(\.items).map(\.name)
+        XCTAssertFalse(rest.contains("Epithalon"))
+        XCTAssertTrue(back.contains("Epithalon"))
+        // at midnight the Today slot rolls onto the new day without the phone having written anything
+        let cal = Calendar.current
+        let lateOnTheRest = try XCTUnwrap(WatchReminders.moment("2026-10-20", "23:30", calendar: cal))
+        let justAfter = try XCTUnwrap(WatchReminders.moment("2026-10-21", "00:10", calendar: cal))
+        XCTAssertNil(DoseBoard.next(s, now: lateOnTheRest, calendar: cal).flatMap { $0.line.contains("Epithalon") ? $0 : nil })
+        let am = DoseBoard.rows(s, date: DoseBoard.dateString(justAfter, calendar: cal), slot: .am).filter { $0.status == .due }
+        XCTAssertTrue(am.contains { $0.items.contains { $0.name == "Epithalon" } })
+    }
+
+    func testTheEveningBeforeARestartTheWatchSaysSo() throws {
+        var s = try fixture()
+        let cal = Calendar.current
+        let now = try XCTUnwrap(WatchReminders.moment("2026-10-20", "08:00", calendar: cal))
+        let r = try XCTUnwrap(WatchReminders.plan(s, now: now, calendar: cal).first { $0.id == "pepito.sched.restart.2026-10-21" })
+        XCTAssertEqual(r.body, "Epithalon restarts tomorrow")
+        XCTAssertEqual(r.fireDate, WatchReminders.moment("2026-10-20", "19:00", calendar: cal))
+        XCTAssertEqual(WatchReminders.restartWords(["Epithalon", "KPV"]), "Epithalon and KPV restart tomorrow")
+        XCTAssertEqual(WatchReminders.restartWords(["A", "B", "C"]), "A, B and C restart tomorrow")
+        // after the evening has passed it is not offered again
+        let late = try XCTUnwrap(WatchReminders.moment("2026-10-20", "21:00", calendar: cal))
+        XCTAssertFalse(WatchReminders.plan(s, now: late, calendar: cal).contains { $0.id.contains(".restart.") })
+        // the setting turns it off, and "iPhone only" leaves the Watch with nothing to schedule
+        s.notifications?.restarts = false
+        XCTAssertFalse(WatchReminders.plan(s, now: now, calendar: cal).contains { $0.id.contains(".restart.") })
+        s.notifications?.restarts = true
+        s.notifications?.remindOn = "iphone"
+        XCTAssertFalse(WatchReminders.watchSchedules(s))
     }
 
     func testALoggedSlotHasNoReminderAndNoNudge() throws {

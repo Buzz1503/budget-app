@@ -155,7 +155,7 @@ export function CompoundEffectsDetail({ compound, fx, input, onBack }) {
           <p className="text-sm font-bold leading-snug">{fx.overlapText}</p>
           <div className="mt-2 space-y-0.5">
             {fx.overlaps.map((o, i) => (
-              <p key={i} className="text-xs font-medium tabular-nums" style={{ color: 'var(--text-2)' }}>{o.name}: {o.kind === 'start' ? 'started' : o.kind === 'stop' ? 'stopped' : 'dose changed'} {pretty(o.date)}</p>
+              <p key={i} className="text-xs font-medium tabular-nums" style={{ color: 'var(--text-2)' }}>{o.name}: {o.cycle ? (o.kind === 'start' ? 'back on cycle' : 'off cycle') : o.kind === 'start' ? 'started' : o.kind === 'stop' ? 'stopped' : 'dose changed'} {pretty(o.date)}</p>
             ))}
           </div>
         </section>

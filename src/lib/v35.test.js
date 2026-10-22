@@ -426,7 +426,10 @@ describe('protocolTenure', () => {
   it('answers what am I on and for how long in one call', () => {
     const p = pep({ cycleOnDays: 42, cycleOffDays: 14, startDate: day(-70), startedOn: day(-70) })
     const r = protocolTenure(p, { runs: {}, titration: { bpc157: { level: 0, levelStartDate: day(-70) } }, todayStr: T })
-    expect(r.tenure.currentDays).toBe(70)
+    // 70 days since the start, 14 of them a rest between cycles
+    expect(r.tenure.elapsedDays).toBe(70)
+    expect(r.tenure.currentDays).toBe(56)
+    expect(r.tenure.offCycleDays).toBe(14)
     expect(r.cycle.cycled).toBe(true)
     expect(r.onOff.cycled).toBe(true)
     expect(r.milestones.passed.length).toBeGreaterThan(0)

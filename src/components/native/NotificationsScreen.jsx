@@ -102,6 +102,7 @@ export default function NotificationsScreen() {
       <section>
         <h2 className="t-caption mb-2 px-1" style={{ color: 'var(--text-3)' }}>Other</h2>
         <div className="card rows px-4">
+          <Switch on={ns.restarts !== false} onChange={(v) => set({ restarts: v })} label="Cycle restarts" hint="The evening before a compound comes back on cycle. Follows Remind me on." testId="notify-restarts" />
           <Switch on={ns.reactions} onChange={(v) => set({ reactions: v })} label="Reaction check" hint="Once a day while a reaction is open." testId="notify-reactions" />
           {ns.reactions && (
             <div className="py-3">

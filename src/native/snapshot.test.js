@@ -52,9 +52,9 @@ describe('buildSnapshot', () => {
   })
 
   it('carries the reminder settings the Watch schedules from', () => {
-    expect(snap.notifications).toEqual({ timeSensitive: true, remindOn: 'watch', doses: true, nudges: true, nudgeDelayMin: 90 })
+    expect(snap.notifications).toEqual({ timeSensitive: true, restarts: true, restartTime: '19:00', remindOn: 'watch', doses: true, nudges: true, nudgeDelayMin: 90 })
     const other = buildSnapshot(state({ notificationSettings: { remindOn: 'both', nudges: false, nudgeDelayMin: 30, timeSensitive: false } }), { now: NOW })
-    expect(other.notifications).toEqual({ timeSensitive: false, remindOn: 'both', doses: true, nudges: false, nudgeDelayMin: 30 })
+    expect(other.notifications).toEqual({ timeSensitive: false, restarts: true, restartTime: '19:00', remindOn: 'both', doses: true, nudges: false, nudgeDelayMin: 30 })
     expect(buildSnapshot(state({ notificationSettings: { remindOn: 'pager' } }), { now: NOW }).notifications.remindOn).toBe('watch')
   })
 

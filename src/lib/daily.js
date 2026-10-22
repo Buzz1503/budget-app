@@ -43,7 +43,9 @@ export function needsProtocolSetup(peptide) {
   return !(peptide?.ladder?.ceiling > 0) || !(peptide?.recon?.vialMg > 0) || !(peptide?.recon?.bacMl > 0)
 }
 
-// Pure scheduling: does the cycle + weekday pattern land on this date?
+// The schedule rule alone: does the cycle + weekday pattern land on this date?
+// Whether a compound is *owed* on a date (pushes, pauses and all) is isDue in
+// ./due.js. Ask that, not this, so every surface gives the same answer.
 export function isScheduledToday(peptide, dateStr) {
   const c = cycleInfo(peptide, dateStr)
   if (!c.isOn) return false

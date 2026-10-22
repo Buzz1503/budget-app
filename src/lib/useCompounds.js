@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import useStore, { todayStr } from '../store/useStore'
 import { doseTimeline, runsFor } from './tenure'
 import { displayName } from './naming'
+import { cycleEvents } from './due'
 
 /** Compounds with their dose timeline points and runs, the shape the engines take. */
 export function useCompounds() {
@@ -15,7 +16,10 @@ export function useCompounds() {
     libraryId: p.libraryId || null,
     affectsRecoveryBaseline: p.affectsRecoveryBaseline,
     trackEffects: p.trackEffects,
-    points: doseTimeline(p, { doseEvents, runs, todayStr: t }).points,
+    // A cycle going off is a stop and coming back on is a restart, so the
+    // effects engine compares the on stretches with the rests either side.
+    points: [...doseTimeline(p, { doseEvents, runs, todayStr: t }).points, ...cycleEvents(p, t)]
+      .sort((a, b) => a.date.localeCompare(b.date)),
     runs: runsFor(p, runs),
   })), [peptides, doseEvents, runs, t])
 }

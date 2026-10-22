@@ -91,3 +91,20 @@ an iOS app (bundle id com.buzz.pepito). State is one persisted Zustand store,
   Watch plans them from the snapshot (`WatchReminders.swift`, same ids); parity fixture
   `Fixtures/reminders.json` from `fixture.test.js`. Snapshot carries 7 days.
 
+## Compound cycling
+
+- Whether a compound is owed on a date is decided in one place: `isDue(compound, date,
+  { pushes, pauses })` in `src/lib/due.js` (set up, on cycle, weekday, push, pause). Home,
+  the calendar, the snapshot, reminders and nudges, adherence and restock all ask it;
+  `daily.isDueToday` is only its building block. Home does not pass pauses (it keeps
+  the Paused banner), everyone else does.
+- A rest is not stopped and not missed. A push never lands in a rest (`pushDestination`).
+  Stock is walked day by day (`runOutWalk.js`), so rests and pauses draw nothing and
+  the forecast, run-out dot and alerts agree. Tenure and time at a dose count on-cycle
+  days only (`onDaysBetween`); the calendar span stays `elapsedDays`.
+- Restart dose: `restartDose` on the compound, 'resume' or 'floor' (`restartMode`;
+  playbook if it states one, else resume). `rungOn` gives the dose for any date, so
+  widgets and the Watch show a restart's dose unopened; `applyCycleRestarts` persists it.
+- Effects: `cycleEvents` adds cycle off and on as stop and restart points in
+  `useCompounds`. Snapshot `cycles.restarts` feeds the evening-before notice on the Watch.
+

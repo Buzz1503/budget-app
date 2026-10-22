@@ -16,7 +16,7 @@ import { WEEKDAYS, weekdayPickCount, scheduledWeekdaySet } from '../lib/daily'
 import {
   formatDose, concentration, doseToUnits, toMg, round, MCG_PER_SPRAY, convertLadderForRoute,
 } from '../lib/calc'
-import { prettyDate } from '../lib/schedule'
+import { prettyDate, restartMode, RESTART_MODES } from '../lib/schedule'
 
 const FREQ_LABELS = {
   daily: 'Daily', nightly: 'Nightly', weekly: 'Weekly',
@@ -760,6 +760,23 @@ function PeptideStep({ entry: e, onPatch }) {
             <Num value={e.cycleOffDays} step="1" onChange={(v) => onPatch({ cycleOffDays: Math.round(v) })} />
           </Field>
         </div>
+        {e.cycleOnDays > 0 && e.cycleOffDays > 0 && (
+          <div className="mt-2" data-testid="restart-dose">
+            <p className="mb-1 text-xs font-semibold" style={{ color: 'var(--text-2)' }}>When a cycle restarts</p>
+            <div className="flex gap-1" role="group" aria-label="When a cycle restarts">
+              {RESTART_MODES.map((m) => {
+                const on = restartMode(e) === m
+                return (
+                  <button key={m} type="button" onClick={() => onPatch({ restartDose: m })} aria-pressed={on}
+                    data-testid={`restart-${m}`} className="flex-1 rounded-full py-2 text-xs font-black"
+                    style={on ? { background: 'var(--accent)', color: 'var(--accent-fg)' } : { background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
+                    {m === 'resume' ? 'Resume last dose' : 'Restart from the floor'}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* optional stock */}

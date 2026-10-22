@@ -3,7 +3,7 @@
 // will be by then, what lands on the day, and whether it was actually taken.
 //
 // Nothing here re-derives scheduling: whether a dose is due comes from
-// dueWithPushes (the same call Home makes), and only the *dose value* on a future
+// isDue (the same call Home makes), and only the *dose value* on a future
 // date comes from the titration projection. That split is deliberate — it's
 // what stops the Calendar drifting a day away from the Home list.
 import { addDaysStr, daysBetween, projectSchedule, cycleInfo, currentRung } from './schedule'
@@ -13,7 +13,8 @@ import { planShots } from './grouping'
 import { LIB_TO_COMPOUND } from './mixMatrix'
 import { expiryInfo, runOutInfo } from './inventory'
 import { runsFor, MILESTONES } from './tenure'
-import { dueWithPushes, pushedAway } from './pushes'
+import { pushedAway } from './pushes'
+import { isDue, isResting } from './due'
 import { isPausedOn, pauseOn, pausesOn, reasonWords } from './pauses'
 import { isReaction, openedOn, severityWord } from './reactionCourse'
 import { PIN_BY_ID } from './sitePins'
@@ -271,7 +272,7 @@ export function buildCalendar({
       // Pushes move the occurrence, so the calendar has to ask the same
       // question Home does — otherwise a day someone deliberately moved a dose
       // off still reads here as a day they missed one.
-      if (!dueWithPushes(p, pushes, date)) continue
+      if (!isDue(p, date, { pushes })) continue
       const row = projection[p.id]?.[date]
       const dose = row ? row.dose : currentRung(p, titration[p.id]).dose
       const nasal = isNasal(p)
@@ -322,9 +323,11 @@ export function buildCalendar({
 
     const all = [...entries, ...oralEntries]
     // Doses that left this day for the next one. They are not in `entries` —
-    // dueWithPushes already moved them — so the count comes off the push list,
+    // isDue already moved them — so the count comes off the push list,
     // which is the only place the day they left is still written down.
     const pushedOffCount = active.filter((p) => pushedAway(pushes, p.id, date)).length
+    // Compounds resting between cycles that day: nothing owed, nothing missed.
+    const offCycle = active.filter((p) => isResting(p, date)).map((p) => ({ peptideId: p.id, name: p.name }))
     const dayPause = pausesOn(pauses, date)[0] || null
     const dayPauseReason = dayPause ? reasonWords(dayPause) : null
     const scheduled = all.length
@@ -375,6 +378,7 @@ export function buildCalendar({
       wholeDayPaused: scheduled > 0 && pausedCount === scheduled,
       pauseReason: dayPauseReason,
       pushedOff: pushedOffCount,
+      offCycle,
       symptom: symptomByDate[date] || null,
       bloodTests: bloodByDate[date] || [],
       adherence,

@@ -28,6 +28,9 @@ export const fixtureState = {
     pep({ id: 'bpc157', name: 'BPC-157', ladder: { floor: 250, step: 0, ceiling: 250, intervalWeeks: 4, unit: 'mcg' }, recon: { vialMg: 5, bacMl: 2 } }),
     pep({ id: 'tb500', name: 'TB-500', ladder: { floor: 2, step: 0, ceiling: 2, intervalWeeks: 4, unit: 'mg' } }),
     pep({ id: 'semax', name: 'Semax', route: 'Nasal', ladder: { floor: 1, step: 0, ceiling: 1, intervalWeeks: 4, unit: 'spray' } }),
+    // 10 days on, 15 off from 1 Sep: resting on 20 Oct, back on cycle on 21 Oct
+    pep({ id: 'epithalon', name: 'Epithalon', startDate: '2026-09-01', startedOn: '2026-09-01', cycleOnDays: 10, cycleOffDays: 15,
+      ladder: { floor: 5, step: 0, ceiling: 5, intervalWeeks: 4, unit: 'mg' }, recon: { vialMg: 50, bacMl: 2 } }),
   ],
   titration: {},
   doseLogs: [{ peptideId: 'semax', date: '2026-10-20' }],
@@ -60,9 +63,9 @@ describe('Swift snapshot fixture', () => {
 })
 
 describe('Swift reminder parity fixture', () => {
-  it('matches the dose reminders and nudges buildSchedule plans for the iPhone', () => {
+  it('matches the dose reminders, nudges and restart reminders buildSchedule plans for the iPhone', () => {
     const list = buildSchedule(fixtureState, { now: NOW, verdictOf, watchReady: false })
-      .filter((n) => /\.(dose|nudge)\./.test(n.id))
+      .filter((n) => /\.(dose|nudge|restart)\./.test(n.id))
       .map(({ fireAt, ...rest }) => ({ ...rest, fireLocal: wall(fireAt) }))
     const json = `${JSON.stringify(list, null, 2)}\n`
     if (process.env.UPDATE_FIXTURES) writeFileSync(REMINDERS, json)

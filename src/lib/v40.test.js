@@ -6,10 +6,11 @@
 // so the days inside it are neither taken nor missed — which is the whole point,
 // and the thing every arithmetic below has to agree on.
 import { describe, it, expect } from 'vitest'
+import { runOutWalk } from './runOutWalk'
 import {
   PAUSE_REASONS, reasonWords, pauseEnd, isOver, coversPeptide, coversDate,
   isPausedOn, pauseOn, pausesOn, anyPausedOn, activePause, pausedDays, pauseLength,
-  pausedDaysBetween, advanceOverPauses, pausesFor, pauseHistory, pauseBands,
+  pausedDaysBetween, pausesFor, pauseHistory, pauseBands,
   scopeWords, pauseDates,
 } from './pauses'
 import { adherenceFor, adherenceSummary, scheduledCount, takenCount, pausedCount } from './adherence'
@@ -274,17 +275,17 @@ describe('a pause does not draw anything', () => {
 
   it('walks over a pause without counting it as supply', () => {
     const ps = [pause({ startedOn: addDaysStr(T, 2), endsOn: addDaysStr(T, 4) })]
-    const w = advanceOverPauses(T, 5, 'reta', ps)
+    const w = runOutWalk({ peptide: { id: 'reta' }, totalMg: 5, onDayMg: 1, todayStr: T, pauses: ps })
     expect(w.pausedDays).toBe(3)
     expect(w.open).toBe(false)
     // five dosing days plus three stepped over: the supply runs out on day 8
-    expect(w.date).toBe(addDaysStr(T, 8))
+    expect(w.runOutDate).toBe(addDaysStr(T, 8))
   })
 
   it('says so rather than looping forever on an open-ended pause', () => {
-    const w = advanceOverPauses(T, 30, 'reta', [pause({ startedOn: T })])
+    const w = runOutWalk({ peptide: { id: 'reta' }, totalMg: 30, onDayMg: 1, todayStr: T, pauses: [pause({ startedOn: T })] })
     expect(w.open).toBe(true)
-    expect(w.date).toBe(null)
+    expect(w.runOutDate).toBe(undefined)
   })
 })
 

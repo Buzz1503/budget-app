@@ -7,9 +7,10 @@
 // surviving — one occurrence moves, the protocol does not.
 import { describe, it, expect } from 'vitest'
 import {
-  canPush, canPushOn, pushedAway, pushedOnto, originDate, pushedLabel,
-  dueWithPushes, arrivalsOn, pushesFor, pushesInRange,
+  canPush, pushedAway, pushedOnto, originDate, pushedLabel,
+  arrivalsOn, pushesFor, pushesInRange,
 } from './pushes'
+import { isDue, canPushOn } from './due'
 import { adherenceFor, adherenceSummary } from './adherence'
 import { doseTimeline } from './tenure'
 import { addDaysStr } from './schedule'
@@ -92,18 +93,18 @@ describe('canPushOn', () => {
 
 // ============================================ 2 · where the occurrence sits
 
-describe('dueWithPushes', () => {
+describe('isDue with pushes', () => {
   it('drops the dose off the day it was pushed from', () => {
     const p = pep()
     expect(isDueToday(p, MON)).toBe(true)
-    expect(dueWithPushes(p, [push({ from: MON, to: addDaysStr(MON, 1) })], MON)).toBe(false)
+    expect(isDue(p, MON, { pushes: [push({ from: MON, to: addDaysStr(MON, 1) })] })).toBe(false)
   })
 
   it('puts it on the day it was pushed to, which is not a scheduled day', () => {
     const p = pep()
     const tue = addDaysStr(MON, 1)
     expect(isDueToday(p, tue)).toBe(false)
-    expect(dueWithPushes(p, [push({ from: MON, to: tue })], tue)).toBe(true)
+    expect(isDue(p, tue, { pushes: [push({ from: MON, to: tue })] })).toBe(true)
   })
 
   it('leaves every following dose exactly where the schedule put it', () => {
@@ -112,16 +113,16 @@ describe('dueWithPushes', () => {
     // Thursday is the next scheduled day and must not have moved
     const thu = addDaysStr(MON, 3)
     expect(weekdayOf(thu)).toBe(4)
-    expect(dueWithPushes(p, pushes, thu)).toBe(true)
+    expect(isDue(p, thu, { pushes })).toBe(true)
     // and next Monday is still Monday
-    expect(dueWithPushes(p, pushes, addDaysStr(MON, 7))).toBe(true)
+    expect(isDue(p, addDaysStr(MON, 7), { pushes })).toBe(true)
   })
 
   it('behaves exactly as the schedule does when nothing has been pushed', () => {
     const p = pep()
     for (let i = 0; i < 14; i++) {
       const d = addDaysStr(T, i)
-      expect(dueWithPushes(p, [], d)).toBe(isDueToday(p, d))
+      expect(isDue(p, d)).toBe(isDueToday(p, d))
     }
   })
 })
@@ -134,9 +135,9 @@ describe('repeated pushes', () => {
   ]
 
   it('can be pushed day after day with no limit', () => {
-    expect(dueWithPushes(pep(), chain, day(1))).toBe(false)
-    expect(dueWithPushes(pep(), chain, day(2))).toBe(false)
-    expect(dueWithPushes(pep(), chain, day(3))).toBe(true)
+    expect(isDue(pep(), day(1), { pushes: chain })).toBe(false)
+    expect(isDue(pep(), day(2), { pushes: chain })).toBe(false)
+    expect(isDue(pep(), day(3), { pushes: chain })).toBe(true)
   })
 
   it('names the day it was originally due, not the last hop', () => {
@@ -165,7 +166,7 @@ describe('pushedAway / pushedOnto / arrivalsOn', () => {
 
   it('ignores another compound entirely', () => {
     expect(pushedOnto(pushes, 'bpc157', T)).toBe(null)
-    expect(dueWithPushes(pep({ id: 'bpc157' }), pushes, T)).toBe(isDueToday(pep({ id: 'bpc157' }), T))
+    expect(isDue(pep({ id: 'bpc157' }), T, { pushes })).toBe(isDueToday(pep({ id: 'bpc157' }), T))
   })
 
   it('lists what landed today', () => {
@@ -264,10 +265,10 @@ describe('pushing a weekly dose', () => {
 
   it('moves this week only — next week stays on its own day', () => {
     const pushes = [push({ from: mon, to: tue })]
-    expect(dueWithPushes(p, pushes, mon)).toBe(false)
-    expect(dueWithPushes(p, pushes, tue)).toBe(true)
-    expect(dueWithPushes(p, pushes, addDaysStr(mon, 7))).toBe(true)
-    expect(dueWithPushes(p, pushes, addDaysStr(tue, 7))).toBe(false)
+    expect(isDue(p, mon, { pushes })).toBe(false)
+    expect(isDue(p, tue, { pushes })).toBe(true)
+    expect(isDue(p, addDaysStr(mon, 7), { pushes })).toBe(true)
+    expect(isDue(p, addDaysStr(tue, 7), { pushes })).toBe(false)
   })
 })
 
@@ -282,8 +283,8 @@ describe('pushing onto a day that already has a dose', () => {
 
   it('does not double the dose — Tuesday still owes one', () => {
     const pushes = [push({ from: mon, to: tue })]
-    expect(dueWithPushes(p, pushes, mon)).toBe(false)
-    expect(dueWithPushes(p, pushes, tue)).toBe(true)
+    expect(isDue(p, mon, { pushes })).toBe(false)
+    expect(isDue(p, tue, { pushes })).toBe(true)
   })
 
   it('counts Tuesday once in adherence, not twice', () => {

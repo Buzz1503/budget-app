@@ -1,7 +1,7 @@
 import { format, parseISO } from 'date-fns'
-import { daysBetween, addDaysStr, cycleInfo, cyclePhase, currentRung, dosesPerWeek } from './schedule'
+import { daysBetween, addDaysStr, cycleInfo, cyclePhase, currentRung, dosesPerWeek, onDaysBetween, offCycleDaysBetween } from './schedule'
 import { toMg } from './calc'
-import { pausedDaysBetween, pauseBands } from './pauses'
+import { pausedDaysBetween, pauseBands, coversPeptide, coversDate } from './pauses'
 
 /**
  * How long you have been on something, and what the dose has done meanwhile.
@@ -44,6 +44,24 @@ function span(from, to) {
   return Math.max(0, daysBetween(from, to))
 }
 
+/**
+ * Paused days that were also off cycle, counted once. A rest is already time
+ * not on the compound, so reporting the same days again as "paused" would be
+ * reporting them twice.
+ */
+function pausedWhileOff(peptide, pauses, fromStr, toStr) {
+  if (!pauses.length || !(peptide?.cycleOnDays > 0 && peptide?.cycleOffDays > 0) || !fromStr || !toStr) return 0
+  const mine = pauses.filter((p) => coversPeptide(p, peptide.id))
+  if (!mine.length) return 0
+  const n = daysBetween(fromStr, toStr)
+  let count = 0
+  for (let i = 0; i <= n; i++) {
+    const d = addDaysStr(fromStr, i)
+    if (offCycleDaysBetween(peptide, d, addDaysStr(d, 1)) && mine.some((p) => coversDate(p, d))) count += 1
+  }
+  return count
+}
+
 /** Runs for one compound, oldest first, with an implied open run if none exist. */
 export function runsFor(peptide, runs = {}) {
   const mine = runs?.[peptide?.id]
@@ -54,6 +72,10 @@ export function runsFor(peptide, runs = {}) {
 
 /**
  * Time on a compound: this run, and across every run there has been.
+ *
+ * Time here is time on the compound: days in a rest between cycles do not
+ * count, the same way days of a pause are reported rather than counted. The
+ * calendar span is still there as `elapsedDays`.
  *
  * Current run and lifetime are reported separately because they answer
  * different questions — "how long have I been on this stretch" and "how much of
@@ -67,14 +89,18 @@ export function tenureFor(peptide, { runs = {}, pauses = [], todayStr } = {}) {
   const closed = list.filter((r) => r.endedOn)
   const open = list.find((r) => !r.endedOn) || null
 
-  const runDays = (r) => span(r.startedOn, r.endedOn || todayStr)
+  const runDays = (r) => onDaysBetween(peptide, r.startedOn, r.endedOn || todayStr)
   const lifetimeDays = list.reduce((n, r) => n + runDays(r), 0)
   const currentDays = open ? runDays(open) : 0
+  const elapsedDays = open ? span(open.startedOn, todayStr) : 0
+  const offCycleDays = open ? offCycleDaysBetween(peptide, open.startedOn, todayStr) : 0
   const longestRunDays = list.reduce((n, r) => Math.max(n, runDays(r)), 0)
   // A pause does not end a run — you have not come off the compound, you have
   // stopped for a fortnight — so the run keeps running and the days off are
   // reported beside it rather than subtracted from it.
-  const pausedDays = open ? pausedDaysBetween(pauses, peptide.id, open.startedOn, todayStr) : 0
+  const pausedDays = open
+    ? Math.max(0, pausedDaysBetween(pauses, peptide.id, open.startedOn, todayStr) - pausedWhileOff(peptide, pauses, open.startedOn, todayStr))
+    : 0
 
   return {
     startedOn: list[0].startedOn,
@@ -84,6 +110,9 @@ export function tenureFor(peptide, { runs = {}, pauses = [], todayStr } = {}) {
     closedCount: closed.length,
     currentDays,
     currentWords: open ? durationWords(currentDays) : null,
+    elapsedDays,
+    offCycleDays,
+    offCycleWords: offCycleDays > 0 ? `${offCycleDays} day${offCycleDays === 1 ? '' : 's'} off cycle` : null,
     pausedDays,
     pausedWords: pausedDays > 0 ? `${pausedDays} day${pausedDays === 1 ? '' : 's'} paused` : null,
     lifetimeDays,
@@ -185,6 +214,7 @@ export function cyclePosition(peptide, todayStr) {
 const EVENT_LABEL = {
   start: 'Started',
   'step-up': 'Stepped up',
+  'cycle-reset': 'Restarted from the floor',
   hold: 'Held',
   override: 'Dose set by hand',
   route: 'Route changed',
@@ -402,11 +432,12 @@ export function milestonesFor(days) {
 export function reassessPrompt(peptide, { tenure, titration = {}, todayStr } = {}) {
   if (!peptide || !tenure?.running) return null
   const { level, maxLevel } = currentRung(peptide, titration[peptide.id])
-  const days = tenure.currentDays
+  // past three full cycles is a statement about the calendar, not about time on it
+  const days = tenure.elapsedDays ?? tenure.currentDays
 
   if (level >= maxLevel && maxLevel > 0) {
     const atTop = titration[peptide.id]?.levelStartDate
-    const atTopDays = atTop && todayStr ? span(atTop, todayStr) : null
+    const atTopDays = atTop && todayStr ? onDaysBetween(peptide, atTop, todayStr) : null
     if (atTopDays != null && atTopDays >= 84) {
       return {
         kind: 'ceiling',
@@ -451,12 +482,15 @@ export function doseTenure(peptide, { doseEvents = [], titration = {}, pauses = 
   // happened. The ladder is the fallback, for a protocol with no events yet.
   const dose = last ? last.to : currentRung(peptide, titration[peptide.id]).dose
   const since = last?.date || titration[peptide.id]?.levelStartDate || peptide.startedOn || peptide.startDate
-  const elapsed = since ? span(since, todayStr) : null
+  // time at a dose is time on it: a rest between cycles does not accrue
+  const elapsed = since ? onDaysBetween(peptide, since, todayStr) : null
   // A fortnight paused is not a fortnight at this dose — you were not on it.
   // Subtracting the break is what keeps "time at current dose" answering the
   // question it claims to, and what stops a titration interval elapsing while
   // nothing was being taken.
-  const pausedOut = since ? pausedDaysBetween(pauses, peptide.id, since, todayStr) : 0
+  const pausedOut = since
+    ? Math.max(0, pausedDaysBetween(pauses, peptide.id, since, todayStr) - pausedWhileOff(peptide, pauses, since, todayStr))
+    : 0
   const days = elapsed == null ? null : Math.max(0, elapsed - pausedOut)
 
   // "0.5 → 1.0 → 1.5 mg": the whole climb in one string, with the unit said

@@ -2,7 +2,7 @@
 import { dosesPerWeek, currentRung, addDaysStr, daysBetween } from './schedule'
 import { toMg } from './calc'
 import { referenceUsdPerVial } from './cost'
-import { advanceOverPauses } from './pauses'
+import { runOutWalk } from './runOutWalk'
 
 export function vialsFor(vials, peptideId) {
   return vials.filter((v) => v.peptideId === peptideId)
@@ -23,9 +23,9 @@ export function burnRatePerDay(peptide, tState) {
 /**
  * When the stock on hand runs out.
  *
- * Stock is drawn down by doses, not by dates, so a pause moves the run-out date
- * further into the calendar rather than letting it arrive on time with the vial
- * still full. `daysLeft` stays what it has always been — calendar days until
+ * Stock is drawn down by doses, not by dates, so a pause or a rest between
+ * cycles moves the run-out date further into the calendar rather than letting
+ * it arrive on time with the vial still full. `daysLeft` stays what it has always been — calendar days until
  * there is none left — so everything reading it for restock timing accounts for
  * the break without being told. An open-ended pause has no end to count to, and
  * says so rather than inventing one.
@@ -34,20 +34,18 @@ export function runOutInfo(peptide, tState, vials, openVial, todayStr, pauses = 
   const rate = burnRatePerDay(peptide, tState)
   const mg = totalMgOnHand(peptide, vials, openVial)
   if (rate <= 0) return { daysLeft: Infinity, runOutDate: null, mg }
-  const consumingDays = Math.floor(mg / rate)
-  if (!pauses.length) {
-    return { daysLeft: consumingDays, runOutDate: addDaysStr(todayStr, consumingDays), mg, rate, consumingDays, pausedDays: 0 }
-  }
-  const walk = advanceOverPauses(todayStr, consumingDays, peptide.id, pauses)
+  // Walked day by day: rest days and paused days draw nothing, so the run-out
+  // date lands later by exactly that many days.
+  const walk = runOutWalk({ peptide, totalMg: mg, onDayMg: rate, todayStr, pauses })
   if (walk.open) {
     return {
-      daysLeft: Infinity, runOutDate: null, mg, rate, consumingDays,
-      pausedDays: walk.pausedDays, pausedIndefinitely: true,
+      daysLeft: Infinity, runOutDate: null, mg, rate, consumingDays: walk.consumingDays,
+      pausedDays: walk.pausedDays, offCycleDays: walk.offCycleDays, pausedIndefinitely: true,
     }
   }
   return {
-    daysLeft: consumingDays + walk.pausedDays,
-    runOutDate: walk.date, mg, rate, consumingDays, pausedDays: walk.pausedDays,
+    daysLeft: walk.days, runOutDate: walk.runOutDate, mg, rate,
+    consumingDays: walk.consumingDays, pausedDays: walk.pausedDays, offCycleDays: walk.offCycleDays,
   }
 }
 

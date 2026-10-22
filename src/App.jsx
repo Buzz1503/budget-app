@@ -101,6 +101,18 @@ export default function App() {
     useNativeFeed.setState({ route: null })
   }, [nativeRoute])
 
+  // A compound set to restart from the floor starts its new on-cycle stretch
+  // there. Checked on opening, on coming back to the app, and through the day,
+  // so it is right across midnight even if the app was never closed.
+  useEffect(() => {
+    const run = () => useStore.getState().applyCycleRestarts?.()
+    run()
+    const onVisible = () => { if (document.visibilityState === 'visible') run() }
+    document.addEventListener('visibilitychange', onVisible)
+    const id = setInterval(run, 15 * 60 * 1000)
+    return () => { document.removeEventListener('visibilitychange', onVisible); clearInterval(id) }
+  }, [])
+
   // Offered once, unprompted, when there's nothing to track yet.
   useEffect(() => {
     if (peptides.length === 0 && !coachMarks?.['wizard-offered'] && !coachMarks?.['wizard-done']) {

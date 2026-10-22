@@ -1,5 +1,5 @@
 import { addDaysStr, daysBetween } from './schedule'
-import { scheduledWeekdaySet, isDueToday } from './daily'
+import { scheduledWeekdaySet } from './daily'
 import { format, parseISO } from 'date-fns'
 
 /**
@@ -19,6 +19,10 @@ import { format, parseISO } from 'date-fns'
  * you until you either take it or decide against it.
  *
  * Nothing here touches stock. Nothing was drawn, so nothing was used.
+ *
+ * Whether a dose is owed on a day, pushes included, is decided by isDue in
+ * ./due.js, and so is whether a push is allowed (canPushOn). A push never
+ * lands on a rest day of a cycled compound: it goes to the next on-cycle day.
  */
 
 /**
@@ -81,23 +85,6 @@ export function pushedLabel(pushes = [], peptideId, dateStr) {
 }
 
 /**
- * Is this dose owed on this date, once pushes are taken into account?
- *
- * The schedule says when a dose is due; this says where the occurrence actually
- * sits now. Both are needed — the first is the protocol, the second is the day.
- */
-export function dueWithPushes(peptide, pushes = [], dateStr) {
-  if (!peptide) return false
-  // Leaving is checked before arriving, and the order matters: a dose pushed
-  // onto Tuesday and then pushed again off Tuesday did both on the same day,
-  // and it is Wednesday's now. Asking "did it arrive?" first would have shown
-  // it on every day of the chain it passed through.
-  if (pushedAway(pushes, peptide.id, dateStr)) return false
-  if (pushedOnto(pushes, peptide.id, dateStr)) return true
-  return isDueToday(peptide, dateStr)
-}
-
-/**
  * Peptides that have landed on this date from an earlier one.
  *
  * Returned separately from the scheduled list so a caller can render the marker
@@ -105,18 +92,6 @@ export function dueWithPushes(peptide, pushes = [], dateStr) {
  */
 export function arrivalsOn(peptides = [], pushes = [], dateStr) {
   return peptides.filter((p) => !!pushedOnto(pushes, p.id, dateStr))
-}
-
-/**
- * Whether a push is allowed right now.
- *
- * Not after the dose is settled: once it is logged or skipped there is no
- * occurrence left to move. And only forward from a day it is actually owed on.
- */
-export function canPushOn(peptide, { pushes = [], loggedIds = new Set(), skippedIds = new Set(), dateStr }) {
-  if (!canPush(peptide)) return false
-  if (loggedIds.has(peptide.id) || skippedIds.has(peptide.id)) return false
-  return dueWithPushes(peptide, pushes, dateStr)
 }
 
 /** Every push for one compound, oldest first — the timeline reads from this. */

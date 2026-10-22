@@ -1,7 +1,8 @@
 // Client-side .ics generation from the dose schedule. A snapshot: titration
 // changes do NOT propagate to an already-exported calendar.
 import { scheduledWeekdaySet, slotOf, needsProtocolSetup } from './daily'
-import { currentRung } from './schedule'
+import { currentRung, fmt } from './schedule'
+import { isCycled, isOnCycle } from './due'
 import { formatDose } from './calc'
 
 const ICS_DAYS = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA']
@@ -59,9 +60,23 @@ export function eventsForPeptide(peptide, tState, opts) {
   const { dose } = currentRung(peptide, tState)
   const doseLabel = includeDose && dose > 0 ? ` (${formatDose(dose, peptide.ladder.unit)})` : ''
 
+  // A rest between cycles is not an occurrence: each one that falls inside the
+  // export window is excluded from the weekly rule, so the calendar app does
+  // not ask for a dose on a day the compound is resting.
+  const horizon = until ? new Date(until) : new Date(new Date(from).getTime() + 400 * 86400000)
+  const exdates = (start) => {
+    if (!isCycled(peptide)) return []
+    const out = []
+    for (let d = new Date(start); d <= horizon && out.length < 400; d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 7)) {
+      if (!isOnCycle(peptide, fmt(d))) out.push(new Date(d))
+    }
+    return out
+  }
+
   return days.map((wd) => {
     const start = firstOccurrence(from, wd)
     return {
+      exdates: exdates(start),
       uid: `${peptide.id}-${wd}-${slot}@peptide-command-center`,
       summary: `${peptide.name} — ${slot} shot${doseLabel}`,
       start, time, byday: ICS_DAYS[wd], until,
@@ -118,6 +133,7 @@ export function buildIcs(peptides, titration, { from = new Date(), until = null,
         `DTSTART:${dtStart}`,
         `DTEND:${icsLocalStamp(ev.start, ev.time.h, ev.time.m + 15)}`,
         rrule,
+        ...(ev.exdates || []).map((d) => `EXDATE:${icsLocalStamp(d, ev.time.h, ev.time.m)}`),
         foldLine(`SUMMARY:${escapeIcs(ev.summary)}`),
         foldLine(`DESCRIPTION:${escapeIcs(ev.description)}`),
         'END:VEVENT',

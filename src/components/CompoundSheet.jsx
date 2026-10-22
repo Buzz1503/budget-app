@@ -8,7 +8,8 @@ import Modal from './ui/Modal'
 import NumberField from './ui/NumberField'
 import ReferenceInfo, { TierBadge } from './ReferenceInfo'
 import { referenceFor, protocolTextFrom } from '../lib/reference'
-import { currentRung, cycleInfo, prettyDate, addDaysStr } from '../lib/schedule'
+import { currentRung, cycleInfo, prettyDate, addDaysStr, restartMode, RESTART_MODES } from '../lib/schedule'
+import { cycleStatus } from '../lib/due'
 import { formatDose, concentration, isNasal } from '../lib/calc'
 import { scheduledWeekdaySet, WEEKDAYS } from '../lib/daily'
 import { batchesFor, sealedCount } from '../lib/stock'
@@ -257,6 +258,7 @@ function MineTab({ peptide, rung, cyc, runway, unlinked, batches, note, onNote, 
     )
   }
 
+  const updatePeptide = useStore((s) => s.updatePeptide)
   const nasal = isNasal(peptide)
   const days = scheduledWeekdaySet(peptide)
   const conc = concentration(peptide.recon?.vialMg, peptide.recon?.bacMl)
@@ -278,8 +280,25 @@ function MineTab({ peptide, rung, cyc, runway, unlinked, batches, note, onNote, 
             ? `${peptide.recon.vialMg} mg in ${peptide.recon.bacMl} mL · ${Math.round(conc * 1000) / 1000} mg/mL`
             : 'not set'} />
         )}
-        <Row label="Cycle" value={cyc?.ongoing ? 'Ongoing' : `Day ${cyc?.cycleDay} · ${cyc?.isOn ? 'on' : 'off'}`}
+        <Row label="Cycle" value={cyc?.ongoing ? 'Ongoing' : (cycleStatus(peptide, todayStr())?.words || '—')}
           tone={cyc && !cyc.ongoing && !cyc.isOn ? 'var(--text-2)' : undefined} />
+        {cyc && !cyc.ongoing && (
+          <div className="py-2" data-testid="restart-dose">
+            <p className="mb-1 text-xs font-medium" style={{ color: 'var(--text-2)' }}>When a cycle restarts</p>
+            <div className="flex gap-1" role="group" aria-label="When a cycle restarts">
+              {RESTART_MODES.map((m) => (
+                <button key={m} type="button" onClick={() => updatePeptide(peptide.id, { restartDose: m })}
+                  aria-pressed={restartMode(peptide) === m} data-testid={`restart-${m}`}
+                  className="flex-1 rounded-full py-2 text-xs font-black"
+                  style={restartMode(peptide) === m
+                    ? { background: 'var(--accent)', color: 'var(--accent-fg)' }
+                    : { background: 'var(--surface)', color: 'var(--text-2)' }}>
+                  {m === 'resume' ? 'Resume last dose' : 'Restart from the floor'}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         {/* two different facts: when the schedule is anchored, and how long
             you have actually been on the compound */}
         <Row label="Schedule from" value={prettyDate(peptide.startDate)} />

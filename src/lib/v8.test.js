@@ -3,7 +3,8 @@ import { planShots, shotsHeadline, MAX_GROUP_ML } from './grouping'
 import {
   concentrationOf, isPremixed, premixedVialMg, unitsFor, doseToUnits, formatUnitsLong,
 } from './calc'
-import { buildRungs, currentRung, stepUpDue, frequencyHits, dosesPerWeek } from './schedule'
+import { buildRungs, currentRung, stepUpDue, dosesPerWeek } from './schedule'
+import { isDue } from './due'
 import { isDueToday, scheduledWeekdaySet, weekdayPickCount, needsProtocolSetup, slotOf } from './daily'
 import { expiryInfo } from './inventory'
 import { testosteroneEnanthate, TEST_E_ID, seedPeptides } from '../data/seed'
@@ -53,9 +54,9 @@ describe('Testosterone Enanthate — oil-based injectable', () => {
   })
 
   it('projects on the picked weekdays, so Plan agrees with Home', () => {
-    expect(frequencyHits(TE, '2026-01-05')).toBe(true) // Mon
-    expect(frequencyHits(TE, '2026-01-06')).toBe(false) // Tue
-    expect(frequencyHits(TE, '2026-01-08')).toBe(true) // Thu
+    expect(isDue(TE, '2026-01-05')).toBe(true) // Mon
+    expect(isDue(TE, '2026-01-06')).toBe(false) // Tue
+    expect(isDue(TE, '2026-01-08')).toBe(true) // Thu
   })
 
   it('is pre-mixed at 250 mg/mL — 50 mg is 0.2 mL / 20 units', () => {

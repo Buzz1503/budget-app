@@ -19,6 +19,20 @@ public struct Snapshot: Codable, Equatable, Sendable {
     public var sauna: Sauna
     public var watch: WatchInfo
     public var notifications: NotificationInfo?
+    /// Cycles ahead: who restarts when. Absent in snapshots written before cycling was checked everywhere.
+    public var cycles: Cycles?
+
+    public struct Cycles: Codable, Equatable, Sendable {
+        public var restarts: [Restart]
+        public init(restarts: [Restart]) { self.restarts = restarts }
+    }
+
+    /// Compounds that begin a new on-cycle stretch on `date`, after a rest.
+    public struct Restart: Codable, Equatable, Sendable {
+        public var date: String
+        public var names: [String]
+        public init(date: String, names: [String]) { self.date = date; self.names = names }
+    }
 
     public struct SlotTimes: Codable, Equatable, Sendable {
         public var AM: String
@@ -154,9 +168,14 @@ public struct Snapshot: Codable, Equatable, Sendable {
         public var doses: Bool?
         public var nudges: Bool?
         public var nudgeDelayMin: Int?
-        public init(timeSensitive: Bool, remindOn: String? = nil, doses: Bool? = nil, nudges: Bool? = nil, nudgeDelayMin: Int? = nil) {
+        /// The evening-before reminder for a cycle restarting, and when it comes.
+        public var restarts: Bool?
+        public var restartTime: String?
+        public init(timeSensitive: Bool, remindOn: String? = nil, doses: Bool? = nil, nudges: Bool? = nil, nudgeDelayMin: Int? = nil,
+                    restarts: Bool? = nil, restartTime: String? = nil) {
             self.timeSensitive = timeSensitive; self.remindOn = remindOn; self.doses = doses
             self.nudges = nudges; self.nudgeDelayMin = nudgeDelayMin
+            self.restarts = restarts; self.restartTime = restartTime
         }
     }
 }

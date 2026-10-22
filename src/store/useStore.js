@@ -22,8 +22,8 @@ import {
 } from '../lib/gear'
 import { DEFAULT_WINDOW_DAYS } from '../lib/siteRotation'
 import { seedTests as seedBloodTests, seedMarkers as seedBloodMarkers } from '../lib/bloods'
-import { currentRung, cycleInfo, addDaysStr, resolveDoseChange } from '../lib/schedule'
-import { isDueToday } from '../lib/daily'
+import { currentRung, cycleInfo, addDaysStr, resolveDoseChange, levelStateOn } from '../lib/schedule'
+import { pushDestination } from '../lib/due'
 import { enrichPeptide } from '../lib/reference'
 import { toPeptide } from '../lib/wizardDefaults'
 import { countEntries } from '../lib/backup'
@@ -183,6 +183,7 @@ function initialState() {
       reactions: true, reactionTime: '19:00', stock: true, sauna: true,
       permissionAsked: false,
       remindOn: 'watch',                 // dose reminders on 'watch' | 'iphone' | 'both' (3C)
+      restarts: true, restartTime: '19:00', // the evening before a cycled compound restarts
     },
     watchSettings: { countSaunaTowardMove: false },
     securitySettings: { faceIdLock: false, graceSec: 0 },
@@ -1324,7 +1325,9 @@ const useStore = create(
         if (s.doseLogs.some((l) => l.peptideId === peptideId && l.date === from)) return null
         if (s.skips.some((k) => k.kind === 'peptide' && k.peptideId === peptideId && k.date === from)) return null
         if (s.pushes.some((x) => x.peptideId === peptideId && x.from === from)) return null
-        const to = addDaysStr(from, 1)
+        // tomorrow, or the next on-cycle day when tomorrow is a rest
+        const to = pushDestination(p, from)
+        if (!to) return null
         const id = `pu-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`
         set({
           pushes: [...s.pushes, {
@@ -1332,6 +1335,38 @@ const useStore = create(
           }],
         })
         return id
+      },
+      /**
+       * A compound that restarts from the floor starts its new on-cycle stretch
+       * at the bottom of the ladder. The surfaces that look ahead (widgets, the
+       * Watch, reminders) already show that dose without the app being open;
+       * this puts it in the store the next time the app runs, so everything
+       * else agrees. Idempotent: once applied, the level is already the floor.
+       * Returns how many compounds were reset.
+       */
+      applyCycleRestarts(dateStr = null) {
+        const t = dateStr || todayStr()
+        const s = get()
+        const resets = []
+        for (const p of s.peptides) {
+          const ts = s.titration[p.id]
+          if (!ts) continue
+          const st = levelStateOn(p, ts, t)
+          if (st.restarted) resets.push({ p, st, from: currentRung(p, ts).dose })
+        }
+        if (!resets.length) return 0
+        set((state) => {
+          const titration = { ...state.titration }
+          for (const r of resets) titration[r.p.id] = { level: 0, levelStartDate: r.st.levelStartDate }
+          return { titration }
+        })
+        for (const r of resets) {
+          get()._recordDoseEvent(r.p.id, 'cycle-reset', {
+            date: r.st.levelStartDate, from: r.from, to: currentRung(r.p, { level: 0 }).dose, unit: r.p.ladder?.unit,
+            note: 'Cycle restarted from the floor',
+          })
+        }
+        return resets.length
       },
       /** Undo a push, putting the occurrence back on the day it came from. */
       unpush(id) {
@@ -2799,6 +2834,7 @@ const useStore = create(
       }),
       onRehydrateStorage: () => (state) => {
         state?.enrichLibraryFromReference?.()
+        state?.applyCycleRestarts?.()
       },
     }
   )

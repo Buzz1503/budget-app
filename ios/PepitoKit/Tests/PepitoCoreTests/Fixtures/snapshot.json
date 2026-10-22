@@ -171,6 +171,23 @@
           "canPush": false
         },
         {
+          "id": "2026-10-21:peptide:epithalon",
+          "refId": "epithalon",
+          "kind": "peptide",
+          "name": "Epithalon",
+          "compound": "Epithalon",
+          "dose": "5 mg",
+          "units": "20 units",
+          "line": "Epithalon 5 mg, 20 units",
+          "form": "injection",
+          "slot": "AM",
+          "status": "due",
+          "groupId": null,
+          "verb": "Log",
+          "speech": "Log Epithalon 5 milligrams",
+          "canPush": false
+        },
+        {
           "id": "2026-10-21:supplement:fish",
           "refId": "fish",
           "kind": "supplement",
@@ -259,6 +276,23 @@
           "groupId": null,
           "verb": "Log",
           "speech": "Log Semax 1 spray",
+          "canPush": false
+        },
+        {
+          "id": "2026-10-22:peptide:epithalon",
+          "refId": "epithalon",
+          "kind": "peptide",
+          "name": "Epithalon",
+          "compound": "Epithalon",
+          "dose": "5 mg",
+          "units": "20 units",
+          "line": "Epithalon 5 mg, 20 units",
+          "form": "injection",
+          "slot": "AM",
+          "status": "due",
+          "groupId": null,
+          "verb": "Log",
+          "speech": "Log Epithalon 5 milligrams",
           "canPush": false
         },
         {
@@ -353,6 +387,23 @@
           "canPush": false
         },
         {
+          "id": "2026-10-23:peptide:epithalon",
+          "refId": "epithalon",
+          "kind": "peptide",
+          "name": "Epithalon",
+          "compound": "Epithalon",
+          "dose": "5 mg",
+          "units": "20 units",
+          "line": "Epithalon 5 mg, 20 units",
+          "form": "injection",
+          "slot": "AM",
+          "status": "due",
+          "groupId": null,
+          "verb": "Log",
+          "speech": "Log Epithalon 5 milligrams",
+          "canPush": false
+        },
+        {
           "id": "2026-10-23:supplement:fish",
           "refId": "fish",
           "kind": "supplement",
@@ -441,6 +492,23 @@
           "groupId": null,
           "verb": "Log",
           "speech": "Log Semax 1 spray",
+          "canPush": false
+        },
+        {
+          "id": "2026-10-24:peptide:epithalon",
+          "refId": "epithalon",
+          "kind": "peptide",
+          "name": "Epithalon",
+          "compound": "Epithalon",
+          "dose": "5 mg",
+          "units": "20 units",
+          "line": "Epithalon 5 mg, 20 units",
+          "form": "injection",
+          "slot": "AM",
+          "status": "due",
+          "groupId": null,
+          "verb": "Log",
+          "speech": "Log Epithalon 5 milligrams",
           "canPush": false
         },
         {
@@ -535,6 +603,23 @@
           "canPush": false
         },
         {
+          "id": "2026-10-25:peptide:epithalon",
+          "refId": "epithalon",
+          "kind": "peptide",
+          "name": "Epithalon",
+          "compound": "Epithalon",
+          "dose": "5 mg",
+          "units": "20 units",
+          "line": "Epithalon 5 mg, 20 units",
+          "form": "injection",
+          "slot": "AM",
+          "status": "due",
+          "groupId": null,
+          "verb": "Log",
+          "speech": "Log Epithalon 5 milligrams",
+          "canPush": false
+        },
+        {
           "id": "2026-10-25:supplement:fish",
           "refId": "fish",
           "kind": "supplement",
@@ -623,6 +708,23 @@
           "groupId": null,
           "verb": "Log",
           "speech": "Log Semax 1 spray",
+          "canPush": false
+        },
+        {
+          "id": "2026-10-26:peptide:epithalon",
+          "refId": "epithalon",
+          "kind": "peptide",
+          "name": "Epithalon",
+          "compound": "Epithalon",
+          "dose": "5 mg",
+          "units": "20 units",
+          "line": "Epithalon 5 mg, 20 units",
+          "form": "injection",
+          "slot": "AM",
+          "status": "due",
+          "groupId": null,
+          "verb": "Log",
+          "speech": "Log Epithalon 5 milligrams",
           "canPush": false
         },
         {
@@ -718,8 +820,20 @@
     ],
     "countTowardMove": false
   },
+  "cycles": {
+    "restarts": [
+      {
+        "date": "2026-10-21",
+        "names": [
+          "Epithalon"
+        ]
+      }
+    ]
+  },
   "notifications": {
     "timeSensitive": true,
+    "restarts": true,
+    "restartTime": "19:00",
     "remindOn": "watch",
     "doses": true,
     "nudges": true,

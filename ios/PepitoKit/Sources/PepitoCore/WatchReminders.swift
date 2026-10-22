@@ -95,6 +95,36 @@ public enum WatchReminders {
                 }
             }
         }
+        out += restartReminders(snap, now: now, calendar: calendar)
+        return out
+    }
+
+    /// "Epithalon restarts tomorrow", "Epithalon and KPV restart tomorrow", "A, B and C restart tomorrow".
+    public static func restartWords(_ names: [String]) -> String {
+        let list: String
+        switch names.count {
+        case 0: list = ""
+        case 1: list = names[0]
+        default: list = "\(names.dropLast().joined(separator: ", ")) and \(names[names.count - 1])"
+        }
+        return "\(list) \(names.count > 1 ? "restart" : "restarts") tomorrow"
+    }
+
+    /// The evening before each compound comes back on cycle: a rest is not a due
+    /// day, so it has no dose reminder, and this is the one sentence about it.
+    static func restartReminders(_ snap: Snapshot, now: Date, calendar: Calendar) -> [Reminder] {
+        guard snap.notifications?.restarts ?? true else { return [] }
+        let time = snap.notifications?.restartTime ?? "19:00"
+        var out: [Reminder] = []
+        for r in snap.cycles?.restarts ?? [] {
+            guard let restartDay = moment(r.date, "00:00", calendar: calendar),
+                  let before = calendar.date(byAdding: .day, value: -1, to: restartDay),
+                  let fire = moment(DoseBoard.dateString(before, calendar: calendar), time, calendar: calendar),
+                  fire > now, !r.names.isEmpty else { continue }
+            out.append(Reminder(id: "\(NotificationAction.schedulePrefix)restart.\(r.date)", title: "Restarts tomorrow",
+                                body: restartWords(r.names), fireDate: fire, category: "RESTART", threadId: "pepito.restart",
+                                timeSensitive: false, payload: NotificationPayload(kind: "restart", date: r.date, route: "protocol")))
+        }
         return out
     }
 }

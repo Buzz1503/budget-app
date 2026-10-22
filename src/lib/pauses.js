@@ -155,40 +155,6 @@ export function pausedDaysBetween(pauses = [], peptideId, fromStr, toStr) {
   return count
 }
 
-/**
- * Walk forward `consumingDays` days of actual dosing, stepping over pauses.
- *
- * Stock is drawn down by doses, not by dates, so a fortnight paused pushes the
- * run-out date a fortnight further out rather than arriving on time with the
- * vial still full. An open-ended pause has no far edge to walk to, which the
- * caller has to handle rather than this looping to the heat death of the
- * universe: `open` says so and the walk stops.
- */
-export function advanceOverPauses(fromStr, consumingDays, peptideId, pauses = [], maxDays = 4000) {
-  if (!(consumingDays > 0)) return { date: fromStr, pausedDays: 0, open: false }
-  const mine = pauses.filter((p) => coversPeptide(p, peptideId))
-  let used = 0
-  let paused = 0
-  let date = fromStr
-  for (let i = 0; i < maxDays; i++) {
-    const covering = mine.find((p) => coversDate(p, date))
-    if (covering) {
-      // a pause with no end never lets the count finish, and saying "runs out in
-      // 4000 days" would be a worse answer than saying it does not, for now
-      if (!pauseEnd(covering)) return { date: null, pausedDays: paused, open: true }
-      paused += 1
-    } else {
-      used += 1
-      // The run-out date is the day *after* the last one the supply covered,
-      // which is the convention runOutInfo has always used — returning the last
-      // covered day instead would read a day early on every screen.
-      if (used >= consumingDays) return { date: addDaysStr(date, 1), pausedDays: paused, open: false }
-    }
-    date = addDaysStr(date, 1)
-  }
-  return { date, pausedDays: paused, open: false, capped: true }
-}
-
 /** Every pause touching one compound, newest first. */
 export function pausesFor(pauses = [], peptideId) {
   return pauses

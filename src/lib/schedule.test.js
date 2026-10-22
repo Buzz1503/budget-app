@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import {
-  buildRungs, cycleInfo, isDueOn, frequencyHits, currentRung, stepUpDue,
+  buildRungs, cycleInfo, currentRung, stepUpDue,
   nextStepUpDate, projectSchedule, addDaysStr,
 } from './schedule'
+import { isDue } from './due'
 
 const ladderSemax = { floor: 300, step: 150, intervalWeeks: 1, ceiling: 1000, unit: 'mcg' }
 
@@ -11,6 +12,7 @@ function pep(over = {}) {
     id: 'p', name: 'Test', frequency: 'daily', startDate: '2026-01-01',
     cycleOnDays: 56, cycleOffDays: 56,
     ladder: { floor: 250, step: 50, intervalWeeks: 1, ceiling: 500, unit: 'mcg' },
+    recon: { vialMg: 10, bacMl: 2, expiryDays: 28 },
     ...over,
   }
 }
@@ -56,26 +58,27 @@ describe('cycleInfo', () => {
   })
 })
 
-describe('frequency patterns', () => {
-  it('weekly hits every 7th day only', () => {
+describe('frequency patterns (decided by isDue)', () => {
+  // 2026-01-01 is a Thursday
+  it('weekly lands on the weekday it started on, and only that day', () => {
     const p = pep({ frequency: 'weekly', cycleOnDays: 0, cycleOffDays: 0 })
-    expect(isDueOn(p, '2026-01-01')).toBe(true)
-    expect(isDueOn(p, '2026-01-02')).toBe(false)
-    expect(isDueOn(p, '2026-01-08')).toBe(true)
+    expect(isDue(p, '2026-01-01')).toBe(true)
+    expect(isDue(p, '2026-01-02')).toBe(false)
+    expect(isDue(p, '2026-01-08')).toBe(true)
   })
-  it('3x/week hits days 0, 2, 4 of each week', () => {
+  it('3x/week defaults to Mon, Wed, Fri', () => {
     const p = pep({ frequency: '3xweek', cycleOnDays: 0, cycleOffDays: 0 })
-    const hits = [0, 1, 2, 3, 4, 5, 6].map((d) => frequencyHits(p, addDaysStr('2026-01-01', d)))
-    expect(hits).toEqual([true, false, true, false, true, false, false])
+    const hits = [0, 1, 2, 3, 4, 5, 6].map((d) => isDue(p, addDaysStr('2026-01-01', d)))
+    expect(hits).toEqual([false, true, false, false, true, false, true])
   })
-  it('5-on-2-off hits first 5 days of each week', () => {
+  it('5-on-2-off defaults to Monday to Friday', () => {
     const p = pep({ frequency: '5on2off', cycleOnDays: 0, cycleOffDays: 0 })
-    const hits = [0, 4, 5, 6, 7].map((d) => frequencyHits(p, addDaysStr('2026-01-01', d)))
-    expect(hits).toEqual([true, true, false, false, true])
+    const hits = [0, 2, 3, 7].map((d) => isDue(p, addDaysStr('2026-01-01', d)))
+    expect(hits).toEqual([true, false, false, true])
   })
-  it('off-cycle suppresses due even when frequency hits', () => {
+  it('off-cycle suppresses due even when the weekday hits', () => {
     const p = pep({ cycleOnDays: 7, cycleOffDays: 7 })
-    expect(isDueOn(p, addDaysStr('2026-01-01', 8))).toBe(false)
+    expect(isDue(p, addDaysStr('2026-01-01', 8))).toBe(false)
   })
 })
 
@@ -136,13 +139,14 @@ describe('projectSchedule', () => {
     const days = projectSchedule(p, t, '2026-01-01', 10, '2026-01-10')
     expect(days.every((d) => d.dose === 250)).toBe(true)
   })
-  it('marks off-cycle days as not due', () => {
+  it('marks off-cycle days as off, so a projection and Home never disagree', () => {
     const p = pep({ cycleOnDays: 7, cycleOffDays: 7 })
     const t = { level: 0, levelStartDate: today }
     const days = projectSchedule(p, t, today, 21, today)
-    expect(days[6].due).toBe(true)
-    expect(days[7].due).toBe(false)
-    expect(days[13].due).toBe(false)
-    expect(days[14].due).toBe(true)
+    for (const d of days) expect(d.isOn).toBe(isDue(p, d.date))
+    expect(days[6].isOn).toBe(true)
+    expect(days[7].isOn).toBe(false)
+    expect(days[13].isOn).toBe(false)
+    expect(days[14].isOn).toBe(true)
   })
 })

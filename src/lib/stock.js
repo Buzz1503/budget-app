@@ -18,7 +18,7 @@ import { currentRung, dosesPerWeek, addDaysStr, prettyDate } from './schedule'
 import { toMg } from './calc'
 import { referenceUsdPerVial } from './cost'
 import { drawsPerWeek } from './drawdown'
-import { advanceOverPauses } from './pauses'
+import { runOutWalk } from './runOutWalk'
 
 export const VIAL_STATES = ['sealed', 'active', 'finished']
 
@@ -212,7 +212,13 @@ export function cycleDutyFraction(peptide) {
   return on / (on + off)
 }
 
-/** Real mg/week burn rate at the current rung, discounted for cycle off-time. */
+/** mg/week while the compound is on cycle: what one week of an on-stretch uses. */
+export function onCycleWeeklyMg(peptide, tState) {
+  const { dose } = currentRung(peptide, tState)
+  return dosesPerWeek(peptide.frequency) * toMg(dose, peptide.ladder?.unit)
+}
+
+/** Real mg/week burn rate at the current rung, averaged over the cycle (a rest uses nothing). */
 export function weeklyUsageMg(peptide, tState) {
   const { dose } = currentRung(peptide, tState)
   const raw = dosesPerWeek(peptide.frequency) * toMg(dose, peptide.ladder?.unit)
@@ -238,14 +244,21 @@ export function sharedWeeklyUsageMg(peptide, tState, vials = []) {
 
 export function coverageFor(peptide, tState, vials = [], todayStr) {
   const mgOnShelf = sealedMg(vials, peptide.id)
+  // The figure shown as a rate is the average over the cycle; the date comes
+  // from walking the days, so rest days draw nothing.
   const perWeekMg = weeklyUsageMg(peptide, tState)
+  const onWeekMg = onCycleWeeklyMg(peptide, tState)
   if (!(perWeekMg > 0)) return { weeks: Infinity, days: Infinity, mgOnShelf, vials: sealedCount(vials, peptide.id) }
-  const weeks = mgOnShelf / perWeekMg
-  const days = Math.floor(weeks * 7)
+  if (!todayStr) {
+    const weeks = mgOnShelf / perWeekMg
+    return { weeks: Math.round(weeks * 10) / 10, days: Math.floor(weeks * 7), runOutDate: null, mgOnShelf, vials: sealedCount(vials, peptide.id), perWeekMg }
+  }
+  const walk = runOutWalk({ peptide, totalMg: mgOnShelf, onDayMg: onWeekMg / 7, todayStr })
+  const days = walk.days
   return {
-    weeks: Math.round(weeks * 10) / 10,
+    weeks: Math.round((days / 7) * 10) / 10,
     days,
-    runOutDate: todayStr ? addDaysStr(todayStr, days) : null,
+    runOutDate: walk.runOutDate,
     mgOnShelf,
     vials: sealedCount(vials, peptide.id),
     perWeekMg,
@@ -309,35 +322,37 @@ export function runwayFor(peptide, tState, openVial, vials = [], doseLogs = [], 
     }
   }
 
-  // Days of actual dosing the stock covers. A pause draws nothing, so those
-  // days buy no supply — they just move the date the supply runs out further
-  // into the calendar.
-  const consumingDays = Math.floor((totalMg / perWeekMg) * 7)
-  const walk = (todayStr && pauses.length)
-    ? advanceOverPauses(todayStr, consumingDays, peptide.id, pauses)
-    : { date: todayStr ? addDaysStr(todayStr, consumingDays) : null, pausedDays: 0, open: false }
+  // Walked a day at a time: a rest or a pause draws nothing from the compound's
+  // own dose, so each one moves the date the supply runs out further into the
+  // calendar. Somebody else drawing off the same vial does not rest with it.
+  const others = perWeekMg - weeklyUsageMg(peptide, tState)
+  const walk = runOutWalk({
+    peptide, totalMg, onDayMg: onCycleWeeklyMg(peptide, tState) / 7, otherDayMg: others / 7,
+    todayStr: todayStr || '2000-01-01', pauses: todayStr ? pauses : [],
+  })
 
   if (walk.open) {
     // paused with no end set: there is no date on which this runs out, and
     // inventing one would be worse than saying so
     return {
       totalMg: Math.round(totalMg * 100) / 100,
-      perWeekMg, days: Infinity, consumingDays, pausedDays: walk.pausedDays,
+      perWeekMg, days: Infinity, consumingDays: walk.consumingDays, pausedDays: walk.pausedDays, offCycleDays: walk.offCycleDays,
       runOutDate: null, restockByDate: null, pausedIndefinitely: true,
       low: false, out: totalMg <= 1e-9, vials: sealedCount(vials, peptide.id),
     }
   }
 
-  const days = consumingDays + walk.pausedDays
-  const runOutDate = walk.date
+  const days = walk.days
+  const runOutDate = todayStr ? walk.runOutDate : null
   const restockByDate = runOutDate ? addDaysStr(runOutDate, -leadDays) : null
 
   return {
     totalMg: Math.round(totalMg * 100) / 100,
     perWeekMg,
     days,
-    consumingDays,
+    consumingDays: walk.consumingDays,
     pausedDays: walk.pausedDays,
+    offCycleDays: walk.offCycleDays,
     runOutDate,
     restockByDate,
     low: days <= leadDays,

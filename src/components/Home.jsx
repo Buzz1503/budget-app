@@ -17,7 +17,8 @@ import CoachTip from './ui/CoachTip'
 import CoDrawModal from './CoDrawModal'
 import { dueInSlot, takenOn, FORM_LABEL, takeVerb } from '../lib/supplements'
 import { skippedOn, supplementsSkippedOn, skipFor, SKIP_REASONS, REASON_LABEL } from '../lib/skips'
-import { dueWithPushes, canPushOn, pushedLabel } from '../lib/pushes'
+import { pushedLabel } from '../lib/pushes'
+import { isDue, canPushOn, offCycleOn, offCycleLine } from '../lib/due'
 import {
   activePause, pausedDays, reasonWords, scopeWords, pauseEnd, pauseDates,
 } from '../lib/pauses'
@@ -69,9 +70,12 @@ export default function Home({ goTo }) {
    * from — it is the same dose, just later.
    */
   const scheduledToday = useMemo(
-    () => peptides.filter((p) => dueWithPushes(p, pushes, t)),
+    () => peptides.filter((p) => isDue(p, t, { pushes })),
     [peptides, pushes, t]
   )
+  // Compounds resting between cycles: not owed today, and not lost. One muted
+  // line says where they are, only when there is something to say.
+  const offCycle = useMemo(() => offCycleOn(peptides, t), [peptides, t])
   const slotDue = useMemo(() => scheduledToday.filter((p) => slotOf(p) === slot), [scheduledToday, slot])
   const otherSlot = slot === 'AM' ? 'PM' : 'AM'
   const otherCount = scheduledToday.filter((p) => slotOf(p) === otherSlot).length
@@ -444,6 +448,12 @@ export default function Home({ goTo }) {
               }} />
           ))}
         </div>
+      )}
+
+      {offCycle.length > 0 && (
+        <p className="px-1 text-xs font-medium" style={{ color: 'var(--text-3)' }} data-testid="off-cycle-line">
+          {offCycleLine(offCycle, displayName)}
+        </p>
       )}
 
       {/* Below the cards, not above them: the individual doses are the job,
