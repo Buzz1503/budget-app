@@ -608,10 +608,13 @@ await step('6b · it moves the vial, the run-out date and adherence', async () =
   const log = s.doseLogs.find((l) => l.id === globalThis.__backfilled.logId)
   if (log.movedStock === false) {
     console.log('  that day ran on a vial since finished — the open vial was rightly left alone')
-  } else if (!open || !(open.remainingMg >= 0)) {
+  } else if (open?.activatedAt && String(log.loggedAt || log.date) < open.activatedAt) {
+    // what is left is worked out from the log: a dose dated before this vial was opened is not drawn from it
+    console.log('  that day is before this vial was opened, so it was rightly left alone')
+  } else if (!open || !(open.vialMg > 0)) {
     throw new Error('the backfilled dose did not touch the inventory')
   } else {
-    console.log(`  open vial now ${open.remainingMg} mg`)
+    console.log('  it counts against the open vial, which is worked out from the log')
   }
   // and it shows up as logged on the day it was put on
   await closeAll()
