@@ -63,7 +63,7 @@ struct RootView: View {
     }
 
     private func showSessionIfRunning() {
-        let path = WatchRoute.launchPath(saunaRunning: sauna.isRunning || sauna.phase == .saving || sauna.phase == .summary)
+        let path = WatchRoute.launchPath(saunaRunning: sauna.isRunning || sauna.phase == .coolDown || sauna.phase == .saving || sauna.phase == .summary)
         if !path.isEmpty, store.path != path { store.path = path }
     }
 }

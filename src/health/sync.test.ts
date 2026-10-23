@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto'
 import { describe, it, expect, beforeEach } from 'vitest'
 import { HealthDB, loadAll, readMeta } from './cache'
-import { syncHealth, syncWindows, earliestReading, BACKFILL_DAYS, CHUNK_DAYS } from './sync'
+import { syncHealth, syncWindows, earliestReading, BACKFILL_DAYS, CHUNK_DAYS, NIGHTS_SCHEMA } from './sync'
 import { demoBridge, generateDemo } from './demo'
 import { nativeBridge } from './bridge'
 import type { HealthBridge } from './bridge'
@@ -136,7 +136,7 @@ describe('syncing into the cache', () => {
     const last = snap.nights.at(-1)!
     expect(last.segments!.length).toBeGreaterThan(4)
     expect(last.sleepingHR!.min).toBeLessThanOrEqual(last.sleepingHR!.avg)
-    expect((await readMeta(db)).nightsSchema).toBe(2)
+    expect((await readMeta(db)).nightsSchema).toBe(NIGHTS_SCHEMA)
 
     // pretend the cache was written before stage 2C: the next sync reads every window again
     await db.meta.put({ key: 'nightsSchema', value: 1 })

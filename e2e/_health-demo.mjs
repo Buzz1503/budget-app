@@ -398,7 +398,10 @@ await step('Sauna: a normal session is two taps, and the hero counts it', async 
   await page.click('[data-testid="sauna-save"]')
   await page.waitForTimeout(500)
   if ((await page.getAttribute('[data-testid="sauna-week-ring"]', 'data-count')) !== '1') throw new Error('the ring did not count the session')
-  if (!/^Today, 20 min at 60 C$/.test(await page.textContent('[data-testid="sauna-last"]'))) throw new Error('last session line')
+  if ((await page.textContent('[data-testid="sauna-typical"]')).trim() !== 'Typical: 20 min at 60 C') throw new Error('typical line')
+  // the last session card: tonight is not in yet
+  await seen('[data-testid="sauna-last-card"]')
+  if (!/Available tomorrow/.test(await page.textContent('[data-testid="sauna-last-card"]'))) throw new Error('that night should be available tomorrow')
   await noOverflow('Sauna')
 })
 
@@ -455,13 +458,17 @@ await step('Sauna history, session detail with heart rate, effects and the info 
     if (hr) break
   }
   if (!hr) throw new Error('no session showed Watch heart rate')
-  await seen('[data-testid="trend-chart-saunaLength"]')
-  await seen('[data-testid="sauna-effects"]')
-  await seen('[data-testid="sauna-vs-none"]')
-  await seen('[data-testid="sauna-timing"]')
-  const fx = await page.textContent('[data-testid="sauna-effects"]')
-  if (/caused|improved|worked/i.test(fx)) throw new Error('causal wording')
-  if (!/Too early/.test(fx)) throw new Error('three sessions should still read too early')
+  // the length and temperature charts are gone; every early section is one locked line
+  if (await page.locator('[data-testid="trend-chart-saunaLength"], [data-testid="trend-chart-saunaTemp"]').count()) throw new Error('session length or temperature chart is back')
+  await seen('[data-testid="sauna-adaptation-locked"]')
+  if (!/^Unlocks after 5 Watch sessions at a similar temperature \(you have 1\)$/.test((await page.textContent('[data-testid="sauna-adaptation-locked"]')).trim())) throw new Error('adaptation lock line')
+  await seen('[data-testid="sauna-patterns-locked"]')
+  if (!/^Patterns unlock after 7 sauna days \(you have \d\)$/.test((await page.textContent('[data-testid="sauna-patterns-locked"]')).trim())) throw new Error('patterns lock line')
+  if (await page.locator('[data-testid="sauna-pattern-row"]').count()) throw new Error('pattern rows before they unlock')
+  await seen('[data-testid="sauna-longer-locked"]')
+  if (await page.locator('[data-testid="sauna-weekly-rhr"], [data-testid="sauna-weekly-hrv"]').count()) throw new Error('the weekly scatter is back')
+  const tabText = await page.textContent('[data-testid="sauna-tab"]')
+  if (/caused|improved|worked|Too early|\u2014/i.test(tabText)) throw new Error('causal wording, too-early rows or an em dash')
   await page.click('[data-testid="sauna-info-open"]')
   await seen('[data-testid="sauna-info"]')
   await closeSheet()

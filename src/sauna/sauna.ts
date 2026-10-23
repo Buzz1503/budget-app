@@ -23,6 +23,13 @@ export interface SaunaSession {
   notes: string
   source: SaunaSource
   workoutId: string | null // the Health workout it came from, if any
+  // set by the timer and the Watch
+  startedAt?: number
+  endedAt?: number
+  /** heart rate the Watch recorded: [epoch seconds, bpm] every 5 s */
+  hr?: { avg: number | null; peak: number | null; samples: number[][]; sparse?: boolean; from?: string } | null
+  /** the optional cool-down after Stop: when the sauna was left (epoch ms) and heart rate for 5 minutes from then */
+  coolDown?: { exitAt: number; samples: number[][] } | null
 }
 
 export interface SaunaSettings {

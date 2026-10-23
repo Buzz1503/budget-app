@@ -167,6 +167,17 @@ describe('days', () => {
     expect(rows[0]).toMatchObject({ weight: 92.31, weightSource: 'Withings', bodyFatPct: 20.4, leanMass: 73.5, steps: 8124, bpSys: 122, bpDia: 81 })
   })
 
+  it('every weigh-in keeps its time, for the sauna fluid estimate; the day weight is the last', () => {
+    const [row] = buildDaily({ weight: [q('2026-09-10', 19, 91.6, WI), q('2026-09-10', 17, 92.1, WI)] }, { tz, from: '2026-09-10', to: '2026-09-10' })
+    expect(row.weight).toBe(91.6)
+    expect(row.weighIns).toEqual([
+      { t: at('2026-09-10', 17), kg: 92.1, source: 'Withings' },
+      { t: at('2026-09-10', 19), kg: 91.6, source: 'Withings' },
+    ])
+    const [none] = buildDaily({ steps: [{ date: '2026-09-10', value: 10 }] }, { tz, from: '2026-09-10', to: '2026-09-10' })
+    expect(none.weighIns).toBeNull()
+  })
+
   it('wrist temperature belongs to the morning the night ends', () => {
     const s = at('2026-09-09', 22)
     const rows = buildDaily({ wristTemp: [{ value: 35.71, start: s, end: s + 8 * 3600000 }] }, { tz, from: '2026-09-09', to: '2026-09-10' })

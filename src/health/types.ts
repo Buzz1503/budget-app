@@ -63,6 +63,8 @@ export interface HealthDaily {
   activeEnergy: number | null
   weight: number | null
   weightSource: string | null
+  /** Every weigh-in that day with its time, for the sauna's fluid estimate. Null without any. */
+  weighIns: Array<{ t: number; kg: number; source: string }> | null
   bodyFatPct: number | null
   leanMass: number | null
   bpSys: number | null
@@ -141,7 +143,7 @@ export interface HealthCharacteristics {
 
 export const EMPTY_DAILY: Omit<HealthDaily, 'date'> = {
   restingHR: null, hrvOvernight: null, hrvDayMean: null, respRate: null, wristTemp: null,
-  spo2: null, vo2max: null, steps: null, activeEnergy: null, weight: null, weightSource: null,
+  spo2: null, vo2max: null, steps: null, activeEnergy: null, weight: null, weightSource: null, weighIns: null,
   bodyFatPct: null, leanMass: null, bpSys: null, bpDia: null, dietEnergy: null,
   dietProtein: null, dietWater: null, hrRecovery: null, daylightMin: null,
 }

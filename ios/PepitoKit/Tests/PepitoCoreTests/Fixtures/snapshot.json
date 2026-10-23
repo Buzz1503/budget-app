@@ -846,7 +846,8 @@
       0.8,
       0.9
     ],
-    "countTowardMove": false
+    "countTowardMove": false,
+    "coolDown": true
   },
   "cycles": {
     "restarts": [

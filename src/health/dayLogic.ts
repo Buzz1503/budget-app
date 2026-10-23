@@ -280,6 +280,9 @@ export function buildDaily(
       vo2max: round(last(vo2.get(date))?.value ?? null),
       weight: round(lastWeight?.value ?? null, 2),
       weightSource: lastWeight ? (lastWeight.sourceName || 'Health') : null,
+      weighIns: weight.get(date)?.length
+        ? [...weight.get(date)!].sort((a, b) => a.start - b.start).map((w) => ({ t: w.start, kg: round(w.value, 2)!, source: w.sourceName || 'Health' }))
+        : null,
       bodyFatPct: round(last(fat.get(date))?.value ?? null),
       leanMass: round(last(lean.get(date))?.value ?? null, 2),
       bpSys: round(mean((bp.get(date) || []).map((r) => r.sys)), 0),

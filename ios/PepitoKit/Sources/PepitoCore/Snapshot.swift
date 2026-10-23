@@ -193,6 +193,8 @@ public struct Snapshot: Codable, Equatable, Sendable {
         public var maxHR: Int
         public var zoneFloors: [Double]
         public var countTowardMove: Bool
+        /// The optional cool-down after Stop (5 minutes of heart rate). Older snapshots have none: on.
+        public var coolDown: Bool?
     }
 
     public struct NotificationInfo: Codable, Equatable, Sendable {

@@ -95,6 +95,31 @@ public enum SaunaHeartRate {
             sparse: isSparse(inWindow, start: start, end: end))
     }
 
+    // MARK: cool-down
+
+    /// How long the optional cool-down after Stop records heart rate.
+    public static let coolDownSec: Double = 300
+    /// A mark's reading is the sample nearest to it, if one is within this many seconds.
+    public static let coolDownTolSec: Double = 20
+
+    public struct CoolDownDrop: Equatable, Sendable {
+        public var exitHR: Int
+        /// bpm lower 2 and 5 minutes after leaving; nil until there is a reading then
+        public var drop2: Int?
+        public var drop5: Int?
+    }
+
+    /// Heart rate drop 2 and 5 minutes after leaving the sauna, the same rule
+    /// as coolDownDrop in src/sauna/analytics.ts.
+    public static func coolDownDrop(_ samples: [Sample], exit: Double) -> CoolDownDrop? {
+        func at(_ t: Double) -> Double? {
+            samples.filter { abs($0.t - t) <= coolDownTolSec }.min { abs($0.t - t) < abs($1.t - t) }?.bpm
+        }
+        guard let e = at(exit) else { return nil }
+        let drop = { (sec: Double) in at(exit + sec).map { Int((e - $0).rounded()) } }
+        return CoolDownDrop(exitHR: Int(e.rounded()), drop2: drop(120), drop5: drop(300))
+    }
+
     /// The 5-minute marks passed between two moments, for the haptic taps.
     public static func fiveMinuteMarks(elapsedFrom a: Double, to b: Double) -> [Int] {
         guard b > a else { return [] }

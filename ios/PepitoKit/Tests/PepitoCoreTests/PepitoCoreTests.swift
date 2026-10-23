@@ -147,6 +147,15 @@ final class SharedStoreTests: XCTestCase {
 final class HeartRateTests: XCTestCase {
     let floors = [0.5, 0.6, 0.7, 0.8, 0.9]
 
+    func testCoolDownDropMatchesTheApp() {
+        // the same case as analytics.test.ts: 130 at the exit, falling 1 bpm every 10 s for 5 minutes
+        let exit = 1_792_000_000.0
+        let samples = (0...60).map { i in SaunaHeartRate.Sample(t: exit + Double(i) * 5, bpm: 130 - min(Double(i) * 5, 300) / 10) }
+        XCTAssertEqual(SaunaHeartRate.coolDownDrop(samples, exit: exit), .init(exitHR: 130, drop2: 12, drop5: 30))
+        XCTAssertEqual(SaunaHeartRate.coolDownDrop(Array(samples.prefix(20)), exit: exit), .init(exitHR: 130, drop2: nil, drop5: nil))
+        XCTAssertNil(SaunaHeartRate.coolDownDrop([], exit: exit))
+    }
+
     func testZonesMatchTheWebRule() {
         // 100 bpm of 200 max is zone 1; each sample counts until the next, at most two minutes
         let s = [SaunaHeartRate.Sample(t: 0, bpm: 100), .init(t: 60, bpm: 130), .init(t: 120, bpm: 150), .init(t: 600, bpm: 150)]

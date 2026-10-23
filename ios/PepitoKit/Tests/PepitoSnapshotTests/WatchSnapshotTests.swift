@@ -197,6 +197,14 @@ final class WatchSnapshotTests: XCTestCase {
         shoot("sauna-summary", BG.sauna, chrome: .child("Summary"), aodToo: false) {
             WatchSaunaSummaryContent(summary: summary, onDone: {})
         }
+        var cooled = summary
+        cooled.coolDown = .init(exitHR: 148, drop2: 21, drop5: 38)
+        shoot("sauna-summary-cool-down", BG.sauna, chrome: .child("Summary"), aodToo: false) {
+            WatchSaunaSummaryContent(summary: cooled, onDone: {})
+        }
+        shoot("sauna-cool-down", BG.sauna, chrome: .none, aodToo: false) {
+            WatchSaunaCoolDownContent(exitAt: now.addingTimeInterval(-104), now: now, heartRate: 131, exitHR: 148, onDone: {})
+        }
 
         // Readiness
         let r: [(String, Snapshot.Readiness?, Date?, String?)] = [

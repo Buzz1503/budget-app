@@ -65,17 +65,23 @@ public struct PendingAction: Codable, Equatable, Identifiable, Sendable {
         public var samples: [[Double]]?
         public var roundSplits: [Double]?
         public var workoutId: String?
+        /// The cool-down after Stop: when the sauna was left (epoch ms) and
+        /// [epoch seconds, bpm] for up to 5 minutes from then.
+        public var exitAt: Double?
+        public var coolDown: [[Double]]?
 
         public init(date: String? = nil, slot: String? = nil, kind: String? = nil, refId: String? = nil, refIds: [String]? = nil,
                     supplementIds: [String]? = nil, group: Bool? = nil, answer: String? = nil, startedAt: Double? = nil, stoppedAt: Double? = nil,
                     targetMin: Int? = nil, tempC: Int? = nil, rounds: Int? = nil, autoEnded: Bool? = nil,
                     start: Double? = nil, end: Double? = nil, type: String? = nil, avgHR: Int? = nil, peakHR: Int? = nil,
-                    samples: [[Double]]? = nil, roundSplits: [Double]? = nil, workoutId: String? = nil) {
+                    samples: [[Double]]? = nil, roundSplits: [Double]? = nil, workoutId: String? = nil,
+                    exitAt: Double? = nil, coolDown: [[Double]]? = nil) {
             self.date = date; self.slot = slot; self.kind = kind; self.refId = refId; self.refIds = refIds
             self.supplementIds = supplementIds; self.group = group; self.answer = answer; self.startedAt = startedAt; self.stoppedAt = stoppedAt
             self.targetMin = targetMin; self.tempC = tempC; self.rounds = rounds; self.autoEnded = autoEnded
             self.start = start; self.end = end; self.type = type; self.avgHR = avgHR; self.peakHR = peakHR
             self.samples = samples; self.roundSplits = roundSplits; self.workoutId = workoutId
+            self.exitAt = exitAt; self.coolDown = coolDown
         }
     }
 }

@@ -11,11 +11,14 @@ import PepitoCore
 /// rate, round and pause go to the iPhone for its Live Activity. Stop saves the workout and sends the session to the phone, which
 /// adds it to the app (source Watch, linked to the workout) with the full
 /// heart-rate series, so it is never offered as "Was this a sauna?".
+/// With Cool down on (the default), Stop first keeps reading heart rate for
+/// 5 minutes after leaving (Done ends it early); the workout still ends at
+/// the moment of Stop, and the cool-down goes to the phone with the session.
 @MainActor
 final class SaunaWorkoutManager: NSObject, ObservableObject {
     static let shared = SaunaWorkoutManager()
 
-    enum Phase: Equatable { case idle, running, saving, summary }
+    enum Phase: Equatable { case idle, running, coolDown, saving, summary }
 
     struct Summary: Equatable {
         var start: Date
@@ -27,6 +30,7 @@ final class SaunaWorkoutManager: NSObject, ObservableObject {
         var zoneMinutes: [Double]
         var samples: [SaunaHeartRate.Sample]
         var activeSec: Double
+        var coolDown: SaunaHeartRate.CoolDownDrop?
     }
 
     @Published private(set) var phase: Phase = .idle
@@ -42,11 +46,16 @@ final class SaunaWorkoutManager: NSObject, ObservableObject {
     @Published private(set) var minuteHeartRate: Double?
     @Published private(set) var pausedAt: Date?
     @Published private(set) var pausedSec: Double = 0
+    /// When Stop was pressed, during the cool-down.
+    @Published private(set) var exitAt: Date?
+    /// Heart rate at the moment of Stop, for "N lower" on the cool-down screen.
+    @Published private(set) var exitHR: Double?
 
     private let health = HKHealthStore()
     private var session: HKWorkoutSession?
     private var builder: HKLiveWorkoutBuilder?
     private var samples: [SaunaHeartRate.Sample] = []
+    private var coolSamples: [SaunaHeartRate.Sample] = []
     private var ticker: Timer?
     private var lastElapsed: TimeInterval = 0
     private var targetBuzzed = false
@@ -89,6 +98,9 @@ final class SaunaWorkoutManager: NSObject, ObservableObject {
         summary = nil
         roundSplits = []
         samples = []
+        coolSamples = []
+        exitAt = nil
+        exitHR = nil
         heartRate = nil
         minuteHeartRate = nil
         recent = []
@@ -185,6 +197,10 @@ final class SaunaWorkoutManager: NSObject, ObservableObject {
     }
 
     private func tick() {
+        if phase == .coolDown, let exit = exitAt, Date().timeIntervalSince(exit) >= SaunaHeartRate.coolDownSec {
+            endCoolDown()
+            return
+        }
         guard isRunning else { return }
         let now = Date()
         let minute = Int(now.timeIntervalSince1970 / 60)
@@ -209,10 +225,29 @@ final class SaunaWorkoutManager: NSObject, ObservableObject {
         stoppedFromPhone = fromPhone
         ticker?.invalidate()
         if let p = pausedAt { pausedSec += Date().timeIntervalSince(p); pausedAt = nil }
-        phase = .saving
         WKInterfaceDevice.current().play(.stop)
         let end = Date()
+        // the cool-down: only with a workout recording heart rate, and not when the phone stopped it
+        let wantsCoolDown = WatchStore.shared.snapshot?.watch.coolDown ?? true
+        if wantsCoolDown, !fromPhone, session != nil, builder != nil {
+            exitAt = end
+            exitHR = heartRate
+            session?.resume()
+            phase = .coolDown
+            startTicker()
+            return
+        }
+        phase = .saving
         Task { await finish(at: end) }
+    }
+
+    /// Done on the cool-down screen, or 5 minutes after Stop.
+    func endCoolDown() {
+        guard phase == .coolDown, let exit = exitAt else { return }
+        ticker?.invalidate()
+        phase = .saving
+        WKInterfaceDevice.current().play(.success)
+        Task { await finish(at: exit) }
     }
 
     private func finish(at end: Date) async {
@@ -245,16 +280,27 @@ final class SaunaWorkoutManager: NSObject, ObservableObject {
         let s1 = end.timeIntervalSince1970
         let sum = SaunaHeartRate.summary(samples, start: s0, end: s1, maxHR: maxHR, floors: floors)
         let fiveSec = SaunaHeartRate.resample(samples, from: s0, to: s1)
+        // the cool-down: from the last reading in the sauna, then everything after Stop
+        var cool: [SaunaHeartRate.Sample] = []
+        if exitAt != nil, !coolSamples.isEmpty {
+            let lastIn = samples.filter { $0.t <= s1 }.max { $0.t < $1.t }
+            let all = (lastIn.map { [$0] } ?? []) + coolSamples
+            let to = min(s1 + SaunaHeartRate.coolDownSec, all.map(\.t).max() ?? s1)
+            cool = SaunaHeartRate.resample(all, from: s1, to: to)
+        }
+        let drop = cool.isEmpty ? nil : SaunaHeartRate.coolDownDrop(cool, exit: s1)
 
         summary = Summary(start: start, end: end, tempC: tempC, rounds: rounds, avgHR: sum.avg, peakHR: sum.peak,
-                          zoneMinutes: sum.zoneMinutes, samples: samples, activeSec: max(0, s1 - s0 - pausedSec))
+                          zoneMinutes: sum.zoneMinutes, samples: samples, activeSec: max(0, s1 - s0 - pausedSec),
+                          coolDown: drop)
         phase = .summary
 
         WatchStore.shared.send(PendingAction(
             type: .saunaCompleted, at: end, source: .watch,
             payload: .init(tempC: tempC, rounds: rounds, start: s0 * 1000, end: s1 * 1000, type: "Sauna",
                            avgHR: sum.avg, peakHR: sum.peak, samples: fiveSec.map { [$0.t, $0.bpm] },
-                           roundSplits: roundSplits.map { $0.timeIntervalSince1970 * 1000 }, workoutId: workoutId)))
+                           roundSplits: roundSplits.map { $0.timeIntervalSince1970 * 1000 }, workoutId: workoutId,
+                           exitAt: cool.isEmpty ? nil : s1 * 1000, coolDown: cool.isEmpty ? nil : cool.map { [$0.t, $0.bpm] })))
     }
 
     /// Done on the summary screen.
@@ -268,6 +314,10 @@ final class SaunaWorkoutManager: NSObject, ObservableObject {
 
     fileprivate func record(bpm: Double, at date: Date) {
         heartRate = bpm
+        if phase == .coolDown || phase == .saving, let exit = exitAt, date > exit {
+            coolSamples.append(SaunaHeartRate.Sample(t: date.timeIntervalSince1970, bpm: bpm))
+            return
+        }
         if minuteHeartRate == nil { minuteHeartRate = bpm }
         let sample = SaunaHeartRate.Sample(t: date.timeIntervalSince1970, bpm: bpm)
         samples.append(sample)

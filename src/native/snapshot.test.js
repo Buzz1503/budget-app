@@ -129,6 +129,7 @@ describe('buildSnapshot', () => {
     expect(s.readiness).toEqual(readiness)
     expect(s.watch.maxHR).toBe(182)
     expect(s.watch.countTowardMove).toBe(false)
+    expect(s.watch.coolDown).toBe(true) // the Watch cool-down after Stop is on unless turned off
   })
 })
 

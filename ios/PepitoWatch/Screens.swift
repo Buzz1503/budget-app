@@ -110,6 +110,7 @@ struct SaunaScreen: View {
             switch sauna.phase {
             case .idle: SaunaStartScreen()
             case .running, .saving: SaunaRunningScreen()
+            case .coolDown: SaunaCoolDownScreen()
             case .summary: SaunaSummaryScreen()
             }
         }
@@ -204,6 +205,19 @@ struct SaunaRunningScreen: View {
     }
 }
 
+/// Five minutes of heart rate after Stop; Done ends it early.
+struct SaunaCoolDownScreen: View {
+    @EnvironmentObject private var sauna: SaunaWorkoutManager
+
+    var body: some View {
+        TimelineView(.periodic(from: sauna.exitAt ?? Date(), by: 1)) { ctx in
+            WatchSaunaCoolDownContent(exitAt: sauna.exitAt ?? ctx.date, now: ctx.date, heartRate: sauna.heartRate,
+                                      exitHR: sauna.exitHR, onDone: { sauna.endCoolDown() })
+        }
+        .navigationBarBackButtonHidden(true)
+    }
+}
+
 struct SaunaSummaryScreen: View {
     @EnvironmentObject private var store: WatchStore
     @EnvironmentObject private var sauna: SaunaWorkoutManager
@@ -213,7 +227,7 @@ struct SaunaSummaryScreen: View {
             if let s = sauna.summary {
                 WatchSaunaSummaryContent(summary: SaunaSummaryState(
                     start: s.start, end: s.end, tempC: s.tempC, rounds: s.rounds, avgHR: s.avgHR, peakHR: s.peakHR,
-                    zoneMinutes: s.zoneMinutes, samples: s.samples, activeSec: s.activeSec)) {
+                    zoneMinutes: s.zoneMinutes, samples: s.samples, activeSec: s.activeSec, coolDown: s.coolDown)) {
                     sauna.dismissSummary()
                     store.path = []
                 }

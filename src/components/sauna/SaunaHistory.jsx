@@ -1,10 +1,9 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { format, parseISO } from 'date-fns'
 import { ChevronRight } from 'lucide-react'
 import useStore, { todayStr } from '../../store/useStore'
-import TrendChart from '../charts/TrendChart'
-import useChartEvents from '../charts/useChartEvents'
 import { heatmap, totals } from '../../sauna/sauna'
+import { targetWeeks } from '../../sauna/analytics'
 
 const SHADE = [0, 0.3, 0.55, 0.8, 1]
 const DOW = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
@@ -33,66 +32,70 @@ function Heatmap({ sessions, today }) {
   )
 }
 
-const dailyMean = (sessions, key) => {
-  const by = new Map()
-  for (const s of sessions) by.set(s.date, [...(by.get(s.date) || []), s[key]])
-  return [...by.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([date, xs]) => ({ date, value: xs.reduce((a, b) => a + b, 0) / xs.length }))
+function Totals({ rows, label, fmt }) {
+  return (
+    <div>
+      <p className="t-caption" style={{ color: 'var(--text-3)' }}>{label}</p>
+      {rows.map((m) => (
+        <p key={m.key} className="mt-1 flex justify-between text-sm font-medium tabular-nums" style={{ color: 'var(--text-2)' }}>
+          <span>{fmt(m.key)}</span><span style={{ color: 'var(--text)' }}>{m.sessions} · {m.hours} h</span>
+        </p>
+      ))}
+    </div>
+  )
 }
 
-export default function SaunaHistory({ onOpen }) {
+/** Weeks hitting the target in the last 8, the 12-week heatmap, and monthly and yearly totals. */
+export function Consistency() {
   const sessions = useStore((s) => s.saunaSessions)
-  const events = useChartEvents()
+  const target = useStore((s) => s.saunaSettings.weeklyTarget)
   const t = todayStr()
+  const weeks = useMemo(() => targetWeeks(sessions, t, target), [sessions, t, target])
   const months = useMemo(() => totals(sessions, 'month').slice(0, 6), [sessions])
   const years = useMemo(() => totals(sessions, 'year'), [sessions])
-  const list = useMemo(() => [...sessions].sort((a, b) => (b.date + b.start).localeCompare(a.date + a.start)), [sessions])
-  const length = useMemo(() => dailyMean(sessions, 'lengthMin'), [sessions])
-  const temp = useMemo(() => dailyMean(sessions, 'tempC'), [sessions])
   return (
-    <div className="space-y-3" data-testid="sauna-history">
-      <section className="card p-4"><Heatmap sessions={sessions} today={t} /></section>
+    <section className="card space-y-4 p-4" data-testid="sauna-consistency">
+      {weeks.text && <p className="text-sm font-bold tabular-nums" data-testid="sauna-target-weeks">{weeks.text}</p>}
+      <Heatmap sessions={sessions} today={t} />
       {sessions.length > 0 && (
-        <section className="card p-4" data-testid="sauna-totals">
+        <div data-testid="sauna-totals">
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <p className="t-caption" style={{ color: 'var(--text-3)' }}>By month</p>
-              {months.map((m) => (
-                <p key={m.key} className="mt-1 flex justify-between text-sm font-medium tabular-nums" style={{ color: 'var(--text-2)' }}>
-                  <span>{format(parseISO(`${m.key}-01`), 'MMM yyyy')}</span><span style={{ color: 'var(--text)' }}>{m.sessions} · {m.hours} h</span>
-                </p>
-              ))}
-            </div>
-            <div>
-              <p className="t-caption" style={{ color: 'var(--text-3)' }}>By year</p>
-              {years.map((y) => (
-                <p key={y.key} className="mt-1 flex justify-between text-sm font-medium tabular-nums" style={{ color: 'var(--text-2)' }}>
-                  <span>{y.key}</span><span style={{ color: 'var(--text)' }}>{y.sessions} · {y.hours} h</span>
-                </p>
-              ))}
-            </div>
+            <Totals rows={months} label="By month" fmt={(k) => format(parseISO(`${k}-01`), 'MMM yyyy')} />
+            <Totals rows={years} label="By year" fmt={(k) => k} />
           </div>
           <p className="mt-2 text-[11px] font-medium" style={{ color: 'var(--text-3)' }}>Sessions · hours</p>
-        </section>
+        </div>
       )}
-      {list.length > 0 && (
-        <section className="card rows overflow-hidden" data-testid="sauna-list">
-          {list.slice(0, 30).map((s) => (
-            <button key={s.id} onClick={() => onOpen(s.id)} className="flex w-full items-center gap-3 px-4 py-3 text-left" data-testid="sauna-list-row">
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm font-bold tabular-nums">{format(parseISO(s.date), 'EEE d MMM')} · {s.start}</span>
-                <span className="block text-xs font-medium tabular-nums" style={{ color: 'var(--text-3)' }}>{s.lengthMin} min at {s.tempC} C · {s.type}</span>
-              </span>
-              <ChevronRight size={16} style={{ color: 'var(--text-3)' }} />
-            </button>
-          ))}
-        </section>
+    </section>
+  )
+}
+
+const PAGE = 20
+
+/** Every session, newest first; tap one for its detail, edit and delete. */
+export function HistoryList({ onOpen }) {
+  const sessions = useStore((s) => s.saunaSessions)
+  const [shown, setShown] = useState(PAGE)
+  const list = useMemo(() => [...sessions].sort((a, b) => (b.date + b.start).localeCompare(a.date + a.start)), [sessions])
+  if (!list.length) return <p className="px-1 text-sm font-medium" style={{ color: 'var(--text-2)' }} data-testid="sauna-history-empty">No sessions yet.</p>
+  return (
+    <section className="card rows overflow-hidden" data-testid="sauna-list">
+      {list.slice(0, shown).map((s) => (
+        <button key={s.id} onClick={() => onOpen(s.id)} className="flex w-full items-center gap-3 px-4 py-3 text-left" data-testid="sauna-list-row">
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-bold tabular-nums">{format(parseISO(s.date), 'EEE d MMM yyyy')} · {s.start}</span>
+            <span className="block text-xs font-medium tabular-nums" style={{ color: 'var(--text-3)' }}>
+              {s.lengthMin} min at {s.tempC} C · {s.type}{s.hr?.samples?.length ? ' · Watch' : ''}
+            </span>
+          </span>
+          <ChevronRight size={16} style={{ color: 'var(--text-3)' }} />
+        </button>
+      ))}
+      {list.length > shown && (
+        <button onClick={() => setShown((n) => n + PAGE * 5)} className="w-full px-4 py-3 text-sm font-bold" style={{ color: 'var(--text-2)' }} data-testid="sauna-list-more">
+          Show {Math.min(PAGE * 5, list.length - shown)} more
+        </button>
       )}
-      {sessions.length > 1 && (
-        <>
-          <TrendChart metric="saunaLength" title="Session length" unit="min" dp={0} series={length} events={events} defaultRange="90D" />
-          <TrendChart metric="saunaTemp" title="Temperature" unit="C" dp={0} series={temp} events={events} defaultRange="90D" />
-        </>
-      )}
-    </div>
+    </section>
   )
 }

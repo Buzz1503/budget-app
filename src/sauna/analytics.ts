@@ -292,10 +292,11 @@ export function heatAdaptation(list: HRSession[], min = ANALYTICS.adaptationMin)
 
 export interface CoolDown { exitAt: number; samples: number[][] }
 
-/** Heart rate at an instant (epoch seconds): the mean of samples within 20 s of it. */
+/** Heart rate at an instant (epoch seconds): the sample nearest to it, if one is within 20 s. */
 function hrAt(samples: number[][], t: number): number | null {
-  const near = samples.filter((p) => Math.abs(p[0] - t) <= ANALYTICS.coolDownTolSec).map((p) => p[1])
-  return near.length ? mean(near) : null
+  let best: number[] | null = null
+  for (const p of samples) if (Math.abs(p[0] - t) <= ANALYTICS.coolDownTolSec && (!best || Math.abs(p[0] - t) < Math.abs(best[0] - t))) best = p
+  return best ? best[1] : null
 }
 
 /** How far heart rate fell 2 and 5 minutes after leaving the sauna, in bpm. Null without the readings. */

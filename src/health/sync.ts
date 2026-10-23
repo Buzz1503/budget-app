@@ -22,10 +22,11 @@ export const HISTORY_FLOOR = '2009-01-01'
 /** Quantities probed for the oldest reading: the body ones, so the Scale line reaches back as far as it can. */
 const HISTORY_PROBE = ['weight', 'bodyFat', 'leanMass', 'restingHR'] as const
 /**
- * What the cached nights hold. 2: stage segments and sleeping heart rate. A
- * cache written by an older version is read again in full on the next sync.
+ * What the cached nights and days hold. 2: stage segments and sleeping heart
+ * rate. 3: timed weigh-ins on each day. A cache written by an older version is
+ * read again in full on the next sync.
  */
-export const NIGHTS_SCHEMA = 2
+export const NIGHTS_SCHEMA = 3
 export const CHUNK_DAYS = 30
 export const LATE_DATA_DAYS = 3
 

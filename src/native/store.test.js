@@ -81,6 +81,20 @@ describe('applyNativeActions', () => {
     expect(s.hr.samples).toHaveLength(2)
   })
 
+  it('the cool-down after Stop is saved with the session, and the session ends at Stop', () => {
+    const start = Date.now() - 30 * 60000
+    const end = start + 20 * 60000
+    const cool = Array.from({ length: 61 }, (_, i) => [end / 1000 + i * 5, 140 - i / 2])
+    useStore.getState().applyNativeActions([{
+      id: 'c1', type: 'saunaCompleted', at: new Date().toISOString(), source: 'watch',
+      payload: { start, end, tempC: 80, avgHR: 120, peakHR: 140, samples: [[start / 1000, 100]], workoutId: 'hk-c', exitAt: end, coolDown: cool },
+    }])
+    const [s] = useStore.getState().saunaSessions
+    expect(s.lengthMin).toBe(20)
+    expect(s.coolDown).toEqual({ exitAt: end, samples: cool })
+    expect(useStore.getState().watchSettings.coolDown).toBe(true)
+  })
+
   it('a session never stopped is saved at two hours and marked for review', () => {
     const startedAt = Date.now() - 5 * 3600000
     useStore.getState().applyNativeActions([

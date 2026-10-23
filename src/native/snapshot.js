@@ -307,6 +307,7 @@ export function buildSnapshot(state, { now = new Date(), verdictOf = null, readi
       maxHR: maxHR || state.healthSettings?.maxHR || 190,
       zoneFloors: ZONE_FLOORS,
       countTowardMove: !!state.watchSettings?.countSaunaTowardMove,
+      coolDown: state.watchSettings?.coolDown !== false,
     },
     // Compounds that begin a new on-cycle stretch in the days ahead. The Watch
     // plans the evening-before reminder from this, the same as the iPhone does.

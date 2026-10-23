@@ -189,7 +189,7 @@ function initialState() {
       remindOn: 'watch',                 // dose reminders on 'watch' | 'iphone' | 'both' (3C)
       restarts: true, restartTime: '19:00', // the evening before a cycled compound restarts
     },
-    watchSettings: { countSaunaTowardMove: false },
+    watchSettings: { countSaunaTowardMove: false, coolDown: true },
     securitySettings: { faceIdLock: false, graceSec: 0 },
     nativeState: { processedActionIds: [], stockAlerted: [], lastWatchSync: null, ordersSent: {}, orderSnoozed: {}, countCheckOn: null },
     // Vials that have been used up. Kept as a record rather than deleted: it is
@@ -2497,11 +2497,13 @@ const useStore = create(
               const x = o.summary
               const start = localParts(x.start)
               const hr = { avg: x.avgHR ?? null, peak: x.peakHR ?? null, samples: x.samples || [], sparse: false, from: 'watch' }
+              // the optional cool-down after Stop: heart rate for up to 5 minutes from leaving
+              const coolDown = x.exitAt && x.coolDown?.length ? { exitAt: x.exitAt, samples: x.coolDown } : null
               // a session timed on the iPhone that the Watch also recorded is one session, now with its heart rate
               const twin = get().saunaSessions.find((q) => !q.workoutId && q.date === start.date
                 && Math.abs((q.startedAt ?? new Date(`${q.date}T${q.start}:00`).getTime()) - x.start) <= 5 * 60000)
               if (twin) {
-                get().updateSaunaSession(twin.id, { source: 'watch', workoutId: x.workoutId || null, hr, rounds: x.rounds || twin.rounds, endedAt: x.end, startedAt: x.start })
+                get().updateSaunaSession(twin.id, { source: 'watch', workoutId: x.workoutId || null, hr, coolDown, rounds: x.rounds || twin.rounds, endedAt: x.end, startedAt: x.start })
                 if (o.clearsTimer) get().clearSaunaTimer()
                 break
               }
@@ -2517,6 +2519,7 @@ const useStore = create(
                 startedAt: x.start,
                 endedAt: x.end,
                 hr,
+                coolDown,
               }))
               if (o.clearsTimer) get().clearSaunaTimer()
               break

@@ -79,6 +79,8 @@ export default function WatchScreen() {
         <div className="card rows px-4">
           <Switch on={!!watch.countSaunaTowardMove} onChange={(v) => setWatch({ countSaunaTowardMove: v })}
             label="Count sauna toward Move ring" hint="Off: the Watch saves the session and its heart rate, without active energy." testId="watch-move-ring" />
+          <Switch on={watch.coolDown !== false} onChange={(v) => setWatch({ coolDown: v })}
+            label="Cool down" hint="After Stop, the Watch keeps reading heart rate for 5 minutes and saves it with the session." testId="watch-cool-down" />
         </div>
       </section>
     </div>

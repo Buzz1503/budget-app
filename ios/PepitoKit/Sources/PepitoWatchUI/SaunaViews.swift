@@ -334,6 +334,57 @@ public struct WatchSaunaControlsContent: View {
     }
 }
 
+// MARK: - Cool down
+
+/// After Stop, when Cool down is on: the Watch keeps reading heart rate for
+/// 5 minutes. The time left is the hero, then the heart rate now and how far
+/// it has fallen since leaving, and Done to end early.
+public struct WatchSaunaCoolDownContent: View {
+    let exitAt: Date
+    let now: Date
+    let heartRate: Double?
+    let exitHR: Double?
+    let onDone: () -> Void
+    @Environment(\.watchMetrics) private var m
+
+    public init(exitAt: Date, now: Date, heartRate: Double?, exitHR: Double?, onDone: @escaping () -> Void) {
+        self.exitAt = exitAt; self.now = now; self.heartRate = heartRate; self.exitHR = exitHR; self.onDone = onDone
+    }
+
+    public var body: some View {
+        let left = max(0, SaunaHeartRate.coolDownSec - now.timeIntervalSince(exitAt))
+        VStack(spacing: PepitoTheme.Space.s8) {
+            VStack(spacing: 0) {
+                Text("Cool down")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(Pal.text2)
+                Text(Clock.elapsed(left, seconds: true))
+                    .font(PepitoTheme.number(m.timer))
+                    .foregroundStyle(Pal.text)
+                    .contentTransition(.numericText(countsDown: true))
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Cool down, \(Int(left / 60)) minutes \(Int(left) % 60) seconds left")
+            HStack(spacing: PepitoTheme.Space.s4) {
+                Image(systemName: "heart.fill").foregroundStyle(Pal.sauna)
+                Text(heartRate.map { "\(Int($0.rounded())) bpm" } ?? "Reading")
+                    .font(PepitoTheme.number(15, weight: .semibold))
+                    .foregroundStyle(Pal.text)
+                if let hr = heartRate, let e = exitHR, e - hr >= 1 {
+                    Text("\(Int((e - hr).rounded())) lower")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(Pal.text2)
+                }
+            }
+            .accessibilityElement(children: .combine)
+            Button("Done", action: onDone)
+                .buttonStyle(WatchPrimaryButtonStyle())
+                .padding(.top, PepitoTheme.Space.s4)
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
 // MARK: - Summary
 
 public struct SaunaSummaryState: Equatable {
@@ -346,12 +397,15 @@ public struct SaunaSummaryState: Equatable {
     public var zoneMinutes: [Double]
     public var samples: [SaunaHeartRate.Sample]
     public var activeSec: Double
+    /// From the cool-down, when there was one.
+    public var coolDown: SaunaHeartRate.CoolDownDrop?
 
     public init(start: Date, end: Date, tempC: Int, rounds: Int, avgHR: Int?, peakHR: Int?, zoneMinutes: [Double],
-                samples: [SaunaHeartRate.Sample], activeSec: Double? = nil) {
+                samples: [SaunaHeartRate.Sample], activeSec: Double? = nil, coolDown: SaunaHeartRate.CoolDownDrop? = nil) {
         self.start = start; self.end = end; self.tempC = tempC; self.rounds = rounds; self.avgHR = avgHR
         self.peakHR = peakHR; self.zoneMinutes = zoneMinutes; self.samples = samples
         self.activeSec = activeSec ?? end.timeIntervalSince(start)
+        self.coolDown = coolDown
     }
 }
 
@@ -381,6 +435,8 @@ public struct WatchSaunaSummaryContent: View {
                 row("Average HR", s.avgHR.map { "\($0) bpm" } ?? "–")
                 row("Peak HR", s.peakHR.map { "\($0) bpm" } ?? "–")
                 row("Rounds", "\(s.rounds)")
+                if let d = s.coolDown?.drop2 { row("Drop at 2 min", "\(d) bpm") }
+                if let d = s.coolDown?.drop5 { row("Drop at 5 min", "\(d) bpm") }
             }
             if s.zoneMinutes.reduce(0, +) > 0 {
                 VStack(alignment: .leading, spacing: PepitoTheme.Space.s4) {
