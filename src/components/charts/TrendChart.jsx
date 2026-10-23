@@ -5,6 +5,7 @@ import { haptic } from '../../lib/feedback'
 import {
   RANGES, rangeBounds, bucketFor, bucketPoints, yAxis, MIN_SPAN, labelPlacement, pickLabels,
   xTicks, groupEvents, rangeChange, shortDate, lineSegments, mergeScans, nearestPoint,
+  defaultRangeFor, LIST_UNDER_POINTS, chartMode,
 } from '../../body/chartPoints'
 import { laneValuesAt } from '../../body/lanes'
 import { bloodPoints, shortName } from '../../health/engine/overlay'
@@ -114,11 +115,12 @@ const SCRUB_MOVE = 4 // px of drag before a press becomes a scrub rather than a 
 export default function TrendChart({
   metric, chartType = metric, title, unit = '', dp = 1, series, current = null, currentCaption = null,
   events = [], wobble: wobbleProp, window: fixed = null, defaultRange = '90D', testid, note = null, onEditDate = null,
-  startLine = null, refBand = null, format = null, changeUnit = null, controls = null,
+  startLine = null, refBand = null, format = null, changeUnit = null, controls = null, pinsDefault,
 }) {
   // how a value reads: a number by default, or e.g. a clock time for bedtime
   const show = format || ((v) => fmt(v, dp))
-  const [rangeKey, setRangeKey] = useState(defaultRange)
+  // null until a chip is tapped: a series with under 90 days of data opens on All
+  const [rangeKey, setRangeKey] = useState(null)
   const [overlayOpen, setOverlayOpen] = useState(false)
   const [selected, setSelected] = useState(null)
   const [scrub, setScrub] = useState(null)
@@ -130,13 +132,16 @@ export default function TrendChart({
   const haptics = useStore((s) => s.settings?.haptics)
   const setChartOverlay = useStore((s) => s.setChartOverlay)
   const t = todayStr()
+  const chosen = rangeKey ?? defaultRangeFor(series || [], t, defaultRange)
   // "Since start" needs a starting point on this chart; without one it is the 90 day view
-  const range = rangeKey === 'Start' && !startLine ? '90D' : rangeKey
+  const range = chosen === 'Start' && !startLine ? '90D' : chosen
 
   // normal wobble: how far daily values usually sit from their 7-day average
   const wobble = useMemo(() => (wobbleProp !== undefined ? wobbleProp
     : metric in PHASES.wobbleFallback ? wobbleOf(series || [], metric, t).value : null), [wobbleProp, metric, series, t])
-  const ov = { pins: saved?.pins ?? true, wobble: saved?.wobble ?? false, bloods: saved?.bloods ?? [] }
+  // sauna charts open with pins off; any chart remembers what was chosen
+  const pinsOn = pinsDefault ?? !String(chartType).startsWith('sauna')
+  const ov = { pins: saved?.pins ?? pinsOn, wobble: saved?.wobble ?? false, bloods: saved?.bloods ?? [] }
   const setOv = (patch) => setChartOverlay?.(chartType, patch)
   const markerNames = useMemo(() => [...new Set(tests.flatMap((x) => Object.keys(x.values || {})))].sort(), [tests])
 
@@ -231,6 +236,30 @@ export default function TrendChart({
       ...laneValuesAt(lanes, scrubbed.x),
     ],
   } : null
+
+  // two readings are not a trend: a short list instead of a chart
+  if (!fixed && chartMode(series || []) === 'list') {
+    const rows = [...(series || [])].sort((a, b) => b.date.localeCompare(a.date))
+    return (
+      <div className="card p-3" data-testid={testid || `trend-chart-${chartType}`} data-mode="list">
+        <p className="t-caption" style={{ color: 'var(--text-2)' }}>{title}</p>
+        {rows.length === 0
+          ? <p className="mt-2 text-xs font-medium" style={{ color: 'var(--text-2)' }} data-testid="chart-empty">No data yet.</p>
+          : (
+            <div className="mt-1" data-testid="chart-list">
+              {rows.map((p) => (
+                <p key={`${p.date}-${p.value}`} className="flex justify-between py-1 text-sm tabular-nums" data-testid="chart-list-row">
+                  <span style={{ color: 'var(--text-2)' }}>{shortDate(p.date)}</span>
+                  <span className="font-bold">{show(p.value)}{unit ? ` ${unit}` : ''}</span>
+                </p>
+              ))}
+              <p className="mt-1 text-xs" style={{ color: 'var(--text-3)' }}>A chart appears from {LIST_UNDER_POINTS} readings.</p>
+            </div>
+          )}
+        {note && <p className="mt-1 text-xs font-medium leading-snug" style={{ color: 'var(--text-3)' }}>{note}</p>}
+      </div>
+    )
+  }
 
   return (
     <div className="card p-3" data-testid={testid || `trend-chart-${chartType}`} data-range={fixed ? 'window' : range} data-bucket={bucket}>

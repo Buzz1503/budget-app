@@ -41,12 +41,61 @@ export const addDays = (d: string, n: number) => fromNum(dayNum(d) + n)
 const round = (v: number, dp = 2) => Math.round(v * 10 ** dp) / 10 ** dp
 
 export type Bucket = 'day' | 'week' | 'month'
+/**
+ * Daily for up to 45 days shown, weekly up to 200, monthly beyond. With the
+ * window known the bucket follows what is actually on screen, so a 90 day
+ * range fitted to three weeks of data is drawn day by day.
+ */
 export const bucketFor = (range: RangeKey, from?: string, to?: string): Bucket => {
-  if (range === 'Start' && from && to) {
+  if (from && to) {
     const span = dayNum(to) - dayNum(from)
     return span <= 45 ? 'day' : span <= 200 ? 'week' : 'month'
   }
   return range === '30D' ? 'day' : range === '90D' || range === '6M' ? 'week' : 'month'
+}
+
+/** The narrowest window a chart is drawn over, in days. */
+export const MIN_SPAN_DAYS = 14
+/** A series younger than this many days opens on All. */
+export const ALL_UNDER_DAYS = 90
+/** A series with fewer points than this is a short list, not a chart. */
+export const LIST_UNDER_POINTS = 3
+
+const firstDate = (series: SeriesPoint[]) => series.reduce((m, p) => (p.date < m ? p.date : m), series[0].date)
+const lastDate = (series: SeriesPoint[]) => series.reduce((m, p) => (p.date > m ? p.date : m), series[0].date)
+
+/**
+ * Fit a window to the data: when the first point comes after the window's
+ * start, the axis starts at the first point, so there is never empty space
+ * before the data. A window shorter than 14 days is widened to 14, centred on
+ * the data, without running past the window's end.
+ */
+export function fitToData(bounds: { from: string; to: string }, series: SeriesPoint[]): { from: string; to: string } {
+  if (!series.length) return bounds
+  let from = bounds.from
+  let to = bounds.to
+  const first = firstDate(series)
+  if (first > from) from = first
+  if (dayNum(to) - dayNum(from) + 1 < MIN_SPAN_DAYS) {
+    const last = lastDate(series) < to ? lastDate(series) : to
+    const mid = Math.floor((dayNum(from) + dayNum(last)) / 2)
+    let a = mid - Math.floor((MIN_SPAN_DAYS - 1) / 2)
+    let b = a + MIN_SPAN_DAYS - 1
+    const end = dayNum(bounds.to)
+    if (b > end) { a -= b - end; b = end }
+    from = fromNum(a)
+    to = fromNum(b)
+  }
+  return { from, to }
+}
+
+/** A series with fewer than 3 points is shown as a short list of its values, not a chart. */
+export const chartMode = (series: SeriesPoint[]): 'list' | 'chart' => (series.length < LIST_UNDER_POINTS ? 'list' : 'chart')
+
+/** The range a chart opens on: All for a series with under 90 days of data, otherwise the chart's own default. */
+export function defaultRangeFor(series: SeriesPoint[], today: string, fallback: RangeKey): RangeKey {
+  if (!series.length) return fallback
+  return dayNum(today) - dayNum(firstDate(series)) < ALL_UNDER_DAYS ? 'All' : fallback
 }
 
 /** Monday of the week a date falls in. */
@@ -61,8 +110,8 @@ export function rangeBounds(range: RangeKey, today: string, series: SeriesPoint[
     const first = series.length ? series.reduce((m, p) => (p.date < m ? p.date : m), series[0].date) : today
     return { from: startDate && startDate <= today ? startDate : first, to: today }
   }
-  if (r.days == null) return { from: series.length ? series.reduce((m, p) => (p.date < m ? p.date : m), series[0].date) : today, to: today }
-  return { from: addDays(today, -(r.days - 1)), to: today }
+  if (r.days == null) return fitToData({ from: series.length ? firstDate(series) : today, to: today }, series)
+  return fitToData({ from: addDays(today, -(r.days - 1)), to: today }, series)
 }
 
 /**

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   bucketPoints, bucketFor, weekStart, yAxis, labelPlacement, pickLabels, xTicks, groupEvents, rangeChangeWords, MIN_SPAN,
   rangeBounds, rangeChange, lineSegments, mergeScans, nearestPoint, GAP_DAYS, MERGE_DAYS, RANGES, LABEL_SPACING,
+  MIN_SPAN_DAYS, defaultRangeFor, chartMode, fitToData,
 } from './chartPoints'
 import type { SeriesPoint, LabelBox, PlotPoint } from './chartPoints'
 
@@ -192,5 +193,48 @@ describe('connected lines, label spacing, merged scans, scrubbing', () => {
     expect(nearestPoint([10, 50, 90], 62)).toBe(1)
     expect(nearestPoint([10, 50, 90], 80)).toBe(2)
     expect(nearestPoint([], 5)).toBe(-1)
+  })
+})
+
+describe('ranges fit the data', () => {
+  const T = '2026-10-23'
+  const pts = (...dates: string[]) => dates.map((date, i) => ({ date, value: 50 + i }))
+
+  it('starts the axis at the first point when the data starts after the range start', () => {
+    const series = pts('2026-09-20', '2026-10-01', '2026-10-20')
+    expect(rangeBounds('90D', T, series)).toEqual({ from: '2026-09-20', to: T })
+    expect(rangeBounds('1Y', T, series)).toEqual({ from: '2026-09-20', to: T })
+    // data older than the range start: the range is as it was
+    expect(rangeBounds('30D', T, pts('2026-01-01', '2026-10-20'))).toEqual({ from: '2026-09-24', to: T })
+  })
+
+  it('never draws less than 14 days, centred on the data, without running past today', () => {
+    const one = rangeBounds('90D', T, pts('2026-10-10'))
+    expect(one).toEqual({ from: '2026-10-10', to: T })
+    const recent = rangeBounds('All', T, pts('2026-10-21', '2026-10-22'))
+    expect(recent).toEqual({ from: '2026-10-10', to: T })
+    // a window that ends before today is centred on the data
+    const centred = fitToData({ from: '2026-01-01', to: '2026-03-01' }, pts('2026-02-25'))
+    expect(centred).toEqual({ from: '2026-02-16', to: '2026-03-01' })
+    const middle = fitToData({ from: '2026-01-01', to: '2026-02-20' }, pts('2026-02-10', '2026-02-12'))
+    expect(middle).toEqual({ from: '2026-02-05', to: '2026-02-18' })
+    for (const r of [one, recent, centred, middle]) expect(Math.round((Date.parse(r.to) - Date.parse(r.from)) / 86400000) + 1).toBe(MIN_SPAN_DAYS)
+  })
+
+  it('buckets by the window actually drawn, so three weeks of data on 90D is daily', () => {
+    const r = rangeBounds('90D', T, pts('2026-10-01', '2026-10-10', '2026-10-20'))
+    expect(bucketFor('90D', r.from, r.to)).toBe('day')
+  })
+
+  it('opens on All for a series with under 90 days of data, otherwise on the default', () => {
+    expect(defaultRangeFor(pts('2026-08-01', '2026-10-01'), T, '90D')).toBe('All')
+    expect(defaultRangeFor(pts('2026-01-01', '2026-10-01'), T, '90D')).toBe('90D')
+    expect(defaultRangeFor([], T, '90D')).toBe('90D')
+  })
+
+  it('fewer than 3 points is a list of the values, not a chart', () => {
+    expect(chartMode([])).toBe('list')
+    expect(chartMode(pts('2026-10-01', '2026-10-02'))).toBe('list')
+    expect(chartMode(pts('2026-10-01', '2026-10-02', '2026-10-03'))).toBe('chart')
   })
 })

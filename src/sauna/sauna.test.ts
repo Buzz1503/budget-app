@@ -5,7 +5,7 @@ import {
 } from './sauna'
 import type { SaunaSession, WorkoutLike } from './sauna'
 import {
-  outcomeFor, dayFlags, saunaVsNone, saunaSplits, lengthBucket, weeklyPattern, recoveryLine, correlation,
+  outcomeFor, dayFlags, saunaVsNone, saunaSplits, lengthBucket, recoveryLine, correlation,
 } from './saunaEffects'
 import type { SaunaEffectInput, NightLike } from './saunaEffects'
 import { addDays, dateRange } from '../health/tz'
@@ -180,18 +180,9 @@ describe('sauna effects', () => {
     expect(timing[0].text).toMatch(/^Sleep score that night: 8 lower after a session ending within 3 h of bedtime than after an earlier session$/)
   })
 
-  it('weekly: needs 8 weeks, then says "weeks with more sessions had ..." only', () => {
-    const days = dateRange('2026-06-01', '2026-09-27') // 17 full weeks
-    const sessions: SaunaSession[] = []
-    days.forEach((d, i) => { const wk = Math.floor(i / 7); if (i % 7 < wk % 5) sessions.push(s(d)) })
-    const count = (d: string) => sessions.filter((x) => weekOfFrom(x.date) === weekOfFrom(d)).length
-    const weekOfFrom = (d: string) => addDays(d, -((new Date(`${d}T00:00:00Z`).getUTCDay() + 6) % 7))
-    const p = weeklyPattern({ sessions, days, morning: (d) => ({ rhr: 60 - count(d), hrv: 50, readiness: null }) })
-    expect(p.points).toHaveLength(17)
-    expect(p.rhr.text).toBe('Weeks with more sessions had a lower average resting heart rate (n = 17 weeks)')
-    expect(p.hrv.text).toMatch(/^Weeks with more sessions had about the same average HRV/)
-    const short = weeklyPattern({ sessions, days: days.slice(0, 35), morning: () => ({ rhr: 55, hrv: 50, readiness: null }) })
-    expect(short.rhr.text).toBe('Needs 3 more weeks with data')
+  it('correlation is null under three points or with no spread', () => {
     expect(correlation([1, 2, 3], [2, 4, 6])).toBeCloseTo(1, 6)
+    expect(correlation([1, 2], [2, 4])).toBeNull()
+    expect(correlation([1, 1, 1], [2, 4, 6])).toBeNull()
   })
 })

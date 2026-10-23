@@ -10,7 +10,8 @@ import type { Split } from '../health/engine/compare'
 import { changeLabel } from '../health/engine/phases'
 import type { ChangeLabel } from '../health/engine/phases'
 import { addDays } from '../health/tz'
-import { SAUNA, weekOf } from './sauna'
+import { SAUNA } from './sauna'
+import { sinceFirstSession } from './analytics'
 import type { SaunaSession } from './sauna'
 
 export interface NightLike { start: number; score: number | null; deepMin: number | null; sleepingHR: number | null }
@@ -99,7 +100,9 @@ const wobbleOf = (input: SaunaEffectInput, key: OutcomeKey) => input.wobble[key]
 /** Sauna days against days without, on each outcome. Seven days a group, else "Too early". */
 export function saunaVsNone(input: SaunaEffectInput, min = SAUNA.minPerGroup): SaunaRow[] {
   const f = dayFlags(input.sessions, input.night, input.toMs)
-  return OUTCOMES.map((o) => row(o, groupSplit(input.days, f.has, outcomeFor(o.key, input), min), wobbleOf(input, o.key), 'on sauna days', 'on days without'))
+  // nothing from before the first session: those days are not "days without"
+  const days = sinceFirstSession(input.days, input.sessions)
+  return OUTCOMES.map((o) => row(o, groupSplit(days, f.has, outcomeFor(o.key, input), min), wobbleOf(input, o.key), 'on sauna days', 'on days without'))
 }
 
 /** Which length bucket a day's sauna minutes fall in. */
@@ -113,15 +116,16 @@ export const BUCKET_WORDS = { short: 'under 20 min', mid: '20 to 30 min', long: 
  */
 export function saunaSplits(input: SaunaEffectInput, min = SAUNA.minPerGroup) {
   const f = dayFlags(input.sessions, input.night, input.toMs)
+  const days = sinceFirstSession(input.days, input.sessions)
   const keys: OutcomeKey[] = ['sleepScore', 'hrv']
   const outs = OUTCOMES.filter((o) => keys.includes(o.key))
   const length = (['short', 'mid', 'long'] as const).map((b) => ({
     bucket: b,
     words: BUCKET_WORDS[b],
-    rows: outs.map((o) => row(o, groupSplit(input.days, (d) => (f.has(d) ? (lengthBucket(f.minutes(d)) === b ? true : null) : false), outcomeFor(o.key, input), min),
+    rows: outs.map((o) => row(o, groupSplit(days, (d) => (f.has(d) ? (lengthBucket(f.minutes(d)) === b ? true : null) : false), outcomeFor(o.key, input), min),
       wobbleOf(input, o.key), `after sessions ${BUCKET_WORDS[b]}`, 'on days without')),
   }))
-  const timing = outs.map((o) => row(o, groupSplit(input.days, (d) => (f.has(d) ? f.late(d) : null), outcomeFor(o.key, input), min),
+  const timing = outs.map((o) => row(o, groupSplit(days, (d) => (f.has(d) ? f.late(d) : null), outcomeFor(o.key, input), min),
     wobbleOf(input, o.key), 'after a session ending within 3 h of bedtime', 'after an earlier session'))
   return { length, timing }
 }
@@ -138,44 +142,10 @@ export function correlation(xs: number[], ys: number[]): number | null {
   return sxx > 0 && syy > 0 ? sxy / Math.sqrt(sxx * syy) : null
 }
 
-export const WEEKS_MIN = 8 // weeks with data before the weekly line says anything
-const WEEK_DAYS_MIN = 4 // a week counts when it has four mornings with the value
-
-/**
- * Longer term: each week's session count against that week's average resting
- * heart rate and HRV. Worded "weeks with more sessions had ..." and nothing
- * stronger; needs 8 weeks.
- */
-export function weeklyPattern(input: Pick<SaunaEffectInput, 'sessions' | 'days' | 'morning'>) {
-  const weeks = new Map<string, { week: string; count: number; rhr: number[]; hrv: number[] }>()
-  for (const d of input.days) {
-    const w = weekOf(d).from
-    if (!weeks.has(w)) weeks.set(w, { week: w, count: 0, rhr: [], hrv: [] })
-    const m = input.morning(d)
-    if (m.rhr != null) weeks.get(w)!.rhr.push(m.rhr)
-    if (m.hrv != null) weeks.get(w)!.hrv.push(m.hrv)
-  }
-  for (const s of input.sessions) {
-    const w = weeks.get(weekOf(s.date).from)
-    if (w) w.count++
-  }
-  const avg = (xs: number[]) => (xs.length >= WEEK_DAYS_MIN ? xs.reduce((a, b) => a + b, 0) / xs.length : null)
-  const points = [...weeks.values()].sort((a, b) => a.week.localeCompare(b.week))
-    .map((w) => ({ week: w.week, count: w.count, rhr: avg(w.rhr), hrv: avg(w.hrv) }))
-  const line = (key: 'rhr' | 'hrv', name: string) => {
-    const pts = points.filter((p) => p[key] != null)
-    if (pts.length < WEEKS_MIN) return { n: pts.length, r: null, text: `Needs ${WEEKS_MIN - pts.length} more weeks with data` }
-    const r = correlation(pts.map((p) => p.count), pts.map((p) => p[key] as number))
-    if (r == null || Math.abs(r) < 0.2) return { n: pts.length, r, text: `Weeks with more sessions had about the same average ${name} (n = ${pts.length} weeks)` }
-    return { n: pts.length, r, text: `Weeks with more sessions had a ${r > 0 ? 'higher' : 'lower'} average ${name} (n = ${pts.length} weeks)` }
-  }
-  return { points, rhr: line('rhr', 'resting heart rate'), hrv: line('hrv', 'HRV') }
-}
-
 /** The one line on Recovery: "On mornings after sauna your HRV averages X ms higher (n = A vs B)." Null without 7 mornings a group. */
 export function recoveryLine(input: SaunaEffectInput): string | null {
   const f = dayFlags(input.sessions, input.night, input.toMs)
-  const s = groupSplit(input.days, f.has, outcomeFor('hrv', input), SAUNA.minPerGroup)
+  const s = groupSplit(sinceFirstSession(input.days, input.sessions), f.has, outcomeFor('hrv', input), SAUNA.minPerGroup)
   if (s.diff == null) return null
   const d = Math.round(s.diff)
   return d === 0
