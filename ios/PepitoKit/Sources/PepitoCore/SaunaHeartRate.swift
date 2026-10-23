@@ -107,6 +107,7 @@ public enum SaunaHeartRate {
         /// bpm lower 2 and 5 minutes after leaving; nil until there is a reading then
         public var drop2: Int?
         public var drop5: Int?
+        public init(exitHR: Int, drop2: Int?, drop5: Int?) { self.exitHR = exitHR; self.drop2 = drop2; self.drop5 = drop5 }
     }
 
     /// Heart rate drop 2 and 5 minutes after leaving the sauna, the same rule
