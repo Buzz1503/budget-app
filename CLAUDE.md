@@ -60,12 +60,20 @@ an iOS app (bundle id com.buzz.pepito). State is one persisted Zustand store,
   scans uses `scanImport.ts` (dedupe on date + time + device).
 - Charts: `TrendChart.jsx`, maths in `src/body/chartPoints.ts`; body metrics via `BodyChart.jsx`
   (one source, Scale | Evolt, saved in `chartSources`). Lanes (`Lanes.jsx`, `src/body/lanes.ts`)
-  under every chart. Series colours only from `--series-*` tokens.
+  under every chart. Series colours only from `--series-*` tokens. Ranges fit the data
+  (`fitToData`: axis starts at the first point, 14 days minimum); a series under 90 days
+  opens on All; under 3 points is a list, not a chart; pins are off on sauna charts.
 - Demo: `VITE_DEMO_HEALTH=1 npx vite --port 5175` (dev only), then `e2e/_health-demo.mjs`.
 - Sauna: `saunaSessions`, `saunaSettings`, `saunaTimer` in the store (in the backup);
   pure logic in `src/sauna` (`sauna.ts`, `saunaEffects.ts` on the compare engine;
-  session on day D = night D, morning D+1). Screens in `src/components/sauna`; the
-  Health parts (Watch detection, HR, effects) are lazy in `src/health/ui.js`.
+  session on day D = night D, morning D+1). `analytics.ts` holds the tab's maths: one
+  session against the 28 nights / 28 days before, HR climb, 10 C bands, cool-down drop,
+  fluid estimate (typed weights, else weigh-ins 2 h either side; daily `weighIns` need
+  `NIGHTS_SCHEMA` 3), consistency, patterns, longer term, with every unlock threshold in
+  `ANALYTICS`. No sauna statistic uses a day before the first session (`sinceFirstSession`).
+  Screens in `src/components/sauna`; Health lookups come through `saunaHealthContext.js`,
+  filled by the lazy native `SaunaHealthProvider`. Watch Cool down (`watchSettings.coolDown`,
+  default on) keeps reading HR 5 min after Stop; saved as `session.coolDown`.
 - Nothing with health values goes to the network or to the console.
 
 ## Native surfaces (3B)

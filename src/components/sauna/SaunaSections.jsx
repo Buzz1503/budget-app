@@ -58,7 +58,7 @@ export function LastSessionCard({ onOpen }) {
   return (
     <section className="card p-4" data-testid="sauna-last-card">
       <button onClick={() => onOpen(last.id)} className="mb-2 flex w-full items-center gap-2 text-left" data-testid="sauna-last-open">
-        <span className="t-caption flex-1" style={muted}>Last session</span>
+        <span className="flex-1" />
         <span className="text-xs font-bold" style={soft}>Details</span>
         <ChevronRight size={14} style={muted} />
       </button>
