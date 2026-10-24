@@ -40,7 +40,7 @@ export const OUTCOMES: OutcomeDef[] = [
   { key: 'breathing', label: 'Breathing disturbances', unit: '', better: 'down', dp: 1, words: ['more', 'fewer'] },
   { key: 'rested', label: 'How rested', unit: 'of 5', better: 'up', dp: 1, words: ['higher', 'lower'] },
   { key: 'spo2Dips', label: 'Blood oxygen dips', unit: '', better: 'down', dp: 1, words: ['more', 'fewer'] },
-  { key: 'nightmare', label: 'Nightmares', unit: '', better: 'down', dp: 2, words: ['more', 'fewer'] },
+  { key: 'nightmare', label: 'Share of nightmare nights', unit: '', better: 'down', dp: 2, words: ['higher', 'lower'] },
 ]
 export const OUTCOME_BY_KEY = Object.fromEntries(OUTCOMES.map((o) => [o.key, o])) as Record<OutcomeKey, OutcomeDef>
 

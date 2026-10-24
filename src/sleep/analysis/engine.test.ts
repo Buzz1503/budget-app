@@ -54,7 +54,7 @@ describe('bootstrap', () => {
     const c = compare(rows, 'habit:alcohol', 'deep', names)!
     expect(c.diff).toBeLessThan(-6)
     expect(c.label).toBe('Clear')
-    expect(c.text).toMatch(/^Deep sleep \d+ min less \(95% CI \d+ to \d+ less\) with alcohol$/)
+    expect(c.text).toMatch(/^Alcohol: deep sleep \d+ min less \(95% CI \d+ to \d+ less\)$/)
     expect(effectWords(OUTCOME_BY_KEY.deep, 2, { lo: -1, hi: 5 })).toBe('Deep sleep 2 min more (95% CI 1 less to 5 more)')
   })
 })
@@ -105,7 +105,7 @@ describe('gating', () => {
     const alc = a.effects.find((e) => e.factor === 'habit:alcohol')!
     expect(alc.effect).toBeLessThan(-5)
     expect(alc.label).toBe('Clear')
-    expect(alc.text).toMatch(/^Alone: Deep sleep \d+ min less\. After accounting for everything else: Deep sleep \d+ min less \(95% CI/)
+    expect(alc.text).toMatch(/^Alcohol: deep sleep \d+ min less \(95% CI \d+ to \d+ less\) after accounting for everything else; alone, \d+ min less$/)
   })
 
   it('helps and hurts rank clear effects; alcohol hurts', () => {
@@ -162,7 +162,7 @@ describe('carry-over', () => {
     })
     const c = carryOver(rows, names, ['hrLow']).find((x) => x.factor === 'lag:asNeeded:an-temazepam')!
     expect(c.diff).toBeGreaterThan(2)
-    expect(c.text).toContain('the night after temazepam')
+    expect(c.text).toMatch(/^The night after temazepam: lowest sleeping heart rate/)
   })
 })
 

@@ -39,6 +39,8 @@ export interface Comparison {
   short: string
 }
 
+const lowerFirst = (s: string) => s.charAt(0).toLowerCase() + s.slice(1)
+
 const fmt = (v: number, dp: number) => {
   const r = Number(Math.abs(v).toFixed(dp))
   return dp === 0 ? String(Math.round(Math.abs(v))) : String(r)
@@ -93,7 +95,7 @@ export function compare(rows: NightRow[], factor: string, outcome: OutcomeKey, n
   return {
     factor, outcome, nWith: a.length, nWithout: b.length, meanWith: mean(a), meanWithout: mean(b), diff, ci,
     label: excludesZero(ci) ? 'Clear' : 'Unclear',
-    text: `${effectWords(o, diff, ci)} with ${factorName(factor, names).toLowerCase()}`,
+    text: `${factorName(factor, names)}: ${lowerFirst(effectWords(o, diff, ci))}`,
     short: effectShort(o, diff, ci),
   }
 }
@@ -201,11 +203,10 @@ export function adjustedEffects(rows: NightRow[], outcome: OutcomeKey, names: Na
   const effects = factors.map((f, j) => {
     const ci = fit.ci[j]
     const raw = compare(rows, f, outcome, names)
-    const name = factorName(f, names).toLowerCase()
     return {
       factor: f, outcome, effect: fit.coef[j], ci, label: (excludesZero(ci) ? 'Clear' : 'Unclear') as Label, raw,
       short: effectShort(o, fit.coef[j], ci), rawShort: raw ? amountWords(o, raw.diff) : null,
-      text: `${raw ? `Alone: ${effectWords(o, raw.diff, raw.ci).replace(/ \(95%.*$/, '')}. ` : ''}After accounting for everything else: ${effectWords(o, fit.coef[j], ci)} with ${name}`,
+      text: `${factorName(f, names)}: ${lowerFirst(effectWords(o, fit.coef[j], ci))} after accounting for everything else${raw ? `; alone, ${amountWords(o, raw.diff)}` : ''}`,
     }
   })
   return { locked: false, effects, n: withFactors.length }

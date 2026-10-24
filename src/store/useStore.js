@@ -189,6 +189,7 @@ function initialState() {
     //   lateUseMin: Screen Time minutes after bedtime (by the evening's date, see lateUse)
     nightExtras: {},
     lateUse: {},                         // { eveningDate: minutes } from the Screen Time monitor
+    apneaOverrides: {},                  // STOP-BANG answers set by hand: { snoring: true, ... }
     sleepSettings: {
       restlessness: true,                // the Watch's overnight movement recording
       sleepSounds: false,                // snoring and sound detection on the iPhone
@@ -2508,6 +2509,15 @@ const useStore = create(
           return { nightExtras: next }
         })
       },
+      /** A STOP-BANG answer set by hand; null goes back to the automatic one. */
+      setApneaOverride(key, value) {
+        set((s) => {
+          const next = { ...s.apneaOverrides }
+          if (value == null) delete next[key]
+          else next[key] = !!value
+          return { apneaOverrides: next }
+        })
+      },
       setLateUse(nights = {}) {
         set((s) => ({ lateUse: { ...s.lateUse, ...nights } }))
       },
@@ -3173,6 +3183,7 @@ const useStore = create(
         sleepSettings: { ...current.sleepSettings, ...(persisted?.sleepSettings || {}) },
         nightExtras: persisted?.nightExtras || current.nightExtras,
         lateUse: persisted?.lateUse || current.lateUse,
+        apneaOverrides: persisted?.apneaOverrides || current.apneaOverrides,
       }),
       onRehydrateStorage: () => (state) => {
         state?.enrichLibraryFromReference?.()

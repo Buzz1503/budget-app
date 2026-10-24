@@ -8,6 +8,7 @@ import { nightFeatures } from '../../sleep/features'
 import { soundsNight } from '../../sleep/sounds'
 import { spo2Night } from '../../sleep/oxygen'
 import { buildRows } from '../../sleep/analysis/dataset'
+import { detectEvents, calibrate, truthOf } from '../../sleep/nightmares'
 import { useCompounds } from '../../lib/useCompounds'
 import useHealthModel, { tz } from './useHealthModel'
 
@@ -45,6 +46,22 @@ export default function useSleepLab() {
     const featureBy = new Map(features.map((f) => [f.date, f]))
     const inputs = new Map()
     const extras = new Map()
+    // nightmare events per night, then a rating (fitted to your answers once there are enough)
+    const sorted = [...nights].sort((a, b) => a.start - b.start)
+    const eventsBy = new Map()
+    sorted.forEach((n, i) => {
+      const o = n.overnight
+      if (!o?.hr?.length) return
+      const prevResp = sorted.slice(Math.max(0, i - 28), i).map((x) => x.overnight?.respRate).filter((v) => v != null).sort((a, b) => a - b)
+      const usualResp = prevResp.length >= 7 ? prevResp[Math.floor(prevResp.length / 2)] : null
+      const restless = s.nightExtras[n.date]?.restless
+      eventsBy.set(n.date, detectEvents({
+        start: n.start, hr: o.hr, segments: n.segments,
+        movement: restless?.series || null, movementStart: restless?.start ?? null,
+        respAboveUsual: usualResp != null && o.respRate != null ? o.respRate > usualResp + 1 : null,
+      }))
+    })
+    const cal = calibrate([...eventsBy.entries()].map(([d, events]) => ({ events, truth: truthOf(s.morningChecks[d]?.dreams) })))
     for (const n of nights) {
       const o = n.overnight || null
       const evening = addDays(n.date, -1)
@@ -53,6 +70,9 @@ export default function useSleepLab() {
       const sounds = soundsNight(ex.sounds || [], { start: n.start, end: n.end, asleepMin: n.asleepMin })
       const spo2 = spo2Night(o?.spo2)
       const readiness = model.readiness(n.date)
+      const events = eventsBy.get(n.date) || null
+      const rating = events ? cal.rate(events) : null
+      const truth = truthOf(s.morningChecks[n.date]?.dreams)
       const input = {
         date: n.date,
         asleepMin: n.asleepMin ?? null,
@@ -77,9 +97,11 @@ export default function useSleepLab() {
         hrDipPct: hrDip(n.sleepingHR?.avg, dayBefore?.hrDaytime),
         daylightMorningMin: dayBefore?.daylightMorningMin ?? null,
         waterL: dayBefore?.dietWater != null ? Math.round(dayBefore.dietWater / 100) / 10 : null,
+        // the outcome for the analysis: your answer when there is one, else the estimate's Likely
+        nightmare: truth != null ? (truth ? 1 : 0) : rating ? (rating === 'Likely' ? 1 : 0) : null,
       }
       inputs.set(n.date, input)
-      extras.set(n.date, { night: n, overnight: o, sounds, spo2, restless: ex.restless || null, feature: featureBy.get(n.date), input })
+      extras.set(n.date, { night: n, overnight: o, sounds, spo2, restless: ex.restless || null, feature: featureBy.get(n.date), input, events, rating, truth })
     }
     const rows = buildRows(features, inputs)
     const timing = nights.map((n) => [n.date, { bedFromNoon: clockFromNoon(n.start, tz), wakeFromNoon: clockFromNoon(n.end, tz) }])
@@ -89,6 +111,6 @@ export default function useSleepLab() {
       supplements: Object.fromEntries(s.supplements.map((x) => [x.id, x.name])),
       compounds: Object.fromEntries(compounds.map((c) => [c.id, c.name])),
     }
-    return { model, features, featureBy, inputs, extras, rows, timing, names, needMin: Math.round(model.needH * 60) }
+    return { model, features, featureBy, inputs, extras, rows, timing, names, needMin: Math.round(model.needH * 60), calibration: { personal: cal.personal, confirmed: cal.confirmed } }
   }, [model, compounds, s])
 }

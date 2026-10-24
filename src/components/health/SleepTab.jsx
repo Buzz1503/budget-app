@@ -25,6 +25,8 @@ import MorningCheck from '../sleep/MorningCheck'
 import NightStrips from './NightStrips'
 import AnalysisScreen from './SleepAnalysis'
 import RestlessnessScreen from './RestlessnessScreen'
+import ApneaScreen from './ApneaScreen'
+import NightmaresScreen from './NightmaresScreen'
 import useSleepLab from './useSleepLab'
 
 const clock = (ms) => clockOf(clockFromNoon(ms, tz))
@@ -65,6 +67,8 @@ function SleepScreen({ model }) {
   const nightExtras = useStore((s) => s.nightExtras)
   if (view === 'analysis') return <AnalysisScreen lab={lab} onBack={() => setView(null)} />
   if (view === 'restless') return <RestlessnessScreen lab={lab} onBack={() => setView(null)} />
+  if (view === 'apnea') return <ApneaScreen lab={lab} onBack={() => setView(null)} />
+  if (view === 'nightmares') return <NightmaresScreen lab={lab} onBack={() => setView(null)} />
   if (!dates.length || !date) {
     return <div className="card p-4"><p className="text-sm font-medium" style={{ color: 'var(--text-2)' }}>No main sleep recorded yet.</p></div>
   }
@@ -84,7 +88,8 @@ function SleepScreen({ model }) {
         <section className="card p-4">
           <Hypnogram night={night} tz={tz} />
           <NightStrips night={night} overnight={night.overnight} restless={lab.extras.get(date)?.restless}
-            soundSessions={nightExtras[date]?.sounds} restlessOn={restlessOn} />
+            soundSessions={nightExtras[date]?.sounds} restlessOn={restlessOn}
+            events={(lab.extras.get(date)?.events || []).map((e) => ({ t: e.t, level: lab.extras.get(date)?.rating === 'Likely' ? 'likely' : 'possible', label: `Heart rate +${e.surge} bpm` }))} />
           <NightFactorsLine feature={lab.featureBy.get(date)} />
         </section>
       </StaggerItem>
@@ -125,6 +130,8 @@ function NightFactorsLine({ feature }) {
 
 const LAB_LINKS = [
   ['analysis', 'Analysis', 'What helps and what hurts your sleep'],
+  ['apnea', 'Apnea screen', 'STOP-BANG and overnight breathing signals'],
+  ['nightmares', 'Nightmares', 'Estimated from heart rate surges, checked against your answers'],
   ['restless', 'Restlessness', 'Movement through the night, from the Watch'],
 ]
 
