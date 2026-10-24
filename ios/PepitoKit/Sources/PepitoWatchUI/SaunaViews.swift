@@ -3,9 +3,6 @@ import SwiftUI
 import PepitoCore
 import PepitoTheme
 
-/// Apple's own guidance, shown above Start when the temperature is above it.
-public let heatWarningAboveC = 55
-
 // MARK: - Start
 
 /// The temperature as the hero, turned with the Digital Crown in 1° steps,
@@ -28,26 +25,14 @@ public struct WatchSaunaStartContent: View {
                     .font(PepitoTheme.number(m.hero))
                     .foregroundStyle(Pal.text)
                     .contentTransition(.numericText(value: Double(tempC)))
-                if tempC <= heatWarningAboveC {
-                    Text("Turn the Crown to set")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(Pal.text2)
-                }
+                Text("Turn the Crown to set")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(Pal.text2)
             }
             .frame(maxWidth: .infinity)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Temperature \(tempC) degrees")
             .accessibilityValue("\(tempC)")
-            if tempC > heatWarningAboveC {
-                Label {
-                    Text("Apple advises not wearing Watch above 55°")
-                } icon: {
-                    Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Pal.warn)
-                }
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(Pal.text2)
-                .fixedSize(horizontal: false, vertical: true)
-            }
             Button(action: onStart) {
                 Label("Start", systemImage: "flame.fill")
             }
@@ -505,6 +490,69 @@ struct ZoneLegend: View {
             }
         }
         .accessibilityHidden(true)
+    }
+}
+
+/// The optional step after the summary: how it felt, three toggles,
+/// electrolytes after, water, then Save or Skip.
+public struct WatchSaunaRatingContent: View {
+    let rating: SaunaRatingModel
+    let onChange: (SaunaRatingModel) -> Void
+    let onSave: () -> Void
+    let onSkip: () -> Void
+
+    public init(rating: SaunaRatingModel, onChange: @escaping (SaunaRatingModel) -> Void, onSave: @escaping () -> Void, onSkip: @escaping () -> Void) {
+        self.rating = rating; self.onChange = onChange; self.onSave = onSave; self.onSkip = onSkip
+    }
+
+    private func toggle(_ title: String, _ on: Bool, _ set: @escaping (inout SaunaRatingModel) -> Void) -> some View {
+        Button { var r = rating; set(&r); onChange(r) } label: {
+            HStack {
+                Text(title).font(.system(size: 15, weight: .semibold)).foregroundStyle(Pal.text)
+                Spacer(minLength: 0)
+                Image(systemName: on ? "checkmark.circle.fill" : "circle").foregroundStyle(on ? Pal.accent : Pal.text3)
+            }
+            .frame(maxWidth: .infinity, minHeight: 40, alignment: .leading)
+        }
+        .buttonStyle(WatchTileStyle())
+        .accessibilityAddTraits(on ? .isSelected : [])
+    }
+
+    public var body: some View {
+        VStack(spacing: PepitoTheme.Space.s8) {
+            Text("How it felt").font(.system(size: 13, weight: .medium)).foregroundStyle(Pal.text2)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            HStack(spacing: PepitoTheme.Space.s4) {
+                ForEach(1...5, id: \.self) { n in
+                    Button("\(n)") { var r = rating; r.feel = r.feel == n ? nil : n; onChange(r) }
+                        .buttonStyle(WatchSecondaryButtonStyle(height: 36))
+                        .foregroundStyle(rating.feel == n ? Pal.accent : Pal.text)
+                        .accessibilityLabel("Felt \(n) of 5")
+                        .accessibilityAddTraits(rating.feel == n ? .isSelected : [])
+                }
+            }
+            toggle("Lightheaded", rating.lightheaded) { $0.lightheaded.toggle() }
+            toggle("Headache", rating.headache) { $0.headache.toggle() }
+            toggle("Cramps", rating.cramps) { $0.cramps.toggle() }
+            toggle("Electrolytes after", rating.electrolytes) { $0.electrolytes.toggle() }
+            HStack(spacing: PepitoTheme.Space.s8) {
+                Button { var r = rating; r.water(-SaunaRatingModel.waterStep); onChange(r) } label: { Image(systemName: "minus") }
+                    .buttonStyle(WatchSecondaryButtonStyle(height: 36)).accessibilityLabel("Less water")
+                VStack(spacing: 0) {
+                    Text("\(rating.waterMl)").font(.system(size: 20, weight: .bold).monospacedDigit()).foregroundStyle(Pal.text)
+                    Text("ml water").font(.system(size: 12, weight: .medium)).foregroundStyle(Pal.text2)
+                }
+                .frame(minWidth: 56)
+                .accessibilityElement(children: .combine)
+                Button { var r = rating; r.water(SaunaRatingModel.waterStep); onChange(r) } label: { Image(systemName: "plus") }
+                    .buttonStyle(WatchSecondaryButtonStyle(height: 36)).accessibilityLabel("More water")
+            }
+            Button(action: onSave) { Label("Save", systemImage: "checkmark") }
+                .buttonStyle(WatchPrimaryButtonStyle())
+            Button("Skip", action: onSkip)
+                .buttonStyle(WatchSecondaryButtonStyle(height: 36))
+        }
+        .frame(maxWidth: .infinity)
     }
 }
 #endif

@@ -204,6 +204,7 @@ export function demoBridge({ now, tz, days = DEMO_DAYS }: { now: number; tz: Tz;
     sleep: async (a, b) => data.sleep.filter((r) => r.end > a && r.start < b),
     workouts: async (a, b) => inRange(data.workouts, a, b),
     bloodPressure: async (a, b) => inRange(data.bp, a, b),
+    writeWater: async () => true,
     daytimeHeartRate: async (a, b) => {
       const from = tz.dateOf(a)
       const to = tz.dateOf(b - 1)

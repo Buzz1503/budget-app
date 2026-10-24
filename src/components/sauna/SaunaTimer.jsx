@@ -53,16 +53,12 @@ export function StartTimerSheet({ open, onClose }) {
 export function RunningTimer({ onStop }) {
   const timer = useStore((s) => s.saunaTimer)
   const clearSaunaTimer = useStore((s) => s.clearSaunaTimer)
-  const noteSeen = useStore((s) => s.saunaSettings.timerNoteSeen)
-  const setSaunaSettings = useStore((s) => s.setSaunaSettings)
   const reduce = useReducedMotion()
   const [now, setNow] = useState(Date.now())
-  const [showNote] = useState(!noteSeen)
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(id)
   }, [])
-  useEffect(() => { if (!noteSeen) setSaunaSettings({ timerNoteSeen: true }) }, [noteSeen, setSaunaSettings])
   if (!timer) return null
   const st = timerState(timer, now)
   const size = 200
@@ -98,9 +94,6 @@ export function RunningTimer({ onStop }) {
           <p className="mt-1 text-xs font-bold tabular-nums" style={{ color: 'var(--text-3)' }}>{st.done ? 'Target reached' : `of ${timer.targetMin}:00`}</p>
         </div>
       </div>
-      {showNote && (
-        <p className="mt-3 text-xs font-medium" style={{ color: 'var(--text-3)' }} data-testid="timer-note">Leave your phone outside the sauna. iPhones are rated to 35 C.</p>
-      )}
       <button onClick={stop} className="btn-primary mt-4 flex w-full items-center justify-center gap-2 rounded-full py-3 text-base font-black" data-testid="timer-stop">
         <Square size={16} /> Stop and log
       </button>

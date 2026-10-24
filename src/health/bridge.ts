@@ -33,6 +33,8 @@ export interface HealthBridge {
   bloodPressure(start: number, end: number): Promise<RawBloodPressure[]>
   /** Average heart rate 9 am to 9 pm, per local day (for the nocturnal dip). */
   daytimeHeartRate(start: number, end: number): Promise<DayValue[]>
+  /** The one write: water logged with a sauna session, as dietary water. */
+  writeWater(ml: number, at: number, id: string): Promise<boolean>
 }
 
 // ------------------------------------------------------------ native bridge
@@ -202,6 +204,10 @@ export function nativeBridge({ capgo, own, tz }: { capgo: AnyPlugin; own: AnyPlu
         const res = await own.daytimeAverage({ type: 'heartRate', startDate: iso(start), endDate: iso(end), fromHour: 9, toHour: 21 })
         return (res?.samples || []) as DayValue[]
       }, [] as DayValue[])
+    },
+
+    async writeWater(ml, at, id) {
+      return safe(async () => !!(await own.writeWater({ ml, date: iso(at), id }))?.saved, false)
     },
 
     async bloodPressure(start, end) {

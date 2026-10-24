@@ -338,20 +338,35 @@ struct SaunaCoolDownScreen: View {
 struct SaunaSummaryScreen: View {
     @EnvironmentObject private var store: WatchStore
     @EnvironmentObject private var sauna: SaunaWorkoutManager
+    /// Done on the summary opens the optional rating step
+    @State private var rating: SaunaRatingModel?
 
     var body: some View {
         ScrollView {
-            if let s = sauna.summary {
+            if let r = rating, let s = sauna.summary {
+                WatchSaunaRatingContent(rating: r, onChange: { rating = $0 }, onSave: {
+                    if let a = r.action(sessionStart: s.start, workoutId: sauna.lastWorkoutId) {
+                        WKInterfaceDevice.current().play(.success)
+                        store.send(a)
+                    }
+                    finish()
+                }, onSkip: finish)
+            } else if let s = sauna.summary {
                 WatchSaunaSummaryContent(summary: SaunaSummaryState(
                     start: s.start, end: s.end, tempC: s.tempC, rounds: s.rounds, avgHR: s.avgHR, peakHR: s.peakHR,
                     zoneMinutes: s.zoneMinutes, samples: s.samples, activeSec: s.activeSec, coolDown: s.coolDown)) {
-                    sauna.dismissSummary()
-                    store.path = []
+                    rating = SaunaRatingModel()
                 }
             }
         }
-        .navigationTitle("Summary")
+        .navigationTitle(rating == nil ? "Summary" : "How was it?")
         .navigationBarBackButtonHidden(true)
+    }
+
+    private func finish() {
+        rating = nil
+        sauna.dismissSummary()
+        store.path = []
     }
 }
 

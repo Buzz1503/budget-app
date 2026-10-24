@@ -13,14 +13,21 @@ import useHealthModel, { tz } from './useHealthModel'
 export default function useSaunaInput() {
   const model = useHealthModel()
   const sessions = useStore((s) => s.saunaSessions)
+  const nightExtras = useStore((s) => s.nightExtras)
   const t = todayStr()
   return useMemo(() => {
     const night = (wake) => {
       const n = model.nightBy.get(wake)
       if (!n) return null
-      return { start: n.start, score: model.sleepScore(wake)?.score ?? null, deepMin: n.hasStages ? n.deepMin : null, sleepingHR: n.sleepingHR?.avg ?? null }
+      return {
+        start: n.start, score: model.sleepScore(wake)?.score ?? null, deepMin: n.hasStages ? n.deepMin : null, sleepingHR: n.sleepingHR?.avg ?? null,
+        wristTemp: model.series.temp?.get(wake) ?? null, restless: nightExtras?.[wake]?.restless?.indexPerHour ?? null,
+      }
     }
-    const morning = (d) => ({ hrv: model.series.hrv.get(d) ?? null, rhr: model.series.rhr.get(d) ?? null, readiness: model.readiness(d).score })
+    const morning = (d) => {
+      const day = model.dailyBy.get(d)
+      return { hrv: model.series.hrv.get(d) ?? null, rhr: model.series.rhr.get(d) ?? null, readiness: model.readiness(d).score, bpSys: day?.bpSys ?? null, bpDia: day?.bpDia ?? null }
+    }
     const pts = (fn) => [...model.nightBy.keys()].map((d) => ({ date: d, value: fn(d) })).filter((p) => p.value != null)
     const series = (m) => [...m.entries()].map(([date, value]) => ({ date, value }))
     return {
@@ -39,5 +46,5 @@ export default function useSaunaInput() {
         },
       },
     }
-  }, [model, sessions, t])
+  }, [model, sessions, nightExtras, t])
 }

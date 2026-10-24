@@ -30,8 +30,13 @@ export const ANALYTICS = {
   longerTermGroupWeeks: 4, // a sentence needs 4 weeks with sessions and 4 without
   weekDaysMin: 4, // a week's average needs 4 mornings
   consistencyWeeks: 8,
-  watchHotC: 55,
   axisMin: 3,
+  // heart rate when the Watch recorded none during the session
+  fallbackBeforeMin: 10, // the median of the 10 minutes before the start
+  fallbackAfterMin: 10, // the median of the first 10 minutes after the end
+  fallbackAtMin: 30, // the reading nearest 30 minutes after the end
+  fallbackAtTolMin: 5,
+  ratingMin: 5, // rating rows unlock at 5 rated sessions
 }
 
 // ------------------------------------------------------------------ helpers
@@ -115,8 +120,24 @@ export function hrSummary(series: HRSeries | null, maxHR: number) {
 
 // -------------------------------------------------------- one session's detail
 
-export interface NightRow { start: number; score: number | null; deepMin: number | null; sleepingHR: number | null }
-export interface MorningRow { hrv: number | null; rhr: number | null; readiness: number | null }
+export interface NightRow {
+  start: number
+  score: number | null
+  deepMin: number | null
+  sleepingHR: number | null
+  /** the night's wrist temperature (Health, filed on the wake date) */
+  wristTemp?: number | null
+  /** the Watch's restlessness index, movements per hour */
+  restless?: number | null
+}
+export interface MorningRow {
+  hrv: number | null
+  rhr: number | null
+  readiness: number | null
+  /** blood pressure read that day (Withings), if any */
+  bpSys?: number | null
+  bpDia?: number | null
+}
 export interface WeighIn { t: number; kg: number; source: string }
 
 /** Lookups into Health for the sauna. Any of them can find nothing. */
@@ -146,6 +167,9 @@ const NIGHT_METRICS = [
   { key: 'sleepScore', label: 'Sleep score', unit: '', more: ['higher', 'lower'], get: (n: NightRow) => n.score },
   { key: 'deepSleep', label: 'Deep sleep', unit: 'min', more: ['more', 'less'], get: (n: NightRow) => n.deepMin },
   { key: 'sleepingHR', label: 'Sleeping heart rate', unit: 'bpm', more: ['higher', 'lower'], get: (n: NightRow) => n.sleepingHR },
+  // shown only when recorded: the wrist temperature against usual, and the Watch's restlessness
+  { key: 'wristTemp', label: 'Wrist temperature', unit: 'C', dp: 1, optional: true, more: ['higher', 'lower'], get: (n: NightRow) => n.wristTemp ?? null },
+  { key: 'restlessness', label: 'Restlessness', unit: 'per hour', dp: 1, optional: true, more: ['higher', 'lower'], get: (n: NightRow) => n.restless ?? null },
 ] as const
 const MORNING_METRICS = [
   { key: 'hrv', label: 'HRV', unit: 'ms', more: ['higher', 'lower'], get: (m: MorningRow) => m.hrv },
@@ -154,11 +178,13 @@ const MORNING_METRICS = [
 ] as const
 
 /** "52 min, 8 more than usual", "61 ms, about usual", "58 bpm". */
-export function comparedWords(value: number | null, base: number | null, unit: string, more: readonly [string, string]): string {
+export function comparedWords(value: number | null, base: number | null, unit: string, more: readonly [string, string], dp = 0): string {
   if (value == null) return 'No reading'
-  const v = `${Math.round(value)}${unit ? ` ${unit}` : ''}`
+  const k = 10 ** dp
+  const round = (x: number) => Math.round(x * k) / k
+  const v = `${round(value)}${unit ? ` ${unit}` : ''}`
   if (base == null) return v
-  const d = Math.round(value - base)
+  const d = round(value - base)
   if (d === 0) return `${v}, about usual`
   return `${v}, ${Math.abs(d)} ${d > 0 ? more[0] : more[1]} than usual`
 }
@@ -173,23 +199,26 @@ export function baselineBefore(date: string, get: (d: string) => number | null, 
   return { mean: vals.length ? mean(vals) : null, n: vals.length }
 }
 
-function compare<T>(m: { key: string; label: string; unit: string; more: readonly [string, string]; get: (x: T) => number | null }, value: number | null, base: { mean: number | null; n: number }): Compared {
+function compare<T>(m: { key: string; label: string; unit: string; dp?: number; more: readonly [string, string]; get: (x: T) => number | null }, value: number | null, base: { mean: number | null; n: number }): Compared {
   return {
     key: m.key, label: m.label, unit: m.unit, value, base: base.mean, baseN: base.n,
     diff: value != null && base.mean != null ? r1(value - base.mean) : null,
-    text: comparedWords(value, base.mean, m.unit, m.more),
+    text: comparedWords(value, base.mean, m.unit, m.more, m.dp ?? 0),
   }
 }
 
 /**
- * That night against the 28 nights before it: sleep score, deep sleep and
- * sleeping heart rate. "pending" until the night's data has arrived.
+ * That night against the 28 nights before it: sleep score, deep sleep,
+ * sleeping heart rate, and when recorded the wrist temperature and the
+ * Watch's restlessness. "pending" ("Available tomorrow") until the night's
+ * data has arrived.
  */
 export function thatNight(session: SaunaSession, h: SaunaHealth): { status: 'ok' | 'pending' | 'none'; rows: Compared[] } {
   const wake = addDays(session.date, 1)
   const night = h.night(wake)
   if (!night) return { status: wake >= h.today ? 'pending' : 'none', rows: [] }
   const rows = NIGHT_METRICS.map((m) => compare(m, m.get(night), baselineBefore(wake, (d) => { const n = h.night(d); return n ? m.get(n) : null })))
+    .filter((r, i) => !('optional' in NIGHT_METRICS[i]) || r.value != null)
   return { status: 'ok', rows }
 }
 
@@ -202,6 +231,48 @@ export function nextMorning(session: SaunaSession, h: SaunaHealth): { status: 'o
   if (!any) return { status: date >= h.today ? 'pending' : 'none', rows: [] }
   const rows = MORNING_METRICS.map((m) => compare(m, m.get(m0), baselineBefore(date, (d) => m.get(h.morning(d)))))
   return { status: 'ok', rows }
+}
+
+/**
+ * One muted line at the top of the tab, information only: today's readiness
+ * and HRV against the 28 days before. Null when Health has neither.
+ */
+export function todayLine(h: SaunaHealth | null): string | null {
+  if (!h) return null
+  const m = h.morning(h.today)
+  const parts: string[] = []
+  if (m.readiness != null) parts.push(`readiness ${Math.round(m.readiness)}`)
+  if (m.hrv != null) {
+    const base = baselineBefore(h.today, (d) => h.morning(d).hrv)
+    const d = base.mean != null ? Math.round(m.hrv - base.mean) : null
+    parts.push(`HRV ${Math.round(m.hrv)} ms${d == null ? '' : d === 0 ? ', about usual' : `, ${Math.abs(d)} ${d > 0 ? 'above' : 'below'} usual`}`)
+  }
+  return parts.length ? `Today: ${parts.join(', ')}` : null
+}
+
+export const NO_HR_LINE = 'No heart rate recorded during session'
+
+/**
+ * When nothing was recorded during the session, the heart rate around it from
+ * Health: the median of the 10 minutes before the start, the median of the
+ * first 10 minutes after the end, and the reading nearest 30 minutes after.
+ * `samples` are [epoch ms, bpm]. Null when there is nothing either side.
+ */
+export function hrFallback(samples: Array<[number, number]>, startMs: number, endMs: number) {
+  const M = 60000
+  const med = (xs: number[]) => {
+    if (!xs.length) return null
+    const s2 = [...xs].sort((a, b) => a - b)
+    const k = Math.floor(s2.length / 2)
+    return Math.round(s2.length % 2 ? s2[k] : (s2[k - 1] + s2[k]) / 2)
+  }
+  const before = med(samples.filter(([t]) => t >= startMs - ANALYTICS.fallbackBeforeMin * M && t < startMs).map(([, b]) => b))
+  const after = med(samples.filter(([t]) => t > endMs && t <= endMs + ANALYTICS.fallbackAfterMin * M).map(([, b]) => b))
+  const target = endMs + ANALYTICS.fallbackAtMin * M
+  const near = samples.filter(([t]) => Math.abs(t - target) <= ANALYTICS.fallbackAtTolMin * M).sort((a, b) => Math.abs(a[0] - target) - Math.abs(b[0] - target))[0]
+  const at30 = near ? Math.round(near[1]) : null
+  if (before == null && after == null && at30 == null) return null
+  return { before, after, at30, label: NO_HR_LINE }
 }
 
 /** When a session ended, as an instant. */
@@ -237,10 +308,6 @@ export function fluidEstimate(session: SaunaSession & { startedAt?: number; ende
   const litres = r1(before.kg - after.kg)
   return litres > 0 ? { litres, from: 'scale', beforeKg: before.kg, afterKg: after.kg } : null
 }
-
-export const WATCH_HOT_LINE = 'Apple advises not wearing Apple Watch above 55 C.'
-/** The muted line under a hot session the Watch recorded. */
-export const watchHot = (session: SaunaSession, recordedByWatch: boolean) => recordedByWatch && session.tempC > ANALYTICS.watchHotC
 
 // --------------------------------------------------------- heat adaptation
 
@@ -369,6 +436,7 @@ const PATTERN_METRICS = [
   { key: 'sleepingHR', label: 'Sleeping heart rate', unit: 'bpm', dp: 0, when: 'night', fallback: 2 },
   { key: 'hrv', label: 'Next-morning HRV', unit: 'ms', dp: 0, when: 'morning', fallback: 6 },
   { key: 'rhr', label: 'Next-morning resting heart rate', unit: 'bpm', dp: 0, when: 'morning', fallback: 2 },
+  { key: 'restlessness', label: 'Restlessness', unit: 'per hour', dp: 1, when: 'night', fallback: 1 },
 ] as const
 
 const outcome = (key: string, input: PatternInput) => (d: string): number | null => {
@@ -376,6 +444,7 @@ const outcome = (key: string, input: PatternInput) => (d: string): number | null
   if (key === 'hrv' || key === 'rhr') return input.morning(next)[key]
   const n = input.night(next)
   if (!n) return null
+  if (key === 'restlessness') return n.restless ?? null
   return key === 'sleepScore' ? n.score : key === 'deepSleep' ? n.deepMin : n.sleepingHR
 }
 
@@ -393,7 +462,8 @@ function patternRows(input: PatternInput, days: string[], inGroup: (d: string) =
     smallest = Math.min(smallest, Math.min(s.with.n, s.without.n))
     if (s.diff == null) continue
     const label = changeLabel(s.diff, input.wobble[m.key] ?? m.fallback)
-    const d = Math.round(s.diff)
+    const k = 10 ** m.dp
+    const d = Math.round(s.diff * k) / k
     const text = label === 'Within normal fluctuation' || d === 0
       ? `${m.label} was about the same ${words[0]} as ${words[1]}.`
       : `${m.label} was ${Math.abs(d)}${m.unit ? ` ${m.unit}` : ''} ${d > 0 ? 'higher' : 'lower'} ${words[0]} than ${words[1]}.`
@@ -456,12 +526,17 @@ export function longerTerm(input: Pick<PatternInput, 'sessions' | 'morning'>, to
     const days = dateRange(w, addDays(w, 6)).filter((d) => d >= first && d <= today)
     const rhr: number[] = []
     const hrv: number[] = []
+    const sys: number[] = []
+    const dia: number[] = []
     for (const d of days) {
       const m = input.morning(d)
       if (m.rhr != null) rhr.push(m.rhr)
       if (m.hrv != null) hrv.push(m.hrv)
+      if (m.bpSys != null && m.bpDia != null) { sys.push(m.bpSys); dia.push(m.bpDia) }
     }
-    return { week: w, count: input.sessions.filter((s) => s.date >= w && s.date <= addDays(w, 6)).length, rhr: avg(rhr), hrv: avg(hrv) }
+    // blood pressure is read now and then: any reading that week counts
+    const bp = (xs: number[]) => (xs.length ? Math.round(mean(xs)!) : null)
+    return { week: w, count: input.sessions.filter((s) => s.date >= w && s.date <= addDays(w, 6)).length, rhr: avg(rhr), hrv: avg(hrv), sys: bp(sys), dia: bp(dia) }
   })
   const lines: string[] = []
   for (const [key, name, unit] of [['rhr', 'Resting heart rate', 'bpm'], ['hrv', 'HRV', 'ms']] as const) {
@@ -470,9 +545,59 @@ export function longerTerm(input: Pick<PatternInput, 'sessions' | 'morning'>, to
     if (withS.length < ANALYTICS.longerTermGroupWeeks || without.length < ANALYTICS.longerTermGroupWeeks) continue
     lines.push(`${name} averaged ${Math.round(mean(withS)!)} ${unit} in weeks with sauna and ${Math.round(mean(without)!)} ${unit} in weeks without (${withS.length} and ${without.length} weeks).`)
   }
-  return { locked: false as const, weeks, axisMax: weeklyAxisMax(weeks.map((w) => w.count), target), lines }
+  const hasBP = weeks.some((w) => w.sys != null)
+  return { locked: false as const, weeks, axisMax: weeklyAxisMax(weeks.map((w) => w.count), target), lines, hasBP }
 }
 
 /** When a session's own timing sits relative to a day, for tests and the session list. */
 export const startMinutes = (s: SaunaSession) => minutesOf(s.start)
 export { sorted as sessionsOldestFirst, daysBetween }
+
+// ----------------------------------------------------------- session rating
+
+export interface SaunaRating {
+  /** how it felt, 1 to 5 */
+  feel: number | null
+  lightheaded: boolean
+  headache: boolean
+  cramps: boolean
+}
+
+const LENGTH_BANDS: Array<[number, number, string]> = [[0, 15, 'Under 15 min'], [15, 25, '15 to 24 min'], [25, 35, '25 to 34 min'], [35, Infinity, '35 min or more']]
+const FLUID_BANDS: Array<[number, number, string]> = [[0, 0.5, 'Under 0.5 L lost'], [0.5, 1, '0.5 to 0.9 L lost'], [1, Infinity, '1 L or more lost']]
+
+export interface RatingRow { group: 'length' | 'temp' | 'fluid'; band: string; n: number; feel: number | null; lightheaded: number; text: string }
+
+/**
+ * How it felt and how often you were lightheaded, by length, temperature and
+ * fluid-loss band. Unlocks at 5 rated sessions; until then one progress line.
+ */
+export function ratingRows(sessions: Array<SaunaSession & { rating?: SaunaRating | null }>, fluidOf: (s: SaunaSession) => number | null, min = ANALYTICS.ratingMin) {
+  const rated = sessions.filter((s) => s.rating && (s.rating.feel != null || s.rating.lightheaded || s.rating.headache || s.rating.cramps))
+  if (rated.length < min) return { rows: [] as RatingRow[], rated: rated.length, progress: `Rating rows unlock after ${min} rated sessions (you have ${rated.length})` }
+  const rows: RatingRow[] = []
+  const add = (group: RatingRow['group'], band: string, list: typeof rated) => {
+    if (!list.length) return
+    const feels = list.map((s) => s.rating!.feel).filter((x): x is number => x != null)
+    const feel = feels.length ? r1(mean(feels)!) : null
+    const light = list.filter((s) => s.rating!.lightheaded).length
+    const text = `${band}: ${feel != null ? `felt ${feel} of 5 on average, ` : ''}lightheaded ${light} of ${list.length} time${list.length === 1 ? '' : 's'}.`
+    rows.push({ group, band, n: list.length, feel, lightheaded: light, text })
+  }
+  for (const [a, b, label] of LENGTH_BANDS) add('length', label, rated.filter((s) => s.lengthMin >= a && s.lengthMin < b))
+  const temps = [...new Set(rated.map((s) => tempBand(s.tempC).centre))].sort((a, b) => a - b)
+  for (const t of temps) {
+    const list = rated.filter((s) => tempBand(s.tempC).centre === t)
+    add('temp', tempBand(list[0].tempC).label, list)
+  }
+  for (const [a, b, label] of FLUID_BANDS) {
+    add('fluid', label, rated.filter((s) => { const f = fluidOf(s); return f != null && f >= a && f < b }))
+  }
+  return { rows, rated: rated.length, progress: null }
+}
+
+/** Sessions whose water still has to be written to Apple Health (once each). */
+export function waterToWrite(sessions: Array<SaunaSession & { waterMl?: number | null; waterWritten?: boolean }>) {
+  return sessions.filter((s) => (s.waterMl ?? 0) > 0 && !s.waterWritten)
+    .map((s) => ({ id: s.id, ml: Math.round(s.waterMl!), at: s.endedAt ?? s.startedAt ?? null, date: s.date, start: s.start, lengthMin: s.lengthMin }))
+}

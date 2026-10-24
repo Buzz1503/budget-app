@@ -37,7 +37,7 @@ import { backfillTopicals } from '../lib/topicals'
 import { applyCheck, toAbandon, localDay } from '../lib/reactionCourse'
 import { captureFor, normaliseNeedle, coDrawInfo } from '../lib/injectionCapture'
 import { lastNeedle, rememberNeedle } from '../lib/needle'
-import { DEFAULT_SAUNA_SETTINGS, newSession, sessionFromTimer, hhmmOf } from '../sauna/sauna'
+import { DEFAULT_SAUNA_SETTINGS, newSession, sessionFromTimer, hhmmOf, cleanRating } from '../sauna/sauna'
 import { applyPendingActions } from '../native/actions'
 import {
   changeVial, vialChangeNeeded, hasOpenVial, remainingMg as openRemainingMg, expiryOf, migrateVialModel,
@@ -2535,6 +2535,15 @@ const useStore = create(
       updateSaunaSession(id, patch = {}) {
         set((s) => ({ saunaSessions: s.saunaSessions.map((x) => (x.id === id ? { ...x, ...patch } : x)) }))
       },
+      /** The quick step after saving: how it felt, the toggles, electrolytes and water (written to Health once). */
+      rateSaunaSession(id, input = {}) {
+        const s0 = get().saunaSessions.find((x) => x.id === id)
+        if (!s0) return
+        const r = cleanRating(input, new Date().toISOString())
+        // water changed after it was written: written again as the new amount
+        const waterWritten = s0.waterWritten && s0.waterMl === r.waterMl
+        get().updateSaunaSession(id, { ...r, waterWritten: !!waterWritten })
+      },
       deleteSaunaSession(id) {
         const gone = get().saunaSessions.find((x) => x.id === id)
         set((s) => ({ saunaSessions: s.saunaSessions.filter((x) => x.id !== id) }))
@@ -2637,6 +2646,13 @@ const useStore = create(
             case 'restless':
               get().setRestless(o.date, o.summary)
               break
+            case 'saunaRating': {
+              // the session the Watch just finished: matched by its start, else its workout
+              const list = get().saunaSessions
+              const hit = list.find((x) => (o.workoutId && x.workoutId === o.workoutId) || (o.start && x.startedAt && Math.abs(x.startedAt - o.start) < 120000))
+              if (hit) get().rateSaunaSession(hit.id, o.rating)
+              break
+            }
             case 'watchStatus': {
               const prev = get().nativeState.watch || {}
               get().setNativeState({ watch: { complication: o.complication ?? prev.complication ?? null, battery: o.battery ?? prev.battery ?? null, at: o.at } })

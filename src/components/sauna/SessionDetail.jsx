@@ -1,8 +1,9 @@
 import { useMemo } from 'react'
 import { format, parseISO } from 'date-fns'
 import {
-  hrSummary, thatNight, nextMorning, hoursToBed, fluidEstimate, watchHot, WATCH_HOT_LINE, coolDownDrop,
+  hrSummary, thatNight, nextMorning, hoursToBed, fluidEstimate, coolDownDrop, NO_HR_LINE,
 } from '../../sauna/analytics'
+import { ratingWords } from './SaunaRatingSheet'
 import { addDays } from '../../health/tz'
 import { useSaunaHealth } from './saunaHealthContext'
 
@@ -76,7 +77,7 @@ function CompareRows({ result, pendingText, testid }) {
  * that night against the 28 nights before, the next morning against the 28
  * days before; the time to bed; the fluid estimate; and the cool-down.
  */
-export default function SessionDetail({ session, full = false }) {
+export default function SessionDetail({ session, full = false, onRate = null }) {
   const ctx = useSaunaHealth()
   const d = useMemo(() => {
     const series = ctx.seriesFor(session)
@@ -93,7 +94,6 @@ export default function SessionDetail({ session, full = false }) {
       toBed: hoursToBed(session, nightRow, ctx.toMs),
       fluid: fluidEstimate(session, h ? h.weighIns : null, ctx.toMs),
       cool: coolDownDrop(session.coolDown),
-      hot: watchHot(session, !!series),
     }
   }, [session, ctx])
   return (
@@ -104,6 +104,12 @@ export default function SessionDetail({ session, full = false }) {
           {format(parseISO(session.date), 'EEE d MMM')} · {session.start} · {session.type}
           {session.rounds > 1 ? ` · ${session.rounds} rounds` : ''}{session.coldMin != null ? ` · ${session.coldMin} min cold after` : ''}
         </p>
+        {ratingWords(session) && <p className="mt-1 text-sm font-bold tabular-nums" data-testid="sauna-rating-line">{ratingWords(session)}</p>}
+        {onRate && (
+          <button type="button" onClick={onRate} className="mt-1 text-xs font-bold" style={soft} data-testid="sauna-rate-open">
+            {session.rating ? 'Change rating' : 'Rate this session'}
+          </button>
+        )}
       </div>
 
       {d.hr && (
@@ -119,7 +125,19 @@ export default function SessionDetail({ session, full = false }) {
           {full && <p className="mt-1 text-[11px] font-medium" style={muted}>Zones from your max heart rate ({ctx.maxHR} bpm).</p>}
         </Block>
       )}
-      {d.hot && <p className="text-xs font-medium" style={muted} data-testid="sauna-watch-hot">{WATCH_HOT_LINE}</p>}
+
+      {!d.hr && session.hrAround && (
+        <Block title="Heart rate" testid="sauna-hr-fallback">
+          <p className="text-sm font-bold">{NO_HR_LINE}</p>
+          <p className="mt-1 text-sm font-medium tabular-nums" style={soft}>
+            {[
+              session.hrAround.before != null ? `${session.hrAround.before} bpm in the 10 min before` : null,
+              session.hrAround.after != null ? `${session.hrAround.after} bpm in the 10 min after` : null,
+              session.hrAround.at30 != null ? `${session.hrAround.at30} bpm 30 min after` : null,
+            ].filter(Boolean).join(', ')}
+          </p>
+        </Block>
+      )}
 
       {d.cool && (
         <Block title="Cool down" testid="sauna-cool-down">

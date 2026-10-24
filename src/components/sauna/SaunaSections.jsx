@@ -3,7 +3,7 @@ import { format, parseISO } from 'date-fns'
 import { ChevronRight } from 'lucide-react'
 import useStore, { todayStr } from '../../store/useStore'
 import {
-  heatAdaptation, coolDownDrop, coolDownTrend, patterns, longerTerm, fit,
+  heatAdaptation, coolDownDrop, coolDownTrend, patterns, longerTerm, fit, ratingRows, fluidEstimate,
 } from '../../sauna/analytics'
 import { SAUNA_CAVEAT } from '../../sauna/saunaEffects'
 import { useSaunaHealth } from './saunaHealthContext'
@@ -167,15 +167,43 @@ export function PatternsView({ input }) {
   )
 }
 
-/** 6. Patterns, from Health. */
+/** How it felt and lightheaded, by length, temperature and fluid band; from 5 rated sessions. */
+function RatingRows() {
+  const sessions = useStore((s) => s.saunaSessions)
+  const ctx = useSaunaHealth()
+  const r = useMemo(() => ratingRows(sessions, (x) => fluidEstimate(x, ctx.h ? ctx.h.weighIns : null, ctx.toMs)?.litres ?? null), [sessions, ctx])
+  const groups = [['length', 'By length'], ['temp', 'By temperature'], ['fluid', 'By fluid loss']]
+  return (
+    <section className="card px-4 py-3" data-testid="sauna-rating-rows">
+      <p className="t-label">How it felt</p>
+      {r.progress ? <Locked text={r.progress} testid="sauna-rating-locked" /> : groups.map(([g, title]) => {
+        const rows = r.rows.filter((x) => x.group === g)
+        if (!rows.length) return null
+        return (
+          <div key={g} className="mt-2">
+            <p className="t-caption" style={muted}>{title}</p>
+            {rows.map((x) => <p key={x.band} className="text-sm font-medium tabular-nums" style={soft} data-testid="sauna-rating-row">{x.text}</p>)}
+          </div>
+        )
+      })}
+    </section>
+  )
+}
+
+/** 6. Patterns, from Health, then how it felt. */
 export function PatternsCard() {
   const ctx = useSaunaHealth()
-  if (!ctx.patternInput) return <p className="px-1 text-sm font-medium" style={soft} data-testid="sauna-patterns-connect">Connect Apple Health in More › Health to compare sauna nights with nights without.</p>
-  return <PatternsView input={ctx.patternInput} />
+  return (
+    <div className="space-y-2">
+      {ctx.patternInput ? <PatternsView input={ctx.patternInput} />
+        : <p className="px-1 text-sm font-medium" style={soft} data-testid="sauna-patterns-connect">Connect Apple Health in More › Health to compare sauna nights with nights without.</p>}
+      <RatingRows />
+    </div>
+  )
 }
 
 /** Weekly bars, then resting heart rate and HRV week by week on the same time axis. */
-function WeeksChart({ weeks, axisMax }) {
+function WeeksChart({ weeks, axisMax, hasBP = false }) {
   const W = 300
   const L = 34
   const R = 8
@@ -205,9 +233,9 @@ function WeeksChart({ weeks, axisMax }) {
       </g>
     )
   }
-  const H = bars + 2 * line + 24
+  const H = bars + (hasBP ? 4 : 2) * line + 24
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="Sessions each week, with weekly resting heart rate and HRV" data-testid="sauna-weeks-chart">
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label={`Sessions each week, with weekly resting heart rate and HRV${hasBP ? ', and blood pressure' : ''}`} data-testid="sauna-weeks-chart">
       <text x={L - 4} y={10} fontSize="9" textAnchor="end" fill="var(--text-3)" className="tabular-nums">{axisMax}</text>
       <text x={L - 4} y={bars} fontSize="9" textAnchor="end" fill="var(--text-3)">0</text>
       {weeks.map((w, i) => {
@@ -217,6 +245,8 @@ function WeeksChart({ weeks, axisMax }) {
       <line x1={L} x2={W - R} y1={bars} y2={bars} stroke="var(--border)" />
       {row('rhr', bars + 4, 'RHR', 'var(--series-weight)')}
       {row('hrv', bars + 4 + line, 'HRV', 'var(--series-sleep)')}
+      {hasBP && row('sys', bars + 4 + 2 * line, 'SYS', 'var(--series-muscle)')}
+      {hasBP && row('dia', bars + 4 + 3 * line, 'DIA', 'var(--series-lean)')}
       <text x={L} y={H - 4} fontSize="9" fill="var(--text-3)">{format(parseISO(weeks[0].week), 'd MMM')}</text>
       <text x={W - R} y={H - 4} fontSize="9" textAnchor="end" fill="var(--text-3)">This week</text>
     </svg>
@@ -234,7 +264,7 @@ export function LongerTermCard() {
     <section className="card space-y-2 p-4" data-testid="sauna-longer-term">
       {r.locked ? <Locked text={r.text} testid="sauna-longer-locked" /> : (
         <>
-          <WeeksChart weeks={r.weeks} axisMax={r.axisMax} />
+          <WeeksChart weeks={r.weeks} axisMax={r.axisMax} hasBP={r.hasBP} />
           {r.lines.map((l) => <p key={l} className="text-sm font-medium" style={soft} data-testid="sauna-longer-line">{l}</p>)}
           {!r.lines.length && <p className="text-xs font-medium" style={muted}>A comparison appears with 4 weeks with sessions and 4 without.</p>}
         </>

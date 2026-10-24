@@ -3,9 +3,12 @@ import { newSession } from './sauna'
 import type { SaunaSession } from './sauna'
 import {
   ANALYTICS, typicalLine, ownSeries, hrClimb, hrSummary, comparedWords, baselineBefore, thatNight, nextMorning,
-  hoursToBed, fluidEstimate, watchHot, WATCH_HOT_LINE, tempBand, heatAdaptation, coolDownDrop, coolDownTrend,
+  hoursToBed, fluidEstimate, tempBand, heatAdaptation, coolDownDrop, coolDownTrend,
   targetWeeks, patterns, longerTerm, weeklyAxisMax, sinceFirstSession, firstSessionDate,
+  todayLine, hrFallback, NO_HR_LINE, ratingRows, waterToWrite,
 } from './analytics'
+import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { join } from 'node:path'
 import type { SaunaHealth, NightRow, MorningRow, WeighIn, PatternInput, HRSeries } from './analytics'
 import { saunaVsNone, saunaSplits, recoveryLine } from './saunaEffects'
 import { addDays, dateRange } from '../health/tz'
@@ -145,12 +148,6 @@ describe('one session against your own baselines', () => {
     expect(fluidEstimate(sess, health({ weighIns: [at('16:10', 80), at('20:20', 79.8)] }).weighIns, toMs)?.litres).toBe(0.2)
   })
 
-  it('the Apple Watch line shows only above 55 C on a Watch session', () => {
-    expect(watchHot(s(T, { tempC: 80 }), true)).toBe(true)
-    expect(watchHot(s(T, { tempC: 80 }), false)).toBe(false)
-    expect(watchHot(s(T, { tempC: 55 }), true)).toBe(false)
-    expect(WATCH_HOT_LINE).toBe('Apple advises not wearing Apple Watch above 55 C.')
-  })
 })
 
 describe('heat adaptation', () => {
@@ -328,5 +325,95 @@ describe('nothing from before the first session is used', () => {
 
   it('every unlock threshold matches the brief', () => {
     expect(ANALYTICS).toMatchObject({ adaptationMin: 5, coolDownMin: 5, patternsMin: 7, longerTermWeeks: 8, longerTermGroupWeeks: 4, baselineDays: 28, weighInWindowH: 2 })
+  })
+})
+
+describe('M7: the Sauna tab around health data', () => {
+  it("today's readiness and HRV against the 28 days before, information only", () => {
+    const h = health({ to: T, mornings: { [T]: { hrv: 56, readiness: 74 } } })
+    expect(todayLine(h)).toBe('Today: readiness 74, HRV 56 ms, 6 above usual')
+    expect(todayLine(health({ to: addDays(T, -1) }))).toBeNull()
+    expect(todayLine(null)).toBeNull()
+  })
+
+  it('heart rate fallback: 10 min before, the first 10 min after and at 30 min', () => {
+    const start = Date.parse('2026-10-22T18:00:00Z')
+    const end = start + 20 * 60000
+    const m = (min: number, bpm: number): [number, number] => [start + min * 60000, bpm]
+    const samples = [m(-30, 60), m(-8, 70), m(-5, 72), m(-1, 80), m(22, 110), m(25, 100), m(29, 96), m(48, 75), m(51, 72)]
+    expect(hrFallback(samples, start, end)).toEqual({ before: 72, after: 100, at30: 72, label: NO_HR_LINE })
+    expect(NO_HR_LINE).toBe('No heart rate recorded during session')
+    // the reading nearest 30 min after must be within 5 minutes of it
+    expect(hrFallback([m(-5, 70), m(60, 70)], start, end)).toEqual({ before: 70, after: null, at30: null, label: NO_HR_LINE })
+    expect(hrFallback([m(-60, 70)], start, end)).toBeNull()
+  })
+
+  it('that night adds wrist temperature and restlessness only when recorded', () => {
+    const sess = s('2026-10-21')
+    const h = health({ base: { night: { wristTemp: 35.8, restless: 4 } }, nights: { '2026-10-22': { wristTemp: 36.1, restless: 6.5 } } })
+    const rows = thatNight(sess, h).rows
+    expect(rows.find((r) => r.key === 'wristTemp')?.text).toBe('36.1 C, 0.3 higher than usual')
+    expect(rows.find((r) => r.key === 'restlessness')?.text).toBe('6.5 per hour, 2.5 higher than usual')
+    expect(thatNight(sess, health()).rows.map((r) => r.key)).toEqual(['sleepScore', 'deepSleep', 'sleepingHR'])
+    // the night of today's session: available tomorrow
+    expect(thatNight(s(T), health()).status).toBe('pending')
+  })
+
+  it('rating rows unlock at 5 rated sessions and band by length, temperature and fluid', () => {
+    const rate = (feel: number, lightheaded = false) => ({ feel, lightheaded, headache: false, cramps: false })
+    const list = [
+      s('2026-10-01', { lengthMin: 20, tempC: 70, rating: rate(4) }),
+      s('2026-10-03', { lengthMin: 20, tempC: 72, rating: rate(3, true) }),
+      s('2026-10-05', { lengthMin: 30, tempC: 80, rating: rate(2, true) }),
+      s('2026-10-07', { lengthMin: 12, tempC: 68, rating: rate(5) }),
+    ]
+    const four = ratingRows(list, () => null)
+    expect(four.rows).toEqual([])
+    expect(four.progress).toBe('Rating rows unlock after 5 rated sessions (you have 4)')
+    expect(ratingRows([...list, s('2026-10-09')], () => null).rated).toBe(4) // an unrated session does not count
+    const five = ratingRows([...list, s('2026-10-09', { lengthMin: 22, tempC: 70, rating: rate(4) })], (x) => (x.lengthMin >= 20 ? 0.6 : 0.3))
+    expect(five.progress).toBeNull()
+    expect(five.rows.find((r) => r.group === 'length' && r.band === '15 to 24 min')?.text).toBe('15 to 24 min: felt 3.7 of 5 on average, lightheaded 1 of 3 times.')
+    expect(five.rows.find((r) => r.group === 'temp' && r.band === '65 to 75 C')?.n).toBe(4)
+    expect(five.rows.find((r) => r.group === 'fluid' && r.band === '0.5 to 0.9 L lost')?.lightheaded).toBe(2)
+  })
+
+  it('water is written to Apple Health once per session', () => {
+    const list = [s('2026-10-01', { waterMl: 500 }), s('2026-10-02', { waterMl: 400, waterWritten: true }), s('2026-10-03', { waterMl: 0 }), s('2026-10-04')]
+    expect(waterToWrite(list).map((w) => [w.date, w.ml])).toEqual([['2026-10-01', 500]])
+  })
+
+  it('patterns add restlessness; the longer term adds blood pressure weeks', () => {
+    const sessions = Array.from({ length: 70 }, (_, i) => addDays('2026-08-01', i)).filter((_, i) => i % 3 === 0).map((d) => s(d))
+    const byDay = new Set(sessions.map((x) => x.date))
+    const input: PatternInput = {
+      sessions, days: dateRange('2026-07-01', addDays(T, -1)), toMs, wobble: {},
+      night: (wake) => ({ start: toMs(addDays(wake, -1), '23:00'), score: 80, deepMin: 60, sleepingHR: 55, restless: byDay.has(addDays(wake, -1)) ? 3 : 5 }),
+      morning: (d) => ({ hrv: 50, rhr: 55, readiness: 70, bpSys: d.endsWith('5') ? 128 : null, bpDia: d.endsWith('5') ? 82 : null }),
+    }
+    const p = patterns(input)
+    expect(p.nights.find((r) => r.key === 'restlessness')?.text).toBe('Restlessness was 2 per hour lower on sauna nights than on nights without.')
+    const lt = longerTerm(input, T)
+    expect(lt.locked).toBe(false)
+    if (!lt.locked) {
+      expect(lt.hasBP).toBe(true)
+      expect(lt.weeks.some((w) => w.sys === 128 && w.dia === 82)).toBe(true)
+    }
+  })
+
+  it('no heat or temperature warning strings remain in the app or the Watch app', () => {
+    const roots = ['src', 'ios/PepitoKit/Sources', 'ios/PepitoWatch', 'ios/App/App/Native', 'ios/Shared']
+    const files: string[] = []
+    const walk = (dir: string) => {
+      for (const f of readdirSync(dir)) {
+        const p = join(dir, f)
+        if (statSync(p).isDirectory()) walk(p)
+        else if (/\.(jsx?|tsx?|swift)$/.test(f) && !f.endsWith('.test.ts')) files.push(p)
+      }
+    }
+    roots.forEach(walk)
+    const banned = /advises not wearing|above 55|rated to 35|heatWarning|WATCH_HOT|too hot for/i
+    const hits = files.filter((f) => banned.test(readFileSync(f, 'utf8')))
+    expect(hits).toEqual([])
   })
 })

@@ -30,6 +30,15 @@ export interface SaunaSession {
   hr?: { avg: number | null; peak: number | null; samples: number[][]; sparse?: boolean; from?: string } | null
   /** the optional cool-down after Stop: when the sauna was left (epoch ms) and heart rate for 5 minutes from then */
   coolDown?: { exitAt: number; samples: number[][] } | null
+  /** the optional quick step after saving: how it felt and anything that came with it */
+  rating?: { feel: number | null; lightheaded: boolean; headache: boolean; cramps: boolean; at?: string } | null
+  /** electrolytes taken after (a Sleep Lab factor) */
+  electrolytes?: boolean | null
+  /** water drunk after, ml; written to Apple Health once (waterWritten) */
+  waterMl?: number | null
+  waterWritten?: boolean
+  /** no heart rate during the session: Health's before, just after and 30 min after (null: nothing either side) */
+  hrAround?: { before: number | null; after: number | null; at30: number | null } | null
 }
 
 export interface SaunaSettings {
@@ -236,4 +245,15 @@ export function sessionsByDate(sessions: SaunaSession[]): Map<string, SaunaSessi
   const out = new Map<string, SaunaSession[]>()
   for (const s of sessions) out.set(s.date, [...(out.get(s.date) || []), s])
   return out
+}
+
+/** A session's rating step, cleaned: feel 1 to 5 or none, three toggles, electrolytes, water in ml. */
+export function cleanRating(input: { feel?: number | null; lightheaded?: boolean; headache?: boolean; cramps?: boolean; electrolytes?: boolean | null; waterMl?: number | null }, at: string) {
+  const feel = Number(input.feel)
+  const water = Math.round(Number(input.waterMl) || 0)
+  return {
+    rating: { feel: feel >= 1 && feel <= 5 ? Math.round(feel) : null, lightheaded: !!input.lightheaded, headache: !!input.headache, cramps: !!input.cramps, at },
+    electrolytes: input.electrolytes == null ? null : !!input.electrolytes,
+    waterMl: water > 0 && water <= 5000 ? water : null,
+  }
 }

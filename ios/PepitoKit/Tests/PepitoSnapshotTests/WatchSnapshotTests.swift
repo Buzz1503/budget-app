@@ -184,12 +184,18 @@ final class WatchSnapshotTests: XCTestCase {
                                 onNothing: {}, onSedative: { _ in }, onDrinks: { _ in }, onToggle: { _ in }, onSave: {})
         }
 
-        // Sauna: start, warning, target picker
+        // the rating step after the summary
+        var rating = SaunaRatingModel()
+        rating.feel = 4
+        rating.electrolytes = true
+        rating.waterMl = 500
+        shoot("sauna-rating", BG.sauna, chrome: .child("How was it?"), aodToo: false) {
+            WatchSaunaRatingContent(rating: rating, onChange: { _ in }, onSave: {}, onSkip: {})
+        }
+
+        // Sauna: start, target picker
         shoot("sauna-start", BG.sauna, chrome: .child("Sauna")) {
             WatchSaunaStartContent(tempC: 55, targetMin: 20, onStart: {}, onTarget: {})
-        }
-        shoot("sauna-start-hot", BG.sauna, chrome: .child("Sauna"), aodToo: false) {
-            WatchSaunaStartContent(tempC: 80, targetMin: 25, onStart: {}, onTarget: {})
         }
         shoot("sauna-target", BG.sauna, chrome: .child("Target"), aodToo: false) {
             WatchTargetContent(minutes: 25, onDone: {})

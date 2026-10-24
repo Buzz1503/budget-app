@@ -868,6 +868,28 @@ final class SleepSoundsTests: XCTestCase {
     }
 }
 
+final class SaunaRatingTests: XCTestCase {
+    func testTheRatingStepSendsOneActionMatchedByStart() throws {
+        var r = SaunaRatingModel()
+        let start = Date(timeIntervalSince1970: 1_792_000_000)
+        XCTAssertNil(r.action(sessionStart: start, workoutId: nil)) // skipped: nothing sent
+        r.feel = 4
+        r.lightheaded = true
+        r.water(400); r.water(-100); r.water(5000)
+        XCTAssertEqual(r.waterMl, SaunaRatingModel.waterMax)
+        r.water(-10000)
+        XCTAssertEqual(r.waterMl, 0)
+        r.water(500)
+        let a = try XCTUnwrap(r.action(sessionStart: start, workoutId: "hk-1"))
+        XCTAssertEqual(a.type, .saunaRating)
+        XCTAssertEqual(a.payload.start, 1_792_000_000_000)
+        XCTAssertEqual(a.payload.feel, 4)
+        XCTAssertEqual(a.payload.lightheaded, true)
+        XCTAssertEqual(a.payload.waterMl, 500)
+        XCTAssertEqual(try JSONDecoder().decode(PendingAction.self, from: JSONEncoder().encode(a)), a)
+    }
+}
+
 final class SleepSoundsWindowTests: XCTestCase {
     func testTheChargerAutomationOnlyStartsInTheEvening() throws {
         var cal = Calendar(identifier: .gregorian)

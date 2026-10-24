@@ -165,7 +165,7 @@ describe('syncing into the cache', () => {
   it('a bridge that returns nothing leaves an empty cache, not an error', async () => {
     const empty: HealthBridge = {
       isAvailable: async () => true, requestAuthorization: async () => true, characteristics: async () => ({}),
-      quantity: async () => [], dailySum: async () => [], sleep: async () => [], workouts: async () => [], bloodPressure: async () => [], daytimeHeartRate: async () => [],
+      quantity: async () => [], dailySum: async () => [], sleep: async () => [], workouts: async () => [], bloodPressure: async () => [], daytimeHeartRate: async () => [], writeWater: async () => false,
     }
     await syncHealth({ bridge: empty, db, tz, now: NOW })
     const snap = await loadAll(db)

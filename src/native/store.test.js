@@ -95,6 +95,23 @@ describe('applyNativeActions', () => {
     expect(useStore.getState().watchSettings.coolDown).toBe(true)
   })
 
+  it('the rating step on the Watch lands on its session, water to be written to Health once', () => {
+    const start = Date.now() - 40 * 60000
+    useStore.getState().applyNativeActions([
+      { id: 'r1', type: 'saunaCompleted', at: new Date(start + 25 * 60000).toISOString(), source: 'watch', payload: { start, end: start + 25 * 60000, tempC: 75, avgHR: 120, peakHR: 140, samples: [[start / 1000, 100]], workoutId: 'hk-r' } },
+      { id: 'r2', type: 'saunaRating', at: new Date().toISOString(), source: 'watch', payload: { start, workoutId: 'hk-r', feel: 4, lightheaded: true, electrolytes: true, waterMl: 600 } },
+    ])
+    const [s] = useStore.getState().saunaSessions
+    expect(s.rating).toMatchObject({ feel: 4, lightheaded: true, headache: false, cramps: false })
+    expect(s).toMatchObject({ electrolytes: true, waterMl: 600, waterWritten: false })
+    // changing the water after it was written writes the new amount
+    useStore.getState().updateSaunaSession(s.id, { waterWritten: true })
+    useStore.getState().rateSaunaSession(s.id, { feel: 4, waterMl: 600 })
+    expect(useStore.getState().saunaSessions[0].waterWritten).toBe(true)
+    useStore.getState().rateSaunaSession(s.id, { feel: 4, waterMl: 800 })
+    expect(useStore.getState().saunaSessions[0].waterWritten).toBe(false)
+  })
+
   it('a session never stopped is saved at two hours and marked for review', () => {
     const startedAt = Date.now() - 5 * 3600000
     useStore.getState().applyNativeActions([

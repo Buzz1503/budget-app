@@ -144,7 +144,8 @@ export interface Names {
 
 const FIXED: Record<string, string> = {
   workout: 'A workout', lateWorkout: 'A workout ending within 3 h of bed', sauna: 'Sauna', lateSauna: 'Sauna ending within 3 h of bed',
-  saunaElectrolytes: 'Electrolytes after sauna', nap: 'A nap', weekend: 'Weekend nights', earlyStart: 'An early start',
+  saunaElectrolytes: 'Electrolytes after sauna', saunaLightheaded: 'Lightheaded after sauna', saunaHeadache: 'Headache after sauna',
+  saunaCramps: 'Cramps after sauna', saunaFeel: 'How the sauna felt', nap: 'A nap', weekend: 'Weekend nights', earlyStart: 'An early start',
   lateMeal: 'A meal within 3 h of bed', sleepAudio: 'Sleep audio', audioAfterSleep: 'Audio played after you fell asleep',
   audioLoud: 'Audio over 60 dB',
   drinks: 'Drinks', lateUseMin: 'Minutes of phone use after bedtime', roomTempC: 'Bedroom temperature', daylightMorningMin: 'Daylight before 10 am',

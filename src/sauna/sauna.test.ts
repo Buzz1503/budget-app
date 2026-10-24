@@ -186,3 +186,12 @@ describe('sauna effects', () => {
     expect(correlation([1, 1, 1], [2, 4, 6])).toBeNull()
   })
 })
+
+describe('the session rating step', () => {
+  it('stores feel 1 to 5, the toggles, electrolytes and water; nonsense is dropped', async () => {
+    const { cleanRating } = await import('./sauna')
+    const r = cleanRating({ feel: 4, lightheaded: true, electrolytes: true, waterMl: 500 }, '2026-10-24T08:00:00.000Z')
+    expect(r).toEqual({ rating: { feel: 4, lightheaded: true, headache: false, cramps: false, at: '2026-10-24T08:00:00.000Z' }, electrolytes: true, waterMl: 500 })
+    expect(cleanRating({ feel: 9, waterMl: -3 }, 'x')).toMatchObject({ rating: { feel: null }, electrolytes: null, waterMl: null })
+  })
+})

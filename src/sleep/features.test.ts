@@ -65,14 +65,14 @@ describe('automatic factors', () => {
     const rows = nightFeatures(base({
       nights: [night('2026-10-24')], // Friday evening 23 Oct
       workouts: [{ start: at('2026-10-23', '19:00'), end: at('2026-10-23', '21:00'), energyKcal: 500 }],
-      sauna: [{ date: '2026-10-23', start: '17:00', lengthMin: 30, tempC: 80, electrolytes: true, waterMl: 500 }],
+      sauna: [{ date: '2026-10-23', start: '17:00', lengthMin: 30, tempC: 80, electrolytes: true, waterMl: 500, rating: { feel: 4, lightheaded: true, headache: false, cramps: false } }],
       naps: [{ date: '2026-10-23', start: at('2026-10-23', '14:00'), end: at('2026-10-23', '14:25') }],
       daylight: new Map([['2026-10-23', 42]]),
       steps: new Map([['2026-10-23', 9000]]),
     }))
     const r = rows[0]
-    expect(r.binary).toMatchObject({ workout: true, lateWorkout: true, sauna: true, lateSauna: false, nap: true, weekend: true, saunaElectrolytes: true })
-    expect(r.continuous).toMatchObject({ 'toBed:workout': 2, 'toBed:sauna': 5.5, saunaMin: 30, saunaTemp: 80, napMin: 25, daylightMin: 42, steps: 9000, workoutKcal: 500, saunaWaterMl: 500 })
+    expect(r.binary).toMatchObject({ workout: true, lateWorkout: true, sauna: true, lateSauna: false, nap: true, weekend: true, saunaElectrolytes: true, saunaLightheaded: true, saunaHeadache: false })
+    expect(r.continuous).toMatchObject({ 'toBed:workout': 2, 'toBed:sauna': 5.5, saunaMin: 30, saunaTemp: 80, napMin: 25, daylightMin: 42, steps: 9000, workoutKcal: 500, saunaWaterMl: 500, saunaFeel: 4 })
   })
 
   it('compound doses and grams of a variable supplement', () => {

@@ -13,7 +13,11 @@ import type { AsNeededItem, AsNeededLog, EveningDetail } from './logging'
 
 export interface NightLike { date: string; start: number; end: number; naps?: Array<{ start: number; end: number }> }
 export interface WorkoutLike { start: number; end: number; energyKcal?: number | null; durationMin?: number }
-export interface SaunaLike { date: string; start: string; lengthMin: number; tempC: number; startedAt?: number; endedAt?: number; electrolytes?: boolean | null; waterMl?: number | null }
+export interface SaunaLike {
+  date: string; start: string; lengthMin: number; tempC: number; startedAt?: number; endedAt?: number
+  electrolytes?: boolean | null; waterMl?: number | null
+  rating?: { feel: number | null; lightheaded: boolean; headache: boolean; cramps: boolean } | null
+}
 export interface SuppLogLike { supplementId: string; date: string; takenAt?: string; amount?: number | null; unit?: string | null }
 export interface DoseLogLike { peptideId: string; date: string; loggedAt?: string; backfilled?: boolean }
 
@@ -183,6 +187,12 @@ export function nightFeatures(input: FeatureInput): NightFeatures[] {
     continuous.saunaTemp = lastS ? lastS.tempC : null
     binary.saunaElectrolytes = lastS ? (lastS.electrolytes ?? null) : null
     continuous.saunaWaterMl = lastS ? (lastS.waterMl ?? null) : null
+    // the rating step: unknown (null) when the session was not rated
+    const rated = lastS?.rating ?? null
+    continuous.saunaFeel = rated?.feel ?? null
+    binary.saunaLightheaded = rated ? !!rated.lightheaded : null
+    binary.saunaHeadache = rated ? !!rated.headache : null
+    binary.saunaCramps = rated ? !!rated.cramps : null
 
     // naps that day, daylight, steps
     const naps = (input.naps || []).filter((x) => x.date === evening)

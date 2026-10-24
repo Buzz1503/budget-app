@@ -21,6 +21,8 @@ public struct PendingAction: Codable, Equatable, Identifiable, Sendable {
         case restlessness
         /// What the Watch reports about itself (payload.complication, battery 0 to 1)
         case watchStatus
+        /// The rating step after a Watch session (payload.start, feel, lightheaded, headache, cramps, electrolytes, waterMl)
+        case saunaRating
     }
     public enum Source: String, Codable, Sendable {
         case widget, notification, siri, watch, liveActivity, app
@@ -91,6 +93,13 @@ public struct PendingAction: Codable, Equatable, Identifiable, Sendable {
         public var restless: RestlessSummary?
         public var complication: Bool?
         public var battery: Double?
+        // the sauna rating step
+        public var feel: Int?
+        public var lightheaded: Bool?
+        public var headache: Bool?
+        public var cramps: Bool?
+        public var electrolytes: Bool?
+        public var waterMl: Int?
 
         public init(date: String? = nil, slot: String? = nil, kind: String? = nil, refId: String? = nil, refIds: [String]? = nil,
                     supplementIds: [String]? = nil, group: Bool? = nil, answer: String? = nil, startedAt: Double? = nil, stoppedAt: Double? = nil,
@@ -100,7 +109,8 @@ public struct PendingAction: Codable, Equatable, Identifiable, Sendable {
                     exitAt: Double? = nil, coolDown: [[Double]]? = nil,
                     amount: Double? = nil, unit: String? = nil, takenAt: String? = nil, drinks: Int? = nil, factors: [String]? = nil,
                     rested: Int? = nil, dreams: String? = nil, restless: RestlessSummary? = nil,
-                    complication: Bool? = nil, battery: Double? = nil) {
+                    complication: Bool? = nil, battery: Double? = nil,
+                    feel: Int? = nil, lightheaded: Bool? = nil, headache: Bool? = nil, cramps: Bool? = nil, electrolytes: Bool? = nil, waterMl: Int? = nil) {
             self.date = date; self.slot = slot; self.kind = kind; self.refId = refId; self.refIds = refIds
             self.supplementIds = supplementIds; self.group = group; self.answer = answer; self.startedAt = startedAt; self.stoppedAt = stoppedAt
             self.targetMin = targetMin; self.tempC = tempC; self.rounds = rounds; self.autoEnded = autoEnded
@@ -110,6 +120,8 @@ public struct PendingAction: Codable, Equatable, Identifiable, Sendable {
             self.amount = amount; self.unit = unit; self.takenAt = takenAt; self.drinks = drinks; self.factors = factors
             self.rested = rested; self.dreams = dreams; self.restless = restless
             self.complication = complication; self.battery = battery
+            self.feel = feel; self.lightheaded = lightheaded; self.headache = headache; self.cramps = cramps
+            self.electrolytes = electrolytes; self.waterMl = waterMl
         }
     }
 }

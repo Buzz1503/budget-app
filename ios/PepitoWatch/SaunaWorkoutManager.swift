@@ -34,6 +34,8 @@ final class SaunaWorkoutManager: NSObject, ObservableObject {
     }
 
     @Published private(set) var phase: Phase = .idle
+    /// The Health workout of the session just saved, for the rating step
+    private(set) var lastWorkoutId: String?
     @Published private(set) var heartRate: Double?
     @Published private(set) var startDate: Date?
     @Published private(set) var targetMin = 20
@@ -293,6 +295,7 @@ final class SaunaWorkoutManager: NSObject, ObservableObject {
         summary = Summary(start: start, end: end, tempC: tempC, rounds: rounds, avgHR: sum.avg, peakHR: sum.peak,
                           zoneMinutes: sum.zoneMinutes, samples: samples, activeSec: max(0, s1 - s0 - pausedSec),
                           coolDown: drop)
+        lastWorkoutId = workoutId
         phase = .summary
 
         WatchStore.shared.send(PendingAction(

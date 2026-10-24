@@ -107,3 +107,33 @@ public enum EveningSheetModel {
         return items + [PendingAction(type: .eveningLog, at: now, source: .watch, payload: .init(date: date, drinks: max(0, drinks), factors: factors))]
     }
 }
+
+/// The optional quick step after a Watch sauna session: how it felt 1 to 5,
+/// Lightheaded, Headache, Cramps, Electrolytes after, and water in ml (the
+/// iPhone writes it to Apple Health). Matched on the iPhone by the session's start.
+public struct SaunaRatingModel: Equatable, Sendable {
+    public var feel: Int?
+    public var lightheaded = false
+    public var headache = false
+    public var cramps = false
+    public var electrolytes = false
+    public var waterMl = 0
+
+    public init() {}
+
+    public static let waterStep = 100
+    public static let waterMax = 3000
+
+    public mutating func water(_ delta: Int) { waterMl = min(Self.waterMax, max(0, waterMl + delta)) }
+
+    public var isEmpty: Bool { feel == nil && !lightheaded && !headache && !cramps && !electrolytes && waterMl == 0 }
+
+    /// Nothing chosen sends nothing.
+    public func action(sessionStart: Date, workoutId: String?, now: Date = Date()) -> PendingAction? {
+        guard !isEmpty else { return nil }
+        return PendingAction(type: .saunaRating, at: now, source: .watch,
+                             payload: .init(start: sessionStart.timeIntervalSince1970 * 1000, workoutId: workoutId,
+                                            feel: feel, lightheaded: lightheaded, headache: headache, cramps: cramps,
+                                            electrolytes: electrolytes, waterMl: waterMl > 0 ? waterMl : nil))
+    }
+}

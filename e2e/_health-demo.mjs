@@ -396,8 +396,15 @@ await step('Sauna: a normal session is two taps, and the hero counts it', async 
   await seen('[data-testid="sauna-log-sheet"]')
   if ((await page.textContent('[data-testid="sauna-length-value"]')).trim() !== '20min') throw new Error('length is not the usual 20')
   await page.click('[data-testid="sauna-save"]')
+  // the optional rating step comes straight after
+  await seen('[data-testid="sauna-rating-sheet"]')
+  await page.click('[data-testid="sauna-feel-4"]')
+  await page.click('[data-testid="sauna-rate-electrolytes"]')
+  await page.click('[data-testid="sauna-water-plus"]')
+  await page.click('[data-testid="sauna-rate-save"]')
   await page.waitForTimeout(500)
   if ((await page.getAttribute('[data-testid="sauna-week-ring"]', 'data-count')) !== '1') throw new Error('the ring did not count the session')
+  if ((await page.textContent('[data-testid="sauna-rating-line"]')).trim() !== 'Felt 4 of 5 · Electrolytes after · 100 ml water') throw new Error('rating line')
   if ((await page.textContent('[data-testid="sauna-typical"]')).trim() !== 'Typical: 20 min at 60 C') throw new Error('typical line')
   // the last session card: tonight is not in yet
   await seen('[data-testid="sauna-last-card"]')
@@ -405,13 +412,14 @@ await step('Sauna: a normal session is two taps, and the hero counts it', async 
   await noOverflow('Sauna')
 })
 
-await step('Sauna timer: elapsed time, the phone note, stop opens the log prefilled', async () => {
+await step('Sauna timer: elapsed time, no heat note, stop opens the log prefilled', async () => {
   await page.click('[data-testid="sauna-timer"]')
   await seen('[data-testid="sauna-timer-sheet"]')
   await page.click('[data-testid="timer-rounds-plus"]')
   await page.click('[data-testid="timer-start"]')
   await seen('[data-testid="sauna-running"]')
-  await seen('[data-testid="timer-note"]')
+  // no heat or temperature warnings anywhere
+  if (await page.locator('[data-testid="timer-note"]').count()) throw new Error('timer note is gone')
   if (await page.locator('[data-testid="round-marker"]').count() !== 1) throw new Error('round marker')
   await page.waitForTimeout(1300)
   if (!/^00:0[1-9]$/.test(await page.textContent('[data-testid="timer-elapsed"]'))) throw new Error('timer is not counting')
@@ -424,6 +432,8 @@ await step('Sauna timer: elapsed time, the phone note, stop opens the log prefil
   await seen('[data-testid="sauna-log-sheet"]')
   if ((await page.textContent('[data-testid="sauna-length-value"]')).trim() !== '1min') throw new Error('stopped timer did not prefill one minute')
   await page.click('[data-testid="sauna-save"]')
+  await seen('[data-testid="sauna-rating-sheet"]')
+  await page.click('[data-testid="sauna-rate-skip"]')
   await page.waitForTimeout(400)
   if ((await page.getAttribute('[data-testid="sauna-week-ring"]', 'data-count')) !== '2') throw new Error('timer session not saved')
 })
