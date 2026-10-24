@@ -82,7 +82,7 @@ function OutcomePicker({ outcomes, value, onChange }) {
 
 function DoseTiming({ model, compounds }) {
   const doseLogs = useStore((s) => s.doseLogs)
-  const habits = useStore((s) => s.habits)
+  const habits = useStore((s) => s.habits).filter((h) => !h.hidden)
   const habitLogs = useStore((s) => s.habitLogs)
   const t = todayStr()
   const [picked, setPicked] = useState(() => (compounds[0] ? [`c:${compounds[0].id}`] : habits[0] ? [`h:${habits[0].id}`] : []))
@@ -216,7 +216,7 @@ export function BeforeAfterResult({ res, outcome, testid = 'compare-before-resul
 }
 
 function HabitsView({ model }) {
-  const habits = useStore((s) => s.habits)
+  const habits = useStore((s) => s.habits).filter((h) => !h.hidden)
   const habitLogs = useStore((s) => s.habitLogs)
   const t = todayStr()
   const keys = ['hrv', 'rhr', 'readiness', 'sleepTotal', 'sleepScore']

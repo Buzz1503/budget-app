@@ -112,7 +112,9 @@ describe('nightly backfill', () => {
   it('the store migration applies it to an older save', () => {
     const migrate = useStore.persist.getOptions().migrate
     const out = migrate({ supplements: [], supplementLogs: [] }, 19)
-    expect(out.supplements.map((s) => s.name).sort()).toEqual(['Minoxidil', 'Tretinoin'])
+    expect(out.supplements.filter((s) => s.form === 'topical').map((s) => s.name).sort()).toEqual(['Minoxidil', 'Tretinoin'])
+    // v26 adds the two variable-gram sleep supplements
+    expect(out.supplements.filter((s) => s.amountUnit === 'g').map((s) => s.name).sort()).toEqual(['Magnesium glycinate', 'Phosphatidylserine'])
     expect(out.supplementLogs.length).toBeGreaterThanOrEqual(0)
     expect(TOPICAL_SEED).toHaveLength(2)
   })

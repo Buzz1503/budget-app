@@ -33,6 +33,14 @@ public extension Snapshot {
             if let d = days.firstIndex(where: { $0.date == date }) {
                 days[d].items.removeAll { $0.kind == .peptide && refs.contains($0.refId) && $0.status == .due }
             }
+        case .logAsNeeded:
+            // the Watch shows the new amount as the last one straight away
+            if let id = p.refId, let i = sleep?.asNeeded.firstIndex(where: { $0.id == id }) {
+                sleep?.asNeeded[i].last = p.amount
+                sleep?.asNeeded[i].lastUnit = p.unit
+            }
+        case .eveningNothing, .eveningLog, .morningCheck, .restlessness:
+            break
         case .snoozeDose, .vialChange, .snoozeOrder:
             // nothing on screen changes until the phone applies it and writes the snapshot again
             break

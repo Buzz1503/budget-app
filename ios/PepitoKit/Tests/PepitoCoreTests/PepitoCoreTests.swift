@@ -594,3 +594,49 @@ final class StockNativeTests: XCTestCase {
         XCTAssertEqual(try Snapshot.decode(s.encoded()), s)
     }
 }
+
+final class SleepLabTests: XCTestCase {
+    private func snap(hourSplit: Int = 12) -> Snapshot {
+        var s = try! JSONDecoder().decode(Snapshot.self, from: Data(contentsOf: Bundle.module.url(forResource: "snapshot", withExtension: "json", subdirectory: "Fixtures")!))
+        s.slotSplitHour = hourSplit
+        s.sleep = .init(asNeeded: [
+            .init(id: "an-dex", name: "Dexamphetamine", short: "Dex", slot: "AM", units: ["mg"], step: 2.5),
+            .init(id: "an-temazepam", name: "Temazepam", short: "Temazepam", slot: "PM", units: ["mg"], step: 5, last: 10, lastUnit: "mg"),
+            .init(id: "an-restavit", name: "Restavit", short: "Restavit", slot: "PM", units: ["tablets", "mg"], step: 1, last: 1, lastUnit: "tablets"),
+        ])
+        return s
+    }
+
+    func testTheSlotsItemsComeFirst() {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "UTC")!
+        let night = Date(timeIntervalSince1970: 1_792_000_000 - 1_792_000_000.truncatingRemainder(dividingBy: 86400) + 21 * 3600)
+        XCTAssertEqual(AsNeededPicker.items(snap(), now: night, calendar: cal).map(\.short), ["Temazepam", "Restavit", "Dex"])
+        let morning = night.addingTimeInterval(-13 * 3600)
+        XCTAssertEqual(AsNeededPicker.items(snap(), now: morning, calendar: cal).first?.short, "Dex")
+        XCTAssertEqual(AsNeededPicker.items(nil), [])
+    }
+
+    func testTheAmountStartsAtTheLastOneOrZero() {
+        let items = snap().sleep!.asNeeded
+        XCTAssertEqual(AsNeededPicker.start(items[0]), 0)
+        XCTAssertEqual(AsNeededPicker.start(items[1]), 10)
+        XCTAssertEqual(AsNeededPicker.snap(7.4, step: 2.5), 7.5)
+        XCTAssertEqual(AsNeededPicker.snap(-3, step: 2.5), 0)
+        XCTAssertEqual(AsNeededPicker.words(7.5), "7.5")
+        XCTAssertEqual(AsNeededPicker.words(10), "10")
+        XCTAssertEqual(AsNeededPicker.unit(items[2]), "tablets")
+        XCTAssertEqual(AsNeededPicker.unit(items[0]), "mg")
+    }
+
+    func testTheActionCarriesAmountUnitAndTime() throws {
+        let t = Date(timeIntervalSince1970: 1_792_000_000)
+        let a = PendingAction.asNeeded("an-temazepam", amount: 10, unit: "mg", takenAt: t, source: .watch)
+        XCTAssertEqual(a.type, .logAsNeeded)
+        XCTAssertEqual(a.payload.refId, "an-temazepam")
+        XCTAssertEqual(a.payload.amount, 10)
+        XCTAssertEqual(a.payload.takenAt, PendingAction.iso(t))
+        let back = try JSONDecoder().decode(PendingAction.self, from: JSONEncoder().encode(a))
+        XCTAssertEqual(back, a)
+    }
+}

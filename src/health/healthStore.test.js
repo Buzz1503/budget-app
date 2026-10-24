@@ -47,7 +47,8 @@ describe('health settings, check-ins and habits in the store', () => {
     const s = useStore.getState()
     expect(s.healthSettings).toMatchObject({ connected: false, sleepNeedH: 8, maxHR: null, checkinEnabled: true })
     expect(s.healthSettings.sleepPriority[0]).toBe('watch')
-    expect(s.habits.map((h) => h.name)).toEqual(['Alcohol', 'Caffeine after 2pm', 'Late meal', 'Cold plunge', 'Screen in bed', 'Stressful day'])
+    // the Sleep Lab evening factors (v26); caffeine, late meal and cold plunge are no longer defaults
+    expect(s.habits.map((h) => h.name)).toEqual(['Alcohol', 'Screen in bed', 'Stressful day', 'Unwell', 'Pain', 'Room too hot', 'Slept away from home', 'Woken by someone'])
   })
 
   it('a check-in is one 1–5 answer per item per day; tapping it again clears it', () => {

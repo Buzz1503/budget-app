@@ -23,6 +23,7 @@ import { weekSummary, usualFor } from '../sauna/sauna'
 import { toMg } from '../lib/calc'
 import { vialAskAfter, isOutOfStock } from '../lib/vials'
 import { stockNotices } from './stockNotices'
+import { sleepSection } from './sleepSection'
 
 export const SNAPSHOT_SCHEMA = 1
 /**
@@ -314,6 +315,8 @@ export function buildSnapshot(state, { now = new Date(), verdictOf = null, readi
     cycles: { restarts: restartsAhead(state, today) },
     // Stock notices still ahead (the Watch plans them with the rest) and who is out.
     stock: stockSection(state, now),
+    // As-needed items with their last amounts, and the overnight recording switch.
+    sleep: sleepSection(state, now),
     notifications: {
       timeSensitive: ns.timeSensitive !== false,
       restarts: ns.restarts !== false,

@@ -411,8 +411,8 @@ describe('moving a v24 save onto the open-vial model', () => {
     expect(out.doseLogs).toEqual(save.doseLogs)
     expect(out.stockAdjustments).toEqual([])
     expect(out.stockMigration.rows[0]).toMatchObject({ peptideId: 'reta', action: 'kept as the open vial' })
-    // run once: a save already at v25 is left alone
-    expect(migrate(out, 25)).toBe(out)
+    // run once: a save already at the current version is left alone
+    expect(migrate(out, 26)).toBe(out)
   })
 
   it('goes through the older migrations first, so a v6 save arrives in the same place', () => {

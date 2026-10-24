@@ -33,6 +33,8 @@ import { homeSections } from '../lib/homeLayout'
 import { FormIcon } from './SupplementsTab'
 
 const spring = { type: 'spring', stiffness: 260, damping: 22 }
+import AsNeededRow from './sleep/AsNeededRow'
+import AsNeededSheet from './sleep/AsNeededSheet'
 
 export default function Home({ goTo }) {
   const peptides = useStore((s) => s.peptides)
@@ -101,10 +103,18 @@ export default function Home({ goTo }) {
   const [dosing, setDosing] = useState(null)
   const [logOnBody, setLogOnBody] = useState(null)
   const [pausing, setPausing] = useState(false)
+  const [amountSheet, setAmountSheet] = useState(null) // { kind: 'asNeeded', slot } | { kind: 'supplement', id }
   const paused = !!activePause(pauses, t)
   const [heldFor, setHeldFor] = useState(null)
   const slotSupps = useMemo(() => dueInSlot(supplements, slot), [supplements, slot])
   const takenIds = useMemo(() => takenOn(supplementLogs, t), [supplementLogs, t])
+  // a variable-amount supplement shows what was taken: "0.4 g at 9:10 pm"
+  const takenAmount = (id) => {
+    const l = supplementLogs.find((x) => x.supplementId === id && x.date === t)
+    if (!l || l.amount == null) return null
+    const at = l.takenAt ? new Date(l.takenAt).toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit' }).toLowerCase() : ''
+    return `${l.amount} ${l.unit || ''}${at ? ` at ${at}` : ''}`
+  }
   const suppDone = slotSupps.filter((x) => takenIds.has(x.id)).length
 
   const loggedToday = useMemo(
@@ -422,7 +432,8 @@ export default function Home({ goTo }) {
           {slotSupps.map((sup, i) => (
             <TakeRow key={sup.id} supplement={sup} taken={takenIds.has(sup.id)} index={i}
               skipped={skippedSupps.has(sup.id)}
-              onToggle={() => toggleSupplementTaken(sup.id)}
+              onToggle={() => (sup.amountUnit && !takenIds.has(sup.id) ? setAmountSheet({ kind: 'supplement', id: sup.id }) : toggleSupplementTaken(sup.id))}
+              takenLine={sup.amountUnit ? takenAmount(sup.id) : null}
               onSkip={() => setSkipping({ kind: 'supplement', ids: [sup.id], name: sup.name })}
               onUnskip={() => {
                 const rec = skips.find((k) => k.kind === 'supplement' && k.supplementId === sup.id && k.date === t)
@@ -431,6 +442,9 @@ export default function Home({ goTo }) {
           ))}
         </div>
       )}
+
+      {/* the last row of the slot: as-needed items, never due and never missed */}
+      <AsNeededRow slot={slot} onOpen={() => setAmountSheet({ kind: 'asNeeded', slot })} />
 
       {offCycle.length > 0 && (
         <p className="px-1 text-xs font-medium" style={{ color: 'var(--text-3)' }} data-testid="off-cycle-line">
@@ -450,6 +464,8 @@ export default function Home({ goTo }) {
 
       {/* keeps the last card clear of the floating co-draw bar */}
       {selected.size > 0 && <div aria-hidden className="h-20" />}
+
+      <AsNeededSheet target={amountSheet} onClose={() => setAmountSheet(null)} />
 
       <CompoundSheet open={!!sheetId} compoundId={sheetId}
         onClose={() => setSheetId(null)} goTo={goTo} />
@@ -578,7 +594,7 @@ function SkipSheet({ target, onClose, onConfirm }) {
  * app: name, dose, and a single tap that toggles. Tapping again undoes it,
  * because the common mistake is a mis-tap, not a genuine second dose.
  */
-function TakeRow({ supplement: s, taken, skipped, onToggle, onSkip, onUnskip, index = 0 }) {
+function TakeRow({ supplement: s, taken, skipped, onToggle, onSkip, onUnskip, index = 0, takenLine = null }) {
   const settled = taken || skipped
   return (
     <motion.div
@@ -605,7 +621,7 @@ function TakeRow({ supplement: s, taken, skipped, onToggle, onSkip, onUnskip, in
         </p>
         <p className="truncate text-xs font-semibold leading-tight"
           style={{ color: skipped ? 'var(--text)' : 'var(--text-2)' }}>
-          {skipped ? 'Skipped today' : (s.dose || FORM_LABEL[s.form] || s.form)}
+          {skipped ? 'Skipped today' : taken && takenLine ? takenLine : s.amountUnit ? `Amount in ${s.amountUnit}` : (s.dose || FORM_LABEL[s.form] || s.form)}
         </p>
       </div>
 

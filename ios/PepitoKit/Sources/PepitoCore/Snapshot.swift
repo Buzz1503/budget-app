@@ -23,6 +23,30 @@ public struct Snapshot: Codable, Equatable, Sendable {
     public var cycles: Cycles?
     /// Stock: notices still ahead for the Watch to plan, and who is out. Absent in snapshots written before stock tracking.
     public var stock: Stock?
+    /// Sleep Lab: as-needed items with their last amounts, the overnight recording switch. Absent before it.
+    public var sleep: Sleep?
+
+    public struct Sleep: Codable, Equatable, Sendable {
+        public var asNeeded: [AsNeeded]
+        public var restlessness: Bool
+        public init(asNeeded: [AsNeeded] = [], restlessness: Bool = true) { self.asNeeded = asNeeded; self.restlessness = restlessness }
+    }
+
+    /// An as-needed item: never due, logged with an amount and a time.
+    public struct AsNeeded: Codable, Hashable, Sendable, Identifiable {
+        public var id: String
+        public var name: String
+        public var short: String
+        public var slot: String
+        public var units: [String]
+        public var step: Double
+        /// the last amount logged, or nil (nothing is suggested)
+        public var last: Double?
+        public var lastUnit: String?
+        public init(id: String, name: String, short: String, slot: String, units: [String], step: Double, last: Double? = nil, lastUnit: String? = nil) {
+            self.id = id; self.name = name; self.short = short; self.slot = slot; self.units = units; self.step = step; self.last = last; self.lastUnit = lastUnit
+        }
+    }
 
     public struct Stock: Codable, Equatable, Sendable {
         public var notices: [Notice]

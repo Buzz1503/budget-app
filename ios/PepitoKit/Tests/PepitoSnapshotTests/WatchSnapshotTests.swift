@@ -153,6 +153,29 @@ final class WatchSnapshotTests: XCTestCase {
             WatchVialQuestionContent(name: "Retatrutide", onYes: {}, onStill: {})
         }
 
+        // Sleep Lab: the as-needed row, the list and the amount
+        let asNeeded: [Snapshot.AsNeeded] = [
+            .init(id: "an-temazepam", name: "Temazepam", short: "Temazepam", slot: "PM", units: ["mg"], step: 5, last: 10, lastUnit: "mg"),
+            .init(id: "an-diazepam", name: "Diazepam (Valium)", short: "Valium", slot: "PM", units: ["mg"], step: 2),
+            .init(id: "an-restavit", name: "Restavit", short: "Restavit", slot: "PM", units: ["tablets", "mg"], step: 1, last: 1, lastUnit: "tablets"),
+            .init(id: "an-dex", name: "Dexamphetamine", short: "Dex", slot: "AM", units: ["mg"], step: 2.5),
+        ]
+        shoot("doses-as-needed-row", BG.doses, chrome: .child("Doses"), aodToo: false) {
+            WatchAsNeededRow(items: asNeeded, onOpen: {})
+        }
+        shoot("as-needed-list", BG.doses, chrome: .child("As needed"), aodToo: false) {
+            WatchAsNeededListContent(items: asNeeded, onPick: { _ in })
+        }
+        shoot("as-needed-amount", BG.doses, chrome: .child("Temazepam"), aodToo: false) {
+            WatchAsNeededAmountContent(item: asNeeded[0], amount: 10, unit: "mg", onUnit: { _ in }, onLog: {})
+        }
+        shoot("as-needed-amount-units", BG.doses, chrome: .child("Restavit"), aodToo: false) {
+            WatchAsNeededAmountContent(item: asNeeded[2], amount: 1, unit: "tablets", onUnit: { _ in }, onLog: {})
+        }
+        shoot("as-needed-amount-empty", BG.doses, chrome: .child("Valium"), aodToo: false) {
+            WatchAsNeededAmountContent(item: asNeeded[1], amount: 0, unit: "mg", onUnit: { _ in }, onLog: {})
+        }
+
         // Sauna: start, warning, target picker
         shoot("sauna-start", BG.sauna, chrome: .child("Sauna")) {
             WatchSaunaStartContent(tempC: 55, targetMin: 20, onStart: {}, onTarget: {})

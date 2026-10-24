@@ -38,6 +38,11 @@ export const fixtureState = {
   supplements: [{ id: 'fish', name: 'Fish oil', form: 'capsule', dose: '2 capsules', slot: 'AM' }],
   supplementLogs: [],
   saunaSessions: [{ id: 's1', date: '2026-10-19', start: '19:00', lengthMin: 25, tempC: 65 }],
+  asNeededItems: [
+    { id: 'an-dex', name: 'Dexamphetamine', short: 'Dex', slot: 'AM', units: ['mg'], step: 2.5 },
+    { id: 'an-restavit', name: 'Restavit', short: 'Restavit', slot: 'PM', units: ['tablets', 'mg'], step: 1 },
+  ],
+  asNeededLogs: [{ id: 'l1', itemId: 'an-restavit', name: 'Restavit', amount: 1, unit: 'tablets', at: '2026-10-18T11:00:00.000Z' }],
   saunaSettings: { weeklyTarget: 4, usualLengthMin: null, usualTempC: null },
   saunaTimer: { startedAt: 1792483200000, targetMin: 20, tempC: 65, rounds: 2, source: 'watch' },
   healthSettings: { maxHR: null },

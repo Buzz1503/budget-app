@@ -3,7 +3,7 @@ import { daySnapshot } from '../../health/engine/snapshot'
 import useHealthModel, { useCompounds } from './useHealthModel'
 import { HEALTH_BANDS } from './bands'
 import { minutesWords } from './atoms'
-import { HabitChips } from './Journal'
+import { EveningFactors } from '../sleep/EveningSheet'
 
 const signed = (v, dp = 0) => (v == null ? '' : ` (${v > 0 ? '+' : ''}${Number(v.toFixed(dp))} vs usual)`)
 
@@ -12,7 +12,7 @@ export default function DayHealth({ date }) {
   const connected = useStore((s) => s.healthSettings.connected)
   const checkins = useStore((s) => s.checkins)
   const habitLogs = useStore((s) => s.habitLogs)
-  const habits = useStore((s) => s.habits)
+  const habits = useStore((s) => s.habits).filter((h) => !h.hidden)
   const doseLogs = useStore((s) => s.doseLogs)
   const compounds = useCompounds()
   const model = useHealthModel()
@@ -39,8 +39,8 @@ export default function DayHealth({ date }) {
         </div>
       )}
       <div className="space-y-2" data-testid="day-journal">
-        <p className="t-caption" style={{ color: 'var(--text-3)' }}>Habits</p>
-        <HabitChips date={date} />
+        <p className="t-caption" style={{ color: 'var(--text-3)' }}>That evening</p>
+        <EveningFactors date={date} />
       </div>
     </div>
   )

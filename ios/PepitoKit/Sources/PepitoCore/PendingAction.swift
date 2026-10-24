@@ -11,6 +11,14 @@ public struct PendingAction: Codable, Equatable, Identifiable, Sendable {
         case vialChange
         /// "Remind me in 3 days" on an order-by notice
         case snoozeOrder
+        /// Sleep Lab: an as-needed item (payload.refId, amount, unit, takenAt)
+        case logAsNeeded
+        /// The evening factors: all no (eveningNothing), or drinks and factor ids (eveningLog)
+        case eveningNothing, eveningLog
+        /// The morning check from the Watch or a notification (payload.rested, dreams)
+        case morningCheck
+        /// The Watch's overnight movement summary (payload.restless)
+        case restlessness
     }
     public enum Source: String, Codable, Sendable {
         case widget, notification, siri, watch, liveActivity, app
@@ -69,19 +77,33 @@ public struct PendingAction: Codable, Equatable, Identifiable, Sendable {
         /// [epoch seconds, bpm] for up to 5 minutes from then.
         public var exitAt: Double?
         public var coolDown: [[Double]]?
+        // Sleep Lab
+        public var amount: Double?
+        public var unit: String?
+        /// ISO 8601, when an as-needed item was taken (defaults to `at`)
+        public var takenAt: String?
+        public var drinks: Int?
+        public var factors: [String]?
+        public var rested: Int?
+        public var dreams: String?
+        public var restless: RestlessSummary?
 
         public init(date: String? = nil, slot: String? = nil, kind: String? = nil, refId: String? = nil, refIds: [String]? = nil,
                     supplementIds: [String]? = nil, group: Bool? = nil, answer: String? = nil, startedAt: Double? = nil, stoppedAt: Double? = nil,
                     targetMin: Int? = nil, tempC: Int? = nil, rounds: Int? = nil, autoEnded: Bool? = nil,
                     start: Double? = nil, end: Double? = nil, type: String? = nil, avgHR: Int? = nil, peakHR: Int? = nil,
                     samples: [[Double]]? = nil, roundSplits: [Double]? = nil, workoutId: String? = nil,
-                    exitAt: Double? = nil, coolDown: [[Double]]? = nil) {
+                    exitAt: Double? = nil, coolDown: [[Double]]? = nil,
+                    amount: Double? = nil, unit: String? = nil, takenAt: String? = nil, drinks: Int? = nil, factors: [String]? = nil,
+                    rested: Int? = nil, dreams: String? = nil, restless: RestlessSummary? = nil) {
             self.date = date; self.slot = slot; self.kind = kind; self.refId = refId; self.refIds = refIds
             self.supplementIds = supplementIds; self.group = group; self.answer = answer; self.startedAt = startedAt; self.stoppedAt = stoppedAt
             self.targetMin = targetMin; self.tempC = tempC; self.rounds = rounds; self.autoEnded = autoEnded
             self.start = start; self.end = end; self.type = type; self.avgHR = avgHR; self.peakHR = peakHR
             self.samples = samples; self.roundSplits = roundSplits; self.workoutId = workoutId
             self.exitAt = exitAt; self.coolDown = coolDown
+            self.amount = amount; self.unit = unit; self.takenAt = takenAt; self.drinks = drinks; self.factors = factors
+            self.rested = rested; self.dreams = dreams; self.restless = restless
         }
     }
 }

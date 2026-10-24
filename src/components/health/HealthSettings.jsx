@@ -216,10 +216,10 @@ function Habits() {
   const add = () => { if (name.trim()) { addHabit(name.trim()); setName('') } }
   return (
     <div className="card p-4" data-testid="health-habits">
-      <p className="t-label">Journal habits</p>
-      <p className="text-xs font-medium leading-snug" style={{ color: 'var(--text-3)' }}>Yes or no for a day, from the Home card or the day sheet. Removing one removes its answers.</p>
+      <p className="t-label">Evening factors</p>
+      <p className="text-xs font-medium leading-snug" style={{ color: 'var(--text-3)' }}>Yes or no for an evening, from the evening sheet or the day sheet. Removing one removes its answers.</p>
       <div className="mt-2 space-y-2">
-        {habits.map((h) => <HabitRow key={h.id} habit={h} onRename={renameHabit} onRemove={removeHabit} />)}
+        {habits.filter((h) => !h.hidden).map((h) => <HabitRow key={h.id} habit={h} onRename={renameHabit} onRemove={removeHabit} />)}
         <div className="flex items-center gap-2">
           <input className="input min-w-0 flex-1" value={name} placeholder="Add a habit" aria-label="New habit" data-testid="habit-new"
             onChange={(e) => setName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') add() }} />

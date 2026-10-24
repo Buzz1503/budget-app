@@ -863,6 +863,36 @@
     "notices": [],
     "outOfStock": []
   },
+  "sleep": {
+    "asNeeded": [
+      {
+        "id": "an-dex",
+        "name": "Dexamphetamine",
+        "short": "Dex",
+        "slot": "AM",
+        "units": [
+          "mg"
+        ],
+        "step": 2.5,
+        "last": null,
+        "lastUnit": null
+      },
+      {
+        "id": "an-restavit",
+        "name": "Restavit",
+        "short": "Restavit",
+        "slot": "PM",
+        "units": [
+          "tablets",
+          "mg"
+        ],
+        "step": 1,
+        "last": 1,
+        "lastUnit": "tablets"
+      }
+    ],
+    "restlessness": true
+  },
   "notifications": {
     "timeSensitive": true,
     "restarts": true,

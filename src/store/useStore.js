@@ -32,6 +32,7 @@ import { DEFAULT_BODY_REFS } from '../lib/metrics'
 import { attributeSymptom, attributionSnapshot } from '../lib/attribution'
 import { slotForCategory } from '../lib/supplements'
 import { DEFAULT_HABITS } from '../lib/healthDefaults'
+import { DEFAULT_AS_NEEDED, lastAmount, makeAsNeededLog, migrateVariableSupplements, migrateHabits, nothingUnusual, mergeMorningCheck } from '../sleep/logging'
 import { backfillTopicals } from '../lib/topicals'
 import { applyCheck, toAbandon, localDay } from '../lib/reactionCourse'
 import { captureFor, normaliseNeedle, coDrawInfo } from '../lib/injectionCapture'
@@ -172,6 +173,25 @@ function initialState() {
     checkins: {},                        // { 'YYYY-MM-DD': { energy, mood, appetite, drive } } — 1 to 5
     habits: DEFAULT_HABITS.map((h) => ({ ...h })),
     habitLogs: {},                       // { 'YYYY-MM-DD': { habitId: true | false } }
+    /**
+     * Sleep Lab (v26). As-needed items have no schedule: nothing is due,
+     * nothing is missed, nothing reminds. Evening details sit beside the yes
+     * or no answers in habitLogs (same evening date); the morning check is
+     * filed under the date you woke up.
+     */
+    asNeededItems: DEFAULT_AS_NEEDED.map((i) => ({ ...i })),
+    asNeededLogs: [],                    // { id, itemId, name, amount, unit, at, source }
+    eveningDetails: {},                  // { 'YYYY-MM-DD': { drinks, lastDrinkAt, lastMealAt, wokenBy } }
+    morningChecks: {},                   // { wakeDate: { rested, dreams, headache, dryMouth, pee, partner, at } }
+    sleepSettings: {
+      restlessness: true,                // the Watch's overnight movement recording
+      sleepSounds: false,                // snoring and sound detection on the iPhone
+      sleepAudioApps: ['YouTube'],       // left out of late phone use
+      eveningPrompt: true,               // 30 min before planned bedtime
+      morningPrompt: true,               // usual wake time + 30 min
+      morningPromptAfterMin: 30,
+      setupCardDismissed: false,
+    },
     // Sauna (stage 2D). Sessions travel with the backup like any other log.
     saunaSessions: [],                   // see SaunaSession in src/sauna/sauna.ts
     saunaSettings: { ...DEFAULT_SAUNA_SETTINGS, timerNoteSeen: false, notifyAsked: false },
@@ -281,6 +301,26 @@ function migrateStock(s) {
     vials: moved.vials,
     stockAdjustments: s.stockAdjustments || [],
     stockMigration: { at: now.toISOString(), rows: moved.report },
+  }
+}
+
+/**
+ * v26, the Sleep Lab. Magnesium glycinate and phosphatidylserine become
+ * variable-gram items (same ids, so their history stays; added when absent);
+ * the habits become the evening factor list, with caffeine, cold plunge and
+ * late meal hidden and their records kept.
+ */
+export function migrateSleepLab(s) {
+  const t = todayStr()
+  const sup = migrateVariableSupplements(s.supplements || [], (i) => `sup-sleep-${i}-${Date.now()}`, t)
+  return {
+    ...s,
+    supplements: sup.supplements,
+    habits: migrateHabits(s.habits || DEFAULT_HABITS.map((h) => ({ ...h }))),
+    asNeededItems: s.asNeededItems || DEFAULT_AS_NEEDED.map((i) => ({ ...i })),
+    asNeededLogs: s.asNeededLogs || [],
+    eveningDetails: s.eveningDetails || {},
+    morningChecks: s.morningChecks || {},
   }
 }
 
@@ -2382,6 +2422,70 @@ const useStore = create(
         return true
       },
 
+      /**
+       * A supplement taken in a variable amount (grams): one log with the
+       * amount and the time. Logging again the same day replaces the amount.
+       */
+      logSupplementAmount(id, { amount, at = new Date().toISOString(), date = null } = {}) {
+        const s = get()
+        const supp = s.supplements.find((x) => x.id === id)
+        const value = Number(amount)
+        if (!supp || !(value > 0)) return null
+        const t = date || todayStr()
+        const row = {
+          id: `sl-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+          supplementId: id, date: t, takenAt: new Date(at).toISOString(),
+          name: supp.name, slot: supp.slot || 'PM', dose: `${value} ${supp.amountUnit || 'g'}`,
+          amount: Math.round(value * 1000) / 1000, unit: supp.amountUnit || 'g', backfilled: !!date && date !== todayStr(),
+        }
+        set({ supplementLogs: [...s.supplementLogs.filter((l) => !(l.supplementId === id && l.date === t)), row] })
+        return row
+      },
+
+      // ---------- as needed ----------
+      logAsNeeded(itemId, { amount, unit, at = new Date().toISOString(), source = 'phone' } = {}) {
+        const item = get().asNeededItems.find((i) => i.id === itemId)
+        if (!item) return null
+        const log = makeAsNeededLog(item, { amount, unit, at, source }, `an-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`)
+        if (!log) return null
+        set((s) => ({ asNeededLogs: [...s.asNeededLogs, log] }))
+        if (source === 'phone') get().showToast(`${item.name} ${log.amount} ${log.unit} logged`, () => get().deleteAsNeededLog(log.id))
+        return log
+      },
+      updateAsNeededLog(id, patch = {}) {
+        set((s) => ({ asNeededLogs: s.asNeededLogs.map((l) => (l.id === id ? { ...l, ...patch } : l)) }))
+      },
+      deleteAsNeededLog(id) {
+        set((s) => ({ asNeededLogs: s.asNeededLogs.filter((l) => l.id !== id) }))
+      },
+      updateAsNeededItem(id, patch = {}) {
+        set((s) => ({ asNeededItems: s.asNeededItems.map((i) => (i.id === id ? { ...i, ...patch } : i)) }))
+      },
+      addAsNeededItem({ name, slot = 'PM', units = ['mg'], step = 1 }) {
+        const clean = String(name || '').trim()
+        if (!clean) return null
+        const id = `an-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`
+        set((s) => ({ asNeededItems: [...s.asNeededItems, { id, name: clean, short: clean.split(' ')[0], slot, units, step }] }))
+        return id
+      },
+
+      // ---------- evening factors and the morning check ----------
+      setEveningDetail(date, patch = {}) {
+        set((s) => ({ eveningDetails: { ...s.eveningDetails, [date]: { ...(s.eveningDetails[date] || {}), ...patch } } }))
+      },
+      /** Every factor no and no drinks for an evening; the meal time is kept. */
+      answerNothingUnusual(date) {
+        const s = get()
+        const r = nothingUnusual(s.habits, s.habitLogs[date] || {}, s.eveningDetails[date] || {})
+        set({ habitLogs: { ...s.habitLogs, [date]: r.log }, eveningDetails: { ...s.eveningDetails, [date]: r.detail } })
+      },
+      answerMorningCheck(wakeDate, patch = {}) {
+        set((s) => ({ morningChecks: { ...s.morningChecks, [wakeDate]: mergeMorningCheck(s.morningChecks[wakeDate], patch, new Date().toISOString()) } }))
+      },
+      setSleepSettings(patch = {}) {
+        set((s) => ({ sleepSettings: { ...s.sleepSettings, ...patch } }))
+      },
+
       // ---------- sauna ----------
       addSaunaSession(p) {
         const id = `sauna-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
@@ -2466,8 +2570,30 @@ const useStore = create(
             case 'snoozeOrder':
               get().snoozeOrder(o.peptideId)
               break
-            case 'takeSupplement':
-              get().toggleSupplementTaken(o.supplementId, o.date, { quiet: true })
+            case 'takeSupplement': {
+              // a variable-amount supplement taken from the Watch or a notification: the last amount
+              const supp = get().supplements.find((x) => x.id === o.supplementId)
+              const last = supp?.amountUnit ? lastAmount(get().supplementLogs, o.supplementId) : null
+              if (last) get().logSupplementAmount(o.supplementId, { amount: last.amount, at: o.at, date: o.date })
+              else get().toggleSupplementTaken(o.supplementId, o.date, { quiet: true })
+              break
+            }
+            case 'logAsNeeded':
+              get().logAsNeeded(o.itemId, { amount: o.amount, unit: o.unit, at: o.at, source: o.source })
+              break
+            case 'eveningNothing':
+              get().answerNothingUnusual(o.date)
+              break
+            case 'eveningLog': {
+              if (o.drinks != null) {
+                get().setEveningDetail(o.date, { drinks: o.drinks })
+                get().setHabit(o.date, 'alcohol', o.drinks > 0)
+              }
+              for (const f of o.factors) get().setHabit(o.date, f, true)
+              break
+            }
+            case 'morningCheck':
+              get().answerMorningCheck(o.date, o.patch)
               break
             case 'skipDose':
               get().skipDose(o.peptideId, '', o.date)
@@ -2916,7 +3042,7 @@ const useStore = create(
     }),
     {
       name: 'peptide-command-center', // storage key is history — renaming it would orphan existing data
-      version: 25,
+      version: 26,
       storage: createJSONStorage(() => safeStorage),
       // Saves written before a release can't pick new library entries up from
       // the seed, so each version bump backfills them here — once. Deleting one
@@ -2945,9 +3071,13 @@ const useStore = create(
       //   v22: the full Evolt history (15 scans), scan fields first-class, a bad wake target cleared
       //   v23: body sources are Scale, Evolt and DEXA (every entry stamped, none deleted);
       //        the estimated start moves to 1 Jan 2025
+      //   v25: the open-vial stock model
+      //   v26: Sleep Lab: as-needed items, variable-gram supplements, the evening factor list
       migrate: (persisted, from) => {
-        const s = migrateBefore25(persisted, from)
-        return s && from < 25 ? migrateStock(s) : s
+        let s = migrateBefore25(persisted, from)
+        if (s && from < 25) s = migrateStock(s)
+        if (s && from < 26) s = migrateSleepLab(s)
+        return s
       },
       partialize: (s) => {
         const { toast, vialPrompts, lastVialChange, ...rest } = s
@@ -3004,6 +3134,11 @@ const useStore = create(
         checkins: persisted?.checkins || current.checkins,
         habits: persisted?.habits || current.habits,
         habitLogs: persisted?.habitLogs || current.habitLogs,
+        asNeededItems: persisted?.asNeededItems || current.asNeededItems,
+        asNeededLogs: persisted?.asNeededLogs || current.asNeededLogs,
+        eveningDetails: persisted?.eveningDetails || current.eveningDetails,
+        morningChecks: persisted?.morningChecks || current.morningChecks,
+        sleepSettings: { ...current.sleepSettings, ...(persisted?.sleepSettings || {}) },
       }),
       onRehydrateStorage: () => (state) => {
         state?.enrichLibraryFromReference?.()

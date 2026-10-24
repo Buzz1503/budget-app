@@ -5,7 +5,7 @@ import useStore from '../../store/useStore'
  * the untapped ones count as no. "None" records a day with none of them.
  */
 export function HabitChips({ date }) {
-  const habits = useStore((s) => s.habits)
+  const habits = useStore((s) => s.habits).filter((h) => !h.hidden)
   const log = useStore((s) => s.habitLogs[date]) || {}
   const setHabit = useStore((s) => s.setHabit)
   const answered = Object.keys(log).length > 0

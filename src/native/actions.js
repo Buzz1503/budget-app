@@ -11,7 +11,9 @@
 // which were applied and which were set aside and why. The store runs the
 // operations (useStore.applyNativeActions).
 
-export const ACTION_TYPES = ['logDose', 'logSlot', 'skipDose', 'snoozeDose', 'pushDose', 'startSauna', 'stopSauna', 'saunaCompleted', 'vialChange', 'snoozeOrder']
+export const ACTION_TYPES = ['logDose', 'logSlot', 'skipDose', 'snoozeDose', 'pushDose', 'startSauna', 'stopSauna', 'saunaCompleted', 'vialChange', 'snoozeOrder',
+  // the Sleep Lab: an as-needed item, the evening factors and the morning check
+  'logAsNeeded', 'eveningNothing', 'eveningLog', 'morningCheck']
 /** How many applied action ids are remembered, so a replayed queue changes nothing. */
 export const REMEMBER_IDS = 500
 
@@ -37,6 +39,14 @@ export function applyPendingActions(state, actions = [], { dueOn = null } = {}) 
   const skipped = new Set((state.skips || []).map((k) => `${k.date}|${k.kind}|${k.kind === 'peptide' ? k.peptideId : k.supplementId}`))
   const linkedWorkouts = new Set((state.saunaSessions || []).map((s) => s.workoutId).filter(Boolean))
   let timer = state.saunaTimer || null
+  const asNeeded = new Map((state.asNeededItems || []).map((i) => [i.id, i]))
+  // an evening said before noon is the evening before (a 1 am answer is about last night)
+  const eveningOf = (iso) => {
+    const d = new Date(iso)
+    if (Number.isNaN(d.getTime())) return null
+    if (d.getHours() < 12) d.setDate(d.getDate() - 1)
+    return dateOf(d.toISOString())
+  }
 
   const ops = []
   const applied = []
@@ -143,6 +153,39 @@ export function applyPendingActions(state, actions = [], { dueOn = null } = {}) 
         if (p.workoutId) linkedWorkouts.add(p.workoutId)
         ops.push({ op: 'saunaFromWatch', summary: p, clearsTimer: !!timer })
         timer = null
+        applied.push(a.id)
+        break
+      }
+      case 'logAsNeeded': {
+        const item = asNeeded.get(p.refId)
+        const amount = Number(p.amount)
+        if (!item) { set(a, 'missing'); break }
+        if (!(amount > 0)) { set(a, 'invalid'); break }
+        ops.push({ op: 'logAsNeeded', itemId: item.id, amount, unit: p.unit || item.units?.[0], at: p.takenAt || a.at, source: a.source === 'notification' ? 'notification' : 'watch' })
+        applied.push(a.id)
+        break
+      }
+      case 'eveningNothing': {
+        const d = p.date || eveningOf(a.at)
+        if (!d) { set(a, 'invalid'); break }
+        ops.push({ op: 'eveningNothing', date: d })
+        applied.push(a.id)
+        break
+      }
+      case 'eveningLog': {
+        const d = p.date || eveningOf(a.at)
+        if (!d) { set(a, 'invalid'); break }
+        ops.push({ op: 'eveningLog', date: d, drinks: p.drinks ?? null, factors: Array.isArray(p.factors) ? p.factors : [] })
+        applied.push(a.id)
+        break
+      }
+      case 'morningCheck': {
+        const d = p.date || dateOf(a.at)
+        const patch = {}
+        if (p.rested != null) patch.rested = p.rested
+        if (p.dreams != null) patch.dreams = p.dreams
+        if (!Object.keys(patch).length) { set(a, 'invalid'); break }
+        ops.push({ op: 'morningCheck', date: d, patch })
         applied.push(a.id)
         break
       }

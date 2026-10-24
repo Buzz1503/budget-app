@@ -29,12 +29,14 @@ struct HomeScreen: View {
 struct DosesScreen: View {
     @EnvironmentObject private var store: WatchStore
     @State private var bounce = 0
+    @State private var asNeeded = false
 
     var body: some View {
         TimelineView(.everyMinute) { ctx in
             content(now: ctx.date)
         }
         .containerBackground(WatchBG.doses, for: .navigation)
+        .navigationDestination(isPresented: $asNeeded) { AsNeededScreen() }
         .onChange(of: WatchHome.doseScreen(store.snapshot, now: Date())?.allLogged ?? false) { _, done in
             if done { bounce += 1 }
         }
@@ -72,6 +74,7 @@ struct DosesScreen: View {
                                       WKInterfaceDevice.current().play(.click)
                                       withAnimation(.snappy) { store.skip(row) }
                                   })
+                asNeededRow
                     .padding(.bottom, PepitoTheme.Space.s40)
             }
             .navigationTitle(screen.slot.title)
@@ -94,8 +97,60 @@ struct DosesScreen: View {
                 }
             }
         } else {
-            WatchAllLoggedContent(next: WatchHome.doseScreen(store.snapshot, now: now)?.next, bounce: bounce)
-                .navigationTitle("Doses")
+            ScrollView {
+                WatchAllLoggedContent(next: WatchHome.doseScreen(store.snapshot, now: now)?.next, bounce: bounce)
+                asNeededRow
+            }
+            .navigationTitle("Doses")
+        }
+    }
+
+    @ViewBuilder
+    private var asNeededRow: some View {
+        let items = AsNeededPicker.items(store.snapshot)
+        if !items.isEmpty {
+            WatchAsNeededRow(items: items) { asNeeded = true }
+                .padding(.top, PepitoTheme.Space.s8)
+        }
+    }
+}
+
+/// As needed: pick the item, then the amount with the Crown, then Log.
+struct AsNeededScreen: View {
+    @EnvironmentObject private var store: WatchStore
+    @State private var picked: Snapshot.AsNeeded?
+
+    var body: some View {
+        ScrollView {
+            WatchAsNeededListContent(items: AsNeededPicker.items(store.snapshot)) { picked = $0 }
+        }
+        .navigationTitle("As needed")
+        .containerBackground(WatchBG.doses, for: .navigation)
+        .navigationDestination(item: $picked) { item in AsNeededAmountScreen(item: item) }
+    }
+}
+
+struct AsNeededAmountScreen: View {
+    let item: Snapshot.AsNeeded
+    @EnvironmentObject private var store: WatchStore
+    @Environment(\.dismiss) private var dismiss
+    @State private var crown: Double = 0
+    @State private var unit = ""
+
+    var body: some View {
+        let amount = AsNeededPicker.snap(crown, step: item.step)
+        WatchAsNeededAmountContent(item: item, amount: amount, unit: unit, onUnit: { unit = $0 }) {
+            WKInterfaceDevice.current().play(.success)
+            store.send(.asNeeded(item.id, amount: amount, unit: unit, source: .watch))
+            dismiss()
+        }
+        .focusable()
+        .digitalCrownRotation($crown, from: 0, through: max(item.step * 40, 10), by: item.step, sensitivity: .low, isContinuous: false, isHapticFeedbackEnabled: true)
+        .navigationTitle(item.short)
+        .containerBackground(WatchBG.doses, for: .navigation)
+        .onAppear {
+            crown = AsNeededPicker.start(item)
+            unit = AsNeededPicker.unit(item)
         }
     }
 }
