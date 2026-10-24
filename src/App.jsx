@@ -101,6 +101,9 @@ export default function App() {
     if (nativeRoute === 'count') {
       setTab('supplies')
       useNativeFeed.setState({ openCount: true })
+    } else if (nativeRoute === 'evening') {
+      setTab('sleep')
+      useNativeFeed.setState({ openEvening: true })
     } else if (SCREENS[ALIASES[nativeRoute] || nativeRoute]) setTab(ALIASES[nativeRoute] || nativeRoute)
     useNativeFeed.setState({ route: null })
   }, [nativeRoute])

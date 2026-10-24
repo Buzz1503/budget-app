@@ -28,6 +28,18 @@ export async function collectSleepData() {
   } catch { /* no plugin */ }
 }
 
+/**
+ * What the setup checklist and the evening sheet need to know: Screen Time
+ * allowed and apps chosen, and a HomeKit sensor to read.
+ */
+export async function refreshSleepStatus() {
+  const so = await soundsStatus()
+  const sc = await screenTimeStatus()
+  const ss = useStore.getState().sleepSettings || {}
+  const patch = { screenTimeOn: !!(sc.authorized && sc.picked), screenTimeAvailable: sc.available !== false, roomSensor: !!so.roomSensor }
+  if (Object.keys(patch).some((k) => ss[k] !== patch[k])) useStore.getState().setSleepSettings(patch)
+}
+
 export async function soundsStatus() {
   try { return await PepitoSleep.soundsStatus() } catch { return { running: false, unavailable: true } }
 }
@@ -56,6 +68,7 @@ export function startSleepRuntime(addListener) {
   if (started) return
   started = true
   void collectSleepData()
-  addListener?.('appActive', () => { void collectSleepData() })
+  void refreshSleepStatus()
+  addListener?.('appActive', () => { void collectSleepData(); void refreshSleepStatus() })
   try { PepitoSleep.addListener?.('sleepSoundsChanged', () => { void collectSleepData() }) } catch { /* fine */ }
 }

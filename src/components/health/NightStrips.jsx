@@ -1,4 +1,5 @@
 import { W } from './SleepCharts'
+import { NO_RECORDING_LINE } from '../../sleep/prompts'
 
 const L = 44
 const R = 8
@@ -9,7 +10,7 @@ const ROW = 22
  * other sounds, heart rate through the night, blood oxygen readings, audio in
  * bed, and nightmare event markers. Each row only when it was recorded.
  */
-export default function NightStrips({ night, overnight, restless, soundSessions, events = [], restlessOn = true }) {
+export default function NightStrips({ night, overnight, restless, soundSessions, events = [], noRecording = false }) {
   const t0 = night.start
   const t1 = night.end
   const x = (t) => L + ((t - t0) / (t1 - t0 || 1)) * (W - L - R)
@@ -85,7 +86,7 @@ export default function NightStrips({ night, overnight, restless, soundSessions,
     })
   }
 
-  if (!rows.length && !restlessOn) return null
+  if (!rows.length && !noRecording) return null
   const H = rows.length * ROW + 4
   return (
     <div className="mt-3" data-testid="night-strips">
@@ -100,8 +101,8 @@ export default function NightStrips({ night, overnight, restless, soundSessions,
           ))}
         </svg>
       )}
-      {restlessOn && !restless && (
-        <p className="text-[11px] font-medium" style={{ color: 'var(--text-3)' }} data-testid="strip-no-move">No Watch movement recording for this night.</p>
+      {noRecording && (
+        <p className="text-[11px] font-medium" style={{ color: 'var(--text-3)' }} data-testid="strip-no-move">{NO_RECORDING_LINE}</p>
       )}
     </div>
   )

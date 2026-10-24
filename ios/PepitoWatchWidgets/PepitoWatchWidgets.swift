@@ -32,8 +32,12 @@ struct WatchProvider: TimelineProvider {
     func getTimeline(in context: Context, completion: @escaping (Timeline<WatchEntry>) -> Void) {
         let snap = SharedStore.shared().readSnapshot()
         let now = Date()
+        // the backup start for tonight's movement recording
+        RestlessStart.startIfDue(enabled: snap?.sleep?.restlessness ?? true, fromExtension: true, now: now)
         let entries = SurfaceRelevance.moments(snap, from: now).map { entry(snap, at: $0) }
-        completion(Timeline(entries: entries, policy: .after(now.addingTimeInterval(6 * 3600))))
+        // back again by the evening, so a refresh after 6 pm can start it
+        let next = min(now.addingTimeInterval(6 * 3600), RestlessRecording.nextRefresh(after: now))
+        completion(Timeline(entries: entries, policy: .after(next)))
     }
 
     private func entry(_ snap: Snapshot?, at date: Date) -> WatchEntry {

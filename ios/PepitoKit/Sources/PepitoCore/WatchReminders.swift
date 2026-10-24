@@ -36,13 +36,14 @@ public enum WatchReminders {
     }
 
     /// The buttons a reminder gets: Take for supplements only, Push when something can move.
-    public static func category(_ rows: [DoseBoard.Row]) -> String {
+    /// With `took`, the AM reminder's variant that also has "Took Dex".
+    public static func category(_ rows: [DoseBoard.Row], took: Bool = false) -> String {
         let items = rows.flatMap(\.items)
-        if items.allSatisfy({ $0.kind == .supplement }) { return "DOSE_TAKE" }
-        return items.contains { $0.canPush } ? "DOSE_LOG_PUSH" : "DOSE_LOG"
+        let base = items.allSatisfy({ $0.kind == .supplement }) ? "DOSE_TAKE" : items.contains { $0.canPush } ? "DOSE_LOG_PUSH" : "DOSE_LOG"
+        return took ? "\(base)_TOOK" : base
     }
 
-    static func payload(_ rows: [DoseBoard.Row], date: String, slot: Snapshot.Slot, nudge: Bool) -> NotificationPayload {
+    static func payload(_ rows: [DoseBoard.Row], date: String, slot: Snapshot.Slot, nudge: Bool, took: Snapshot.Took? = nil) -> NotificationPayload {
         var groups: [NotificationPayload.GroupRef] = []
         var items: [NotificationPayload.ItemRef] = []
         for r in rows {
@@ -53,7 +54,8 @@ public enum WatchReminders {
         }
         let pushable = rows.flatMap(\.items).filter(\.canPush).map(\.refId)
         return NotificationPayload(kind: "dose", date: date, slot: slot.rawValue, groups: groups, items: items,
-                                   pushable: pushable, nudge: nudge ? true : nil)
+                                   pushable: pushable, nudge: nudge ? true : nil,
+                                   took: took.map { .init(refId: $0.id, amount: $0.amount, unit: $0.unit) })
     }
 
     /// A local date and "HH:MM" as a moment.
@@ -81,23 +83,34 @@ public enum WatchReminders {
                 guard !rows.isEmpty, let fire = moment(day.date, snap.slotTimes.time(for: slot), calendar: calendar) else { continue }
                 let body = rows.map(line).joined(separator: "\n")
                 let thread = "pepito.slot.\(slot.rawValue)"
-                let cat = category(rows)
+                let took = slot == .am ? snap.sleep?.took : nil
+                let cat = category(rows, took: took != nil)
                 if doses && fire > now {
                     out.append(Reminder(id: "\(NotificationAction.schedulePrefix)dose.\(day.date).\(slot.rawValue)", title: slot.title,
                                         body: body, fireDate: fire, category: cat, threadId: thread, timeSensitive: timeSensitive,
-                                        payload: payload(rows, date: day.date, slot: slot, nudge: false)))
+                                        payload: payload(rows, date: day.date, slot: slot, nudge: false, took: took)))
                 }
                 let nudgeAt = fire.addingTimeInterval(delay)
                 if nudges && nudgeAt > now {
                     out.append(Reminder(id: "\(NotificationAction.schedulePrefix)nudge.\(day.date).\(slot.rawValue)", title: slot.title,
                                         body: "Still to log:\n\(body)", fireDate: nudgeAt, category: cat, threadId: thread,
-                                        timeSensitive: timeSensitive, payload: payload(rows, date: day.date, slot: slot, nudge: true)))
+                                        timeSensitive: timeSensitive, payload: payload(rows, date: day.date, slot: slot, nudge: true, took: took)))
                 }
             }
         }
         out += restartReminders(snap, now: now, calendar: calendar)
         out += stockReminders(snap, now: now)
+        out += sleepReminders(snap, now: now)
         return out
+    }
+
+    /// The evening factors prompt and the morning check, the iPhone's entries (same ids).
+    static func sleepReminders(_ snap: Snapshot, now: Date) -> [Reminder] {
+        (snap.sleep?.prompts ?? []).compactMap { n in
+            guard let fire = n.fireDate, fire > now else { return nil }
+            return Reminder(id: n.id, title: n.title, body: n.body, fireDate: fire, category: n.category,
+                            threadId: n.threadId ?? "pepito.sleep", timeSensitive: false, payload: n.payload)
+        }
     }
 
     /// Order-by, fridge-life and weekly-count notices still ahead. The iPhone builds

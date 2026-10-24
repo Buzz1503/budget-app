@@ -11,7 +11,9 @@ enum PepitoNotifications {
     /// The categories and their buttons. Background buttons are handled without
     /// opening the app; Check now and Open Stock open it.
     static func registerCategories() {
-        let cats = NotificationAction.categories.map { id, buttons in
+        // "Took Dex" takes its name from the snapshot
+        let took = SharedStore.shared().readSnapshot()?.sleep?.took?.short
+        let cats = NotificationAction.categories(took: took).map { id, buttons in
             UNNotificationCategory(
                 identifier: id,
                 actions: buttons.map { bid, title, opens in
@@ -65,6 +67,12 @@ enum PepitoNotifications {
             }
             group.notify(queue: .main) { completion() }
         }
+    }
+
+    /// The morning check's second question, straight after the first answer.
+    static func post(followUp next: (id: String, title: String, body: String, category: String, payload: NotificationPayload)) {
+        let c = content(title: next.title, body: next.body, category: next.category, thread: "pepito.sleep", timeSensitive: false, payload: next.payload)
+        center.add(UNNotificationRequest(identifier: next.id, content: c, trigger: UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)))
     }
 
     /// "Remind in 30 min": the same reminder again, once.

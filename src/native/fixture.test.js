@@ -42,7 +42,11 @@ export const fixtureState = {
     { id: 'an-dex', name: 'Dexamphetamine', short: 'Dex', slot: 'AM', units: ['mg'], step: 2.5 },
     { id: 'an-restavit', name: 'Restavit', short: 'Restavit', slot: 'PM', units: ['tablets', 'mg'], step: 1 },
   ],
-  asNeededLogs: [{ id: 'l1', itemId: 'an-restavit', name: 'Restavit', amount: 1, unit: 'tablets', at: '2026-10-18T11:00:00.000Z' }],
+  asNeededLogs: [
+    { id: 'l1', itemId: 'an-restavit', name: 'Restavit', amount: 1, unit: 'tablets', at: '2026-10-18T11:00:00.000Z' },
+    { id: 'l2', itemId: 'an-dex', name: 'Dexamphetamine', amount: 10, unit: 'mg', at: '2026-10-19T08:00:00.000Z' },
+  ],
+  sleepSettings: { lastBedtime: '22:30', lastWake: '07:00' },
   saunaSettings: { weeklyTarget: 4, usualLengthMin: null, usualTempC: null },
   saunaTimer: { startedAt: 1792483200000, targetMin: 20, tempC: 65, rounds: 2, source: 'watch' },
   healthSettings: { maxHR: null },
@@ -68,9 +72,9 @@ describe('Swift snapshot fixture', () => {
 })
 
 describe('Swift reminder parity fixture', () => {
-  it('matches the dose reminders, nudges and restart reminders buildSchedule plans for the iPhone', () => {
+  it('matches the dose reminders, nudges, restart reminders and sleep prompts buildSchedule plans for the iPhone', () => {
     const list = buildSchedule(fixtureState, { now: NOW, verdictOf, watchReady: false })
-      .filter((n) => /\.(dose|nudge|restart)\./.test(n.id))
+      .filter((n) => /\.(dose|nudge|restart|evening|morning)\./.test(n.id))
       .map(({ fireAt, ...rest }) => ({ ...rest, fireLocal: wall(fireAt) }))
     const json = `${JSON.stringify(list, null, 2)}\n`
     if (process.env.UPDATE_FIXTURES) writeFileSync(REMINDERS, json)

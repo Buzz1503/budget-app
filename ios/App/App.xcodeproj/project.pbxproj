@@ -22,6 +22,7 @@
 		3402EE120DB307C73AF7B0DC /* PepitoCore in Frameworks */ = {isa = PBXBuildFile; productRef = E5C8B27231E9B75885B1B834 /* PepitoCore */; };
 		39CEB95FC481335FDDC74964 /* PepitoCore in Frameworks */ = {isa = PBXBuildFile; productRef = 2DC6A7A5CB5B276442D98457 /* PepitoCore */; };
 		403C40421655826C11D63A04 /* WatchStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 992FEC1CC2BA6E671A6F0DA1 /* WatchStore.swift */; };
+		40CB774DBCA5BF42391F658D /* SleepSoundsIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 434AD2C6CFAE0F952965B9FF /* SleepSoundsIntents.swift */; };
 		4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */ = {isa = PBXBuildFile; productRef = 4D22ABE82AF431CB00220026 /* CapApp-SPM */; };
 		4FBC143E42426AD425200D8D /* LateUseMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = B67174F79EF2EC5CBD5F5C67 /* LateUseMonitor.swift */; };
 		50379B232058CBB4000EE86E /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 50379B222058CBB4000EE86E /* capacitor.config.json */; };
@@ -42,6 +43,7 @@
 		AF87BD94A26E261BB56E4105 /* PepitoWatchUI in Frameworks */ = {isa = PBXBuildFile; productRef = 0D71EEFBC40051092ECD823E /* PepitoWatchUI */; };
 		B26E5636BAF0BDDCAD8A721A /* PepitoTheme in Frameworks */ = {isa = PBXBuildFile; productRef = A0C4BAF20E6F1B3D7B84D6F8 /* PepitoTheme */; };
 		B8403927E4215FB28F705AC4 /* PepitoWidgetUI in Frameworks */ = {isa = PBXBuildFile; productRef = A3BAC7AA09523144A20534A7 /* PepitoWidgetUI */; };
+		B97238CB9EF6F77018392763 /* RestlessStart.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD9B745A82852AB81E17BD4E /* RestlessStart.swift */; };
 		BE909DCA4C63E5B2F386672F /* PepitoCore in Frameworks */ = {isa = PBXBuildFile; productRef = 68D237DAFA212DE0CB9D5E6F /* PepitoCore */; };
 		C4AF5CEB0EE1E80D817310B3 /* SaunaActivityController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 844E7276129F99CB5BC4ED68 /* SaunaActivityController.swift */; };
 		C86BD73D49CA3816587E5407 /* SaunaEffects.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35F07B17BA63A3452BFA7636 /* SaunaEffects.swift */; };
@@ -51,6 +53,7 @@
 		D5ECF92714DF9DC006B65A59 /* PepitoBridgeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 114C025FF4ADBD74FC267F71 /* PepitoBridgeViewController.swift */; };
 		D9A1ED9B2ED21D3084340D74 /* PepitoWatchWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 6D22FC654EA8DD404E6AA366 /* PepitoWatchWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeaderOnCopy, ); }; };
 		DD289C33866B224F0604F9E6 /* PepitoWatchUI in Frameworks */ = {isa = PBXBuildFile; productRef = BF0CED577E10762D1A4BA891 /* PepitoWatchUI */; };
+		DEA2F587E99CCAC5A919C7A9 /* RestlessStart.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD9B745A82852AB81E17BD4E /* RestlessStart.swift */; };
 		E3674D9501A4C71DE811ACD6 /* LateUse.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DD43BC9C69ED998863334B2 /* LateUse.swift */; };
 		E8A72BDB46E67CB2D9C3C486 /* WatchIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F484EF5109C1C873B1A5E7A /* WatchIntents.swift */; };
 		EB20940FEBFCED29511E8D79 /* ActionSink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66373078718C7DB9F556DE0B /* ActionSink.swift */; };
@@ -144,6 +147,7 @@
 		2FAD9762203C412B000D30F8 /* config.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = config.xml; sourceTree = "<group>"; };
 		35F07B17BA63A3452BFA7636 /* SaunaEffects.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SaunaEffects.swift; sourceTree = "<group>"; };
 		373BC1DF8EEF445A4E090C10 /* Screens.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Screens.swift; sourceTree = "<group>"; };
+		434AD2C6CFAE0F952965B9FF /* SleepSoundsIntents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SleepSoundsIntents.swift; sourceTree = "<group>"; };
 		4B6394D0645D8B463A8FF282 /* PepitoBridgePlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PepitoBridgePlugin.swift; sourceTree = "<group>"; };
 		4F9FB1366CE96896188FD218 /* PepitoShortcuts.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PepitoShortcuts.swift; sourceTree = "<group>"; };
 		50379B222058CBB4000EE86E /* capacitor.config.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = capacitor.config.json; sourceTree = "<group>"; };
@@ -171,6 +175,7 @@
 		B3C5411A4D9CA0A63E92A289 /* WatchLink.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WatchLink.swift; sourceTree = "<group>"; };
 		B67174F79EF2EC5CBD5F5C67 /* LateUseMonitor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LateUseMonitor.swift; sourceTree = "<group>"; };
 		BC75703CCD009C1806348BD2 /* PepitoWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = PepitoWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		CD9B745A82852AB81E17BD4E /* RestlessStart.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RestlessStart.swift; sourceTree = "<group>"; };
 		D4D27F5826A50186F06FF06C /* SleepSounds.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SleepSounds.swift; sourceTree = "<group>"; };
 		DE4C3A854E4693F9B9442DA0 /* PepitoLateUse.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = PepitoLateUse.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		E8425A56BD017F81E60295FC /* PepitoWatchApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PepitoWatchApp.swift; sourceTree = "<group>"; };
@@ -258,6 +263,7 @@
 				2DD43BC9C69ED998863334B2 /* LateUse.swift */,
 				1F99A1F5235C851292909F3B /* PepitoSleepPlugin.swift */,
 				D4D27F5826A50186F06FF06C /* SleepSounds.swift */,
+				434AD2C6CFAE0F952965B9FF /* SleepSoundsIntents.swift */,
 			);
 			name = Native;
 			path = Native;
@@ -285,6 +291,7 @@
 				26B40415528BDB5E947865F7 /* PepitoWatch */,
 				8765B326E5C8D38759146C1E /* PepitoWatchWidgets */,
 				CA6395D6AD98789EF12C24A4 /* PepitoLateUse */,
+				E17141D70962B85C2831FA9B /* WatchShared */,
 			);
 			sourceTree = "<group>";
 		};
@@ -345,6 +352,15 @@
 			);
 			name = PepitoLateUse;
 			path = ../PepitoLateUse;
+			sourceTree = "<group>";
+		};
+		E17141D70962B85C2831FA9B /* WatchShared */ = {
+			isa = PBXGroup;
+			children = (
+				CD9B745A82852AB81E17BD4E /* RestlessStart.swift */,
+			);
+			name = WatchShared;
+			path = ../WatchShared;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -558,6 +574,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				D5BADF58D19032A89452AD17 /* PepitoWatchWidgets.swift in Sources */,
+				DEA2F587E99CCAC5A919C7A9 /* RestlessStart.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -571,6 +588,7 @@
 				403C40421655826C11D63A04 /* WatchStore.swift in Sources */,
 				996E84AA92D03905FB90ECF0 /* Screens.swift in Sources */,
 				0AD77541C749107305A4B3E0 /* RestlessRecorder.swift in Sources */,
+				B97238CB9EF6F77018392763 /* RestlessStart.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -594,6 +612,7 @@
 				E3674D9501A4C71DE811ACD6 /* LateUse.swift in Sources */,
 				A583A85466FF90ABF87C1B70 /* PepitoSleepPlugin.swift in Sources */,
 				28B2DA2409565050FE09FC52 /* SleepSounds.swift in Sources */,
+				40CB774DBCA5BF42391F658D /* SleepSoundsIntents.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -176,6 +176,14 @@ final class WatchSnapshotTests: XCTestCase {
             WatchAsNeededAmountContent(item: asNeeded[1], amount: 0, unit: "mg", onUnit: { _ in }, onLog: {})
         }
 
+        // the evening sheet from the evening prompt's Log
+        let toggles: [Snapshot.Toggle] = [.init(id: "stress", name: "Stressful day"), .init(id: "unwell", name: "Unwell"),
+                                          .init(id: "pain", name: "Pain"), .init(id: "away", name: "Slept away from home")]
+        shoot("evening-sheet", BG.doses, chrome: .child("This evening"), aodToo: false) {
+            WatchEveningContent(sedatives: Array(asNeeded.prefix(3)), taken: ["an-temazepam": 10], drinks: 2, toggles: toggles, on: ["stress"],
+                                onNothing: {}, onSedative: { _ in }, onDrinks: { _ in }, onToggle: { _ in }, onSave: {})
+        }
+
         // Sauna: start, warning, target picker
         shoot("sauna-start", BG.sauna, chrome: .child("Sauna")) {
             WatchSaunaStartContent(tempC: 55, targetMin: 20, onStart: {}, onTarget: {})

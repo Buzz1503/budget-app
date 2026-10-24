@@ -1,7 +1,7 @@
 [
   {
     "title": "AM doses",
-    "category": "DOSE_LOG",
+    "category": "DOSE_LOG_TOOK",
     "threadId": "pepito.slot.AM",
     "timeSensitive": true,
     "payload": {
@@ -25,6 +25,11 @@
         }
       ],
       "pushable": [],
+      "took": {
+        "refId": "an-dex",
+        "amount": 10,
+        "unit": "mg"
+      },
       "nudge": true
     },
     "id": "pepito.sched.nudge.2026-10-20.AM",
@@ -84,48 +89,7 @@
   },
   {
     "title": "AM doses",
-    "category": "DOSE_LOG",
-    "threadId": "pepito.slot.AM",
-    "timeSensitive": true,
-    "payload": {
-      "kind": "dose",
-      "date": "2026-10-21",
-      "slot": "AM",
-      "groups": [
-        {
-          "id": "2026-10-21:AM:group:0",
-          "refIds": [
-            "bpc157",
-            "tb500"
-          ]
-        }
-      ],
-      "items": [
-        {
-          "refId": "semax",
-          "kind": "peptide",
-          "canPush": false
-        },
-        {
-          "refId": "epithalon",
-          "kind": "peptide",
-          "canPush": false
-        },
-        {
-          "refId": "fish",
-          "kind": "supplement",
-          "canPush": false
-        }
-      ],
-      "pushable": []
-    },
-    "id": "pepito.sched.dose.2026-10-21.AM",
-    "body": "Draw together: BPC-157 + TB-500, 50 units\nSemax 1 spray\nEpithalon 5 mg, 20 units\nFish oil 2 capsules",
-    "fireLocal": "2026-10-21T07:00"
-  },
-  {
-    "title": "AM doses",
-    "category": "DOSE_LOG",
+    "category": "DOSE_LOG_TOOK",
     "threadId": "pepito.slot.AM",
     "timeSensitive": true,
     "payload": {
@@ -159,6 +123,57 @@
         }
       ],
       "pushable": [],
+      "took": {
+        "refId": "an-dex",
+        "amount": 10,
+        "unit": "mg"
+      }
+    },
+    "id": "pepito.sched.dose.2026-10-21.AM",
+    "body": "Draw together: BPC-157 + TB-500, 50 units\nSemax 1 spray\nEpithalon 5 mg, 20 units\nFish oil 2 capsules",
+    "fireLocal": "2026-10-21T07:00"
+  },
+  {
+    "title": "AM doses",
+    "category": "DOSE_LOG_TOOK",
+    "threadId": "pepito.slot.AM",
+    "timeSensitive": true,
+    "payload": {
+      "kind": "dose",
+      "date": "2026-10-21",
+      "slot": "AM",
+      "groups": [
+        {
+          "id": "2026-10-21:AM:group:0",
+          "refIds": [
+            "bpc157",
+            "tb500"
+          ]
+        }
+      ],
+      "items": [
+        {
+          "refId": "semax",
+          "kind": "peptide",
+          "canPush": false
+        },
+        {
+          "refId": "epithalon",
+          "kind": "peptide",
+          "canPush": false
+        },
+        {
+          "refId": "fish",
+          "kind": "supplement",
+          "canPush": false
+        }
+      ],
+      "pushable": [],
+      "took": {
+        "refId": "an-dex",
+        "amount": 10,
+        "unit": "mg"
+      },
       "nudge": true
     },
     "id": "pepito.sched.nudge.2026-10-21.AM",
@@ -167,48 +182,7 @@
   },
   {
     "title": "AM doses",
-    "category": "DOSE_LOG",
-    "threadId": "pepito.slot.AM",
-    "timeSensitive": true,
-    "payload": {
-      "kind": "dose",
-      "date": "2026-10-22",
-      "slot": "AM",
-      "groups": [
-        {
-          "id": "2026-10-22:AM:group:0",
-          "refIds": [
-            "bpc157",
-            "tb500"
-          ]
-        }
-      ],
-      "items": [
-        {
-          "refId": "semax",
-          "kind": "peptide",
-          "canPush": false
-        },
-        {
-          "refId": "epithalon",
-          "kind": "peptide",
-          "canPush": false
-        },
-        {
-          "refId": "fish",
-          "kind": "supplement",
-          "canPush": false
-        }
-      ],
-      "pushable": []
-    },
-    "id": "pepito.sched.dose.2026-10-22.AM",
-    "body": "Draw together: BPC-157 + TB-500, 50 units\nSemax 1 spray\nEpithalon 5 mg, 20 units\nFish oil 2 capsules",
-    "fireLocal": "2026-10-22T07:00"
-  },
-  {
-    "title": "AM doses",
-    "category": "DOSE_LOG",
+    "category": "DOSE_LOG_TOOK",
     "threadId": "pepito.slot.AM",
     "timeSensitive": true,
     "payload": {
@@ -242,6 +216,57 @@
         }
       ],
       "pushable": [],
+      "took": {
+        "refId": "an-dex",
+        "amount": 10,
+        "unit": "mg"
+      }
+    },
+    "id": "pepito.sched.dose.2026-10-22.AM",
+    "body": "Draw together: BPC-157 + TB-500, 50 units\nSemax 1 spray\nEpithalon 5 mg, 20 units\nFish oil 2 capsules",
+    "fireLocal": "2026-10-22T07:00"
+  },
+  {
+    "title": "AM doses",
+    "category": "DOSE_LOG_TOOK",
+    "threadId": "pepito.slot.AM",
+    "timeSensitive": true,
+    "payload": {
+      "kind": "dose",
+      "date": "2026-10-22",
+      "slot": "AM",
+      "groups": [
+        {
+          "id": "2026-10-22:AM:group:0",
+          "refIds": [
+            "bpc157",
+            "tb500"
+          ]
+        }
+      ],
+      "items": [
+        {
+          "refId": "semax",
+          "kind": "peptide",
+          "canPush": false
+        },
+        {
+          "refId": "epithalon",
+          "kind": "peptide",
+          "canPush": false
+        },
+        {
+          "refId": "fish",
+          "kind": "supplement",
+          "canPush": false
+        }
+      ],
+      "pushable": [],
+      "took": {
+        "refId": "an-dex",
+        "amount": 10,
+        "unit": "mg"
+      },
       "nudge": true
     },
     "id": "pepito.sched.nudge.2026-10-22.AM",
@@ -250,48 +275,7 @@
   },
   {
     "title": "AM doses",
-    "category": "DOSE_LOG",
-    "threadId": "pepito.slot.AM",
-    "timeSensitive": true,
-    "payload": {
-      "kind": "dose",
-      "date": "2026-10-23",
-      "slot": "AM",
-      "groups": [
-        {
-          "id": "2026-10-23:AM:group:0",
-          "refIds": [
-            "bpc157",
-            "tb500"
-          ]
-        }
-      ],
-      "items": [
-        {
-          "refId": "semax",
-          "kind": "peptide",
-          "canPush": false
-        },
-        {
-          "refId": "epithalon",
-          "kind": "peptide",
-          "canPush": false
-        },
-        {
-          "refId": "fish",
-          "kind": "supplement",
-          "canPush": false
-        }
-      ],
-      "pushable": []
-    },
-    "id": "pepito.sched.dose.2026-10-23.AM",
-    "body": "Draw together: BPC-157 + TB-500, 50 units\nSemax 1 spray\nEpithalon 5 mg, 20 units\nFish oil 2 capsules",
-    "fireLocal": "2026-10-23T07:00"
-  },
-  {
-    "title": "AM doses",
-    "category": "DOSE_LOG",
+    "category": "DOSE_LOG_TOOK",
     "threadId": "pepito.slot.AM",
     "timeSensitive": true,
     "payload": {
@@ -325,6 +309,57 @@
         }
       ],
       "pushable": [],
+      "took": {
+        "refId": "an-dex",
+        "amount": 10,
+        "unit": "mg"
+      }
+    },
+    "id": "pepito.sched.dose.2026-10-23.AM",
+    "body": "Draw together: BPC-157 + TB-500, 50 units\nSemax 1 spray\nEpithalon 5 mg, 20 units\nFish oil 2 capsules",
+    "fireLocal": "2026-10-23T07:00"
+  },
+  {
+    "title": "AM doses",
+    "category": "DOSE_LOG_TOOK",
+    "threadId": "pepito.slot.AM",
+    "timeSensitive": true,
+    "payload": {
+      "kind": "dose",
+      "date": "2026-10-23",
+      "slot": "AM",
+      "groups": [
+        {
+          "id": "2026-10-23:AM:group:0",
+          "refIds": [
+            "bpc157",
+            "tb500"
+          ]
+        }
+      ],
+      "items": [
+        {
+          "refId": "semax",
+          "kind": "peptide",
+          "canPush": false
+        },
+        {
+          "refId": "epithalon",
+          "kind": "peptide",
+          "canPush": false
+        },
+        {
+          "refId": "fish",
+          "kind": "supplement",
+          "canPush": false
+        }
+      ],
+      "pushable": [],
+      "took": {
+        "refId": "an-dex",
+        "amount": 10,
+        "unit": "mg"
+      },
       "nudge": true
     },
     "id": "pepito.sched.nudge.2026-10-23.AM",
@@ -333,48 +368,7 @@
   },
   {
     "title": "AM doses",
-    "category": "DOSE_LOG",
-    "threadId": "pepito.slot.AM",
-    "timeSensitive": true,
-    "payload": {
-      "kind": "dose",
-      "date": "2026-10-24",
-      "slot": "AM",
-      "groups": [
-        {
-          "id": "2026-10-24:AM:group:0",
-          "refIds": [
-            "bpc157",
-            "tb500"
-          ]
-        }
-      ],
-      "items": [
-        {
-          "refId": "semax",
-          "kind": "peptide",
-          "canPush": false
-        },
-        {
-          "refId": "epithalon",
-          "kind": "peptide",
-          "canPush": false
-        },
-        {
-          "refId": "fish",
-          "kind": "supplement",
-          "canPush": false
-        }
-      ],
-      "pushable": []
-    },
-    "id": "pepito.sched.dose.2026-10-24.AM",
-    "body": "Draw together: BPC-157 + TB-500, 50 units\nSemax 1 spray\nEpithalon 5 mg, 20 units\nFish oil 2 capsules",
-    "fireLocal": "2026-10-24T07:00"
-  },
-  {
-    "title": "AM doses",
-    "category": "DOSE_LOG",
+    "category": "DOSE_LOG_TOOK",
     "threadId": "pepito.slot.AM",
     "timeSensitive": true,
     "payload": {
@@ -408,6 +402,57 @@
         }
       ],
       "pushable": [],
+      "took": {
+        "refId": "an-dex",
+        "amount": 10,
+        "unit": "mg"
+      }
+    },
+    "id": "pepito.sched.dose.2026-10-24.AM",
+    "body": "Draw together: BPC-157 + TB-500, 50 units\nSemax 1 spray\nEpithalon 5 mg, 20 units\nFish oil 2 capsules",
+    "fireLocal": "2026-10-24T07:00"
+  },
+  {
+    "title": "AM doses",
+    "category": "DOSE_LOG_TOOK",
+    "threadId": "pepito.slot.AM",
+    "timeSensitive": true,
+    "payload": {
+      "kind": "dose",
+      "date": "2026-10-24",
+      "slot": "AM",
+      "groups": [
+        {
+          "id": "2026-10-24:AM:group:0",
+          "refIds": [
+            "bpc157",
+            "tb500"
+          ]
+        }
+      ],
+      "items": [
+        {
+          "refId": "semax",
+          "kind": "peptide",
+          "canPush": false
+        },
+        {
+          "refId": "epithalon",
+          "kind": "peptide",
+          "canPush": false
+        },
+        {
+          "refId": "fish",
+          "kind": "supplement",
+          "canPush": false
+        }
+      ],
+      "pushable": [],
+      "took": {
+        "refId": "an-dex",
+        "amount": 10,
+        "unit": "mg"
+      },
       "nudge": true
     },
     "id": "pepito.sched.nudge.2026-10-24.AM",
@@ -416,48 +461,7 @@
   },
   {
     "title": "AM doses",
-    "category": "DOSE_LOG",
-    "threadId": "pepito.slot.AM",
-    "timeSensitive": true,
-    "payload": {
-      "kind": "dose",
-      "date": "2026-10-25",
-      "slot": "AM",
-      "groups": [
-        {
-          "id": "2026-10-25:AM:group:0",
-          "refIds": [
-            "bpc157",
-            "tb500"
-          ]
-        }
-      ],
-      "items": [
-        {
-          "refId": "semax",
-          "kind": "peptide",
-          "canPush": false
-        },
-        {
-          "refId": "epithalon",
-          "kind": "peptide",
-          "canPush": false
-        },
-        {
-          "refId": "fish",
-          "kind": "supplement",
-          "canPush": false
-        }
-      ],
-      "pushable": []
-    },
-    "id": "pepito.sched.dose.2026-10-25.AM",
-    "body": "Draw together: BPC-157 + TB-500, 50 units\nSemax 1 spray\nEpithalon 5 mg, 20 units\nFish oil 2 capsules",
-    "fireLocal": "2026-10-25T07:00"
-  },
-  {
-    "title": "AM doses",
-    "category": "DOSE_LOG",
+    "category": "DOSE_LOG_TOOK",
     "threadId": "pepito.slot.AM",
     "timeSensitive": true,
     "payload": {
@@ -491,6 +495,57 @@
         }
       ],
       "pushable": [],
+      "took": {
+        "refId": "an-dex",
+        "amount": 10,
+        "unit": "mg"
+      }
+    },
+    "id": "pepito.sched.dose.2026-10-25.AM",
+    "body": "Draw together: BPC-157 + TB-500, 50 units\nSemax 1 spray\nEpithalon 5 mg, 20 units\nFish oil 2 capsules",
+    "fireLocal": "2026-10-25T07:00"
+  },
+  {
+    "title": "AM doses",
+    "category": "DOSE_LOG_TOOK",
+    "threadId": "pepito.slot.AM",
+    "timeSensitive": true,
+    "payload": {
+      "kind": "dose",
+      "date": "2026-10-25",
+      "slot": "AM",
+      "groups": [
+        {
+          "id": "2026-10-25:AM:group:0",
+          "refIds": [
+            "bpc157",
+            "tb500"
+          ]
+        }
+      ],
+      "items": [
+        {
+          "refId": "semax",
+          "kind": "peptide",
+          "canPush": false
+        },
+        {
+          "refId": "epithalon",
+          "kind": "peptide",
+          "canPush": false
+        },
+        {
+          "refId": "fish",
+          "kind": "supplement",
+          "canPush": false
+        }
+      ],
+      "pushable": [],
+      "took": {
+        "refId": "an-dex",
+        "amount": 10,
+        "unit": "mg"
+      },
       "nudge": true
     },
     "id": "pepito.sched.nudge.2026-10-25.AM",
@@ -499,48 +554,7 @@
   },
   {
     "title": "AM doses",
-    "category": "DOSE_LOG",
-    "threadId": "pepito.slot.AM",
-    "timeSensitive": true,
-    "payload": {
-      "kind": "dose",
-      "date": "2026-10-26",
-      "slot": "AM",
-      "groups": [
-        {
-          "id": "2026-10-26:AM:group:0",
-          "refIds": [
-            "bpc157",
-            "tb500"
-          ]
-        }
-      ],
-      "items": [
-        {
-          "refId": "semax",
-          "kind": "peptide",
-          "canPush": false
-        },
-        {
-          "refId": "epithalon",
-          "kind": "peptide",
-          "canPush": false
-        },
-        {
-          "refId": "fish",
-          "kind": "supplement",
-          "canPush": false
-        }
-      ],
-      "pushable": []
-    },
-    "id": "pepito.sched.dose.2026-10-26.AM",
-    "body": "Draw together: BPC-157 + TB-500, 50 units\nSemax 1 spray\nEpithalon 5 mg, 20 units\nFish oil 2 capsules",
-    "fireLocal": "2026-10-26T07:00"
-  },
-  {
-    "title": "AM doses",
-    "category": "DOSE_LOG",
+    "category": "DOSE_LOG_TOOK",
     "threadId": "pepito.slot.AM",
     "timeSensitive": true,
     "payload": {
@@ -574,6 +588,57 @@
         }
       ],
       "pushable": [],
+      "took": {
+        "refId": "an-dex",
+        "amount": 10,
+        "unit": "mg"
+      }
+    },
+    "id": "pepito.sched.dose.2026-10-26.AM",
+    "body": "Draw together: BPC-157 + TB-500, 50 units\nSemax 1 spray\nEpithalon 5 mg, 20 units\nFish oil 2 capsules",
+    "fireLocal": "2026-10-26T07:00"
+  },
+  {
+    "title": "AM doses",
+    "category": "DOSE_LOG_TOOK",
+    "threadId": "pepito.slot.AM",
+    "timeSensitive": true,
+    "payload": {
+      "kind": "dose",
+      "date": "2026-10-26",
+      "slot": "AM",
+      "groups": [
+        {
+          "id": "2026-10-26:AM:group:0",
+          "refIds": [
+            "bpc157",
+            "tb500"
+          ]
+        }
+      ],
+      "items": [
+        {
+          "refId": "semax",
+          "kind": "peptide",
+          "canPush": false
+        },
+        {
+          "refId": "epithalon",
+          "kind": "peptide",
+          "canPush": false
+        },
+        {
+          "refId": "fish",
+          "kind": "supplement",
+          "canPush": false
+        }
+      ],
+      "pushable": [],
+      "took": {
+        "refId": "an-dex",
+        "amount": 10,
+        "unit": "mg"
+      },
       "nudge": true
     },
     "id": "pepito.sched.nudge.2026-10-26.AM",
@@ -593,5 +658,213 @@
       "route": "protocol"
     },
     "fireLocal": "2026-10-20T19:00"
+  },
+  {
+    "id": "pepito.sched.evening.2026-10-20",
+    "kind": "evening",
+    "date": "2026-10-20",
+    "title": "This evening",
+    "body": "Anything unusual? Nothing unusual answers all as no, or Log drinks, as-needed items and the rest.",
+    "category": "EVENING",
+    "threadId": "pepito.sleep",
+    "timeSensitive": false,
+    "payload": {
+      "kind": "evening",
+      "date": "2026-10-20",
+      "route": "evening"
+    },
+    "fireLocal": "2026-10-20T22:00"
+  },
+  {
+    "id": "pepito.sched.morning.2026-10-21",
+    "kind": "morning",
+    "date": "2026-10-21",
+    "title": "Morning check",
+    "body": "How rested do you feel? 1 is not at all, 5 is fully.",
+    "category": "MORNING",
+    "threadId": "pepito.sleep",
+    "timeSensitive": false,
+    "payload": {
+      "kind": "morning",
+      "date": "2026-10-21",
+      "route": "sleep"
+    },
+    "fireLocal": "2026-10-21T07:30"
+  },
+  {
+    "id": "pepito.sched.evening.2026-10-21",
+    "kind": "evening",
+    "date": "2026-10-21",
+    "title": "This evening",
+    "body": "Anything unusual? Nothing unusual answers all as no, or Log drinks, as-needed items and the rest.",
+    "category": "EVENING",
+    "threadId": "pepito.sleep",
+    "timeSensitive": false,
+    "payload": {
+      "kind": "evening",
+      "date": "2026-10-21",
+      "route": "evening"
+    },
+    "fireLocal": "2026-10-21T22:00"
+  },
+  {
+    "id": "pepito.sched.morning.2026-10-22",
+    "kind": "morning",
+    "date": "2026-10-22",
+    "title": "Morning check",
+    "body": "How rested do you feel? 1 is not at all, 5 is fully.",
+    "category": "MORNING",
+    "threadId": "pepito.sleep",
+    "timeSensitive": false,
+    "payload": {
+      "kind": "morning",
+      "date": "2026-10-22",
+      "route": "sleep"
+    },
+    "fireLocal": "2026-10-22T07:30"
+  },
+  {
+    "id": "pepito.sched.evening.2026-10-22",
+    "kind": "evening",
+    "date": "2026-10-22",
+    "title": "This evening",
+    "body": "Anything unusual? Nothing unusual answers all as no, or Log drinks, as-needed items and the rest.",
+    "category": "EVENING",
+    "threadId": "pepito.sleep",
+    "timeSensitive": false,
+    "payload": {
+      "kind": "evening",
+      "date": "2026-10-22",
+      "route": "evening"
+    },
+    "fireLocal": "2026-10-22T22:00"
+  },
+  {
+    "id": "pepito.sched.morning.2026-10-23",
+    "kind": "morning",
+    "date": "2026-10-23",
+    "title": "Morning check",
+    "body": "How rested do you feel? 1 is not at all, 5 is fully.",
+    "category": "MORNING",
+    "threadId": "pepito.sleep",
+    "timeSensitive": false,
+    "payload": {
+      "kind": "morning",
+      "date": "2026-10-23",
+      "route": "sleep"
+    },
+    "fireLocal": "2026-10-23T07:30"
+  },
+  {
+    "id": "pepito.sched.evening.2026-10-23",
+    "kind": "evening",
+    "date": "2026-10-23",
+    "title": "This evening",
+    "body": "Anything unusual? Nothing unusual answers all as no, or Log drinks, as-needed items and the rest.",
+    "category": "EVENING",
+    "threadId": "pepito.sleep",
+    "timeSensitive": false,
+    "payload": {
+      "kind": "evening",
+      "date": "2026-10-23",
+      "route": "evening"
+    },
+    "fireLocal": "2026-10-23T22:00"
+  },
+  {
+    "id": "pepito.sched.morning.2026-10-24",
+    "kind": "morning",
+    "date": "2026-10-24",
+    "title": "Morning check",
+    "body": "How rested do you feel? 1 is not at all, 5 is fully.",
+    "category": "MORNING",
+    "threadId": "pepito.sleep",
+    "timeSensitive": false,
+    "payload": {
+      "kind": "morning",
+      "date": "2026-10-24",
+      "route": "sleep"
+    },
+    "fireLocal": "2026-10-24T07:30"
+  },
+  {
+    "id": "pepito.sched.evening.2026-10-24",
+    "kind": "evening",
+    "date": "2026-10-24",
+    "title": "This evening",
+    "body": "Anything unusual? Nothing unusual answers all as no, or Log drinks, as-needed items and the rest.",
+    "category": "EVENING",
+    "threadId": "pepito.sleep",
+    "timeSensitive": false,
+    "payload": {
+      "kind": "evening",
+      "date": "2026-10-24",
+      "route": "evening"
+    },
+    "fireLocal": "2026-10-24T22:00"
+  },
+  {
+    "id": "pepito.sched.morning.2026-10-25",
+    "kind": "morning",
+    "date": "2026-10-25",
+    "title": "Morning check",
+    "body": "How rested do you feel? 1 is not at all, 5 is fully.",
+    "category": "MORNING",
+    "threadId": "pepito.sleep",
+    "timeSensitive": false,
+    "payload": {
+      "kind": "morning",
+      "date": "2026-10-25",
+      "route": "sleep"
+    },
+    "fireLocal": "2026-10-25T07:30"
+  },
+  {
+    "id": "pepito.sched.evening.2026-10-25",
+    "kind": "evening",
+    "date": "2026-10-25",
+    "title": "This evening",
+    "body": "Anything unusual? Nothing unusual answers all as no, or Log drinks, as-needed items and the rest.",
+    "category": "EVENING",
+    "threadId": "pepito.sleep",
+    "timeSensitive": false,
+    "payload": {
+      "kind": "evening",
+      "date": "2026-10-25",
+      "route": "evening"
+    },
+    "fireLocal": "2026-10-25T22:00"
+  },
+  {
+    "id": "pepito.sched.morning.2026-10-26",
+    "kind": "morning",
+    "date": "2026-10-26",
+    "title": "Morning check",
+    "body": "How rested do you feel? 1 is not at all, 5 is fully.",
+    "category": "MORNING",
+    "threadId": "pepito.sleep",
+    "timeSensitive": false,
+    "payload": {
+      "kind": "morning",
+      "date": "2026-10-26",
+      "route": "sleep"
+    },
+    "fireLocal": "2026-10-26T07:30"
+  },
+  {
+    "id": "pepito.sched.evening.2026-10-26",
+    "kind": "evening",
+    "date": "2026-10-26",
+    "title": "This evening",
+    "body": "Anything unusual? Nothing unusual answers all as no, or Log drinks, as-needed items and the rest.",
+    "category": "EVENING",
+    "threadId": "pepito.sleep",
+    "timeSensitive": false,
+    "payload": {
+      "kind": "evening",
+      "date": "2026-10-26",
+      "route": "evening"
+    },
+    "fireLocal": "2026-10-26T22:00"
   }
 ]

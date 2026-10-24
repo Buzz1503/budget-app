@@ -37,6 +37,16 @@ final class NotificationHandler: NSObject, UNUserNotificationCenterDelegate {
         case NotificationAction.vialYes, NotificationAction.vialStill, NotificationAction.vialNotYet, NotificationAction.orderSnooze:
             // the answer to a stock question: queued, and applied by the web layer once
             if let p = payload { ActionSink.record(NotificationAction.actions(for: button, payload: p)) }
+        case NotificationAction.took, NotificationAction.eveningNothing:
+            if let p = payload { ActionSink.record(NotificationAction.actions(for: button, payload: p)) }
+        case NotificationAction.eveningLog:
+            RouteBox.open("evening")
+        case _ where button.hasPrefix(NotificationAction.restedPrefix) || button.hasPrefix(NotificationAction.dreamsPrefix):
+            // the morning check, one tap each: rested, then dreams as its own notification
+            if let p = payload {
+                ActionSink.record(NotificationAction.actions(for: button, payload: p))
+                if let next = NotificationAction.followUp(for: button, payload: p) { PepitoNotifications.post(followUp: next) }
+            }
         case NotificationAction.openCount:
             RouteBox.open("count")
         case NotificationAction.snooze:

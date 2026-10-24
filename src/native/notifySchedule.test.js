@@ -77,8 +77,35 @@ describe('dose reminders', () => {
 
   it('a paused protocol gets no reminders until the pause ends', () => {
     const s = buildSchedule(state({ pauses: [{ id: 'p', startedOn: '2026-10-19', endsOn: '2026-10-22', reason: 'holiday' }], supplements: [] }), { now: NOW })
-    const dates = new Set(s.map((n) => n.payload.date))
+    const dates = new Set(s.filter((n) => n.payload.kind === 'dose').map((n) => n.payload.date))
     expect([...dates].sort()).toEqual(['2026-10-23', '2026-10-24', '2026-10-25', '2026-10-26'])
+  })
+
+  it('the evening and morning prompts go where dose reminders go, and an answered evening has none', () => {
+    const base = state({ supplements: [], sleepSettings: { lastBedtime: '22:30', lastWake: '07:00' } })
+    const phone = buildSchedule({ ...base, notificationSettings: { ...base.notificationSettings, remindOn: 'iphone' } }, { now: NOW })
+    const evenings = phone.filter((n) => n.category === 'EVENING')
+    expect(evenings.length).toBeGreaterThan(0)
+    expect(phone.some((n) => n.category === 'MORNING')).toBe(true)
+    const first = evenings[0].payload.date
+    const answered = buildSchedule({ ...base, notificationSettings: { ...base.notificationSettings, remindOn: 'iphone' }, eveningDetails: { [first]: { drinks: 0 } } }, { now: NOW })
+    expect(answered.some((n) => n.id === evenings[0].id)).toBe(false)
+    const watch = buildSchedule({ ...base, notificationSettings: { ...base.notificationSettings, remindOn: 'watch' } }, { now: NOW, watchReady: true })
+    expect(watch.some((n) => n.category === 'EVENING' || n.category === 'MORNING')).toBe(false)
+  })
+
+  it('the AM reminder gets Took Dex once Dex has a last amount', () => {
+    const items = [{ id: 'an-dex', name: 'Dexamphetamine', short: 'Dex', slot: 'AM', units: ['mg'], step: 2.5, stimulant: true }]
+    const base = state({ asNeededItems: items, asNeededLogs: [] })
+    const iphone = { ...base.notificationSettings, remindOn: 'iphone' }
+    const none = buildSchedule({ ...base, notificationSettings: iphone }, { now: NOW })
+    expect(none.some((n) => n.category.endsWith('_TOOK'))).toBe(false)
+    const logs = [{ id: 'l', itemId: 'an-dex', name: 'Dexamphetamine', amount: 10, unit: 'mg', at: '2026-10-19T08:00:00.000Z' }]
+    const s = buildSchedule({ ...base, notificationSettings: iphone, asNeededLogs: logs }, { now: NOW })
+    const am = s.find((n) => n.id.includes('.dose.') && n.payload.slot === 'AM')
+    expect(am.category.endsWith('_TOOK')).toBe(true)
+    expect(am.payload.took).toEqual({ refId: 'an-dex', amount: 10, unit: 'mg' })
+    expect(s.filter((n) => n.payload.slot === 'PM').every((n) => !n.category.endsWith('_TOOK'))).toBe(true)
   })
 
   it('a dose skipped for a day is not reminded that day', () => {

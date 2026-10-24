@@ -1,4 +1,5 @@
 import SleepLabSettings from './SleepLabSettings'
+import { SleepSetupSection } from './SleepSetup'
 import { useEffect, useState } from 'react'
 import { HeartPulse, RefreshCw, ChevronUp, ChevronDown, Trash2, Plus } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
@@ -286,6 +287,7 @@ export default function HealthSettings() {
       {connected && (
         <>
           <SleepSource />
+          <SleepSetupSection />
           <SleepLabSettings />
           <Numbers />
           <BaselineCompounds />

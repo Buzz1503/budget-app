@@ -309,10 +309,12 @@ final class WatchReminderTests: XCTestCase {
         s.notifications?.remindOn = "iphone"
         XCTAssertFalse(WatchReminders.watchSchedules(s))
         s.notifications?.nudges = false
-        let doseOnly = WatchReminders.plan(s, now: now).filter { !$0.id.contains(".restart.") }
+        // the sleep prompts have their own switches (More › Health › Sleep)
+        let notDose = { (r: WatchReminders.Reminder) in r.id.contains(".restart.") || r.category == "EVENING" || r.category == "MORNING" }
+        let doseOnly = WatchReminders.plan(s, now: now).filter { !notDose($0) }
         XCTAssertTrue(doseOnly.allSatisfy { $0.id.contains(".dose.") })
         s.notifications?.doses = false
-        XCTAssertTrue(WatchReminders.plan(s, now: now).filter { !$0.id.contains(".restart.") }.isEmpty)
+        XCTAssertTrue(WatchReminders.plan(s, now: now).filter { !notDose($0) }.isEmpty)
     }
 
     func testARestingCompoundIsNotDueAndComesBackOnItsFirstDay() throws {
@@ -639,6 +641,103 @@ final class SleepLabTests: XCTestCase {
         let back = try JSONDecoder().decode(PendingAction.self, from: JSONEncoder().encode(a))
         XCTAssertEqual(back, a)
     }
+
+    // MARK: - M5b prompts
+
+    func testTheEveningAndMorningButtonsAreQueuedActions() throws {
+        let evening = NotificationPayload(kind: "evening", date: "2026-10-20", route: "evening")
+        let nothing = try XCTUnwrap(NotificationAction.actions(for: NotificationAction.eveningNothing, payload: evening).first)
+        XCTAssertEqual(nothing.type, .eveningNothing)
+        XCTAssertEqual(nothing.payload.date, "2026-10-20")
+        XCTAssertTrue(NotificationAction.actions(for: NotificationAction.eveningLog, payload: evening).isEmpty) // opens the sheet instead
+        let morning = NotificationPayload(kind: "morning", date: "2026-10-21", route: "sleep")
+        let rested = try XCTUnwrap(NotificationAction.actions(for: "pepito.rested.4", payload: morning).first)
+        XCTAssertEqual(rested.type, .morningCheck)
+        XCTAssertEqual(rested.payload.rested, 4)
+        XCTAssertTrue(NotificationAction.actions(for: "pepito.rested.9", payload: morning).isEmpty)
+        let dreams = try XCTUnwrap(NotificationAction.actions(for: "pepito.dreams.vivid", payload: morning).first)
+        XCTAssertEqual(dreams.payload.dreams, "vivid")
+        // one tap each: a rested answer asks about dreams next
+        let next = try XCTUnwrap(NotificationAction.followUp(for: "pepito.rested.4", payload: morning))
+        XCTAssertEqual(next.category, "MORNING_DREAMS")
+        XCTAssertEqual(next.payload.date, "2026-10-21")
+        XCTAssertNil(NotificationAction.followUp(for: "pepito.dreams.vivid", payload: morning))
+    }
+
+    func testTookDexLogsTheLastAmountNow() throws {
+        let p = NotificationPayload(kind: "dose", date: "2026-10-20", slot: "AM", took: .init(refId: "an-dex", amount: 10, unit: "mg"))
+        let now = Date(timeIntervalSince1970: 1_792_000_000)
+        let a = try XCTUnwrap(NotificationAction.actions(for: NotificationAction.took, payload: p, now: now).first)
+        XCTAssertEqual(a.type, .logAsNeeded)
+        XCTAssertEqual(a.payload.refId, "an-dex")
+        XCTAssertEqual(a.payload.amount, 10)
+        XCTAssertEqual(a.payload.takenAt, PendingAction.iso(now))
+        let cats = Dictionary(uniqueKeysWithValues: NotificationAction.categories(took: "Dex").map { ($0.0, $0.1.map(\.1)) })
+        XCTAssertEqual(cats["DOSE_LOG_PUSH_TOOK"], ["Log", "Skip", "Remind in 30 min", "Push to tomorrow", "Took Dex"])
+        XCTAssertEqual(cats["EVENING"], ["Nothing unusual", "Log"])
+        XCTAssertEqual(cats["MORNING"], ["1 Not rested", "2", "3", "4", "5 Fully rested"])
+        let watch = Dictionary(uniqueKeysWithValues: NotificationAction.watchCategories(took: "Dex").map { ($0.0, $0.1.map(\.1)) })
+        XCTAssertEqual(watch["DOSE_LOG_TOOK"], ["Log all", "Skip", "Remind in 30 min", "Took Dex"])
+        XCTAssertEqual(watch["MORNING_DREAMS"], ["None remembered", "Normal", "Vivid", "Nightmare"])
+    }
+
+    func testAnsweringTakesThePromptOutOfTheWatchsPlan() throws {
+        var s = try JSONDecoder().decode(Snapshot.self, from: Data(contentsOf: Bundle.module.url(forResource: "snapshot", withExtension: "json", subdirectory: "Fixtures")!))
+        let ids = { (s: Snapshot) in (s.sleep?.prompts ?? []).map(\.id) }
+        XCTAssertTrue(ids(s).contains("pepito.sched.evening.2026-10-20"))
+        s.apply(PendingAction(type: .eveningNothing, source: .watch, payload: .init(date: "2026-10-20")))
+        XCTAssertFalse(ids(s).contains("pepito.sched.evening.2026-10-20"))
+        XCTAssertTrue(ids(s).contains("pepito.sched.evening.2026-10-21"))
+        s.apply(PendingAction(type: .morningCheck, source: .notification, payload: .init(date: "2026-10-21", rested: 3)))
+        XCTAssertFalse(ids(s).contains("pepito.sched.morning.2026-10-21"))
+        // a sedative taken after midnight belongs to the evening before
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = .current
+        let late = try XCTUnwrap(WatchReminders.moment("2026-10-22", "00:40", calendar: cal))
+        s.apply(.asNeeded("an-restavit", amount: 1, unit: "tablets", takenAt: late, source: .watch), now: late, calendar: cal)
+        XCTAssertFalse(ids(s).contains("pepito.sched.evening.2026-10-21"))
+    }
+
+    func testTheBedtimeNudgeIsUnder30PercentAtTheEveningPrompt() {
+        let at = Date(timeIntervalSince1970: 1_792_000_000)
+        let day = DoseBoard.dateString(at)
+        XCTAssertTrue(BedtimeNudge.shouldNudge(battery: 0.24, now: at.addingTimeInterval(600), eveningAt: at, lastNudged: nil))
+        XCTAssertFalse(BedtimeNudge.shouldNudge(battery: 0.3, now: at.addingTimeInterval(600), eveningAt: at, lastNudged: nil))
+        XCTAssertFalse(BedtimeNudge.shouldNudge(battery: 0.24, now: at.addingTimeInterval(-60), eveningAt: at, lastNudged: nil))
+        XCTAssertFalse(BedtimeNudge.shouldNudge(battery: 0.24, now: at.addingTimeInterval(2 * 3600), eveningAt: at, lastNudged: nil))
+        XCTAssertFalse(BedtimeNudge.shouldNudge(battery: 0.24, now: at.addingTimeInterval(600), eveningAt: at, lastNudged: day))
+        XCTAssertEqual(BedtimeNudge.body(battery: 0.24), "Watch battery is at 24%. Charge it before bed so tonight's sleep is recorded.")
+    }
+
+    func testTheEveningSheetSendsTheItemsThenTheAnswer() throws {
+        let s = snap()
+        XCTAssertEqual(EveningSheetModel.sedatives(s).map(\.short), ["Temazepam", "Restavit"])
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = .current
+        let late = try XCTUnwrap(WatchReminders.moment("2026-10-21", "00:30", calendar: cal))
+        let nothing = EveningSheetModel.actions(drinks: 0, factors: [], taken: [], now: late, calendar: cal)
+        XCTAssertEqual(nothing.map(\.type), [.eveningNothing])
+        XCTAssertEqual(nothing[0].payload.date, "2026-10-20")
+        let tem = EveningSheetModel.sedatives(s)[0]
+        let some = EveningSheetModel.actions(drinks: 2, factors: ["stress"], taken: [(tem, 10, "mg")], now: late, calendar: cal)
+        XCTAssertEqual(some.map(\.type), [.logAsNeeded, .eveningLog])
+        XCTAssertEqual(some[1].payload.drinks, 2)
+        XCTAssertEqual(some[1].payload.factors, ["stress"])
+        XCTAssertEqual(WatchRoute.from(url: URL(string: "pepito://evening")!), .evening)
+    }
+
+    func testTheWatchReportsItselfOnlyWhenSomethingChanged() {
+        let now = Date(timeIntervalSince1970: 1_792_000_000)
+        XCTAssertTrue(WatchStatusReport.shouldSend(last: nil, complication: true, battery: 0.8, now: now))
+        let last = WatchStatusReport.Last(complication: true, battery: 0.8, at: now)
+        XCTAssertFalse(WatchStatusReport.shouldSend(last: last, complication: true, battery: 0.75, now: now.addingTimeInterval(3600)))
+        XCTAssertTrue(WatchStatusReport.shouldSend(last: last, complication: false, battery: 0.8, now: now.addingTimeInterval(60)))
+        XCTAssertTrue(WatchStatusReport.shouldSend(last: last, complication: true, battery: 0.65, now: now.addingTimeInterval(60)))
+        XCTAssertTrue(WatchStatusReport.shouldSend(last: last, complication: true, battery: 0.8, now: now.addingTimeInterval(7 * 3600)))
+        let a = WatchStatusReport.action(complication: true, battery: 0.6789, now: now)
+        XCTAssertEqual(a.type, .watchStatus)
+        XCTAssertEqual(a.payload.battery, 0.68)
+    }
 }
 
 final class RestlessnessTests: XCTestCase {
@@ -766,6 +865,20 @@ final class SleepSoundsTests: XCTestCase {
         XCTAssertEqual(SleepSoundsCore.movingMinutes(still), 0)
         let moved = (0..<600).map { (t: Double($0), g: $0 % 60 < 6 ? 0.2 : 0.01) }
         XCTAssertEqual(SleepSoundsCore.movingMinutes(moved), 10)
+    }
+}
+
+final class SleepSoundsWindowTests: XCTestCase {
+    func testTheChargerAutomationOnlyStartsInTheEvening() throws {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "UTC")!
+        let at = { (h: Int) in cal.date(bySettingHour: h, minute: 10, second: 0, of: Date(timeIntervalSince1970: 1_792_000_000))! }
+        XCTAssertTrue(SleepSoundsCore.inEveningWindow(at(20), calendar: cal))
+        XCTAssertTrue(SleepSoundsCore.inEveningWindow(at(23), calendar: cal))
+        XCTAssertTrue(SleepSoundsCore.inEveningWindow(at(3), calendar: cal))
+        XCTAssertFalse(SleepSoundsCore.inEveningWindow(at(4), calendar: cal))
+        XCTAssertFalse(SleepSoundsCore.inEveningWindow(at(14), calendar: cal))
+        XCTAssertFalse(SleepSoundsCore.inEveningWindow(at(19), calendar: cal))
     }
 }
 

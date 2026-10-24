@@ -14,6 +14,24 @@ public extension Snapshot {
         }
     }
 
+    /// Take a prompt out once its evening is logged or its morning answered.
+    mutating func dropPrompt(kind: String, date: String) {
+        sleep?.prompts?.removeAll { $0.payload.kind == kind && $0.payload.date == date }
+    }
+
+    /// The evening a moment belongs to: before noon is the evening before.
+    static func eveningOf(_ d: Date, calendar: Calendar = .current) -> String {
+        let h = calendar.component(.hour, from: d)
+        let day = h < 12 ? calendar.date(byAdding: .day, value: -1, to: d) ?? d : d
+        return DoseBoard.dateString(day, calendar: calendar)
+    }
+
+    static func parseISO(_ s: String) -> Date? {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f.date(from: s) ?? ISO8601DateFormatter().date(from: s)
+    }
+
     /// Apply one action. `now` refreshes the next-dose line.
     mutating func apply(_ action: PendingAction, now: Date = Date(), calendar: Calendar = .current) {
         let p = action.payload
@@ -38,8 +56,17 @@ public extension Snapshot {
             if let id = p.refId, let i = sleep?.asNeeded.firstIndex(where: { $0.id == id }) {
                 sleep?.asNeeded[i].last = p.amount
                 sleep?.asNeeded[i].lastUnit = p.unit
+                // an evening item taken: that evening's prompt is not needed
+                if sleep?.asNeeded[i].slot == "PM" {
+                    let taken = p.takenAt.flatMap(Snapshot.parseISO) ?? now
+                    dropPrompt(kind: "evening", date: Snapshot.eveningOf(taken, calendar: calendar))
+                }
             }
-        case .eveningNothing, .eveningLog, .morningCheck, .restlessness:
+        case .eveningNothing, .eveningLog:
+            dropPrompt(kind: "evening", date: p.date ?? Snapshot.eveningOf(now, calendar: calendar))
+        case .morningCheck:
+            dropPrompt(kind: "morning", date: date)
+        case .restlessness, .watchStatus:
             break
         case .snoozeDose, .vialChange, .snoozeOrder:
             // nothing on screen changes until the phone applies it and writes the snapshot again

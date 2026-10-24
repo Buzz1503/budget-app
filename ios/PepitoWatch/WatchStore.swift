@@ -60,7 +60,11 @@ final class WatchStore: NSObject, ObservableObject {
         let shown = outbox.overlay(incoming)
         saveOutbox()
         try? store.writeSnapshot(shown)
+        // tonight's prompt time is kept for the battery check before a newer snapshot moves it on
+        WatchSelfCheck.remember(snapshot)
         snapshot = shown
+        // "Took Dex" takes its name from the snapshot
+        WatchAppDelegate.registerCategories()
         // complications current straight away, and the Watch's own reminders rebuilt
         WidgetCenter.shared.reloadAllTimelines()
         WatchReminderScheduler.reschedule(shown)

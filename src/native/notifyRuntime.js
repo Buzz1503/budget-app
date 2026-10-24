@@ -8,6 +8,7 @@ import useStore from '../store/useStore'
 import { buildSchedule, doseReminderDevices } from './notifySchedule'
 import { stockNotices, vialChangeNotice } from './stockNotices'
 import { PepitoBridge, onSnapshotWritten, onActionsApplied } from './runtime'
+import { useNativeFeed } from './feed'
 import { loadMatrix, LIB_TO_COMPOUND } from '../lib/mixMatrix'
 
 let matrix = null
@@ -54,7 +55,8 @@ export async function rebuildSchedule() {
   const now = new Date()
   let watchReady
   try { watchReady = !!(await PepitoBridge.watchStatus())?.installed } catch { watchReady = false }
-  const planned = buildSchedule(state, { now, verdictOf: await verdictOf(), watchReady })
+  const feed = useNativeFeed.getState()
+  const planned = buildSchedule(state, { now, verdictOf: await verdictOf(), watchReady, bedtime: feed.plannedBedtime, wake: feed.usualWake })
   // order, fridge-life and count notices go where dose reminders go (Remind me
   // on); the ones that are due at once are added once and left alone
   const onPhone = doseReminderDevices(state.notificationSettings?.remindOn, watchReady).phone

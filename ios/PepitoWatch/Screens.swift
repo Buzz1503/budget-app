@@ -155,6 +155,68 @@ struct AsNeededAmountScreen: View {
     }
 }
 
+// MARK: - Evening
+
+/// The evening sheet, from the evening prompt's Log. Each evening item taps
+/// on at your last amount (or opens the Crown when there is none), drinks
+/// step, the rest toggle, and Save sends it all to the iPhone.
+struct EveningScreen: View {
+    @EnvironmentObject private var store: WatchStore
+    @Environment(\.dismiss) private var dismiss
+    @State private var taken: [String: Double] = [:]
+    @State private var drinks = 0
+    @State private var on: Set<String> = []
+    @State private var amountFor: Snapshot.AsNeeded?
+
+    var body: some View {
+        let sedatives = EveningSheetModel.sedatives(store.snapshot)
+        ScrollView {
+            WatchEveningContent(
+                sedatives: sedatives, taken: taken, drinks: drinks, toggles: EveningSheetModel.toggles(store.snapshot), on: on,
+                onNothing: { finish(EveningSheetModel.actions(drinks: 0, factors: [], taken: [])) },
+                onSedative: { item in
+                    if taken[item.id] != nil { taken[item.id] = nil }
+                    else if let last = item.last, last > 0 { taken[item.id] = last }
+                    else { amountFor = item }
+                },
+                onDrinks: { drinks = $0 },
+                onToggle: { id in if on.contains(id) { on.remove(id) } else { on.insert(id) } },
+                onSave: {
+                    let items = sedatives.compactMap { i in taken[i.id].map { (item: i, amount: $0, unit: AsNeededPicker.unit(i)) } }
+                    finish(EveningSheetModel.actions(drinks: drinks, factors: Array(on).sorted(), taken: items))
+                })
+        }
+        .navigationTitle("This evening")
+        .containerBackground(WatchBG.doses, for: .navigation)
+        .sheet(item: $amountFor) { item in
+            EveningAmountSheet(item: item) { amount in taken[item.id] = amount; amountFor = nil }
+        }
+    }
+
+    private func finish(_ actions: [PendingAction]) {
+        WKInterfaceDevice.current().play(.success)
+        store.send(actions)
+        store.banner = "Saved for tonight."
+        dismiss()
+    }
+}
+
+/// An evening item with no last amount: the Crown sets it.
+struct EveningAmountSheet: View {
+    let item: Snapshot.AsNeeded
+    let onSet: (Double) -> Void
+    @State private var crown: Double = 0
+    @State private var unit = ""
+
+    var body: some View {
+        let amount = AsNeededPicker.snap(crown, step: item.step)
+        WatchAsNeededAmountContent(item: item, amount: amount, unit: unit, onUnit: { unit = $0 }) { onSet(amount) }
+            .focusable()
+            .digitalCrownRotation($crown, from: 0, through: max(item.step * 40, 10), by: item.step, sensitivity: .low, isContinuous: false, isHapticFeedbackEnabled: true)
+            .onAppear { crown = AsNeededPicker.start(item); unit = AsNeededPicker.unit(item) }
+    }
+}
+
 // MARK: - Sauna
 
 struct SaunaScreen: View {

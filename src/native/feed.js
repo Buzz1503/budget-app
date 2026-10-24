@@ -14,5 +14,7 @@ export const useNativeFeed = create((set) => ({
   route: null,
   // the weekly count was asked for by a notification: the Stock screen opens it and clears this
   openCount: false,
+  // the evening prompt's Log: the Sleep tab opens the evening sheet and clears this
+  openEvening: false,
   setHealth: (patch) => set(patch),
 }))

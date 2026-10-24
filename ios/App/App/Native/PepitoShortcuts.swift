@@ -30,6 +30,16 @@ struct PepitoShortcuts: AppShortcutsProvider {
             shortTitle: "Log a dose",
             systemImageName: "syringe")
         AppShortcut(
+            intent: StartSleepSoundsIntent(),
+            phrases: ["Start sleep sounds in \(.applicationName)"],
+            shortTitle: "Start sleep sounds",
+            systemImageName: "waveform")
+        AppShortcut(
+            intent: StopSleepSoundsIntent(),
+            phrases: ["Stop sleep sounds in \(.applicationName)"],
+            shortTitle: "Stop sleep sounds",
+            systemImageName: "waveform.slash")
+        AppShortcut(
             intent: SkipDoseIntent(),
             phrases: ["Skip a dose in \(.applicationName)"],
             shortTitle: "Skip a dose",

@@ -8,7 +8,8 @@ import PepitoCore
 /// Each evening after 6 pm the Watch asks CMSensorRecorder for 12 hours of
 /// accelerometer recording; the system records even while this app is not
 /// running. Started on the first background refresh after 6 pm, again from
-/// any launch, foreground or snapshot that finds none running. After waking,
+/// any launch, foreground or snapshot that finds none running, and by any
+/// Pepito complication refreshing after 6 pm (`RestlessStart`). After waking,
 /// the recording is read for the main sleep (from Health's sleep samples),
 /// summarised here with `Restlessness`, and only the summary and a one-minute
 /// movement series go to the iPhone. Raw accelerometer data never leaves the
@@ -20,7 +21,6 @@ final class RestlessRecorder {
     private let recorder = CMSensorRecorder()
     private let health = HKHealthStore()
     private let defaults = UserDefaults.standard
-    private let lastStartKey = "pepito.restless.lastStart"
     private let lastSentKey = "pepito.restless.lastSentWake"
     private var summarising = false
 
@@ -29,11 +29,7 @@ final class RestlessRecorder {
     /// Start tonight's recording if it is due, and summarise last night if it is morning.
     func tick(now: Date = Date()) {
         guard CMSensorRecorder.isAccelerometerRecordingAvailable() else { return }
-        let last = defaults.object(forKey: lastStartKey) as? Date
-        if RestlessRecording.shouldStart(now: now, lastStart: last, enabled: enabled) {
-            recorder.recordAccelerometer(forDuration: RestlessRecording.durationH * 3600)
-            defaults.set(now, forKey: lastStartKey)
-        }
+        RestlessStart.startIfDue(enabled: enabled, fromExtension: false, now: now)
         let hour = Calendar.current.component(.hour, from: now)
         if enabled, hour >= 5, hour < 15 { Task { await summariseLastNight(now: now) } }
     }

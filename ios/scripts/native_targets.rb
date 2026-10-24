@@ -307,6 +307,7 @@ if Dir.exist?(watch_widgets_dir) && (wa = project.targets.find { |t| t.name == '
     'CFBundleShortVersionString' => '$(MARKETING_VERSION)',
     'CFBundleVersion' => '$(CURRENT_PROJECT_VERSION)',
     'NSExtension' => { 'NSExtensionPointIdentifier' => 'com.apple.widgetkit-extension' },
+    'NSMotionUsageDescription' => 'Pepito+ records wrist movement overnight to show how restless your sleep was. Only a summary goes to your iPhone.',
     'PepitoFeatures' => features_plist
   })
   configure(ww, {

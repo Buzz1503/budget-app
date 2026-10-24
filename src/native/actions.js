@@ -13,7 +13,9 @@
 
 export const ACTION_TYPES = ['logDose', 'logSlot', 'skipDose', 'snoozeDose', 'pushDose', 'startSauna', 'stopSauna', 'saunaCompleted', 'vialChange', 'snoozeOrder',
   // the Sleep Lab: an as-needed item, the evening factors and the morning check
-  'logAsNeeded', 'eveningNothing', 'eveningLog', 'morningCheck', 'restlessness']
+  'logAsNeeded', 'eveningNothing', 'eveningLog', 'morningCheck', 'restlessness',
+  // what the Watch reports about itself: a Pepito complication on the face, its battery
+  'watchStatus']
 /** How many applied action ids are remembered, so a replayed queue changes nothing. */
 export const REMEMBER_IDS = 500
 
@@ -193,6 +195,17 @@ export function applyPendingActions(state, actions = [], { dueOn = null } = {}) 
         if (p.dreams != null) patch.dreams = p.dreams
         if (!Object.keys(patch).length) { set(a, 'invalid'); break }
         ops.push({ op: 'morningCheck', date: d, patch })
+        applied.push(a.id)
+        break
+      }
+      case 'watchStatus': {
+        const battery = Number(p.battery)
+        ops.push({
+          op: 'watchStatus',
+          complication: typeof p.complication === 'boolean' ? p.complication : null,
+          battery: Number.isFinite(battery) && battery >= 0 && battery <= 1 ? battery : null,
+          at: a.at,
+        })
         applied.push(a.id)
         break
       }

@@ -16,6 +16,11 @@
 //   stock    order-by, fridge-life and weekly-count notices, and the question after a
 //            log that left a vial about empty (see stockNotices.js)
 //   sauna    at the session target time
+//   sleep    the evening factors prompt 30 min before planned bedtime and the
+//            morning check 30 min after the usual wake (src/sleep/prompts.ts);
+//            they follow Remind me on like dose reminders (the Watch plans the
+//            same entries from the snapshot). The AM reminder also gets "Took
+//            Dex" (the morning as-needed item with a last amount) when there is one.
 //
 // Logged, skipped and paused items are left out. A slot with nothing left in
 // it has no reminder and no nudge.
@@ -24,6 +29,8 @@ import { dayPlan, slotRows, localDate, DEFAULT_SLOT_TIMES, REMIND_ON } from './s
 import { openReactions, dueForCheck } from '../lib/reactionCourse'
 import { restartsOn, restartWords } from '../lib/due'
 import { displayName } from '../lib/naming'
+import { promptsFor } from '../sleep/prompts'
+import { tookItem } from './sleepSection'
 
 export const SCHEDULE_DAYS = 7
 export const ID_PREFIX = 'pepito.sched.'
@@ -60,10 +67,11 @@ export function rowLine(row) {
 }
 
 /** The category decides which buttons a dose notification gets. */
-export function doseCategory(rows) {
+export function doseCategory(rows, { took = false } = {}) {
   const items = rows.flatMap((r) => r.items)
-  if (items.every((i) => i.kind === 'supplement')) return 'DOSE_TAKE'
-  return items.some((i) => i.canPush) ? 'DOSE_LOG_PUSH' : 'DOSE_LOG'
+  const base = items.every((i) => i.kind === 'supplement') ? 'DOSE_TAKE' : items.some((i) => i.canPush) ? 'DOSE_LOG_PUSH' : 'DOSE_LOG'
+  // the AM reminder with "Took Dex" as well
+  return took ? `${base}_TOOK` : base
 }
 
 /** What a Log, Skip or Push on the banner acts on: each group once, every other item on its own. */
@@ -83,14 +91,16 @@ function payloadFor(rows, date, slot) {
  * @param opts.now Date
  * @param opts.verdictOf matrix lookup for draw-together groups (null leaves groups out)
  * @param opts.watchReady the Watch app is installed (from PepitoBridge.watchStatus)
+ * @param opts.bedtime, opts.wake tonight's planned bedtime and the usual wake ('HH:MM'), from the sleep planner
  * @returns [{ id, title, body, fireAt (ISO), category, threadId, timeSensitive, payload }]
  */
-export function buildSchedule(state, { now = new Date(), verdictOf = null, watchReady = false } = {}) {
+export function buildSchedule(state, { now = new Date(), verdictOf = null, watchReady = false, bedtime = null, wake = null } = {}) {
   const ns = { ...DEFAULT_NOTIFICATION_SETTINGS, ...(state.notificationSettings || {}) }
   const onPhone = doseReminderDevices(ns.remindOn, watchReady).phone
   const today = localDate(now)
   const out = []
   const later = (d) => d.getTime() > now.getTime()
+  const took = tookItem(state)
 
   for (let i = 0; onPhone && i < SCHEDULE_DAYS; i++) {
     const date = addDaysStr(today, i)
@@ -101,12 +111,13 @@ export function buildSchedule(state, { now = new Date(), verdictOf = null, watch
       const time = slot === 'AM' ? ns.amTime : ns.pmTime
       const fire = at(date, time)
       const body = rows.map(rowLine).join('\n')
+      const withTook = slot === 'AM' && !!took
       const base = {
         title: slot === 'AM' ? 'AM doses' : 'PM doses',
-        category: doseCategory(rows),
+        category: doseCategory(rows, { took: withTook }),
         threadId: `pepito.slot.${slot}`,
         timeSensitive: !!ns.timeSensitive,
-        payload: payloadFor(rows, date, slot),
+        payload: withTook ? { ...payloadFor(rows, date, slot), took: { refId: took.id, amount: took.amount, unit: took.unit } } : payloadFor(rows, date, slot),
       }
       if (ns.doses && later(fire)) {
         out.push({ ...base, id: `${ID_PREFIX}dose.${date}.${slot}`, body, fireAt: fire.toISOString() })
@@ -138,6 +149,11 @@ export function buildSchedule(state, { now = new Date(), verdictOf = null, watch
         payload: { kind: 'restart', date: next, route: 'protocol' },
       })
     }
+  }
+
+  // the evening factors and the morning check
+  if (onPhone) {
+    for (const p of promptsFor(state, { today, now, bedtime, wake, localDate })) out.push(p)
   }
 
   // reactions: one reminder a day while one is open, from today's if it is still unchecked

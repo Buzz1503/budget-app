@@ -19,6 +19,8 @@ public struct PendingAction: Codable, Equatable, Identifiable, Sendable {
         case morningCheck
         /// The Watch's overnight movement summary (payload.restless)
         case restlessness
+        /// What the Watch reports about itself (payload.complication, battery 0 to 1)
+        case watchStatus
     }
     public enum Source: String, Codable, Sendable {
         case widget, notification, siri, watch, liveActivity, app
@@ -87,6 +89,8 @@ public struct PendingAction: Codable, Equatable, Identifiable, Sendable {
         public var rested: Int?
         public var dreams: String?
         public var restless: RestlessSummary?
+        public var complication: Bool?
+        public var battery: Double?
 
         public init(date: String? = nil, slot: String? = nil, kind: String? = nil, refId: String? = nil, refIds: [String]? = nil,
                     supplementIds: [String]? = nil, group: Bool? = nil, answer: String? = nil, startedAt: Double? = nil, stoppedAt: Double? = nil,
@@ -95,7 +99,8 @@ public struct PendingAction: Codable, Equatable, Identifiable, Sendable {
                     samples: [[Double]]? = nil, roundSplits: [Double]? = nil, workoutId: String? = nil,
                     exitAt: Double? = nil, coolDown: [[Double]]? = nil,
                     amount: Double? = nil, unit: String? = nil, takenAt: String? = nil, drinks: Int? = nil, factors: [String]? = nil,
-                    rested: Int? = nil, dreams: String? = nil, restless: RestlessSummary? = nil) {
+                    rested: Int? = nil, dreams: String? = nil, restless: RestlessSummary? = nil,
+                    complication: Bool? = nil, battery: Double? = nil) {
             self.date = date; self.slot = slot; self.kind = kind; self.refId = refId; self.refIds = refIds
             self.supplementIds = supplementIds; self.group = group; self.answer = answer; self.startedAt = startedAt; self.stoppedAt = stoppedAt
             self.targetMin = targetMin; self.tempC = tempC; self.rounds = rounds; self.autoEnded = autoEnded
@@ -104,6 +109,7 @@ public struct PendingAction: Codable, Equatable, Identifiable, Sendable {
             self.exitAt = exitAt; self.coolDown = coolDown
             self.amount = amount; self.unit = unit; self.takenAt = takenAt; self.drinks = drinks; self.factors = factors
             self.rested = rested; self.dreams = dreams; self.restless = restless
+            self.complication = complication; self.battery = battery
         }
     }
 }

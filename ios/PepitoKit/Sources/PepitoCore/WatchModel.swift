@@ -6,6 +6,8 @@ import Foundation
 /// runs, when it opens straight to it.
 public enum WatchRoute: String, Hashable, Sendable, CaseIterable {
     case doses, sauna, readiness
+    /// the evening sheet, from the evening prompt's Log
+    case evening
 
     public static func from(url: URL) -> WatchRoute? {
         guard url.scheme == "pepito", let host = url.host else { return nil }

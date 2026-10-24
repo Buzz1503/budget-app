@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { format, parseISO } from 'date-fns'
 import { ChevronLeft, ChevronRight, Info, ArrowDown, ArrowUp, Minus } from 'lucide-react'
 import { motion, useReducedMotion } from 'framer-motion'
@@ -28,6 +28,10 @@ import RestlessnessScreen from './RestlessnessScreen'
 import ApneaScreen from './ApneaScreen'
 import NightmaresScreen from './NightmaresScreen'
 import useSleepLab from './useSleepLab'
+import SleepSetupCard from './SleepSetup'
+import { useNativeFeed } from '../../native/feed'
+import { recordingMissing, soundsMissed, SOUNDS_MISSED_LINE } from '../../sleep/prompts'
+import { soundsStatus } from '../../native/sleepRuntime'
 
 const clock = (ms) => clockOf(clockFromNoon(ms, tz))
 const dayWords = (d, t) => (d === t ? 'Last night' : d === addDays(t, -1) ? 'The night before' : `Night to ${format(parseISO(d), 'EEE d MMM')}`)
@@ -65,6 +69,8 @@ function SleepScreen({ model }) {
   const lab = useSleepLab()
   const restlessOn = useStore((s) => s.sleepSettings.restlessness !== false)
   const nightExtras = useStore((s) => s.nightExtras)
+  const firstRecorded = useMemo(() => Object.keys(nightExtras).filter((d) => nightExtras[d]?.restless).sort()[0] || null, [nightExtras])
+  const soundsNotice = useSoundsNotice(t, nightExtras)
   if (view === 'analysis') return <AnalysisScreen lab={lab} onBack={() => setView(null)} />
   if (view === 'restless') return <RestlessnessScreen lab={lab} onBack={() => setView(null)} />
   if (view === 'apnea') return <ApneaScreen lab={lab} onBack={() => setView(null)} />
@@ -79,7 +85,8 @@ function SleepScreen({ model }) {
 
   return (
     <Stagger className="space-y-6" data-testid="sleep-view">
-      <StaggerItem><MorningCheck /></StaggerItem>
+      <StaggerItem><MorningCheck notice={soundsNotice} /></StaggerItem>
+      <StaggerItem><SleepSetupCard model={model} /></StaggerItem>
       <StaggerItem>
         <Hero model={model} night={night} date={date} t={t} prev={prev} next={next} setDate={setDate} openCalendar={() => setCalendar(true)} />
       </StaggerItem>
@@ -88,7 +95,8 @@ function SleepScreen({ model }) {
         <section className="card p-4">
           <Hypnogram night={night} tz={tz} />
           <NightStrips night={night} overnight={night.overnight} restless={lab.extras.get(date)?.restless}
-            soundSessions={nightExtras[date]?.sounds} restlessOn={restlessOn}
+            soundSessions={nightExtras[date]?.sounds}
+            noRecording={recordingMissing({ enabled: restlessOn, date, firstRecorded, hasSleep: true, hasRecording: !!lab.extras.get(date)?.restless })}
             events={(lab.extras.get(date)?.events || []).map((e) => ({ t: e.t, level: lab.extras.get(date)?.rating === 'Likely' ? 'likely' : 'possible', label: `Heart rate +${e.surge} bpm` }))} />
           <NightFactorsLine feature={lab.featureBy.get(date)} />
         </section>
@@ -120,6 +128,21 @@ function SleepScreen({ model }) {
       </Modal>
     </Stagger>
   )
+}
+
+/** "Sleep sounds didn't run last night": on, not running now, and nothing came in for this morning. */
+function useSoundsNotice(t, nightExtras) {
+  const ss = useStore((s) => s.sleepSettings)
+  const [running, setRunning] = useState(null)
+  useEffect(() => {
+    let live = true
+    if (ss.sleepSounds) soundsStatus().then((r) => { if (live) setRunning(!!r?.running) })
+    return () => { live = false }
+  }, [ss.sleepSounds])
+  const firstNight = useMemo(() => Object.keys(nightExtras).filter((d) => nightExtras[d]?.sounds?.length).sort()[0] || null, [nightExtras])
+  if (running == null) return null
+  const missed = soundsMissed({ enabled: !!ss.sleepSounds, onSince: ss.soundsOnSince || firstNight, today: t, running, recordedTonight: !!nightExtras[t]?.sounds?.length })
+  return missed ? SOUNDS_MISSED_LINE : null
 }
 
 /** "2 drinks, last 9:40 pm · Temazepam 10 mg 9:15 pm · Magnesium 0.4 g" */
@@ -408,6 +431,13 @@ function DebtAndPlan({ model, t }) {
 /** The evening sheet's entry point; the comparisons themselves are in Sleep › Analysis. */
 function Factors() {
   const [open, setOpen] = useState(false)
+  // the evening prompt's Log button
+  const openEvening = useNativeFeed((s) => s.openEvening)
+  useEffect(() => {
+    if (!openEvening) return
+    setOpen(true)
+    useNativeFeed.setState({ openEvening: false })
+  }, [openEvening])
   return (
     <>
       <SectionTitle sub="Drinks, meals and the rest of the evening. All optional.">This evening</SectionTitle>

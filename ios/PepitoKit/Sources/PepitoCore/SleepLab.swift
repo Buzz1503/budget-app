@@ -40,3 +40,70 @@ public extension PendingAction {
                       payload: .init(refId: id, amount: amount, unit: unit, takenAt: PendingAction.iso(takenAt)))
     }
 }
+
+/// The bedtime nudge: the Watch checks its own battery at the evening prompt
+/// and, under 30%, asks for a charge before bed so the night is recorded.
+public enum BedtimeNudge {
+    public static let floor = 0.3
+    /// How long after the evening prompt a background refresh still counts as "at" it.
+    public static let windowMin = 60.0
+
+    public static func shouldNudge(battery: Double?, now: Date, eveningAt: Date?, lastNudged: String?, calendar: Calendar = .current) -> Bool {
+        guard let b = battery, b >= 0, b < floor, let at = eveningAt else { return false }
+        let since = now.timeIntervalSince(at)
+        guard since >= 0, since <= windowMin * 60 else { return false }
+        return lastNudged != DoseBoard.dateString(at, calendar: calendar)
+    }
+
+    public static let title = "Charge your Watch"
+    public static func body(battery: Double) -> String {
+        "Watch battery is at \(Int((battery * 100).rounded()))%. Charge it before bed so tonight's sleep is recorded."
+    }
+}
+
+/// What the Watch tells the iPhone about itself for Sleep setup: a Pepito
+/// complication on the face, and the battery. Sent when either changes, or
+/// every six hours, so the queue does not fill with the same report.
+public enum WatchStatusReport {
+    public struct Last: Codable, Equatable, Sendable {
+        public var complication: Bool
+        public var battery: Double
+        public var at: Date
+        public init(complication: Bool, battery: Double, at: Date) { self.complication = complication; self.battery = battery; self.at = at }
+    }
+
+    public static func shouldSend(last: Last?, complication: Bool, battery: Double, now: Date) -> Bool {
+        guard let l = last else { return true }
+        return l.complication != complication || abs(l.battery - battery) >= 0.1 || now.timeIntervalSince(l.at) >= 6 * 3600
+    }
+
+    public static func action(complication: Bool, battery: Double, now: Date = Date()) -> PendingAction {
+        PendingAction(type: .watchStatus, at: now, source: .watch,
+                      payload: .init(complication: complication, battery: (battery * 100).rounded() / 100))
+    }
+}
+
+/// The Watch's evening sheet, from the evening prompt's Log: the evening
+/// as-needed items first with your last amounts filled in, then drinks, then
+/// the other factors as quick toggles. Nothing is prefilled as taken.
+public enum EveningSheetModel {
+    /// Evening items, the ones with a last amount first.
+    public static func sedatives(_ snap: Snapshot?) -> [Snapshot.AsNeeded] {
+        let pm = (snap?.sleep?.asNeeded ?? []).filter { $0.slot == "PM" }
+        return pm.filter { $0.last != nil } + pm.filter { $0.last == nil }
+    }
+
+    public static func toggles(_ snap: Snapshot?) -> [Snapshot.Toggle] { snap?.sleep?.toggles ?? [] }
+
+    /// What Save sends: each item taken now, then the evening's answer. With
+    /// nothing at all chosen it is "Nothing unusual" (every factor no).
+    public static func actions(drinks: Int, factors: [String], taken: [(item: Snapshot.AsNeeded, amount: Double, unit: String)],
+                               now: Date = Date(), calendar: Calendar = .current) -> [PendingAction] {
+        let date = Snapshot.eveningOf(now, calendar: calendar)
+        let items = taken.filter { $0.amount > 0 }.map { PendingAction.asNeeded($0.item.id, amount: $0.amount, unit: $0.unit, takenAt: now, source: .watch) }
+        if drinks <= 0 && factors.isEmpty && items.isEmpty {
+            return [PendingAction(type: .eveningNothing, at: now, source: .watch, payload: .init(date: date))]
+        }
+        return items + [PendingAction(type: .eveningLog, at: now, source: .watch, payload: .init(date: date, drinks: max(0, drinks), factors: factors))]
+    }
+}

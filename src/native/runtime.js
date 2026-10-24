@@ -40,6 +40,8 @@ export async function writeSnapshotNow() {
     verdictOf: await verdictOf(),
     readiness: feed.readiness,
     maxHR: feed.maxHR,
+    bedtime: feed.plannedBedtime,
+    wake: feed.usualWake,
   })
   try { await PepitoBridge.writeSnapshot({ json: JSON.stringify(snap) }) } catch { /* the next change writes again */ }
   for (const fn of afterWrite) {

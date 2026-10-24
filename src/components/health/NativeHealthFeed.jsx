@@ -45,6 +45,11 @@ export default function NativeHealthFeed() {
         sleepMin: night?.asleepMin ?? null,
       },
     })
+    // remembered, so the prompts are still planned before Health has loaded next launch
+    const ss = useStore.getState().sleepSettings || {}
+    if (plan && (ss.lastBedtime !== plan.bedtime || ss.lastWake !== plan.wake)) {
+      useStore.getState().setSleepSettings({ lastBedtime: plan.bedtime, lastWake: plan.wake })
+    }
   }, [model, t, lastSyncAt, wakeTarget])
   return null
 }

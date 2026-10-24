@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Moon } from 'lucide-react'
-import useStore from '../../store/useStore'
+import useStore, { todayStr } from '../../store/useStore'
 import { useNativeFeed } from '../../native/feed'
+import Modal from '../ui/Modal'
 import { Switch } from './HealthSettings'
 
 const muted = { color: 'var(--text-3)' }
@@ -31,6 +32,8 @@ export default function SleepLabSettings() {
   const wake = useNativeFeed((s) => s.usualWake)
   const [sounds, setSounds] = useState(null)
   const [screen, setScreen] = useState(null)
+  const [guide, setGuide] = useState(false)
+  const autoStarted = useStore((s) => Object.values(s.nightExtras || {}).some((x) => (x?.sounds || []).some((ss) => ss.startedBy === 'shortcut')))
   const isNative = typeof __NATIVE__ !== 'undefined' && __NATIVE__
 
   const refresh = async () => {
@@ -41,7 +44,7 @@ export default function SleepLabSettings() {
     setSounds(so)
     setScreen(sc)
     // automatic answers replace the manual toggles in the evening sheet
-    set({ screenTimeOn: !!(sc.authorized && sc.picked), roomSensor: !!so.roomSensor })
+    set({ screenTimeOn: !!(sc.authorized && sc.picked), screenTimeAvailable: sc.available !== false, roomSensor: !!so.roomSensor })
   }
   useEffect(() => { void refresh() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -66,7 +69,7 @@ export default function SleepLabSettings() {
         <Switch on={ss.restlessness !== false} onChange={(v) => set({ restlessness: v })} testId="sleep-restlessness"
           label="Movement from Apple Watch" hint="Records wrist movement overnight and sends only a summary. Uses a little more Watch battery." />
         <div className="py-2.5" data-testid="sleep-sounds-settings">
-          <Switch on={!!ss.sleepSounds} onChange={(v) => set({ sleepSounds: v })} testId="sleep-sounds"
+          <Switch on={!!ss.sleepSounds} onChange={(v) => set(v ? { sleepSounds: true, soundsOnSince: ss.soundsOnSince || todayStr() } : { sleepSounds: false })} testId="sleep-sounds"
             label="Sleep sounds on iPhone" hint="Snoring, coughing and sleep talking, from Apple's on-device sound recognition. Keeps the time and kind of sound only. No audio is saved." />
           {ss.sleepSounds && (
             <div className="mt-1 space-y-2">
@@ -79,10 +82,18 @@ export default function SleepLabSettings() {
                   </span>
                 </div>
               )}
+              <div className="flex items-center gap-2">
+                <Action onClick={() => setGuide(true)} testid="sleep-sounds-automatic">Make it automatic</Action>
+                <span className="text-xs font-medium" style={muted} data-testid="sleep-sounds-auto-status">{autoStarted ? 'Has started by itself' : 'Not set up yet'}</span>
+              </div>
               {sounds?.roomSensor && <p className="text-xs font-medium" style={muted} data-testid="sleep-room-sensor">A HomeKit temperature sensor is read every 5 minutes while it runs.</p>}
             </div>
           )}
         </div>
+        <Switch on={ss.eveningPrompt !== false} onChange={(v) => set({ eveningPrompt: v })} testId="sleep-evening-prompt"
+          label="Evening prompt" hint="30 minutes before your planned bedtime, unless the evening is already logged. Goes where dose reminders go." />
+        <Switch on={ss.morningPrompt !== false} onChange={(v) => set({ morningPrompt: v })} testId="sleep-morning-prompt"
+          label="Morning check prompt" hint="30 minutes after your usual wake time. Rested and dreams answer from the notification." />
         <div className="py-2.5" data-testid="late-use-settings">
           <p className="text-sm font-semibold">Late phone use</p>
           <p className="t-caption" style={muted}>
@@ -103,6 +114,50 @@ export default function SleepLabSettings() {
           )}
         </div>
       </div>
+      <Modal open={guide} onClose={() => setGuide(false)} title="Make Sleep sounds automatic">
+        <AutomationGuide />
+      </Modal>
+    </div>
+  )
+}
+
+const STEPS = {
+  focus: {
+    label: 'When Sleep Focus turns on',
+    start: ['Open the Shortcuts app, then Automation.', 'Tap New Automation (or +), then Sleep.', 'Choose "Is Turning On" and Run Immediately.', 'Add the action Start sleep sounds (Pepito+), then Done.'],
+    stop: ['New Automation, Sleep, "Is Turning Off", Run Immediately.', 'Add Stop sleep sounds (Pepito+), then Done.'],
+  },
+  power: {
+    label: 'When iPhone connects to power after 8 pm',
+    start: ['Open the Shortcuts app, then Automation.', 'Tap New Automation (or +), then Charger.', 'Choose "Is Connected" and Run Immediately.', 'Add the action Start sleep sounds (Pepito+), then Done.', 'It only starts listening between 8 pm and 4 am.'],
+    stop: ['Unplugging after 4 am stops it by itself, and it always stops after 11 hours.'],
+  },
+}
+
+/** The "Make it automatic" walkthrough: a Personal Automation in Shortcuts set to Run Immediately. */
+function AutomationGuide() {
+  const [pick, setPick] = useState('focus')
+  const s = STEPS[pick]
+  return (
+    <div className="space-y-3" data-testid="sounds-guide">
+      <div className="grid grid-cols-2 gap-2">
+        {Object.entries(STEPS).map(([id, x]) => (
+          <button key={id} type="button" onClick={() => setPick(id)} aria-pressed={pick === id} data-testid={`sounds-guide-${id}`}
+            className="rounded-[14px] px-3 py-2 text-left text-xs font-bold"
+            style={pick === id ? { background: 'var(--text)', color: 'var(--bg)' } : { background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
+            {x.label}
+          </button>
+        ))}
+      </div>
+      <div>
+        <p className="t-caption" style={muted}>To start</p>
+        <ol className="mt-1 list-decimal space-y-1 pl-5 text-sm font-medium" style={soft}>{s.start.map((x) => <li key={x}>{x}</li>)}</ol>
+      </div>
+      <div>
+        <p className="t-caption" style={muted}>To stop</p>
+        <ol className="mt-1 list-decimal space-y-1 pl-5 text-sm font-medium" style={soft}>{s.stop.map((x) => <li key={x}>{x}</li>)}</ol>
+      </div>
+      <p className="text-xs font-medium" style={muted}>Start sleep sounds opens Pepito+ for a moment, then keeps listening with the screen locked. The first automatic start ticks Sleep setup.</p>
     </div>
   )
 }

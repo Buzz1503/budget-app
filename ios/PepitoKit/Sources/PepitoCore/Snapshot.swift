@@ -29,7 +29,41 @@ public struct Snapshot: Codable, Equatable, Sendable {
     public struct Sleep: Codable, Equatable, Sendable {
         public var asNeeded: [AsNeeded]
         public var restlessness: Bool
-        public init(asNeeded: [AsNeeded] = [], restlessness: Bool = true) { self.asNeeded = asNeeded; self.restlessness = restlessness }
+        /// The item behind "Took Dex" on the AM reminder, with the amount it logs. Absent without a last amount.
+        public var took: Took?
+        /// The evening sheet's quick toggles, in order (drinks and the as-needed items are their own rows)
+        public var toggles: [Toggle]?
+        /// The evening and morning prompts still ahead: the iPhone's entries, same ids
+        public var prompts: [Notice]?
+        /// ISO 8601: the next evening prompt's time, when the Watch checks its battery
+        public var nextEvening: String?
+
+        public init(asNeeded: [AsNeeded] = [], restlessness: Bool = true, took: Took? = nil, toggles: [Toggle]? = nil,
+                    prompts: [Notice]? = nil, nextEvening: String? = nil) {
+            self.asNeeded = asNeeded; self.restlessness = restlessness; self.took = took
+            self.toggles = toggles; self.prompts = prompts; self.nextEvening = nextEvening
+        }
+
+        public var nextEveningDate: Date? {
+            guard let s = nextEvening else { return nil }
+            let f = ISO8601DateFormatter()
+            f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            return f.date(from: s) ?? ISO8601DateFormatter().date(from: s)
+        }
+    }
+
+    public struct Took: Codable, Hashable, Sendable {
+        public var id: String
+        public var short: String
+        public var amount: Double
+        public var unit: String
+        public init(id: String, short: String, amount: Double, unit: String) { self.id = id; self.short = short; self.amount = amount; self.unit = unit }
+    }
+
+    public struct Toggle: Codable, Hashable, Sendable, Identifiable {
+        public var id: String
+        public var name: String
+        public init(id: String, name: String) { self.id = id; self.name = name }
     }
 
     /// An as-needed item: never due, logged with an amount and a time.

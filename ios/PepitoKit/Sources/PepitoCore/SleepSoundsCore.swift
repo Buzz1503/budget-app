@@ -108,6 +108,13 @@ public enum SleepSoundsCore {
         return nil
     }
 
+    /// "When iPhone connects to power after 8 pm": the shortcut's evening-only
+    /// option starts it from 8 pm to 4 am and does nothing at other times.
+    public static func inEveningWindow(_ now: Date, calendar: Calendar = .current) -> Bool {
+        let h = calendar.component(.hour, from: now)
+        return h >= 20 || h < 4
+    }
+
     // MARK: the phone moving
 
     /// A minute with the phone moving: device motion above 0.05 g for 5 seconds or more of it.

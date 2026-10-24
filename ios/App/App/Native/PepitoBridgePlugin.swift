@@ -160,6 +160,7 @@ public class PepitoBridgePlugin: CAPPlugin, CAPBridgedPlugin {
             call.reject("No schedule")
             return
         }
+        PepitoNotifications.registerCategories()
         PepitoNotifications.replaceSchedule(planned) { call.resolve(["scheduled": planned.count]) }
     }
 

@@ -218,7 +218,7 @@ function initialState() {
     },
     watchSettings: { countSaunaTowardMove: false, coolDown: true },
     securitySettings: { faceIdLock: false, graceSec: 0 },
-    nativeState: { processedActionIds: [], stockAlerted: [], lastWatchSync: null, ordersSent: {}, orderSnoozed: {}, countCheckOn: null },
+    nativeState: { processedActionIds: [], stockAlerted: [], lastWatchSync: null, ordersSent: {}, orderSnoozed: {}, countCheckOn: null, watch: null },
     // Vials that have been used up. Kept as a record rather than deleted: it is
     // the only trace of how long a vial actually lasted.
     finishedVials: [],
@@ -2637,6 +2637,11 @@ const useStore = create(
             case 'restless':
               get().setRestless(o.date, o.summary)
               break
+            case 'watchStatus': {
+              const prev = get().nativeState.watch || {}
+              get().setNativeState({ watch: { complication: o.complication ?? prev.complication ?? null, battery: o.battery ?? prev.battery ?? null, at: o.at } })
+              break
+            }
             case 'skipDose':
               get().skipDose(o.peptideId, '', o.date)
               break
