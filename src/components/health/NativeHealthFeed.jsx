@@ -1,9 +1,12 @@
 import { useEffect } from 'react'
-import { todayStr } from '../../store/useStore'
+import useStore, { todayStr } from '../../store/useStore'
+import { planBedtime } from '../../health/engine/planner'
+import { nightsEnding } from '../../health/engine/sleep'
+import { addDays } from '../../health/tz'
 import { useHealth } from '../../health/state'
 import { rowFor } from '../../health/engine/model'
 import { useNativeFeed } from '../../native/feed'
-import useHealthModel from './useHealthModel'
+import useHealthModel, { tz } from './useHealthModel'
 
 /**
  * Hands today's readiness, last night's sleep and the max heart rate to the
@@ -13,13 +16,22 @@ export default function NativeHealthFeed() {
   const model = useHealthModel()
   const lastSyncAt = useHealth((s) => s.data.meta?.lastSyncAt || null)
   const t = todayStr()
+  const wakeTarget = useStore((s) => s.healthSettings.wakeTarget)
   useEffect(() => {
     const r = model.readiness(t)
     const night = model.nightBy.get(t)
     const rhr = rowFor(model, 'rhr', t)
     const hrv = rowFor(model, 'hrv', t)
+    // tonight's planned bedtime and the usual wake time: the evening prompt, the
+    // morning check and Screen Time's late phone use all hang off these
+    const plan = model.nightBy.size ? planBedtime({
+      recent: nightsEnding(model.nightBy, t, 14), debtH: model.debtH(t), needH: model.needH,
+      yesterdayLoad: model.loadVsUsual(addDays(t, -1)).label, wakeTarget, tz,
+    }) : null
     useNativeFeed.getState().setHealth({
       maxHR: model.maxHR,
+      plannedBedtime: plan?.bedtime ?? null,
+      usualWake: plan?.wake ?? null,
       readiness: {
         score: r.status === 'ok' ? r.score : null,
         band: r.status === 'ok' ? r.band : null,
@@ -33,6 +45,6 @@ export default function NativeHealthFeed() {
         sleepMin: night?.asleepMin ?? null,
       },
     })
-  }, [model, t, lastSyncAt])
+  }, [model, t, lastSyncAt, wakeTarget])
   return null
 }

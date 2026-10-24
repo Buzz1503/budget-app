@@ -29,7 +29,11 @@
 	<dict>
 		<key>appGroup</key>
 		<true/>
+		<key>homeKit</key>
+		<true/>
 		<key>liveActivities</key>
+		<true/>
+		<key>screenTime</key>
 		<true/>
 		<key>timeSensitive</key>
 		<true/>

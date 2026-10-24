@@ -13,7 +13,7 @@
 
 export const ACTION_TYPES = ['logDose', 'logSlot', 'skipDose', 'snoozeDose', 'pushDose', 'startSauna', 'stopSauna', 'saunaCompleted', 'vialChange', 'snoozeOrder',
   // the Sleep Lab: an as-needed item, the evening factors and the morning check
-  'logAsNeeded', 'eveningNothing', 'eveningLog', 'morningCheck']
+  'logAsNeeded', 'eveningNothing', 'eveningLog', 'morningCheck', 'restlessness']
 /** How many applied action ids are remembered, so a replayed queue changes nothing. */
 export const REMEMBER_IDS = 500
 
@@ -176,6 +176,13 @@ export function applyPendingActions(state, actions = [], { dueOn = null } = {}) 
         const d = p.date || eveningOf(a.at)
         if (!d) { set(a, 'invalid'); break }
         ops.push({ op: 'eveningLog', date: d, drinks: p.drinks ?? null, factors: Array.isArray(p.factors) ? p.factors : [] })
+        applied.push(a.id)
+        break
+      }
+      case 'restlessness': {
+        const r = p.restless
+        if (!r || !p.date || !Array.isArray(r.series)) { set(a, 'invalid'); break }
+        ops.push({ op: 'restless', date: p.date, summary: r })
         applied.push(a.id)
         break
       }

@@ -2,5 +2,7 @@
   "appGroup": true,
   "timeSensitive": true,
   "watchHealthKit": true,
-  "liveActivities": true
+  "liveActivities": true,
+  "homeKit": true,
+  "screenTime": true
 }

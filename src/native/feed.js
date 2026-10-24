@@ -7,6 +7,9 @@ import { create } from 'zustand'
 export const useNativeFeed = create((set) => ({
   readiness: null,
   maxHR: null,
+  // tonight's planned bedtime and the usual wake time ('HH:MM'), from the sleep planner
+  plannedBedtime: null,
+  usualWake: null,
   // a screen a notification tap asked for; App opens it and clears it
   route: null,
   // the weekly count was asked for by a notification: the Stock screen opens it and clears this

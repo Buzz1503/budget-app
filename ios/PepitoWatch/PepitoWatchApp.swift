@@ -70,9 +70,37 @@ struct RootView: View {
 
 final class WatchAppDelegate: NSObject, WKApplicationDelegate, UNUserNotificationCenterDelegate {
     func applicationDidFinishLaunching() {
-        Task { @MainActor in WatchStore.shared.activate() }
+        Task { @MainActor in
+            WatchStore.shared.activate()
+            RestlessRecorder.shared.tick()
+        }
         UNUserNotificationCenter.current().delegate = self
         registerCategories()
+        scheduleRefresh()
+    }
+
+    func applicationDidBecomeActive() {
+        Task { @MainActor in RestlessRecorder.shared.tick() }
+    }
+
+    /// Background refresh: start the evening's movement recording, or summarise the night.
+    func handle(_ backgroundTasks: Set<WKRefreshBackgroundTask>) {
+        for task in backgroundTasks {
+            if let refresh = task as? WKApplicationRefreshBackgroundTask {
+                Task { @MainActor in
+                    RestlessRecorder.shared.tick()
+                    await RestlessRecorder.shared.summariseLastNight()
+                    self.scheduleRefresh()
+                    refresh.setTaskCompletedWithSnapshot(false)
+                }
+            } else {
+                task.setTaskCompletedWithSnapshot(false)
+            }
+        }
+    }
+
+    private func scheduleRefresh() {
+        WKApplication.shared().scheduleBackgroundRefresh(withPreferredDate: RestlessRecording.nextRefresh(after: Date()), userInfo: nil) { _ in }
     }
 
     /// The iPhone started a sauna session and launched this app into its workout.

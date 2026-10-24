@@ -7,8 +7,8 @@ import HealthKit
  * (@capgo/capacitor-health) does not cover, and the one authorization request
  * for everything the app reads.
  *
- * Read only. Nothing here writes to Health, and nothing here makes a network
- * call. A type the device does not support, or one the user declined, comes
+ * Reads, and one write: water you log with a sauna session (dietary water).
+ * Nothing else is written to Health, and nothing here makes a network call. A type the device does not support, or one the user declined, comes
  * back as an empty result, never as an error: HealthKit does not reveal
  * whether read access was refused, so "no data" is the only honest answer.
  */
@@ -21,7 +21,9 @@ public class PepitoHealthPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "requestAuthorization", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getCharacteristics", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "readQuantitySamples", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "dailySum", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "dailySum", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "daytimeAverage", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "writeWater", returnType: CAPPluginReturnPromise)
     ]
 
     private let store = HKHealthStore()
@@ -39,7 +41,7 @@ public class PepitoHealthPlugin: CAPPlugin, CAPBridgedPlugin {
             .oxygenSaturation, .vo2Max, .stepCount, .activeEnergyBurned,
             .bodyMass, .bodyFatPercentage, .leanBodyMass,
             .bloodPressureSystolic, .bloodPressureDiastolic,
-            .dietaryEnergyConsumed, .dietaryProtein, .dietaryWater
+            .dietaryEnergyConsumed, .dietaryProtein, .dietaryWater, .headphoneAudioExposure
         ]
         if #available(iOS 16.0, *) {
             ids.append(.appleSleepingWristTemperature)
@@ -47,6 +49,9 @@ public class PepitoHealthPlugin: CAPPlugin, CAPBridgedPlugin {
         }
         if #available(iOS 17.0, *) {
             ids.append(.timeInDaylight)
+        }
+        if #available(iOS 18.0, *) {
+            ids.append(.appleSleepingBreathingDisturbances)
         }
         var types = Set<HKObjectType>()
         for id in ids {
@@ -72,7 +77,10 @@ public class PepitoHealthPlugin: CAPPlugin, CAPBridgedPlugin {
             call.resolve(["requested": false])
             return
         }
-        store.requestAuthorization(toShare: nil, read: readTypes()) { success, error in
+        // the one type written: water logged with a sauna session
+        var share = Set<HKSampleType>()
+        if let water = HKObjectType.quantityType(forIdentifier: .dietaryWater) { share.insert(water) }
+        store.requestAuthorization(toShare: share, read: readTypes()) { success, error in
             if let error = error {
                 call.reject(error.localizedDescription)
                 return
@@ -129,6 +137,20 @@ public class PepitoHealthPlugin: CAPPlugin, CAPBridgedPlugin {
                     return (type, HKUnit.minute())
                 }
             }
+        case "appleSleepingBreathingDisturbances":
+            if #available(iOS 18.0, *) {
+                if let type = HKObjectType.quantityType(forIdentifier: .appleSleepingBreathingDisturbances) {
+                    return (type, HKUnit.count())
+                }
+            }
+        case "headphoneAudioExposure":
+            if let type = HKObjectType.quantityType(forIdentifier: .headphoneAudioExposure) {
+                return (type, HKUnit.decibelAWeightedSoundPressureLevel())
+            }
+        case "heartRate":
+            if let type = HKObjectType.quantityType(forIdentifier: .heartRate) {
+                return (type, HKUnit.count().unitDivided(by: HKUnit.minute()))
+            }
         default:
             break
         }
@@ -161,6 +183,12 @@ public class PepitoHealthPlugin: CAPPlugin, CAPBridgedPlugin {
                 row["sourceName"] = quantitySample.sourceRevision.source.name
                 row["sourceId"] = quantitySample.sourceRevision.source.bundleIdentifier
                 row["uuid"] = quantitySample.uuid.uuidString
+                // metadata as plain strings (Apple's own call on breathing disturbances, when present)
+                if let meta = quantitySample.metadata, !meta.isEmpty {
+                    var m: [String: String] = [:]
+                    for (k, v) in meta { m[k] = "\(v)" }
+                    row["metadata"] = m
+                }
                 out.append(row)
             }
             call.resolve(["samples": out])
@@ -206,6 +234,61 @@ public class PepitoHealthPlugin: CAPPlugin, CAPBridgedPlugin {
             call.resolve(["samples": out])
         }
         store.execute(query)
+    }
+
+    /// The average of a discrete type between two hours of each local day (heart rate 9 am to 9 pm).
+    @objc func daytimeAverage(_ call: CAPPluginCall) {
+        guard let name = call.getString("type"), let spec = quantitySpec(name) else {
+            call.resolve(["samples": [[String: Any]]()])
+            return
+        }
+        let start = parseDate(call.getString("startDate")) ?? Date(timeIntervalSinceNow: -86400)
+        let end = parseDate(call.getString("endDate")) ?? Date()
+        let fromHour = call.getInt("fromHour") ?? 9
+        let toHour = call.getInt("toHour") ?? 21
+        let calendar = Calendar.current
+        var day = calendar.startOfDay(for: start)
+        var windows: [(Date, Date)] = []
+        while day < end {
+            if let a = calendar.date(bySettingHour: fromHour, minute: 0, second: 0, of: day),
+               let b = calendar.date(bySettingHour: toHour, minute: 0, second: 0, of: day), a < end {
+                windows.append((a, min(b, end)))
+            }
+            guard let next = calendar.date(byAdding: .day, value: 1, to: day) else { break }
+            day = next
+        }
+        let unit = spec.1
+        let group = DispatchGroup()
+        let lock = NSLock()
+        var out: [[String: Any]] = []
+        for (a, b) in windows where b > a {
+            group.enter()
+            let predicate = HKQuery.predicateForSamples(withStart: a, end: b, options: [])
+            let query = HKStatisticsQuery(quantityType: spec.0, quantitySamplePredicate: predicate, options: .discreteAverage) { _, stats, _ in
+                if let avg = stats?.averageQuantity() {
+                    lock.lock()
+                    out.append(["date": PepitoHealthPlugin.dayString(a), "value": avg.doubleValue(for: unit)])
+                    lock.unlock()
+                }
+                group.leave()
+            }
+            store.execute(query)
+        }
+        group.notify(queue: .main) {
+            call.resolve(["samples": out.sorted { ($0["date"] as? String ?? "") < ($1["date"] as? String ?? "") }])
+        }
+    }
+
+    /// Water logged with a sauna session, in millilitres, written as dietary water at its time.
+    @objc func writeWater(_ call: CAPPluginCall) {
+        guard let ml = call.getDouble("ml"), ml > 0, let type = HKObjectType.quantityType(forIdentifier: .dietaryWater) else {
+            call.resolve(["saved": false])
+            return
+        }
+        let at = parseDate(call.getString("date")) ?? Date()
+        let sample = HKQuantitySample(type: type, quantity: HKQuantity(unit: HKUnit.literUnit(with: .milli), doubleValue: ml), start: at, end: at,
+                                      metadata: [HKMetadataKeyExternalUUID: call.getString("id") ?? UUID().uuidString])
+        store.save(sample) { ok, _ in call.resolve(["saved": ok]) }
     }
 
     // MARK: - dates

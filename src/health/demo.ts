@@ -35,6 +35,7 @@ interface DemoData {
   sleep: RawSleep[]
   workouts: RawWorkout[]
   bp: RawBloodPressure[]
+  hrDay: DayValue[]
 }
 
 export function generateDemo({ now, tz, days = DEMO_DAYS, seed = 42 }: { now: number; tz: Tz; days?: number; seed?: number }): DemoData {
@@ -50,8 +51,9 @@ export function generateDemo({ now, tz, days = DEMO_DAYS, seed = 42 }: { now: nu
   const dates = dateRange(addDays(today, -(days - 1)), today)
   const q: DemoData['quantities'] = {
     restingHR: [], heartRate: [], hrv: [], respRate: [], wristTemp: [], spo2: [], vo2max: [],
-    weight: [], bodyFat: [], leanMass: [], hrRecovery: [],
+    weight: [], bodyFat: [], leanMass: [], hrRecovery: [], breathing: [], headphone: [], daylight: [],
   }
+  const hrDay: DayValue[] = []
   const s: DemoData['sums'] = { steps: [], activeEnergy: [], dietEnergy: [], dietProtein: [], dietWater: [], daylight: [] }
   const sleep: RawSleep[] = []
   const workouts: RawWorkout[] = []
@@ -99,7 +101,17 @@ export function generateDemo({ now, tz, days = DEMO_DAYS, seed = 42 }: { now: nu
     q.hrv.push({ value: Math.max(15, hrvBase - 8 + gauss() * 6), start: at(15), end: at(15) + MIN, ...WATCH })
     q.respRate.push({ value: 14.6 + gauss() * 0.5, start: bed + 120 * MIN, end: bed + 121 * MIN, ...WATCH })
     q.wristTemp.push({ value: 35.6 + gauss() * 0.15, start: bed, end: wakeAt, ...WATCH })
-    q.spo2.push({ value: 96 + gauss() * 1.2, start: bed + 200 * MIN, end: bed + 201 * MIN, ...WATCH })
+    // blood oxygen every 40 minutes or so, with the odd dip; breathing disturbances once a night
+    for (let x = bed + 30 * MIN; x < wakeAt; x += (35 + rnd() * 15) * MIN) {
+      const dip = rnd() < 0.05 ? 4 + rnd() * 3 : 0
+      q.spo2.push({ value: Math.round((96 + gauss() * 1.1 - dip) * 10) / 10, start: x, end: x + MIN, ...WATCH })
+    }
+    q.breathing.push({ value: Math.max(0, Math.round((3 + gauss() * 1.5 + (i % 9 === 0 ? 4 : 0)) * 10) / 10), start: bed, end: wakeAt, ...WATCH })
+    // falling asleep to audio on headphones most nights
+    if (rnd() < 0.7) {
+      const until = bed + (20 + rnd() * 50) * MIN
+      for (let x = bed - 10 * MIN; x < until; x += 5 * MIN) q.headphone.push({ value: Math.round(52 + gauss() * 5), start: x, end: Math.min(until, x + 5 * MIN), ...PHONE })
+    }
     // heart rate every 10 minutes while asleep, lowest in the middle of the night
     const hrFloor = 50 + 2 * Math.cos(i / 11) + gauss()
     for (let x = bed; x < wakeAt; x += 10 * MIN) {
@@ -114,7 +126,13 @@ export function generateDemo({ now, tz, days = DEMO_DAYS, seed = 42 }: { now: nu
     const stepCount = Math.round(7500 + gauss() * 2500)
     s.steps.push({ date, value: Math.max(1200, isToday ? stepCount * 0.4 : stepCount) })
     s.activeEnergy.push({ date, value: Math.max(150, 520 + gauss() * 140) })
-    s.daylight.push({ date, value: Math.max(5, 55 + gauss() * 25) })
+    const light = Math.max(5, 55 + gauss() * 25)
+    s.daylight.push({ date, value: light })
+    // daylight in a morning walk to the car and a lunch break
+    const morning = Math.max(0, Math.round(light * (0.2 + rnd() * 0.3)))
+    q.daylight.push({ value: morning, start: at(8), end: at(8) + morning * MIN, ...WATCH })
+    q.daylight.push({ value: Math.round(light - morning), start: at(12.5), end: at(12.5) + (light - morning) * MIN, ...WATCH })
+    hrDay.push({ date, value: Math.round(74 + gauss() * 4) })
     if (rnd() < 0.6) s.dietProtein.push({ date, value: Math.round(150 + gauss() * 30) })
 
     // Withings weigh-ins most mornings, drifting down slowly
@@ -166,7 +184,7 @@ export function generateDemo({ now, tz, days = DEMO_DAYS, seed = 42 }: { now: nu
       }
     }
   })
-  return { quantities: q, sums: s, sleep, workouts, bp }
+  return { quantities: q, sums: s, sleep, workouts, bp, hrDay }
 }
 
 /** A HealthBridge that answers from generated data, like the phone would. */
@@ -186,5 +204,10 @@ export function demoBridge({ now, tz, days = DEMO_DAYS }: { now: number; tz: Tz;
     sleep: async (a, b) => data.sleep.filter((r) => r.end > a && r.start < b),
     workouts: async (a, b) => inRange(data.workouts, a, b),
     bloodPressure: async (a, b) => inRange(data.bp, a, b),
+    daytimeHeartRate: async (a, b) => {
+      const from = tz.dateOf(a)
+      const to = tz.dateOf(b - 1)
+      return data.hrDay.filter((r) => r.date >= from && r.date <= to)
+    },
   }
 }

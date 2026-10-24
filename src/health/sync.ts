@@ -14,6 +14,7 @@ import { readMeta, writeMeta } from './cache'
 import type { Tz } from './tz'
 import { addDays, dateRange } from './tz'
 import type { SourceClass, HealthWorkout } from './types'
+import { buildOvernight, morningLight } from './overnight'
 import { buildNights, buildDaily, buildWorkout, sleepingHeartRate } from './dayLogic'
 
 export const BACKFILL_DAYS = 365
@@ -23,10 +24,12 @@ export const HISTORY_FLOOR = '2009-01-01'
 const HISTORY_PROBE = ['weight', 'bodyFat', 'leanMass', 'restingHR'] as const
 /**
  * What the cached nights and days hold. 2: stage segments and sleeping heart
- * rate. 3: timed weigh-ins on each day. A cache written by an older version is
- * read again in full on the next sync.
+ * rate. 3: timed weigh-ins on each day. 4: the Sleep Lab's overnight detail
+ * (latency, WASO, heart rate and SpO2 through the night, breathing
+ * disturbances, headphone audio) and morning light. A cache written by an
+ * older version is read again in full on the next sync.
  */
-export const NIGHTS_SCHEMA = 3
+export const NIGHTS_SCHEMA = 4
 export const CHUNK_DAYS = 30
 export const LATE_DATA_DAYS = 3
 
@@ -119,13 +122,14 @@ export async function syncHealth({
     const dates = dateRange(d0, d1)
 
     const [sleep, restingHR, hrv, respRate, wristTemp, spo2, vo2max, weight, bodyFat, leanMass, hrRecovery, bloodPressure,
-      steps, activeEnergy, dietEnergy, dietProtein, dietWater, daylight, rawWorkouts] = await Promise.all([
+      steps, activeEnergy, dietEnergy, dietProtein, dietWater, daylight, rawWorkouts,
+      breathing, daylightSamples, hrDaytime, headphone] = await Promise.all([
       bridge.sleep(wide, b),
       bridge.quantity('restingHR', a, b),
       bridge.quantity('hrv', wide, b),
       bridge.quantity('respRate', wide, b),
       bridge.quantity('wristTemp', wide, b),
-      bridge.quantity('spo2', a, b),
+      bridge.quantity('spo2', wide, b),
       bridge.quantity('vo2max', a, b),
       bridge.quantity('weight', a, b),
       bridge.quantity('bodyFat', a, b),
@@ -139,18 +143,33 @@ export async function syncHealth({
       bridge.dailySum('dietWater', a, b),
       bridge.dailySum('daylight', a, b),
       bridge.workouts(a, b),
+      // the Sleep Lab's reads: nothing older than the usual year needs them
+      older ? Promise.resolve([]) : bridge.quantity('breathing', wide, b + 6 * 3600000),
+      older ? Promise.resolve([]) : bridge.quantity('daylight', a, b),
+      older ? Promise.resolve([]) : bridge.daytimeHeartRate(a, b),
+      older ? Promise.resolve([]) : bridge.quantity('headphone', wide - 6 * 3600000, b),
     ])
 
     const nights = buildNights(sleep, { tz, priority, dates })
     // heart rate while asleep: read per main sleep, so a day of samples is never pulled
     // (older than the usual year there is no sleeping heart rate: nothing reads it)
     for (const n of Object.values(nights)) {
-      n.sleepingHR = older ? null : sleepingHeartRate(await bridge.quantity('heartRate', n.start, n.end), n.start, n.end)
+      if (older) { n.sleepingHR = null; n.overnight = null; continue }
+      const hr = await bridge.quantity('heartRate', n.start, n.end)
+      n.sleepingHR = sleepingHeartRate(hr, n.start, n.end)
+      n.overnight = buildOvernight({ night: n, raw: sleep, hr, hrv, spo2, breathing, resp: respRate, headphone })
     }
     const daily = buildDaily({
       restingHR, hrv, respRate, wristTemp, spo2, vo2max, weight, bodyFat, leanMass, hrRecovery, bloodPressure,
       steps, activeEnergy, dietEnergy, dietProtein, dietWater, daylight,
     }, { tz, from: d0, to: d1, nights })
+    // morning light and the daytime heart rate, for days that have a row
+    const dayHr = new Map(hrDaytime.map((r) => [r.date, r.value]))
+    for (const row of daily) {
+      const mine = daylightSamples.filter((x) => tz.dateOf(x.start) === row.date)
+      row.daylightMorningMin = mine.length ? morningLight(mine, tz.startOfDay(row.date)) : null
+      row.hrDaytime = dayHr.has(row.date) ? Math.round(dayHr.get(row.date)!) : null
+    }
 
     // heart rate is read per workout, and only for workouts not already cached
     const cached = new Map<string, HealthWorkout>(

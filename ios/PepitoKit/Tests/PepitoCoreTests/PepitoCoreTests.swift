@@ -640,3 +640,146 @@ final class SleepLabTests: XCTestCase {
         XCTAssertEqual(back, a)
     }
 }
+
+final class RestlessnessTests: XCTestCase {
+    /// A synthetic night at 10 Hz: still lying one way, a burst of movement, then still lying another way.
+    private func night(_ parts: [(minutes: Double, x: Double, y: Double, z: Double, moving: Bool)], start: Double = 1_792_000_000) -> [Restlessness.Second] {
+        var acc = Restlessness.Accumulator()
+        var t = start
+        var seed: UInt64 = 7
+        func noise() -> Double {
+            seed = seed &* 6364136223846793005 &+ 1442695040888963407
+            return Double(seed >> 33) / Double(1 << 31) - 0.5
+        }
+        for p in parts {
+            let end = t + p.minutes * 60
+            while t < end {
+                let jitter = p.moving ? 0.6 : 0.004
+                acc.add(t: t, x: p.x + noise() * jitter, y: p.y + noise() * jitter, z: p.z + noise() * jitter)
+                t += 0.1
+            }
+        }
+        return acc.finish()
+    }
+
+    func testStillWristIsNotMoving() {
+        let s = night([(30, 0, 0, 1, false)])
+        let sum = Restlessness.summary(s, start: 1_792_000_000, end: 1_792_000_000 + 1800)
+        XCTAssertEqual(sum.movementMin, 0)
+        XCTAssertEqual(sum.positionChanges, 0)
+        XCTAssertEqual(sum.restlessPeriods, 0)
+        XCTAssertEqual(sum.series.count, 30)
+    }
+
+    func testRollingOverIsAPositionChangeAndABurstIsRestless() {
+        let s = night([(20, 0, 0, 1, false), (2, 0, 0, 1, true), (20, 1, 0, 0, false), (3, 1, 0, 0, true), (15, 1, 0, 0, false)])
+        let start = 1_792_000_000.0
+        let sum = Restlessness.summary(s, start: start, end: start + 60 * 60)
+        XCTAssertEqual(sum.movementMin, 5, accuracy: 0.3)
+        XCTAssertEqual(sum.positionChanges, 1) // the second burst ends lying the same way
+        XCTAssertEqual(sum.restlessPeriods, 2)
+        XCTAssertEqual(sum.indexPerHour, 3, accuracy: 0.01)
+        XCTAssertEqual(sum.series.count, 60)
+        XCTAssertGreaterThan(sum.series[20], 0.9)
+        XCTAssertEqual(sum.series[10], 0)
+    }
+
+    func testABriefTurnThatDoesNotHoldIsNotAChange() {
+        let s = night([(10, 0, 0, 1, false), (0.5, 1, 0, 0, false), (10, 0, 0, 1, false)])
+        XCTAssertEqual(Restlessness.positionChanges(s, start: 1_792_000_000, end: 1_792_000_000 + 1230), 0)
+    }
+
+    func testTheRecordingStartsEachEveningOnce() {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "UTC")!
+        let evening = cal.date(from: DateComponents(year: 2026, month: 10, day: 23, hour: 19))!
+        XCTAssertTrue(RestlessRecording.shouldStart(now: evening, lastStart: nil, enabled: true, calendar: cal))
+        XCTAssertFalse(RestlessRecording.shouldStart(now: evening, lastStart: evening.addingTimeInterval(-3600), enabled: true, calendar: cal))
+        XCTAssertTrue(RestlessRecording.shouldStart(now: evening, lastStart: evening.addingTimeInterval(-86400), enabled: true, calendar: cal))
+        XCTAssertFalse(RestlessRecording.shouldStart(now: evening.addingTimeInterval(-6 * 3600), lastStart: nil, enabled: true, calendar: cal))
+        XCTAssertFalse(RestlessRecording.shouldStart(now: evening, lastStart: nil, enabled: false, calendar: cal))
+    }
+
+    func testRefreshesAndTheMainSleep() {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "UTC")!
+        let d = { (h: Int, m: Int) in cal.date(from: DateComponents(year: 2026, month: 10, day: 23, hour: h, minute: m))! }
+        XCTAssertEqual(RestlessRecording.nextRefresh(after: d(14, 0), calendar: cal), d(18, 5))
+        XCTAssertEqual(RestlessRecording.nextRefresh(after: d(3, 0), calendar: cal), d(6, 30))
+        XCTAssertEqual(RestlessRecording.nextRefresh(after: d(20, 0), calendar: cal), d(21, 0))
+        XCTAssertEqual(RestlessRecording.nextRefresh(after: d(23, 30), calendar: cal), d(6, 30).addingTimeInterval(86400))
+        let main = RestlessRecording.mainSleep([(d(1, 0), d(3, 0)), (d(3, 20), d(7, 0)), (d(14, 0), d(14, 30))])!
+        XCTAssertEqual(main.start, d(1, 0))
+        XCTAssertEqual(main.end, d(7, 0))
+        XCTAssertNil(RestlessRecording.mainSleep([]))
+        XCTAssertEqual(RestlessRecording.wakeDate(d(7, 0), calendar: cal), "2026-10-23")
+    }
+}
+
+final class SleepSoundsTests: XCTestCase {
+    func testTheSessionNeverInterruptsOrDegradesHeadphoneAudio() {
+        // mixing keeps other apps playing; A2DP keeps AirPods in playback mode; never HFP, never ducking
+        XCTAssertEqual(SleepSoundsCore.category, "playAndRecord")
+        XCTAssertTrue(SleepSoundsCore.options.contains(.mixWithOthers))
+        XCTAssertTrue(SleepSoundsCore.options.contains(.allowBluetoothA2DP))
+        XCTAssertFalse(SleepSoundsCore.options.contains(.allowBluetooth))
+        XCTAssertFalse(SleepSoundsCore.options.contains(.duckOthers))
+        XCTAssertFalse(SleepSoundsCore.options.contains(.defaultToSpeaker))
+    }
+
+    func testTheBuiltInMicIsAlwaysTheInput() {
+        let ports = [(type: "BluetoothHFP", uid: "airpods"), (type: "MicrophoneBuiltIn", uid: "built-in")]
+        XCTAssertEqual(SleepSoundsCore.preferredInput(ports), "built-in")
+        XCTAssertNil(SleepSoundsCore.preferredInput([(type: "BluetoothHFP", uid: "airpods")]))
+        XCTAssertTrue(SleepSoundsCore.needsReassert(currentInputType: "BluetoothHFP"))
+        XCTAssertFalse(SleepSoundsCore.needsReassert(currentInputType: "MicrophoneBuiltIn"))
+    }
+
+    func testWindowsBecomeEventsPerLabel() {
+        let d = { (t: Double, l: String, c: Double) in SleepSoundsCore.Detection(t: t, duration: 1, label: l, confidence: c) }
+        let ev = SleepSoundsCore.events([d(0, "snoring", 0.8), d(1.5, "snoring", 0.9), d(10, "snoring", 0.7), d(5, "cough", 0.95), d(6, "laughter", 0.9), d(20, "snoring", 0.3)])
+        XCTAssertEqual(ev.map(\.label), ["snoring", "cough", "snoring"])
+        XCTAssertEqual(ev[0], .init(s: 0, e: 2500, label: "snoring", c: 0.9))
+        XCTAssertEqual(ev[2].s, 10_000)
+    }
+
+    func testLevelsAndLoudMinutes() {
+        XCTAssertEqual(SleepSoundsCore.dbfs(rms: 0.1), -20, accuracy: 0.001)
+        XCTAssertEqual(SleepSoundsCore.dbfs(rms: 0), -120)
+        let levels = SleepSoundsCore.minuteLevels([(0, -60), (30, -62), (60, -40), (125, -61)])
+        XCTAssertEqual(levels, [[0, -61], [60_000, -40], [120_000, -61]])
+        XCTAssertEqual(SleepSoundsCore.loudMinutes(levels), 1)
+    }
+
+    func testItStopsOnItsOwn() {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "UTC")!
+        let start = cal.date(from: DateComponents(year: 2026, month: 10, day: 23, hour: 22))!
+        XCTAssertNil(SleepSoundsCore.shouldStop(startedAt: start, now: start.addingTimeInterval(4 * 3600), pluggedIn: true, calendar: cal))
+        XCTAssertNil(SleepSoundsCore.shouldStop(startedAt: start, now: start.addingTimeInterval(2 * 3600), pluggedIn: false, calendar: cal)) // midnight, not yet 4 am
+        XCTAssertEqual(SleepSoundsCore.shouldStop(startedAt: start, now: start.addingTimeInterval(7 * 3600), pluggedIn: false, calendar: cal), .unplugged)
+        XCTAssertEqual(SleepSoundsCore.shouldStop(startedAt: start, now: start.addingTimeInterval(11 * 3600), pluggedIn: true, calendar: cal), .tooLong)
+    }
+
+    func testAPhoneThatMovedALot() {
+        let still = (0..<600).map { (t: Double($0), g: 0.01) }
+        XCTAssertEqual(SleepSoundsCore.movingMinutes(still), 0)
+        let moved = (0..<600).map { (t: Double($0), g: $0 % 60 < 6 ? 0.2 : 0.01) }
+        XCTAssertEqual(SleepSoundsCore.movingMinutes(moved), 10)
+    }
+}
+
+final class LateUseTests: XCTestCase {
+    func testThresholdsAreFiledUnderTheEvening() {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "UTC")!
+        let late = cal.date(from: DateComponents(year: 2026, month: 10, day: 24, hour: 0, minute: 40))!
+        XCTAssertEqual(LateUseLog.night(of: late, calendar: cal), "2026-10-23")
+        XCTAssertEqual(LateUseLog.night(of: late.addingTimeInterval(-3 * 3600), calendar: cal), "2026-10-23")
+        XCTAssertEqual(LateUseLog.minutes(event: "m15"), 15)
+        XCTAssertNil(LateUseLog.minutes(event: "x"))
+        var log = LateUseLog.record([:], night: "2026-10-23", minutes: 10)
+        log = LateUseLog.record(log, night: "2026-10-23", minutes: 5)
+        XCTAssertEqual(log["2026-10-23"], 10)
+    }
+}

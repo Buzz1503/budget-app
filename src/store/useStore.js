@@ -183,6 +183,12 @@ function initialState() {
     asNeededLogs: [],                    // { id, itemId, name, amount, unit, at, source }
     eveningDetails: {},                  // { 'YYYY-MM-DD': { drinks, lastDrinkAt, lastMealAt, wokenBy } }
     morningChecks: {},                   // { wakeDate: { rested, dreams, headache, dryMouth, pee, partner, at } }
+    // What the Watch and the iPhone recorded overnight, by wake date. Not
+    // re-derivable from Health, so it lives here and in the backup.
+    //   restless: the Watch's movement summary; sounds: Sleep sounds sessions;
+    //   lateUseMin: Screen Time minutes after bedtime (by the evening's date, see lateUse)
+    nightExtras: {},
+    lateUse: {},                         // { eveningDate: minutes } from the Screen Time monitor
     sleepSettings: {
       restlessness: true,                // the Watch's overnight movement recording
       sleepSounds: false,                // snoring and sound detection on the iPhone
@@ -2482,6 +2488,29 @@ const useStore = create(
       answerMorningCheck(wakeDate, patch = {}) {
         set((s) => ({ morningChecks: { ...s.morningChecks, [wakeDate]: mergeMorningCheck(s.morningChecks[wakeDate], patch, new Date().toISOString()) } }))
       },
+      /** The Watch's restlessness summary for a night (latest wins). */
+      setRestless(wakeDate, summary) {
+        if (!wakeDate || !summary) return
+        set((s) => ({ nightExtras: { ...s.nightExtras, [wakeDate]: { ...(s.nightExtras[wakeDate] || {}), restless: summary } } }))
+      },
+      /** Finished Sleep sounds nights from the iPhone, each kept once by id. */
+      addSoundSessions(sessions = [], nightOf) {
+        if (!sessions.length) return
+        set((s) => {
+          const next = { ...s.nightExtras }
+          for (const ss of sessions) {
+            const d = nightOf(ss)
+            const row = { ...(next[d] || {}) }
+            const list = (row.sounds || []).filter((x) => x.id !== ss.id)
+            row.sounds = [...list, ss].sort((a, b) => a.start - b.start)
+            next[d] = row
+          }
+          return { nightExtras: next }
+        })
+      },
+      setLateUse(nights = {}) {
+        set((s) => ({ lateUse: { ...s.lateUse, ...nights } }))
+      },
       setSleepSettings(patch = {}) {
         set((s) => ({ sleepSettings: { ...s.sleepSettings, ...patch } }))
       },
@@ -2594,6 +2623,9 @@ const useStore = create(
             }
             case 'morningCheck':
               get().answerMorningCheck(o.date, o.patch)
+              break
+            case 'restless':
+              get().setRestless(o.date, o.summary)
               break
             case 'skipDose':
               get().skipDose(o.peptideId, '', o.date)
@@ -3139,6 +3171,8 @@ const useStore = create(
         eveningDetails: persisted?.eveningDetails || current.eveningDetails,
         morningChecks: persisted?.morningChecks || current.morningChecks,
         sleepSettings: { ...current.sleepSettings, ...(persisted?.sleepSettings || {}) },
+        nightExtras: persisted?.nightExtras || current.nightExtras,
+        lateUse: persisted?.lateUse || current.lateUse,
       }),
       onRehydrateStorage: () => (state) => {
         state?.enrichLibraryFromReference?.()

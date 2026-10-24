@@ -12,6 +12,7 @@
 #   PepitoWidgets          com.buzz.pepito.widgets             widgets + sauna Live Activity
 #   PepitoWatch            com.buzz.pepito.watchkitapp         Apple Watch app
 #   PepitoWatchWidgets     com.buzz.pepito.watchkitapp.widgets complications and Smart Stack
+#   PepitoLateUse          com.buzz.pepito.lateuse             Screen Time monitor (late phone use)
 #
 # Features the signing account may not allow are switched in
 # ios/native-features.json: each one off is left out of the entitlements and
@@ -23,7 +24,7 @@ require 'fileutils'
 IOS = File.expand_path('..', __dir__)
 PROJECT_PATH = File.join(IOS, 'App', 'App.xcodeproj')
 SRCROOT = File.join(IOS, 'App')
-FEATURES = { 'appGroup' => true, 'timeSensitive' => true, 'watchHealthKit' => true, 'liveActivities' => true }
+FEATURES = { 'appGroup' => true, 'timeSensitive' => true, 'watchHealthKit' => true, 'liveActivities' => true, 'homeKit' => true, 'screenTime' => true }
   .merge(JSON.parse(File.read(File.join(IOS, 'native-features.json'))))
 APP_GROUP = 'group.com.buzz.pepito'
 IOS_TARGET = '17.0'
@@ -138,7 +139,7 @@ def find_or_create(project, name, type, platform, version)
   target
 end
 
-features_plist = FEATURES.slice('appGroup', 'timeSensitive', 'watchHealthKit', 'liveActivities')
+features_plist = FEATURES.slice('appGroup', 'timeSensitive', 'watchHealthKit', 'liveActivities', 'homeKit', 'screenTime')
 
 # ---------------------------------------------------------------- App
 
@@ -153,6 +154,8 @@ link_product(project, app, 'PepitoTheme')
 app_ent = { 'com.apple.developer.healthkit' => true, 'com.apple.developer.healthkit.access' => [] }
 app_ent['com.apple.security.application-groups'] = [APP_GROUP] if FEATURES['appGroup']
 app_ent['com.apple.developer.usernotifications.time-sensitive'] = true if FEATURES['timeSensitive']
+app_ent['com.apple.developer.homekit'] = true if FEATURES['homeKit']
+app_ent['com.apple.developer.family-controls'] = true if FEATURES['screenTime']
 entitlements(File.join(SRCROOT, 'App', 'App.entitlements'), app_ent)
 
 info_path = File.join(SRCROOT, 'App', 'Info.plist')
@@ -161,7 +164,13 @@ info['PepitoFeatures'] = features_plist
 info['NSSupportsLiveActivities'] = FEATURES['liveActivities']
 info['INAlternativeAppNames'] = [{ 'INAlternativeAppName' => 'Pepito' }]
 info['NSFaceIDUsageDescription'] = 'Pepito+ uses Face ID to unlock the app when the lock is on in More, Settings.'
-info['NSHealthUpdateUsageDescription'] = 'Pepito+ asks so the sauna on your Apple Watch can be started from your iPhone. The iPhone app never writes to Health.'
+info['NSHealthUpdateUsageDescription'] = 'Pepito+ writes one thing to Health: water you log with a sauna session. It also asks so the sauna on your Apple Watch can be started from your iPhone.'
+# Sleep Lab: Sleep sounds listens on the iPhone's microphone through the night (on-device
+# classification, no audio saved), reads whether the phone moved, and a HomeKit sensor
+info['NSMicrophoneUsageDescription'] = 'Sleep sounds listens for snoring, coughing and sleep talking on your iPhone while you sleep. It keeps only the time and the kind of sound. No audio is ever saved.'
+info['NSMotionUsageDescription'] = 'Sleep sounds checks whether your iPhone moved in the night, so snoring readings from a phone in the bed are marked less reliable.'
+info['NSHomeKitUsageDescription'] = 'Sleep sounds reads a bedroom temperature sensor every 5 minutes while it runs, if you have one.' if FEATURES['homeKit']
+info['UIBackgroundModes'] = ((info['UIBackgroundModes'] || []) | ['audio'])
 write_plist(info_path, info)
 
 # ---------------------------------------------------------------- Widgets
@@ -246,7 +255,8 @@ if Dir.exist?(watch_dir)
     'WKCompanionAppBundleIdentifier' => BUNDLE,
     'WKBackgroundModes' => ['workout-processing'],
     'CFBundleURLTypes' => [{ 'CFBundleURLName' => "#{BUNDLE}.watchkitapp", 'CFBundleURLSchemes' => ['pepito'] }],
-    'NSHealthShareUsageDescription' => 'Pepito+ reads your heart rate during a sauna session to show it live and in the summary.',
+    'NSHealthShareUsageDescription' => 'Pepito+ reads your heart rate during a sauna session to show it live and in the summary, and your sleep times to summarise how much you moved in the night.',
+    'NSMotionUsageDescription' => 'Pepito+ records wrist movement overnight to show how restless your sleep was. Only a summary goes to your iPhone.',
     'NSHealthUpdateUsageDescription' => 'Pepito+ saves each sauna session as a workout in Health, with its heart rate.',
     'PepitoFeatures' => features_plist
   })
@@ -319,6 +329,51 @@ if Dir.exist?(watch_widgets_dir) && (wa = project.targets.find { |t| t.name == '
   embed(project, wa, ww, 'Embed Foundation Extensions', :plug_ins)
 end
 
+# ---------------------------------------------------------------- Screen Time monitor
+
+late_dir = File.join(IOS, 'PepitoLateUse')
+if Dir.exist?(late_dir) && FEATURES['screenTime']
+  lu = find_or_create(project, 'PepitoLateUse', :app_extension, :ios, IOS_TARGET)
+  add_sources(project, lu, late_dir)
+  link_product(project, lu, 'PepitoCore')
+  lu_ent = { 'com.apple.developer.family-controls' => true }
+  lu_ent['com.apple.security.application-groups'] = [APP_GROUP] if FEATURES['appGroup']
+  entitlements(File.join(late_dir, 'PepitoLateUse.entitlements'), lu_ent)
+  write_plist(File.join(late_dir, 'Info.plist'), {
+    'CFBundleDevelopmentRegion' => '$(DEVELOPMENT_LANGUAGE)',
+    'CFBundleDisplayName' => 'Pepito+',
+    'CFBundleExecutable' => '$(EXECUTABLE_NAME)',
+    'CFBundleIdentifier' => '$(PRODUCT_BUNDLE_IDENTIFIER)',
+    'CFBundleInfoDictionaryVersion' => '6.0',
+    'CFBundleName' => '$(PRODUCT_NAME)',
+    'CFBundlePackageType' => '$(PRODUCT_BUNDLE_PACKAGE_TYPE)',
+    'CFBundleShortVersionString' => '$(MARKETING_VERSION)',
+    'CFBundleVersion' => '$(CURRENT_PROJECT_VERSION)',
+    'NSExtension' => {
+      'NSExtensionPointIdentifier' => 'com.apple.deviceactivity.monitor-extension',
+      'NSExtensionPrincipalClass' => '$(PRODUCT_MODULE_NAME).LateUseMonitor'
+    },
+    'PepitoFeatures' => features_plist
+  })
+  configure(lu, {
+    'PRODUCT_BUNDLE_IDENTIFIER' => "#{BUNDLE}.lateuse",
+    'PRODUCT_NAME' => '$(TARGET_NAME)',
+    'INFOPLIST_FILE' => rel(File.join(late_dir, 'Info.plist')),
+    'GENERATE_INFOPLIST_FILE' => 'NO',
+    'CODE_SIGN_ENTITLEMENTS' => rel(File.join(late_dir, 'PepitoLateUse.entitlements')),
+    'CODE_SIGN_STYLE' => 'Automatic',
+    'IPHONEOS_DEPLOYMENT_TARGET' => IOS_TARGET,
+    'SWIFT_VERSION' => '5.0',
+    'TARGETED_DEVICE_FAMILY' => '1,2',
+    'SKIP_INSTALL' => 'YES',
+    'MARKETING_VERSION' => '1.0',
+    'CURRENT_PROJECT_VERSION' => BUILD_NUMBER,
+    'LD_RUNPATH_SEARCH_PATHS' => ['$(inherited)', '@executable_path/Frameworks', '@executable_path/../../Frameworks'],
+    'APPLICATION_EXTENSION_API_ONLY' => 'YES'
+  })
+  embed(project, app, lu, 'Embed Foundation Extensions', :plug_ins)
+end
+
 # groups left empty (the per-platform Frameworks groups new_target makes, an empty shared folder)
 def prune_empty(group)
   group.children.select { |c| c.isa == 'PBXGroup' }.each { |c| prune_empty(c) }
@@ -329,7 +384,7 @@ project.main_group.children.select { |c| c.isa == 'PBXGroup' && %w[Frameworks Wa
 project.save
 
 # shared schemes for the new targets, so xcodebuild -scheme finds them on any Mac
-%w[PepitoWidgets PepitoWatch PepitoWatchWidgets].each do |name|
+%w[PepitoWidgets PepitoWatch PepitoWatchWidgets PepitoLateUse].each do |name|
   t = project.targets.find { |x| x.name == name } or next
   path = File.join(Xcodeproj::XCScheme.shared_data_dir(PROJECT_PATH), "#{name}.xcscheme")
   next if File.exist?(path)

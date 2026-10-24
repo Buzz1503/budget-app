@@ -146,10 +146,26 @@ describe('syncing into the cache', () => {
     expect(res2.from).toBe(addDays('2026-10-18', -3))
   })
 
+  it('recent nights carry the Sleep Lab detail; days carry morning light and daytime heart rate', async () => {
+    const bridge = demoBridge({ now: NOW, tz })
+    await syncHealth({ bridge, db, tz, now: NOW })
+    const snap = await loadAll(db)
+    const n = snap.nights.at(-2)!
+    expect(n.overnight).toBeTruthy()
+    expect(n.overnight!.latencyMin).toBeGreaterThanOrEqual(0)
+    expect(n.overnight!.hr.length).toBeGreaterThan(10)
+    expect(n.overnight!.spo2.length).toBeGreaterThan(3)
+    expect(n.overnight!.breathing).not.toBeNull()
+    expect(n.overnight!.inBedStart).toBeLessThanOrEqual(n.start)
+    const d = snap.daily.find((r) => r.date === n.date)!
+    expect(d.daylightMorningMin).not.toBeNull()
+    expect(d.hrDaytime).toBeGreaterThan(50)
+  })
+
   it('a bridge that returns nothing leaves an empty cache, not an error', async () => {
     const empty: HealthBridge = {
       isAvailable: async () => true, requestAuthorization: async () => true, characteristics: async () => ({}),
-      quantity: async () => [], dailySum: async () => [], sleep: async () => [], workouts: async () => [], bloodPressure: async () => [],
+      quantity: async () => [], dailySum: async () => [], sleep: async () => [], workouts: async () => [], bloodPressure: async () => [], daytimeHeartRate: async () => [],
     }
     await syncHealth({ bridge: empty, db, tz, now: NOW })
     const snap = await loadAll(db)

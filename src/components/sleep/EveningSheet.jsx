@@ -22,7 +22,10 @@ export function EveningFactors({ date }) {
   const setHabit = useStore((s) => s.setHabit)
   const setDetail = useStore((s) => s.setEveningDetail)
   const nothing = useStore((s) => s.answerNothingUnusual)
-  const shown = habits.filter((h) => !h.hidden && h.id !== 'alcohol')
+  const auto = useStore((s) => s.sleepSettings)
+  // Screen Time and a bedroom sensor answer these two by themselves when they are set up
+  const shown = habits.filter((h) => !h.hidden && h.id !== 'alcohol'
+    && !(h.id === 'screen-bed' && auto.screenTimeOn) && !(h.id === 'room-hot' && auto.roomSensor && auto.sleepSounds))
   const drinks = detail.drinks ?? null
   const mealDefault = useMemo(() => defaultMealTime(details, date, addDays), [details, date])
   const allNo = eveningAnswered(row, detail) && shown.every((h) => row[h.id] === false) && !drinks

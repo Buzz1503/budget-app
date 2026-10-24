@@ -18,6 +18,8 @@ import type { Tz } from './tz'
 export type QuantityKey =
   | 'restingHR' | 'heartRate' | 'hrv' | 'respRate' | 'wristTemp' | 'spo2' | 'vo2max'
   | 'weight' | 'bodyFat' | 'leanMass' | 'hrRecovery'
+  // Sleep Lab: breathing disturbances, headphone audio exposure, timestamped daylight
+  | 'breathing' | 'headphone' | 'daylight'
 export type SumKey = 'steps' | 'activeEnergy' | 'dietEnergy' | 'dietProtein' | 'dietWater' | 'daylight'
 
 export interface HealthBridge {
@@ -29,6 +31,8 @@ export interface HealthBridge {
   sleep(start: number, end: number): Promise<RawSleep[]>
   workouts(start: number, end: number): Promise<RawWorkout[]>
   bloodPressure(start: number, end: number): Promise<RawBloodPressure[]>
+  /** Average heart rate 9 am to 9 pm, per local day (for the nocturnal dip). */
+  daytimeHeartRate(start: number, end: number): Promise<DayValue[]>
 }
 
 // ------------------------------------------------------------ native bridge
@@ -55,6 +59,9 @@ const CAPGO_SUM: Partial<Record<SumKey, string>> = {
 const OWN_TYPE: Partial<Record<QuantityKey, string>> = {
   leanMass: 'leanBodyMass',
   hrRecovery: 'heartRateRecoveryOneMinute',
+  breathing: 'appleSleepingBreathingDisturbances',
+  headphone: 'headphoneAudioExposure',
+  daylight: 'timeInDaylight',
 }
 const OWN_SUM: Partial<Record<SumKey, string>> = {
   dietProtein: 'dietaryProtein',
@@ -79,6 +86,7 @@ interface CapgoSample {
   sleepState?: string
   systolic?: number
   diastolic?: number
+  metadata?: Record<string, string>
 }
 interface CapgoWorkout {
   workoutType: string
@@ -126,6 +134,7 @@ export function nativeBridge({ capgo, own, tz }: { capgo: AnyPlugin; own: AnyPlu
           const res = await own.readQuantitySamples({ type: OWN_TYPE[type], startDate: iso(start), endDate: iso(end) })
           return ((res?.samples || []) as CapgoSample[]).map((s) => ({
             value: s.value, start: ms(s.startDate), end: ms(s.endDate), sourceName: s.sourceName, sourceId: s.sourceId,
+            ...(s.metadata ? { meta: s.metadata } : {}),
           }))
         }, [] as RawQuantity[])
       }
@@ -186,6 +195,13 @@ export function nativeBridge({ capgo, own, tz }: { capgo: AnyPlugin; own: AnyPlu
           sourceId: w.sourceId,
         }))
       }, [] as RawWorkout[])
+    },
+
+    async daytimeHeartRate(start, end) {
+      return safe(async () => {
+        const res = await own.daytimeAverage({ type: 'heartRate', startDate: iso(start), endDate: iso(end), fromHour: 9, toHour: 21 })
+        return (res?.samples || []) as DayValue[]
+      }, [] as DayValue[])
     },
 
     async bloodPressure(start, end) {

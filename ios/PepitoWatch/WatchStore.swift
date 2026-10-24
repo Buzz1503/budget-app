@@ -65,6 +65,8 @@ final class WatchStore: NSObject, ObservableObject {
         WidgetCenter.shared.reloadAllTimelines()
         WatchReminderScheduler.reschedule(shown)
         refreshSyncState()
+        // a backup start for the evening's movement recording
+        RestlessRecorder.shared.tick()
     }
 
     func refreshSyncState() {

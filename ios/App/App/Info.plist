@@ -36,14 +36,24 @@
 	<key>NSHealthShareUsageDescription</key>
 	<string>Pepito+ reads your sleep, heart, body and workout data to show recovery and trends alongside your protocol. Nothing leaves your phone.</string>
 	<key>NSHealthUpdateUsageDescription</key>
-	<string>Pepito+ asks so the sauna on your Apple Watch can be started from your iPhone. The iPhone app never writes to Health.</string>
+	<string>Pepito+ writes one thing to Health: water you log with a sauna session. It also asks so the sauna on your Apple Watch can be started from your iPhone.</string>
+	<key>NSHomeKitUsageDescription</key>
+	<string>Sleep sounds reads a bedroom temperature sensor every 5 minutes while it runs, if you have one.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Sleep sounds listens for snoring, coughing and sleep talking on your iPhone while you sleep. It keeps only the time and the kind of sound. No audio is ever saved.</string>
+	<key>NSMotionUsageDescription</key>
+	<string>Sleep sounds checks whether your iPhone moved in the night, so snoring readings from a phone in the bed are marked less reliable.</string>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
 	<key>PepitoFeatures</key>
 	<dict>
 		<key>appGroup</key>
 		<true/>
+		<key>homeKit</key>
+		<true/>
 		<key>liveActivities</key>
+		<true/>
+		<key>screenTime</key>
 		<true/>
 		<key>timeSensitive</key>
 		<true/>
@@ -69,6 +79,10 @@
 			</array>
 		</dict>
 	</dict>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>

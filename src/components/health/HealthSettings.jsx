@@ -1,3 +1,4 @@
+import SleepLabSettings from './SleepLabSettings'
 import { useEffect, useState } from 'react'
 import { HeartPulse, RefreshCw, ChevronUp, ChevronDown, Trash2, Plus } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
@@ -83,7 +84,7 @@ function Connect() {
 const SOURCE_LABEL = { watch: 'Apple Watch', withings: 'Withings', phone: 'iPhone', other: 'Other apps' }
 
 /** The same switch as Settings › Site map. */
-function Switch({ on, onChange, label, hint, testId }) {
+export function Switch({ on, onChange, label, hint, testId }) {
   return (
     <div className="flex items-center justify-between gap-3 py-2.5">
       <span className="min-w-0 flex-1">
@@ -285,6 +286,7 @@ export default function HealthSettings() {
       {connected && (
         <>
           <SleepSource />
+          <SleepLabSettings />
           <Numbers />
           <BaselineCompounds />
         </>

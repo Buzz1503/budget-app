@@ -125,3 +125,23 @@ describe('from the Watch and notifications', () => {
     expect(l).toMatchObject({ amount: 0.4, unit: 'g', takenAt: '2026-10-23T10:00:00.000Z' })
   })
 })
+
+describe('overnight data from the Watch and the iPhone', () => {
+  it('the Watch summary lands on its wake date; a bad one is ignored', () => {
+    useStore.setState({ nightExtras: {} })
+    const summary = { start: 1, end: 2, movementMin: 6.5, positionChanges: 3, restlessPeriods: 2, indexPerHour: 0.7, series: [0, 0.2] }
+    useStore.getState().applyNativeActions([
+      { id: 'r1', type: 'restlessness', at: '2026-10-24T08:00:00.000Z', source: 'watch', payload: { date: '2026-10-24', restless: summary } },
+      { id: 'r2', type: 'restlessness', at: '2026-10-24T08:00:00.000Z', source: 'watch', payload: { date: '2026-10-24', restless: { nope: 1 } } },
+    ])
+    expect(useStore.getState().nightExtras['2026-10-24'].restless).toEqual(summary)
+  })
+
+  it('Sleep sounds nights are kept once by id, under the morning they ended', () => {
+    useStore.setState({ nightExtras: {} })
+    const ss = { id: 'ss-1', start: 1000, end: 2000, events: [], levels: [], loudMinutes: 0, movingMinutes: 0, lowConfidence: false, room: [], startedBy: 'automation' }
+    useStore.getState().addSoundSessions([ss, ss], () => '2026-10-24')
+    useStore.getState().addSoundSessions([ss], () => '2026-10-24')
+    expect(useStore.getState().nightExtras['2026-10-24'].sounds).toHaveLength(1)
+  })
+})

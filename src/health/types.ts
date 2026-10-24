@@ -1,3 +1,5 @@
+import type { Overnight } from './overnight'
+
 // Shapes shared by the Health layer: what comes out of Apple Health (raw), and
 // what is kept in the local cache (derived, one row per day / night / workout).
 
@@ -8,6 +10,8 @@ export interface RawQuantity {
   end: number
   sourceName?: string
   sourceId?: string
+  /** a sample's metadata, when the reader passes it on (breathing disturbances) */
+  meta?: Record<string, string>
 }
 
 export type SleepStage = 'inBed' | 'asleep' | 'core' | 'deep' | 'rem' | 'awake'
@@ -74,6 +78,10 @@ export interface HealthDaily {
   dietWater: number | null
   hrRecovery: number | null
   daylightMin: number | null
+  /** daylight minutes before 10 am, from timestamped samples; null without them */
+  daylightMorningMin?: number | null
+  /** average heart rate 9 am to 9 pm, for the nocturnal dip */
+  hrDaytime?: number | null
 }
 
 /** One stretch of a single stage, for the hypnogram. 'asleep' = no stage given. */
@@ -114,6 +122,8 @@ export interface SleepNight extends SleepSession {
   naps: SleepSession[]
   /** Lowest and average heart rate inside the main sleep; null when none was recorded. */
   sleepingHR?: SleepingHR | null
+  /** Latency, WASO, heart rate and SpO2 through the night, breathing, audio (Sleep Lab, schema 4) */
+  overnight?: Overnight | null
 }
 
 export interface HealthWorkout {
