@@ -165,7 +165,7 @@ export default function BloodsTab() {
 
       <p className="px-1 pb-1 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
         {SEED_DISCLAIMER || 'Reference intervals are the lab’s.'} This is a personal tracking tool, not
-        medical advice — it records what was measured and shows how it has moved, and interpreting any of it
+        medical advice, it records what was measured and shows how it has moved, and interpreting any of it
         belongs to a doctor.
       </p>
 
@@ -222,7 +222,7 @@ function Panel({ panel, open, onToggle, ctx, todayStr: t, onOpenMarker }) {
               )}
             </div>
 
-            {/* how often this panel is meant to come round again — the app has
+            {/* how often this panel is meant to come round again, the app has
                 no opinion on the number, it just holds the one you set */}
             <div className="flex items-center gap-2 px-3 py-2.5" style={{ borderTop: '1px solid var(--border)' }}>
               <CalendarClock size={13} className="shrink-0" style={{ color: 'var(--text-3)' }} />

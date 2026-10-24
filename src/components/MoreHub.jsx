@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import {
   Package, Settings, ChevronRight, Activity, History, Wand2, FlaskConical,
-  Combine, Pill, ClipboardList, CalendarPlus, HeartPulse, Upload, Droplet, CalendarDays, MapPin, Zap, Bell, Watch, Lock,
+  Combine, Pill, ClipboardList, CalendarPlus, HeartPulse, Upload, Droplet, CalendarDays, MapPin, Zap, Bell, Watch, Lock, FileText,
 } from 'lucide-react'
 import { HEALTH_BUILD } from '../health/ui'
 import useLowStockDot from '../lib/useLowStock'
@@ -67,6 +67,7 @@ const SECTIONS = [
       ...(HEALTH_BUILD ? [{ id: 'health', label: 'Health', desc: 'Apple Health connection, sleep and training settings', icon: HeartPulse }] : []),
 
       { id: 'scans', label: 'Import scans', desc: 'Evolt, DEXA or InBody results from a file', icon: Upload },
+      { id: 'reports', label: 'Backups and reports', desc: HEALTH_BUILD ? 'Daily backups, PDFs for your doctor, error log' : 'PDFs for your doctor, error log', icon: FileText },
       { id: 'settings', label: 'Settings, backup & export', desc: 'Lead time, currency, backup and reset', icon: Settings },
     ],
   },

@@ -134,7 +134,7 @@ export default function OutcomeEngine() {
         </div>
         {!hasOutcome ? (
           <p className="py-8 text-center text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
-            {`No ${outcome.label.toLowerCase()} entries yet — add measurements to overlay them.`}
+            {`No ${outcome.label.toLowerCase()} entries yet, add measurements to overlay them.`}
           </p>
         ) : (
           <div className="h-56">

@@ -480,7 +480,7 @@ export default function SiteMap({
 
         The pin table guarantees 44 px between sites at 390 px of window. Let a
         card's padding shrink that to 324 and the guarantee quietly becomes
-        37 px — two sites a thumb cannot tell apart. The adjust screen does not
+        37 px, two sites a thumb cannot tell apart. The adjust screen does not
         need this: it has the whole screen and fits the crop to it instead.
       */}
       <div

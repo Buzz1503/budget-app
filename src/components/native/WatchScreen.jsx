@@ -6,9 +6,12 @@ import Switch from './Switch'
 // from the iPhone, a test message, and whether a sauna counts toward the Move
 // ring.
 
+// The plugin is wrapped in an object: returned bare from an async function it
+// would be taken for a promise (Capacitor's proxy answers to .then), and the
+// await would never settle.
 async function bridge() {
-  if (!__NATIVE__) return null
-  try { return (await import('../../native/runtime')).PepitoBridge } catch { return null }
+  if (!__NATIVE__) return { b: null }
+  try { return { b: (await import('../../native/runtime')).PepitoBridge } } catch { return { b: null } }
 }
 
 const when = (iso) => {
@@ -24,14 +27,14 @@ export default function WatchScreen() {
   const [test, setTest] = useState(null)
 
   const refresh = async () => {
-    const b = await bridge()
+    const { b } = await bridge()
     if (!b) { setStatus({ supported: false }); return }
     try { setStatus(await b.watchStatus()) } catch { setStatus({ supported: false }) }
   }
   useEffect(() => { void refresh() }, [])
 
   const sendTest = async () => {
-    const b = await bridge()
+    const { b } = await bridge()
     if (!b) return
     setTest('Sending')
     try {

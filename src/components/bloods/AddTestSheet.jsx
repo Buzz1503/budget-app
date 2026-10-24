@@ -218,7 +218,7 @@ export default function AddTestSheet({ open, onClose, testId = null }) {
 
             {/* markers */}
             <p className="px-1 t-caption" style={{ color: 'var(--text-2)' }}>
-              Fill in what was measured — leave the rest blank
+              Fill in what was measured, leave the rest blank
             </p>
 
             <div className="space-y-3" data-testid="marker-inputs">
@@ -288,7 +288,7 @@ export default function AddTestSheet({ open, onClose, testId = null }) {
             )}
 
             <div className="flex gap-2">
-              {/* every test is deletable, seeded ones included — they are the
+              {/* every test is deletable, seeded ones included, they are the
                   user's own past results, not fixtures the app owns */}
               {existing && (
                 <button onClick={() => setConfirmDelete(true)} data-testid="delete-test"

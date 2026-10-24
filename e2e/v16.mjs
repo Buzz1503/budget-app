@@ -15,7 +15,7 @@ page.on('pageerror', (e) => errors.push('pageerror: ' + e.message))
 
 const step = async (name, fn) => {
   try { await fn(); console.log('PASS', name) }
-  catch (e) { console.log('FAIL', name, '—', e.message.split('\n')[0]); errors.push(`step ${name}: ${e.message}`) }
+  catch (e) { console.log('FAIL', name, '–', e.message.split('\n')[0]); errors.push(`step ${name}: ${e.message}`) }
 }
 const waitText = async (re, timeout = 20000) => {
   const start = Date.now()
@@ -47,7 +47,7 @@ await step('the disclaimer is a one-time sheet, not a row in the home column', a
   if (/not medical advice/.test(await main())) throw new Error('the disclaimer is still in the home column')
 })
 
-await step('"Got it" persists — it never comes back', async () => {
+await step('"Got it" persists, it never comes back', async () => {
   const st = await state()
   if (!st.settings.disclaimerDismissed) throw new Error('the dismissal did not persist to the store')
   await page.reload({ waitUntil: 'networkidle' })
@@ -61,7 +61,7 @@ await step('a tiny ⓘ in the header brings it back on demand', async () => {
   const info = page.locator('button[aria-label="About this app"]')
   if (!(await info.count())) throw new Error('no ⓘ in the header')
   const size = await info.locator('svg').evaluate((el) => el.getBoundingClientRect().width)
-  if (size > 16) throw new Error(`the ⓘ is ${size}px — not tiny`)
+  if (size > 16) throw new Error(`the ⓘ is ${size}px, not tiny`)
   await info.click()
   await page.waitForTimeout(500)
   if (!/not medical advice/.test(await body())) throw new Error('the ⓘ did not reopen it')
@@ -80,7 +80,7 @@ await step('there is no streak UI anywhere on Home', async () => {
 
 await step('the first-run "start your streak" coach line is gone', async () => {
   const st = await state()
-  if (st.doseLogs.length) throw new Error('fixture problem — expected a fresh log history')
+  if (st.doseLogs.length) throw new Error('fixture problem, expected a fresh log history')
   if (/Tap Log to record your first injection/.test(await main())) {
     throw new Error('the streak coach line is still shown')
   }
@@ -124,7 +124,7 @@ await step('standing nudges are one small alert row, not cards', async () => {
   const bell = page.locator('[data-testid="alert-bell"]')
   if (!(await bell.count())) throw new Error('no alert row')
   const w = await bell.evaluate((el) => el.getBoundingClientRect().width)
-  if (w > 60) throw new Error(`the alert control is ${Math.round(w)}px wide — that is a card, not a row`)
+  if (w > 60) throw new Error(`the alert control is ${Math.round(w)}px wide, that is a card, not a row`)
   const txt = await main()
   if (/Back up now|restock soon/.test(txt)) throw new Error('a nudge is still expanded in the column')
   await bell.click()
@@ -161,7 +161,7 @@ await step('the dose list dominates the screen', async () => {
   if (!geo) throw new Error('no dose content found')
   const above = geo.top - geo.mainTop
   // v28: display title + the focal metric card legitimately sit above the list
-  if (above > 320) throw new Error(`${Math.round(above)}px of chrome above the dose content — too much`)
+  if (above > 320) throw new Error(`${Math.round(above)}px of chrome above the dose content, too much`)
   console.log(`  ${Math.round(above)}px of chrome above the dose content`)
 })
 

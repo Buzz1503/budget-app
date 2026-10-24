@@ -48,7 +48,7 @@ const browser = await chromium.launch({ executablePath: EXE })
 let failures = 0
 const step = async (name, fn) => {
   try { await fn(); console.log('PASS', name) }
-  catch (e) { failures++; console.log('FAIL', name, '—', e.message.split('\n')[0]); errors.push(`step ${name}: ${e.message}`) }
+  catch (e) { failures++; console.log('FAIL', name, '–', e.message.split('\n')[0]); errors.push(`step ${name}: ${e.message}`) }
 }
 
 async function open(W, H) {

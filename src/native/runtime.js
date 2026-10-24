@@ -6,7 +6,7 @@
 //
 // Nothing with health values goes to the console or the network: errors are
 // swallowed quietly and the next change tries again.
-import { registerPlugin } from '@capacitor/core'
+import { Capacitor, registerPlugin } from '@capacitor/core'
 import useStore from '../store/useStore'
 import { buildSnapshot } from './snapshot'
 import { loadMatrix, LIB_TO_COMPOUND } from '../lib/mixMatrix'
@@ -14,6 +14,21 @@ import { isDue } from '../lib/due'
 import { useNativeFeed } from './feed'
 
 export const PepitoBridge = registerPlugin('PepitoBridge')
+
+/**
+ * Listen to a native plugin's event, only where the plugin exists. Capacitor's
+ * addListener leaves a rejected promise behind for a missing plugin (in a
+ * browser), which no catch here can reach, so the check comes first.
+ */
+export function listen(plugin, name, event, fn) {
+  try {
+    if (!Capacitor.isPluginAvailable(name)) return Promise.resolve(null)
+    return plugin.addListener(event, fn).catch(() => null)
+  } catch {
+    return Promise.resolve(null)
+  }
+}
+const bridgeOn = (event, fn) => listen(PepitoBridge, 'PepitoBridge', event, fn)
 
 const DEBOUNCE_MS = 400
 let timer = null
@@ -108,9 +123,9 @@ export async function startNativeSync() {
   useNativeFeed.subscribe(() => scheduleSnapshot())
 
   try {
-    await PepitoBridge.addListener('queueChanged', () => { void drainQueue() })
-    await PepitoBridge.addListener('appActive', () => { void drainQueue().then((r) => { if (!r) scheduleSnapshot() }) })
-    await PepitoBridge.addListener('appBackground', () => { void writeSnapshotNow() })
+    await bridgeOn('queueChanged', () => { void drainQueue() })
+    await bridgeOn('appActive', () => { void drainQueue().then((r) => { if (!r) scheduleSnapshot() }) })
+    await bridgeOn('appBackground', () => { void writeSnapshotNow() })
   } catch { /* no plugin: nothing to sync */ }
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') void drainQueue()
@@ -124,9 +139,12 @@ export async function startNativeSync() {
   startSaunaHR()
   // Sleep Lab: finished Sleep sounds nights and Screen Time's late phone use
   const { startSleepRuntime } = await import('./sleepRuntime')
-  startSleepRuntime((event, fn) => PepitoBridge.addListener(event, fn).catch(() => {}))
+  startSleepRuntime(bridgeOn)
+  // the daily backup to Documents/Backups, the last 14 kept
+  const { startBackups } = await import('./backupRuntime')
+  startBackups(bridgeOn)
   try {
-    await PepitoBridge.addListener('openRoute', ({ route }) => { if (route) useNativeFeed.getState().setHealth({ route }) })
+    await bridgeOn('openRoute', ({ route }) => { if (route) useNativeFeed.getState().setHealth({ route }) })
     const { route } = await PepitoBridge.takeRoute()
     if (route) useNativeFeed.getState().setHealth({ route })
   } catch { /* nothing to open */ }

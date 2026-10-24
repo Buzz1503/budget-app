@@ -11,6 +11,7 @@ import { syncHealth } from './sync'
 import type { SourceClass } from './types'
 import { makeTz } from './tz'
 import { createBridge, healthDb, healthRuntime } from './runtime'
+import { logError } from '../lib/errorLog'
 
 const EMPTY: HealthSnapshot = {
   daily: [], nights: [], workouts: [],
@@ -42,7 +43,8 @@ export const useHealth = create<HealthState>((set, get) => ({
     if (!get().available) return
     try {
       set({ data: await loadAll(healthDb()), loaded: true })
-    } catch {
+    } catch (err) {
+      logError(err, { kind: 'load', where: 'health cache' })
       set({ loaded: true, failed: true })
     }
   },
@@ -66,7 +68,8 @@ export const useHealth = create<HealthState>((set, get) => ({
         onProgress: (progress) => set({ progress }),
       })
       set({ data: await loadAll(healthDb()), loaded: true })
-    } catch {
+    } catch (err) {
+      logError(err, { kind: 'sync', where: 'health sync' })
       set({ failed: true })
     } finally {
       set({ syncing: false, progress: null })

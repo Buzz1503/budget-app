@@ -80,7 +80,7 @@ export default function BackfillSheet({ open, onClose, date: initialDate }) {
     const written = useStore.getState().doseLogs.slice(-done.length).map((l) => l.id)
     showToast(
       done.length > 1
-        ? `${done.length} added on ${prettyDate(date)} — one shot`
+        ? `${done.length} added on ${prettyDate(date)}, one shot`
         : `${done[0].name} added on ${prettyDate(date)}`,
       () => { for (const id of written) undoLog(id) },
     )
@@ -100,7 +100,7 @@ export default function BackfillSheet({ open, onClose, date: initialDate }) {
   }
 
   const skipGroup = (group) => {
-    for (const i of group.items) skipDose(i.peptideId, 'Added later — deliberately skipped', date)
+    for (const i of group.items) skipDose(i.peptideId, 'Added later, deliberately skipped', date)
     showToast(`Marked skipped on ${prettyDate(date)}`)
   }
 
@@ -128,13 +128,13 @@ export default function BackfillSheet({ open, onClose, date: initialDate }) {
         {future && (
           <p className="rounded-[14px] p-3 text-xs font-bold" data-testid="backfill-future"
             style={{ background: 'color-mix(in srgb, var(--danger) 16%, transparent)', color: 'var(--danger)' }}>
-            That day hasn't happened yet — a dose you haven't taken isn't a log.
+            That day hasn't happened yet, a dose you haven't taken isn't a log.
           </p>
         )}
 
         {!future && day && day.scheduled === 0 && (
           <p className="py-6 text-center text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
-            Nothing was scheduled on {prettyDate(date)} — there is nothing to catch up.
+            Nothing was scheduled on {prettyDate(date)}, there is nothing to catch up.
           </p>
         )}
 
@@ -236,7 +236,7 @@ export default function BackfillSheet({ open, onClose, date: initialDate }) {
         )}
 
         <p className="pb-1 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
-          A dose added here is recorded exactly like a live one — same draw on the vial that was open that
+          A dose added here is recorded exactly like a live one, same draw on the vial that was open that
           day, same effect on your run-out date and your adherence.
         </p>
       </div>
@@ -292,7 +292,7 @@ function MissedGroup({ group, note, onLog, onSkip }) {
         </button>
         <button onClick={onLog} data-testid="backfill-log-group"
           className="btn-primary flex-1 rounded-full py-2 text-xs font-black">
-          Log it{many ? ` — all ${group.items.length}` : ''}
+          Log it{many ? `, all ${group.items.length}` : ''}
         </button>
       </div>
     </div>

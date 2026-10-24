@@ -21,7 +21,7 @@ page.on('pageerror', (e) => errors.push('pageerror: ' + e.message))
 let failures = 0
 const step = async (name, fn) => {
   try { await fn(); console.log('PASS', name) }
-  catch (e) { failures++; console.log('FAIL', name, '—', e.message.split('\n')[0]); errors.push(`step ${name}: ${e.message}`) }
+  catch (e) { failures++; console.log('FAIL', name, '–', e.message.split('\n')[0]); errors.push(`step ${name}: ${e.message}`) }
 }
 const state = () => page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state)
 const closeAll = async () => {
@@ -139,7 +139,7 @@ await step('3 · a toast with Undo, and Undo actually undoes', async () => {
 
 await step('3 · Log all covers the slot under a single Undo', async () => {
   const all = page.locator('[data-testid="log-all"]').first()
-  if (!(await all.count())) { console.log('  (nothing left to log all — skipped)'); return }
+  if (!(await all.count())) { console.log('  (nothing left to log all, skipped)'); return }
   const before = (await state()).doseLogs.length
   await all.click()
   await page.waitForTimeout(800)
@@ -185,7 +185,7 @@ await step('4 · no doses-left, rung badge or step-up question on a card', async
 
 await step('4 · the step-up question is in the bell instead', async () => {
   const bell = page.locator('[data-testid="alert-bell"]')
-  if (!(await bell.count())) { console.log('  (nothing in the bell today — skipped)'); return }
+  if (!(await bell.count())) { console.log('  (nothing in the bell today, skipped)'); return }
   await bell.click()
   await page.waitForTimeout(600)
   const panel = await text('[data-testid="alert-panel"]')
@@ -210,7 +210,7 @@ await step('5 · no card name is clipped mid-word', async () => {
 
 await step('5 · earlier-slot doses are visible and loggable from here', async () => {
   const slot = page.locator('[data-testid="earlier-slot"]')
-  if (!(await slot.count())) { console.log('  (both slots clear — nothing to surface)'); return }
+  if (!(await slot.count())) { console.log('  (both slots clear, nothing to surface)'); return }
   console.log(`  ${(await slot.first().innerText()).replace(/\s+/g, ' ')}`)
   const before = (await state()).doseLogs.length
   await page.locator('[data-testid="log-earlier"]').first().click()

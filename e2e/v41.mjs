@@ -21,7 +21,7 @@ page.on('pageerror', (e) => errors.push('pageerror: ' + e.message))
 let failures = 0
 const step = async (name, fn) => {
   try { await fn(); console.log('PASS', name) }
-  catch (e) { failures++; console.log('FAIL', name, '—', e.message.split('\n')[0]); errors.push(`step ${name}: ${e.message}`) }
+  catch (e) { failures++; console.log('FAIL', name, '–', e.message.split('\n')[0]); errors.push(`step ${name}: ${e.message}`) }
 }
 const state = () => page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state)
 const gotIt = async () => {
@@ -131,7 +131,7 @@ await step('2 · Log here writes the same dose as a quick log, plus the pin', as
   if (!rec.pinId) throw new Error('the record has no pin')
   if (!rec.siteGroup || !rec.side) throw new Error('the record has no group or side')
   for (const k of ['peptideId', 'date', 'doseValue', 'unit', 'insulinUnits', 'route', 'loggedAt']) {
-    if (log[k] === undefined) throw new Error(`the dose log is missing ${k} — not identical to a quick log`)
+    if (log[k] === undefined) throw new Error(`the dose log is missing ${k}, not identical to a quick log`)
   }
   console.log(`  ${log.peptideId} ${log.doseValue}${log.unit} at ${rec.pinId} (${reason.slice(0, 40)})`)
 })

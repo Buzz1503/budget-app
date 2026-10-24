@@ -281,17 +281,17 @@ describe('calendar adherence', () => {
 
 // ---------- event grouping ----------
 describe('groupEvents', () => {
-  const ev = (kind, name) => ({ kind, text: `${name} — whatever` })
+  const ev = (kind, name) => ({ kind, text: `${name}, whatever` })
 
   it('leaves a short list alone', () => {
     const out = groupEvents([ev('step-up', 'A'), ev('vial-expiry', 'B')])
-    expect(out.map((e) => e.text)).toEqual(['A — whatever', 'B — whatever'])
+    expect(out.map((e) => e.text)).toEqual(['A, whatever', 'B, whatever'])
   })
 
   it('collapses a kind that would bury the doses under identical lines', () => {
     const out = groupEvents(Array.from({ length: 12 }, (_, i) => ev('cycle-on', `P${i}`)))
     expect(out).toHaveLength(1)
-    expect(out[0].text).toBe('12 compounds — cycle starts')
+    expect(out[0].text).toBe('12 compounds, cycle starts')
     expect(out[0].count).toBe(12)
   })
 

@@ -182,7 +182,7 @@ export default function MarkerChart({ name, series, range, events, overlay, over
         <div className="mt-3" data-testid="chart-sparse">
           <p className="text-xs font-medium leading-snug" style={{ color: 'var(--text-2)' }}>
             Not enough data to plot a trend in this range
-            {win.length === 1 ? ' — one result.' : ' — no results.'}
+            {win.length === 1 ? ', one result.' : ', no results.'}
             {series.length > win.length ? ' A longer range has more.' : ''}
           </p>
           {win.length > 0 && (
@@ -347,7 +347,7 @@ export default function MarkerChart({ name, series, range, events, overlay, over
             ))}
           </div>
           <p className="mt-1.5 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-3)' }}>
-            ▲ started · ◆ dose changed · ■ stopped. Lines mark when, not why — two things happening near
+            ▲ started · ◆ dose changed · ■ stopped. Lines mark when, not why, two things happening near
             each other is not one causing the other.
           </p>
           {offscreen.length > 0 && (

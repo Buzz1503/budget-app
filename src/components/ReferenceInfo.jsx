@@ -22,7 +22,7 @@ export function TierBadge({ tier, confidence, compact }) {
       {word && (
         <span className="rounded-[10px] px-2 py-1 text-xs font-bold"
           style={{ background: 'var(--surface-sunk)', color: confidenceTone(word) }}
-          title="How much weight the dose figure deserves — not how well it works">
+          title="How much weight the dose figure deserves, not how well it works">
           dose conf: {word}
         </span>
       )}
@@ -109,7 +109,7 @@ export default function ReferenceInfo({ reference, excludedNote }) {
 
       {r.reported?.length > 0 && (
         <div className="rounded-[14px] p-3" style={{ background: 'color-mix(in srgb, var(--warn) 10%, transparent)' }}>
-          <Section icon={MessageCircle} title="Reported (community — not evidence)" color="var(--warn)" note={FIELD_NOTES.reported}>
+          <Section icon={MessageCircle} title="Reported (community, not evidence)" color="var(--warn)" note={FIELD_NOTES.reported}>
             <List items={r.reported} color="var(--warn)" />
           </Section>
         </div>
@@ -128,7 +128,7 @@ export default function ReferenceInfo({ reference, excludedNote }) {
       )}
 
       <p className="text-xs font-medium italic" style={{ color: 'var(--text-2)' }}>
-        Starting reference only — everything above is editable and none of it is medical advice.
+        Starting reference only, everything above is editable and none of it is medical advice.
       </p>
     </motion.div>
   )

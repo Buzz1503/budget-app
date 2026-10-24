@@ -117,7 +117,7 @@ export function recentOtherUse(records = [], { pinId, peptideId, nowIso, days = 
 export function reuseWarning(prev, nameOf = (x) => x) {
   if (!prev) return null
   const days = Math.max(0, Math.round((Date.now() - new Date(prev.timestamp).getTime()) / 86400000))
-  return `${nameOf(prev.peptideId)} was here ${days === 0 ? 'today' : `${days} day${days === 1 ? '' : 's'} ago`} — a different site reads more clearly.`
+  return `${nameOf(prev.peptideId)} was here ${days === 0 ? 'today' : `${days} day${days === 1 ? '' : 's'} ago`}, a different site reads more clearly.`
 }
 
 // ------------------------------------------------------------- the status
@@ -160,7 +160,7 @@ export function pinStatusWords(pinId, ctx) {
   if (st.status === 'unused') return 'Never used.'
   const when = st.daysAgo === 0 ? 'today' : st.daysAgo === 1 ? 'yesterday' : `${st.daysAgo} days ago`
   if (st.status === 'reacting') {
-    return `Last used ${when}. Still reacting — ${SEVERITY_BY_ID[st.severity]?.label.toLowerCase()}.`
+    return `Last used ${when}. Still reacting, ${SEVERITY_BY_ID[st.severity]?.label.toLowerCase()}.`
   }
   return `Last used ${when}. No reaction.`
 }
@@ -367,7 +367,7 @@ export function topLine(ctx, nameOf = (x) => x) {
       parts.push(`${sorted[0].label} reacts more than ${rest.join(' or ')}.`)
     }
   }
-  if (!parts.length) return 'Log a few injections and rate them in the evening check — the numbers appear once there are four of each.'
+  if (!parts.length) return 'Log a few injections and rate them in the evening check, the numbers appear once there are four of each.'
   return parts.join(' ')
 }
 

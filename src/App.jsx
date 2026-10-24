@@ -1,4 +1,5 @@
-import { useState, useEffect, useLayoutEffect, useRef, Suspense } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef, Suspense, lazy } from 'react'
+import ErrorBoundary from './components/ui/ErrorBoundary'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Sun, LayoutGrid, ChevronLeft, PersonStanding, Moon, Flame,
@@ -8,31 +9,39 @@ import useStore, { onStorageError } from './store/useStore'
 import { haptic } from './lib/feedback'
 import { useVisualViewport, useKeyboardSafeFocus } from './lib/viewport'
 import Home from './components/Home'
-import ProtocolTab from './components/ProtocolTab'
-import CalendarTab from './components/CalendarTab'
-import CalcTab from './components/CalcTab'
-import MixTab from './components/MixTab'
-import SuppliesTab from './components/SuppliesTab'
-import SettingsTab from './components/SettingsTab'
-import RightNowTab from './components/RightNowTab'
-import ReactionsScreen from './components/ReactionsScreen'
-import SaunaTab from './components/sauna/SaunaTab'
 import useLowStockDot from './lib/useLowStock'
-import BodyTab from './components/BodyTab'
-import HistoryTab from './components/HistoryTab'
-import SupplementsTab from './components/SupplementsTab'
-import BloodsTab from './components/BloodsTab'
-import ScheduleWizard from './components/ScheduleWizard'
 import MoreHub from './components/MoreHub'
 import Toast from './components/Toast'
 import VialPromptHost from './components/stock/VialPromptHost'
 import UpdatePrompt from './components/UpdatePrompt'
-import ImportScans from './components/ImportScans'
 import { HEALTH_BUILD, HealthBoot, HealthSettings, SleepTab } from './health/ui'
 import { useNativeFeed } from './native/feed'
 import { ShortcutsScreen, NotificationsScreen, WatchScreen, LockSettingsScreen, LockGate } from './native/ui'
 
-// full registry of every screen
+const ProtocolTab = lazy(() => import('./components/ProtocolTab'))
+const CalendarTab = lazy(() => import('./components/CalendarTab'))
+const CalcTab = lazy(() => import('./components/CalcTab'))
+const MixTab = lazy(() => import('./components/MixTab'))
+const SuppliesTab = lazy(() => import('./components/SuppliesTab'))
+const SettingsTab = lazy(() => import('./components/SettingsTab'))
+const RightNowTab = lazy(() => import('./components/RightNowTab'))
+const ReactionsScreen = lazy(() => import('./components/ReactionsScreen'))
+const SaunaTab = lazy(() => import('./components/sauna/SaunaTab'))
+const BodyTab = lazy(() => import('./components/BodyTab'))
+const HistoryTab = lazy(() => import('./components/HistoryTab'))
+const SupplementsTab = lazy(() => import('./components/SupplementsTab'))
+const BloodsTab = lazy(() => import('./components/BloodsTab'))
+const ImportScans = lazy(() => import('./components/ImportScans'))
+const DataReports = lazy(() => import('./components/data/DataReports'))
+const ScheduleWizard = lazy(() => import('./components/ScheduleWizard'))
+
+/** While a screen's code loads: a quiet placeholder rather than a blank page. */
+function ScreenLoading() {
+  return <div className="card p-5" aria-busy="true" data-testid="screen-loading"><div className="h-4 w-1/3 rounded-full" style={{ background: 'var(--surface-sunk)' }} /><div className="mt-3 h-3 w-2/3 rounded-full" style={{ background: 'var(--surface-sunk)' }} /></div>
+}
+
+// full registry of every screen. Home is in the first bundle; every other
+// screen loads when it is first opened, so the app starts on less code.
 const SCREENS = {
   today: Home,
   calendar: CalendarTab,
@@ -50,6 +59,7 @@ const SCREENS = {
   history: HistoryTab,
   supplements: SupplementsTab,
   scans: ImportScans,
+  reports: DataReports,
   // native app only: compiled out of the web build
   ...(HEALTH_BUILD ? { health: HealthSettings, sleep: SleepTab, shortcuts: ShortcutsScreen, notifications: NotificationsScreen, watch: WatchScreen, lock: LockSettingsScreen } : {}),
 }
@@ -69,7 +79,7 @@ const PRIMARY_IDS = new Set(PRIMARY.map((t) => t.id))
 const SUB_TITLES = {
   now: 'Right Now', protocol: 'My protocol', supplies: 'Stock', calc: 'Calculator',
   mix: 'Mix', settings: 'Settings', history: 'History', supplements: 'Supplements',
-  health: 'Health', shortcuts: 'Shortcuts and widgets', notifications: 'Notifications', watch: 'Apple Watch', lock: 'Face ID lock', scans: 'Import scans', reactions: 'Reactions', bloods: 'Bloods', calendar: 'Calendar',
+  health: 'Health', shortcuts: 'Shortcuts and widgets', notifications: 'Notifications', watch: 'Apple Watch', lock: 'Face ID lock', scans: 'Import scans', reports: 'Backups and reports', reactions: 'Reactions', bloods: 'Bloods', calendar: 'Calendar',
 }
 
 // Screens that were their own destination in an earlier version. Old deep links
@@ -93,6 +103,16 @@ export default function App() {
 
   // 'wizard' isn't a screen — it's a modal any screen can ask for.
   const goTo = (id) => (id === 'wizard' ? setWizard(true) : setTab(ALIASES[id] || id))
+
+  // the bottom-bar tabs' code, fetched once the app is idle after start-up, so
+  // the first tap on Body or Sauna opens at once
+  useEffect(() => {
+    const id = setTimeout(() => {
+      void import('./components/BodyTab'); void import('./components/sauna/SaunaTab')
+      if (HEALTH_BUILD) void import('./components/health/SleepTab')
+    }, 2500)
+    return () => clearTimeout(id)
+  }, [])
 
   // iPhone app: a notification tap (Open Stock, Check now) asks for a screen
   const nativeRoute = useNativeFeed((s) => s.route)
@@ -200,7 +220,7 @@ export default function App() {
             exit={{ opacity: 0, x: -14 }}
             transition={{ duration: 0.18 }}
           >
-            <Suspense fallback={null}><Active goTo={goTo} /></Suspense>
+            <ErrorBoundary key={tab} where={tab}><Suspense fallback={<ScreenLoading />}><Active goTo={goTo} /></Suspense></ErrorBoundary>
           </motion.div>
         </AnimatePresence>
       </main>
@@ -248,7 +268,7 @@ export default function App() {
         </div>
       </nav>
 
-      <ScheduleWizard open={wizard} onClose={() => setWizard(false)} />
+      {wizard && <Suspense fallback={null}><ScheduleWizard open={wizard} onClose={() => setWizard(false)} /></Suspense>}
 
       <Toast />
       <VialPromptHost goTo={goTo} />
@@ -261,7 +281,7 @@ export default function App() {
             className="fixed inset-x-4 top-3 z-[90] rounded-[14px] p-3 text-sm font-semibold"
             style={{ background: 'var(--danger)', color: 'var(--accent-fg)' }}
           >
-            Storage is unavailable — changes may not persist on this device.
+            Storage is unavailable, changes may not persist on this device.
             <button className="ml-2 underline" onClick={() => setStorageError(false)}>Dismiss</button>
           </motion.div>
         )}

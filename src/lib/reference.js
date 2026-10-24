@@ -33,7 +33,7 @@ export const TIER_META = {
 }
 
 export function tierMeta(tier) {
-  return TIER_META[tier] || { label: tier || '—', tone: 'var(--muted)', short: 'Unknown tier' }
+  return TIER_META[tier] || { label: tier || '–', tone: 'var(--muted)', short: 'Unknown tier' }
 }
 
 // Confidence strings in the source range from a bare word to a whole sentence.
@@ -41,7 +41,7 @@ export function tierMeta(tier) {
 export function confidenceParts(confidence) {
   if (!confidence) return { word: null, detail: null }
   const trimmed = String(confidence).trim()
-  const m = trimmed.match(/^([a-z-]+(?:\s[a-z]+)?)(?:\s*[-–—,;]\s*(.*))?$/i)
+  const m = trimmed.match(/^([a-z-]+(?:\s[a-z]+)?)(?:\s*[-––,;]\s*(.*))?$/i)
   if (!m) return { word: trimmed, detail: null }
   const word = m[1].trim()
   const detail = (m[2] || '').trim()

@@ -38,7 +38,7 @@ export const CHECK_SEVERITIES = [
   { id: 'moderate', label: 'Moderate', rank: 2 },
   { id: 'severe', label: 'Severe', rank: 3 },
 ]
-export const severityWord = (id) => CHECK_SEVERITIES.find((s) => s.id === id)?.label ?? '—'
+export const severityWord = (id) => CHECK_SEVERITIES.find((s) => s.id === id)?.label ?? '–'
 
 /** Days with no check after which a reaction is left alone. */
 export const ABANDON_AFTER_DAYS = 7

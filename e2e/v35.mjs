@@ -26,7 +26,7 @@ page.on('pageerror', (e) => errors.push('pageerror: ' + e.message))
 let failures = 0
 const step = async (name, fn) => {
   try { await fn(); console.log('PASS', name) }
-  catch (e) { failures++; console.log('FAIL', name, '—', e.message.split('\n')[0]); errors.push(`step ${name}: ${e.message}`) }
+  catch (e) { failures++; console.log('FAIL', name, '–', e.message.split('\n')[0]); errors.push(`step ${name}: ${e.message}`) }
 }
 const state = () => page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state)
 // The first-run framing is a sheet with no exit but its own button — Escape is
@@ -105,7 +105,7 @@ await step('1 · every test date imports, in order, with its values', async () =
     }
   }
   const widths = tests.map((t) => Object.keys(t.values || {}).length)
-  if (Math.min(...widths) === Math.max(...widths)) throw new Error('every test has the same width — blanks were filled in')
+  if (Math.min(...widths) === Math.max(...widths)) throw new Error('every test has the same width, blanks were filled in')
 
   console.log(`  ${tests.length} tests, ${dates[0]} → ${dates[dates.length - 1]}, ${total} results`)
 })
@@ -127,7 +127,7 @@ await step('1b · the tab is reachable and shows the latest test and its lab', a
 await step('2 · the watch list surfaces markers tied to what is being taken', async () => {
   await nav('Bloods')
   const watch = page.locator('[data-testid="watch-list"]')
-  if (!(await watch.count())) throw new Error('no watch list — nothing on the protocol matched a marker')
+  if (!(await watch.count())) throw new Error('no watch list, nothing on the protocol matched a marker')
   const rows = watch.locator('[data-testid="marker-row"]')
   const n = await rows.count()
   if (n === 0) throw new Error('the watch list is empty')

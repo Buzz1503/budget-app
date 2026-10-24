@@ -1,12 +1,12 @@
 name: iOS build check
 
-# Compiles the iPhone app, its widgets and Live Activity, the Apple Watch app
-# and the Watch widgets on a Mac, without signing, and runs the PepitoKit Swift
+# Compiles the iPhone app, its widgets and Live Activity, the Screen Time
+# monitor, the Apple Watch app and the Watch widgets on a Mac, without signing, and runs the PepitoKit Swift
 # tests, so a Swift error shows up here rather than on Buzz's laptop. It
 # installs nothing anywhere and does not touch the Pages deploy.
 on:
   push:
-    branches: [native-health, native-stage3, native-design, compound-cycling, stock-tracking, sauna-health]
+    branches: [native-health, native-stage3, native-design, compound-cycling, stock-tracking, sauna-health, sleep-lab]
   workflow_dispatch:
 
 jobs:
@@ -43,6 +43,13 @@ jobs:
         if: always()
         run: |
           xcodebuild -project ios/App/App.xcodeproj -scheme PepitoWidgets -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' -skipPackagePluginValidation \
+            CODE_SIGNING_ALLOWED=NO build > /tmp/xb.log 2>&1; rc=$?; grep -E 'error:|BUILD (SUCCEEDED|FAILED)' /tmp/xb.log | sort -u | head -80; exit $rc
+
+      - name: Screen Time monitor extension
+        if: always()
+        run: |
+          xcodebuild -project ios/App/App.xcodeproj -scheme PepitoLateUse -configuration Debug \
             -destination 'generic/platform=iOS Simulator' -skipPackagePluginValidation \
             CODE_SIGNING_ALLOWED=NO build > /tmp/xb.log 2>&1; rc=$?; grep -E 'error:|BUILD (SUCCEEDED|FAILED)' /tmp/xb.log | sort -u | head -80; exit $rc
 

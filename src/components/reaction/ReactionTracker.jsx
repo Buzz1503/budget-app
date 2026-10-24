@@ -21,7 +21,7 @@ import SiteMapSettings from './SiteMapSettings'
 import { AddSite, RecentSitesList } from './LogOnBody'
 import { recentUses, pinBarLines, DEFAULT_WINDOW_DAYS } from '../../lib/siteRotation'
 
-const pct = (r) => (r == null ? '—' : `${Math.round(r * 100)}%`)
+const pct = (r) => (r == null ? '–' : `${Math.round(r * 100)}%`)
 
 /** Everything on this screen needs the same two arrays. */
 function useCtx() {
@@ -416,7 +416,7 @@ export function EveningCheck({ open, onClose }) {
               <div className="mb-2 rounded-[var(--r-sm)] p-3" style={{ background: 'var(--surface-sunk)' }} data-testid="severity-meanings">
                 {SEVERITIES.map((s) => (
                   <div key={s.id} className="t-caption" style={{ color: 'var(--text-2)' }}>
-                    <span className="font-black" style={{ color: 'var(--text)' }}>{s.label}</span> — {s.words}
+                    <span className="font-black" style={{ color: 'var(--text)' }}>{s.label}</span>, {s.words}
                   </div>
                 ))}
               </div>
@@ -635,12 +635,12 @@ function PeptideDetail({ peptideId, onClose }) {
             </div>
           ) : (
             <div className="t-caption" style={{ color: 'var(--text-2)' }}>
-              Not enough data yet — {s?.checked ?? 0} of {MIN_INJECTIONS} checked on its own.
+              Not enough data yet, {s?.checked ?? 0} of {MIN_INJECTIONS} checked on its own.
             </div>
           )}
           {row?.coDraw && (
             <div className="t-caption mt-1" style={{ color: 'var(--text-3)' }}>
-              {row.coDraw.injections} shared a syringe — unable to isolate, not counted above.
+              {row.coDraw.injections} shared a syringe, unable to isolate, not counted above.
             </div>
           )}
         </div>

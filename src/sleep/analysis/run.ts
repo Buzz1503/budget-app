@@ -2,6 +2,7 @@
 // object (no functions inside, so it can come back from a Web Worker and be
 // cached by a hash of its input).
 
+import { hashOf } from '../../lib/compute/hash'
 import { OUTCOME_BY_KEY } from './dataset'
 import type { NightRow, Names, OutcomeKey } from './dataset'
 import {
@@ -72,15 +73,7 @@ export function runAnalysis(input: AnalysisInput): AnalysisResult {
 
 /** A short, stable hash of the input, for the cache. */
 export function inputHash(input: AnalysisInput): string {
-  const s = JSON.stringify(input)
-  let h1 = 0x811c9dc5
-  let h2 = 0x01000193
-  for (let i = 0; i < s.length; i++) {
-    const c = s.charCodeAt(i)
-    h1 = Math.imul(h1 ^ c, 16777619)
-    h2 = Math.imul(h2 ^ c, 2246822507)
-  }
-  return `${(h1 >>> 0).toString(36)}${(h2 >>> 0).toString(36)}${s.length.toString(36)}`
+  return hashOf(input)
 }
 
 export { OUTCOME_BY_KEY }

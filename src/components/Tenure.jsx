@@ -116,13 +116,13 @@ export function TenureBlock({ peptide, onEdit }) {
         <p className="t-metric mt-1" data-testid="tenure-headline">
           {tenure.running
             ? (tenure.currentDays === 0 ? 'Started today' : tenure.currentWords)
-            : `${tenure.lifetimeWords} — not running`}
+            : `${tenure.lifetimeWords}, not running`}
         </p>
         <p className="mt-0.5 text-xs font-semibold tabular-nums" style={{ color: 'var(--text-2)' }}>
           Since {prettyDate(tenure.startedOn)}
           {multi && ` · ${tenure.runCount} separate runs`}
         </p>
-        {/* The run kept running through the break — you did not come off it —
+        {/* The run kept running through the break, you did not come off it,
             so the days off are said beside the figure rather than taken out of
             it, and the reader can decide which number they wanted. */}
         {tenure.pausedWords && (
@@ -161,7 +161,7 @@ export function TenureBlock({ peptide, onEdit }) {
             <span>{reassess.text}</span>
           </p>
           <p className="mt-1 pl-5 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
-            A note about elapsed time, nothing more — this app has no opinion on what you should do next.
+            A note about elapsed time, nothing more, this app has no opinion on what you should do next.
           </p>
         </div>
       )}
@@ -304,7 +304,7 @@ export function DoseTimelineChart({ peptide }) {
           </g>
         ))}
 
-        {/* one gridline per dose level, labelled with the dose itself — the
+        {/* one gridline per dose level, labelled with the dose itself, the
             axis values are the doses, which are the only numbers anyone is
             reading off this */}
         {levels.map((mg) => (
@@ -448,7 +448,7 @@ export function TimelineEvents({ peptide, onPick, picked }) {
         </p>
       )}
 
-      {/* what changed, when, and why where it was recorded — under the row it
+      {/* what changed, when, and why where it was recorded, under the row it
           belongs to rather than up at the chart, which may not be drawn */}
       <AnimatePresence initial={false}>
         {picked && (
@@ -507,7 +507,7 @@ function PointDetail({ pt, unit }) {
       )}
       {pt.estimated && (
         <p className="mt-1 text-xs font-bold" style={{ color: 'var(--text-3)' }}>
-          Entered by hand from memory — not a record made at the time.
+          Entered by hand from memory, not a record made at the time.
         </p>
       )}
     </div>
@@ -604,8 +604,8 @@ export function ExposureBlock({ peptide }) {
       </div>
 
       <div className="mt-3 flex gap-3">
-        <Stat label="Average dose" value={e.avgDoseMg != null ? show(e.avgDoseMg) : '—'} />
-        <Stat label="Longest run" value={tenure?.longestRunWords || '—'} />
+        <Stat label="Average dose" value={e.avgDoseMg != null ? show(e.avgDoseMg) : '–'} />
+        <Stat label="Longest run" value={tenure?.longestRunWords || '–'} />
         <Stat label="Spent" value={e.spend != null ? money(e.spend) : 'no price'}
           sub={e.spend != null ? 'on logged doses' : null} />
       </div>
@@ -668,7 +668,7 @@ export function TenureEditor({ peptide, open, onClose }) {
     const wantCode = code.trim().toUpperCase().slice(0, 3)
     if (wantCode && wantCode !== peptide.code) updatePeptide(peptide.id, { code: wantCode })
     if (colour !== peptide.colour) updatePeptide(peptide.id, { colour })
-    showToast('Saved — nothing else moved')
+    showToast('Saved, nothing else moved')
     onClose()
   }
 
@@ -680,7 +680,7 @@ export function TenureEditor({ peptide, open, onClose }) {
   }
 
   return (
-    <Modal open onClose={onClose} title={`${peptide.name} — since when`}>
+    <Modal open onClose={onClose} title={`${peptide.name}, since when`}>
       <div className="space-y-3" data-testid="tenure-editor">
         <label className="block">
           <span className="t-caption mb-1 block" style={{ color: 'var(--text-2)' }}>
@@ -691,7 +691,7 @@ export function TenureEditor({ peptide, open, onClose }) {
         </label>
         <p className="text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
           Set this as far back as it really goes. It changes how long you have been on the compound and
-          nothing else — no doses are added, no vial moves, and your adherence figure does not shift,
+          nothing else, no doses are added, no vial moves, and your adherence figure does not shift,
           because it only ever counts what you actually recorded.
         </p>
 
@@ -977,7 +977,7 @@ function TenureRow({ row, onOpen }) {
         <Field label="At this dose">
           <span data-testid="row-at-dose">
             {atDose?.days == null
-              ? '—'
+              ? '–'
               : atDose.days === 0 ? 'set today' : durationWords(atDose.days)}
           </span>
         </Field>
@@ -1092,7 +1092,7 @@ export function CompoundDetail({ peptideId, open, onClose }) {
               ))}
             </div>
             <p className="mt-2 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-3)' }}>
-              A decision, not a lapse — nothing came out of stock for these.
+              A decision, not a lapse, nothing came out of stock for these.
             </p>
           </div>
         )}

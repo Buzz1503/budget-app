@@ -34,7 +34,8 @@ public class PepitoBridgePlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "takeRoute", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "biometryType", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "authenticate", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "setPrivacyCover", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "setPrivacyCover", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "haptic", returnType: CAPPluginReturnPromise)
     ]
 
     private let store = SharedStore.shared()
@@ -162,6 +163,19 @@ public class PepitoBridgePlugin: CAPPlugin, CAPBridgedPlugin {
         }
         PepitoNotifications.registerCategories()
         PepitoNotifications.replaceSchedule(planned) { call.resolve(["scheduled": planned.count]) }
+    }
+
+    /// The feel of Log, Take and Skip: the web view has no vibration of its own on iOS.
+    @objc func haptic(_ call: CAPPluginCall) {
+        let style = call.getString("style") ?? "light"
+        DispatchQueue.main.async {
+            switch style {
+            case "success": UINotificationFeedbackGenerator().notificationOccurred(.success)
+            case "skip": UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+            default: UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            }
+            call.resolve()
+        }
     }
 
     /// The screen a notification tap asked for, once.

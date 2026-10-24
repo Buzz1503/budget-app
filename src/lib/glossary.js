@@ -3,11 +3,11 @@
 export const GLOSSARY = {
   subq: {
     term: 'SubQ',
-    plain: 'Subcutaneous — into the fat just under the skin, not into muscle. A short, very fine needle; barely felt.',
+    plain: 'Subcutaneous, into the fat just under the skin, not into muscle. A short, very fine needle; barely felt.',
   },
   im: {
     term: 'IM',
-    plain: 'Intramuscular — into the muscle itself. Needs a longer needle than a SubQ shot.',
+    plain: 'Intramuscular, into the muscle itself. Needs a longer needle than a SubQ shot.',
   },
   codraw: {
     term: 'co-draw',
@@ -19,7 +19,7 @@ export const GLOSSARY = {
   },
   units: {
     term: 'units',
-    plain: 'The marks on an insulin syringe. 100 units = 1 mL, so 20 units is 0.2 mL — draw to that line.',
+    plain: 'The marks on an insulin syringe. 100 units = 1 mL, so 20 units is 0.2 mL, draw to that line.',
   },
   reconstitute: {
     term: 'reconstitute',
@@ -31,7 +31,7 @@ export const GLOSSARY = {
   },
   premixed: {
     term: 'pre-mixed',
-    plain: 'The vial already contains liquid at a stated strength (mg per mL) — nothing to mix.',
+    plain: 'The vial already contains liquid at a stated strength (mg per mL), nothing to mix.',
   },
 }
 

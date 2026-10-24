@@ -60,7 +60,7 @@ describe('batches of the same peptide', () => {
 
   it('reads as the sentence the spec asked for', () => {
     expect(summaryLine('Retatrutide', batchesFor(vials, 'reta')))
-      .toBe('Retatrutide — 3 vials: 2× 10 mg (Vendor A), 1× 20 mg (Vendor B)')
+      .toBe('Retatrutide, 3 vials: 2× 10 mg (Vendor A), 1× 20 mg (Vendor B)')
   })
 
   it('leaves empty batches out of the breakdown', () => {
@@ -73,8 +73,8 @@ describe('batches of the same peptide', () => {
   })
 
   it('says so plainly when there is nothing left', () => {
-    expect(summaryLine('Retatrutide', [])).toBe('Retatrutide — none in stock')
-    expect(summaryLine('Retatrutide', [batch({ qtyOnHand: 0 })])).toBe('Retatrutide — none in stock')
+    expect(summaryLine('Retatrutide', [])).toBe('Retatrutide, none in stock')
+    expect(summaryLine('Retatrutide', [batch({ qtyOnHand: 0 })])).toBe('Retatrutide, none in stock')
   })
 })
 

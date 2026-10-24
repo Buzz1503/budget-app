@@ -15,7 +15,7 @@ page.on('pageerror', (e) => errors.push('pageerror: ' + e.message))
 
 const step = async (name, fn) => {
   try { await fn(); console.log('PASS', name) }
-  catch (e) { console.log('FAIL', name, '—', e.message.split('\n')[0]); errors.push(`step ${name}: ${e.message}`) }
+  catch (e) { console.log('FAIL', name, '–', e.message.split('\n')[0]); errors.push(`step ${name}: ${e.message}`) }
 }
 const waitText = async (re, timeout = 12000) => {
   const start = Date.now()
@@ -101,7 +101,7 @@ await step('my protocol lists it: 50 mg, 2×/week, SubQ, ongoing', async () => {
   // v30.1 replaced the bare "ongoing" with the tenure line, which says how long
   // it has been running — the same fact, in the terms the page now uses
   for (const want of [/50 mg/, /2×\/week/, /SubQ/, /started/i]) {
-    if (!want.test(text)) throw new Error(`protocol row missing ${want} — got: ${text.slice(0, 220)}`)
+    if (!want.test(text)) throw new Error(`protocol row missing ${want}, got: ${text.slice(0, 220)}`)
   }
 })
 
@@ -112,7 +112,7 @@ await step('its detail sheet shows the concentration, and its flags are intact',
   await page.click('[data-testid="sheet-tab-mine"]')
   await page.waitForTimeout(400)
   const sheet = await page.locator('[data-testid="compound-sheet"]').textContent()
-  if (!/250/.test(sheet)) throw new Error(`concentration 250 mg/mL not shown — got: ${sheet.slice(0, 300)}`)
+  if (!/250/.test(sheet)) throw new Error(`concentration 250 mg/mL not shown, got: ${sheet.slice(0, 300)}`)
   if (!/50 mg/.test(sheet)) throw new Error('the fixed 50 mg dose is not shown')
   await page.click('button[aria-label="Close"]')
   await page.waitForTimeout(400)
@@ -128,7 +128,7 @@ await step('its detail sheet shows the concentration, and its flags are intact',
 })
 await page.screenshot({ path: `${SHOT}/v8-01-library-test-e.png` })
 
-await step('its schedule days are editable — in Build / rebuild, the one editor', async () => {
+await step('its schedule days are editable, in Build / rebuild, the one editor', async () => {
   const today = await page.evaluate(() => new Date().getDay())
   await nav('More')
   await page.click('text=Build / rebuild my protocol')
@@ -325,7 +325,7 @@ await step('an existing save from before v8 gains the new compound on load', asy
     const raw = JSON.parse(localStorage.getItem('peptide-command-center'))
     raw.state.peptides = raw.state.peptides.filter((p) => p.id !== 'testosterone-e')
     raw.state.doseLogs = raw.state.doseLogs.filter((l) => l.peptideId !== 'testosterone-e')
-    raw.version = 0 // zustand's default — the shape every pre-v8 save carries
+    raw.version = 0 // zustand's default, the shape every pre-v8 save carries
     localStorage.setItem('peptide-command-center', JSON.stringify(raw))
   })
   await page.reload({ waitUntil: 'networkidle' })

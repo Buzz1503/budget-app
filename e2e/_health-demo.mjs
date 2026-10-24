@@ -20,7 +20,7 @@ page.on('pageerror', (e) => errors.push('pageerror: ' + e.message))
 let failures = 0
 const step = async (name, fn) => {
   try { await fn(); console.log('PASS', name) }
-  catch (e) { failures++; console.log('FAIL', name, '—', e.message.split('\n').slice(0, process.env.VERBOSE ? 8 : 1).join(' | ')) }
+  catch (e) { failures++; console.log('FAIL', name, '–', e.message.split('\n').slice(0, process.env.VERBOSE ? 8 : 1).join(' | ')) }
 }
 const gotIt = async () => {
   const b = page.locator('button:has-text("Got it")')
@@ -543,5 +543,5 @@ await step('Sauna settings: switching off "Show sauna on Home" removes the row',
 })
 
 await browser.close()
-if (errors.length) { console.log('FAIL console clean —', errors.slice(0, 5).join(' | ')); failures++ } else console.log('PASS console clean')
+if (errors.length) { console.log('FAIL console clean,', errors.slice(0, 5).join(' | ')); failures++ } else console.log('PASS console clean')
 process.exit(failures ? 1 : 0)

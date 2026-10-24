@@ -43,7 +43,7 @@ const errors = []
 let failures = 0
 const step = async (name, fn) => {
   try { await fn(); console.log('PASS', name) }
-  catch (e) { failures++; console.log('FAIL', name, '—', e.message.split('\n')[0]); errors.push(`step ${name}: ${e.message}`) }
+  catch (e) { failures++; console.log('FAIL', name, '–', e.message.split('\n')[0]); errors.push(`step ${name}: ${e.message}`) }
 }
 const launch = async () => {
   const context = await chromium.launchPersistentContext(PROFILE, { executablePath: EXE, viewport: { width: 390, height: 844 } })

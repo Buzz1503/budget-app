@@ -1,5 +1,6 @@
-// Runs the Sleep Lab analysis off the main thread when a Web Worker is
-// available, and on it (after a paint) when it is not.
+// Runs a job in the compute worker when Web Workers exist, else here after
+// a paint. A worker that fails once is not tried again this session.
+import { JOBS } from './jobs'
 
 let worker = null
 let seq = 0
@@ -8,7 +9,7 @@ const waiting = new Map()
 function getWorker() {
   if (worker !== null) return worker
   try {
-    worker = new Worker(new URL('../../sleep/analysis/worker.ts', import.meta.url), { type: 'module' })
+    worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' })
     worker.onmessage = (e) => {
       const { id, result, error } = e.data || {}
       const w = waiting.get(id)
@@ -28,17 +29,16 @@ function getWorker() {
   return worker
 }
 
-/** The analysis for an input: in the worker if possible, else with `fallback` here. */
-export async function computeAnalysis(input, fallback) {
+export async function compute(kind, input) {
   const w = typeof Worker !== 'undefined' ? getWorker() : false
-  if (!w) return fallback(input)
+  if (!w) return JOBS[kind](input)
   const id = ++seq
   try {
     return await new Promise((resolve, reject) => {
       waiting.set(id, { resolve, reject })
-      w.postMessage({ id, input })
+      w.postMessage({ id, kind, input })
     })
   } catch {
-    return fallback(input)
+    return JOBS[kind](input)
   }
 }

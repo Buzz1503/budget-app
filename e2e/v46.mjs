@@ -125,7 +125,7 @@ await step('Stock lists a row per compound, with doses left, sealed, run-out and
   const lines = await page.locator('[data-testid="stock-order-line"]').allTextContents()
   if (!lines.some((l) => /Runs out .+ · Order by /.test(l))) throw new Error(`no run-out and order-by line: ${lines.slice(0, 3).join(' | ')}`)
   const txt = await page.locator('[data-testid="stock-room"]').textContent()
-  if (/—/.test(txt)) throw new Error('an em dash in the Stock copy')
+  if (/–/.test(txt)) throw new Error('an em dash in the Stock copy')
   if (!/Wasted this year: 0 mg/.test(txt)) throw new Error('no Wasted this year line')
   await noOverflow('Stock')
 })

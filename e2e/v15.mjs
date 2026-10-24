@@ -15,7 +15,7 @@ page.on('pageerror', (e) => errors.push('pageerror: ' + e.message))
 
 const step = async (name, fn) => {
   try { await fn(); console.log('PASS', name) }
-  catch (e) { console.log('FAIL', name, '—', e.message.split('\n')[0]); errors.push(`step ${name}: ${e.message}`) }
+  catch (e) { console.log('FAIL', name, '–', e.message.split('\n')[0]); errors.push(`step ${name}: ${e.message}`) }
 }
 const waitText = async (re, timeout = 20000) => {
   const start = Date.now()
@@ -127,7 +127,7 @@ await step('the dose list leads the screen', async () => {
   })
   if (y == null) throw new Error('no dose content found')
   // v28: display title + the focal metric card sit above the list by design
-  if (y > 340) throw new Error(`the dose content starts ${Math.round(y)}px down — too much above it`)
+  if (y > 340) throw new Error(`the dose content starts ${Math.round(y)}px down, too much above it`)
 })
 
 await step('the mix explanation is behind an info tap', async () => {

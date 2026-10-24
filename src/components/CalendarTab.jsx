@@ -65,7 +65,7 @@ export default function CalendarTab({ goTo }) {
 
       <CoachTip id="calendar-intro" tone="indigo">
         Past days show what you actually logged. Future days show the dose you'll be on
-        <span className="font-black"> if you confirm each step-up</span> — projected, not promised.
+        <span className="font-black"> if you confirm each step-up</span>, projected, not promised.
       </CoachTip>
 
       {/* period nav */}
@@ -87,7 +87,7 @@ export default function CalendarTab({ goTo }) {
         )}
       </div>
 
-      {/* Swipe as well as the arrows — a month grid on a phone is a thing you
+      {/* Swipe as well as the arrows, a month grid on a phone is a thing you
           flick through, and reaching for a 36px chevron each time is not. */}
       <motion.div
         key={view === 'week' ? weekStart(anchor) : monthStart(anchor)}
@@ -113,7 +113,7 @@ export default function CalendarTab({ goTo }) {
       <BackfillSheet open={!!backfill} date={backfill} onClose={() => setBackfill(null)} />
 
       <p className="px-1 pb-2 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
-        Personal tracking tool — not medical advice. Projected doses assume you confirm each step-up;
+        Personal tracking tool, not medical advice. Projected doses assume you confirm each step-up;
         nothing advances on its own.
       </p>
     </div>
@@ -306,7 +306,7 @@ function IcsButton() {
       const deliveries = deliveryEvents(restock, peptides)
       const { ics, eventCount } = buildIcs(peptides, titration, { from: new Date(), includeDose: true, deliveries })
       if (eventCount === 0) {
-        setMsg({ ok: false, text: 'Nothing to export yet — set a protocol first.' })
+        setMsg({ ok: false, text: 'Nothing to export yet, set a protocol first.' })
         return
       }
       const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' })
@@ -316,7 +316,7 @@ function IcsButton() {
       a.download = `peptide-schedule-${todayStr()}.ics`
       a.click()
       URL.revokeObjectURL(url)
-      setMsg({ ok: true, text: `${eventCount} recurring events exported — open the file to add them.` })
+      setMsg({ ok: true, text: `${eventCount} recurring events exported, open the file to add them.` })
     } catch (e) {
       setMsg({ ok: false, text: `Export failed: ${e.message}` })
     }
@@ -330,7 +330,7 @@ function IcsButton() {
       </button>
       {msg && <p className="text-xs font-bold" style={{ color: msg.ok ? 'var(--good)' : 'var(--danger)' }}>{msg.text}</p>}
       <p className="text-xs font-medium" style={{ color: 'var(--text-2)' }}>
-        A snapshot — re-export after you change your protocol, because events already in your
+        A snapshot, re-export after you change your protocol, because events already in your
         phone's calendar won't update themselves.
       </p>
     </div>

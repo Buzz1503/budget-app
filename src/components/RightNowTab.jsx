@@ -30,13 +30,13 @@ export default function RightNowTab() {
       <div className="card flex items-start gap-2 p-3" style={{ background: 'color-mix(in srgb, var(--good) 8%, var(--surface))' }}>
         <Activity size={14} className="mt-1 shrink-0" style={{ color: 'var(--good)' }} />
         <p className="text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
-          A live, anecdotal read of expected effects by cycle phase — <span className="font-bold" style={{ color: 'var(--text)' }}>not a clinical promise</span>. Everyone responds differently.
+          A live, anecdotal read of expected effects by cycle phase, <span className="font-bold" style={{ color: 'var(--text)' }}>not a clinical promise</span>. Everyone responds differently.
         </p>
       </div>
 
       {active.length === 0 && (
         <div className="card p-5 text-center text-sm font-medium" style={{ color: 'var(--text-2)' }}>
-          Nothing active today — my whole protocol is resting. 🌙
+          Nothing active today, my whole protocol is resting. 🌙
         </div>
       )}
 

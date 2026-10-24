@@ -1,9 +1,27 @@
 // Optional haptics + sound. Both degrade silently if unavailable or disabled.
 let audioCtx = null
 
+// iOS web views have no navigator.vibrate: the iPhone app asks the native
+// side (PepitoBridge.haptic, UIKit feedback generators) instead.
+// (the import sits behind the build constant so none of it reaches the web build)
+let bridge = null
+const nativeHaptic = __NATIVE__
+  ? async (style) => {
+    try {
+      if (!bridge) bridge = { b: (await import('../native/runtime')).PepitoBridge }
+      await bridge.b.haptic({ style })
+    } catch { /* no plugin */ }
+  }
+  : null
+
+/**
+ * A tap you can feel. `pattern` is a vibration in ms on the web; on the
+ * iPhone a number is a light tap, 'success' the logged feel, 'skip' a soft one.
+ */
 export function haptic(pattern = 12) {
   try {
-    if (navigator.vibrate) navigator.vibrate(pattern)
+    if (nativeHaptic) { void nativeHaptic(typeof pattern === 'string' ? pattern : 'light'); return }
+    if (navigator.vibrate) navigator.vibrate(typeof pattern === 'string' ? (pattern === 'success' ? [10, 40, 18] : 10) : pattern)
   } catch { /* unsupported */ }
 }
 

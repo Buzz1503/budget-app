@@ -78,12 +78,12 @@ export function eventsForPeptide(peptide, tState, opts) {
     return {
       exdates: exdates(start),
       uid: `${peptide.id}-${wd}-${slot}@peptide-command-center`,
-      summary: `${peptide.name} — ${slot} shot${doseLabel}`,
+      summary: `${peptide.name}, ${slot} shot${doseLabel}`,
       start, time, byday: ICS_DAYS[wd], until,
       description: [
         peptide.timing ? `Timing: ${peptide.timing}` : null,
         dose > 0 ? `Dose at export: ${formatDose(dose, peptide.ladder.unit)}` : null,
-        'Snapshot from Pepito + — re-export after protocol changes.',
+        'Snapshot from Pepito +, re-export after protocol changes.',
       ].filter(Boolean).join('\n'),
     }
   })

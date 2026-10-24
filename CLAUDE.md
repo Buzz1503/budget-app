@@ -29,9 +29,10 @@ an iOS app (bundle id com.buzz.pepito). State is one persisted Zustand store,
 
 ## Health (native only)
 
-- Reads Apple Health, never writes. `@capgo/capacitor-health` for most reads, plus
+- Reads Apple Health; the one write is dietary water logged with a sauna rating (`writeWater`,
+  once per session, `waterWritten`). `@capgo/capacitor-health` for most reads, plus
   the local Swift plugin `plugins/pepito-health` (lean mass, protein, HR recovery,
-  daylight, daily sums, date of birth and sex).
+  daylight, daily sums, date of birth and sex, breathing disturbances, headphone audio, daytime HR).
 - `HEALTH_BUILD` (`src/health/ui.js`) is false in the web build, so no Health code
   ships to Pages. All screens are lazy and live in `src/components/health`.
 - Data: `bridge.ts` (plugin → raw types) → `dayLogic.ts` (nights, days, workouts)
@@ -75,6 +76,10 @@ an iOS app (bundle id com.buzz.pepito). State is one persisted Zustand store,
   filled by the lazy native `SaunaHealthProvider`. Watch Cool down (`watchSettings.coolDown`,
   default on) keeps reading HR 5 min after Stop; saved as `session.coolDown`.
 - Nothing with health values goes to the network or to the console.
+- No heat or temperature warnings anywhere (web, Watch, notifications); a test scans for them.
+- Sauna rating (`session.rating`, `electrolytes`, `waterMl`): optional step after saving on the phone
+  (`SaunaRatingSheet`) and the Watch (`SaunaRatingModel`, `saunaRating` action matched by start). Sessions
+  with no heart rate get `hrAround` (before, after, at 30 min) from `src/native/saunaHR.js`.
 
 ## Native surfaces (3B)
 
@@ -145,3 +150,33 @@ an iOS app (bundle id com.buzz.pepito). State is one persisted Zustand store,
   Watch; immediate ones use `pepito.stock.` and are added once, remembered in
   `nativeState.ordersSent`). Items carry `vialAsk` so the Watch can ask right after its tick.
   Answers are `vialChange` and `snoozeOrder` actions through the same queue.
+
+## Sleep Lab
+
+- Logging (`src/sleep/logging.ts`): as-needed items (never due, never missed), variable grams, evening
+  factors (Caffeine, Cold plunge, Late meal hidden, records kept), morning check. Persist v26.
+- Night features (`src/sleep/features.ts`) and rows (`analysis/dataset.ts`) feed the engine in
+  `src/sleep/analysis` (bootstrap CIs seeded, ridge from 60 nights, dose-response, lag-1, best/worst,
+  weekday/weekend; "Clear" only when the CI excludes zero). Wording: association, never cause; n shown.
+- Heavy work runs in one Web Worker (`src/lib/compute`: `jobs.ts`, `useComputed`), cached by input hash in
+  memory and IndexedDB `pepito-compute` (not in the backup). Sleep analysis and Body › Effects use it.
+- Apnea (`src/sleep/apnea.ts`, "Screen, not a diagnosis"), nightmares (`nightmares.ts`, estimate,
+  calibrated from 10 confirmed nights), overnight extras (`src/health/overnight.ts`, NIGHTS_SCHEMA 4).
+- Native: Watch restlessness (CMSensorRecorder, `RestlessRecorder`, backup start from complications via
+  `ios/WatchShared/RestlessStart.swift`), iPhone Sleep sounds (SoundAnalysis, `SleepSounds.swift`, Start and
+  Stop sleep sounds App Intents for a Shortcuts automation), Screen Time late use (`PepitoLateUse`).
+- Prompts (`src/sleep/prompts.ts`): evening factors 30 min before planned bedtime, morning check 30 min after
+  wake, skipped once answered, following Remind me on; the Watch plans the same ids from `sleep.prompts`.
+  Rested then dreams are one tap each (`followUp`). "Took Dex" is the `_TOOK` dose category.
+- Sleep setup checklist (`src/sleep/setup.ts`, `SleepSetup.jsx`) ticks from data; the Watch reports its
+  complication and battery (`watchStatus`) and nudges under 30% at the evening prompt.
+
+## Data, reports, errors
+
+- More › Data › Backups and reports (`components/data/DataReports.jsx`): daily backup on the iPhone to
+  Documents/Backups (`src/lib/autoBackup.js`, `native/backupRuntime.js`, plugin `PepitoFiles`), 14 kept, Back up
+  now, Restore. Doctor PDFs are made on the device (`src/lib/pdf`: `pdfDoc.js` writer, `reports.js`).
+- Errors and failed syncs go to the local error log (`src/lib/errorLog.js`, localStorage, never network or
+  console); every screen sits in an `ErrorBoundary`. Cold start is recorded on Home (`src/lib/coldStart.js`).
+- Screens other than Home are lazy (`App.jsx`); long lists use `components/ui/LongList.jsx`.
+- No em dashes in UI copy: write a comma, colon or full stop.

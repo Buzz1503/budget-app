@@ -255,13 +255,13 @@ export function validatePosition(pinId, pos, { overrides = {}, screenWidth = SCR
   }
   if (base.group === 'abdomen') {
     const d = navelDistancePct(moved, aspect)
-    if (d < NAVEL_CLEARANCE_PCT) return { ok: false, reason: 'Too close to the navel — keep 5 cm clear.' }
+    if (d < NAVEL_CLEARANCE_PCT) return { ok: false, reason: 'Too close to the navel, keep 5 cm clear.' }
   }
   for (const other of pinsWith(overrides)) {
     if (other.id === pinId || other.view !== base.view) continue
     const d = spacingPx(moved, other, opts)
     if (d < MIN_SPACING_PX) {
-      return { ok: false, reason: `Too close to ${other.label} — sites need ${MIN_SPACING_PX} px between them.` }
+      return { ok: false, reason: `Too close to ${other.label}, sites need ${MIN_SPACING_PX} px between them.` }
     }
   }
   return { ok: true }

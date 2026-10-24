@@ -15,7 +15,7 @@ page.on('pageerror', (e) => errors.push('pageerror: ' + e.message))
 
 const step = async (name, fn) => {
   try { await fn(); console.log('PASS', name) }
-  catch (e) { console.log('FAIL', name, '—', e.message.split('\n')[0]); errors.push(`step ${name}: ${e.message}`) }
+  catch (e) { console.log('FAIL', name, '–', e.message.split('\n')[0]); errors.push(`step ${name}: ${e.message}`) }
 }
 const waitText = async (re, timeout = 5000) => {
   const start = Date.now()
@@ -146,7 +146,7 @@ await step('Mix: proven-blend seal on Selank + Semax', async () => {
 
 await step('Mix: Codex advances on discovery', async () => {
   const store = await page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state)
-  if (!store.mixExplored.length) throw new Error('mixExplored empty — codex not tracking')
+  if (!store.mixExplored.length) throw new Error('mixExplored empty, codex not tracking')
 })
 
 await step('Mix: browse all 86 compounds', async () => {
@@ -210,7 +210,7 @@ await step('persistence: full reload keeps everything', async () => {
   if (!store.doseLogs.length) throw new Error('dose logs lost')
   if (!Array.isArray(store.symptomLogs)) throw new Error('the kept symptom logs went missing from the save')
   if (!store.mixExplored.length) throw new Error('mix codex lost')
-  console.log('  persisted — logs:', store.doseLogs.length, 'symptoms:', store.symptomLogs.length,
+  console.log('  persisted, logs:', store.doseLogs.length, 'symptoms:', store.symptomLogs.length,
     'explored:', store.mixExplored.length)
 })
 

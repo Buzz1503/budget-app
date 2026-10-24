@@ -31,7 +31,7 @@ const INJECTABLE = /\bsub-?cutaneous\b|\bsubq\b|\bsc\b|\bim\b|\bintramuscular\b|
 const MAINTENANCE = /maintenance|commonly|typically|community (?:male )?use often|community range/i
 
 const NUM = String.raw`\d+(?:\.\d+)?`
-const RANGE = new RegExp(String.raw`(${NUM})\s*(?:-|–|—|\s+to\s+)\s*(${NUM})\s*(mcg|mg)\b`, 'i')
+const RANGE = new RegExp(String.raw`(${NUM})\s*(?:-|–|–|\s+to\s+)\s*(${NUM})\s*(mcg|mg)\b`, 'i')
 const SINGLE = new RegExp(String.raw`(?:^|[^\d.])(${NUM})\s*(mcg|mg)\b`, 'i')
 // A figure the reference gives in units this app cannot turn into milligrams.
 // Knowing that is different from knowing nothing, and the card says which.

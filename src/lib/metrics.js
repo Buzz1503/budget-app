@@ -6,7 +6,7 @@ import { toMg } from './calc'
 // Rules that apply to every measurement — shown once, not repeated per field.
 export const MEASURE_RULES = [
   'Measure at the same time of day every time.',
-  'Same tape tension — snug against the skin, not compressing it.',
+  'Same tape tension, snug against the skin, not compressing it.',
   'Muscle relaxed, never flexed.',
   'For any girth, read the tape at the end of a normal exhale.',
 ]
@@ -18,7 +18,7 @@ export const REF_DISTANCES = {
   arm: {
     id: 'arm', label: 'Upper arm reference', default: 18, unit: 'cm',
     from: 'up from the elbow crease',
-    help: 'Pick a distance up from the elbow crease and keep it forever — that is the spot you measure every time.',
+    help: 'Pick a distance up from the elbow crease and keep it forever, that is the spot you measure every time.',
   },
   thigh: {
     id: 'thigh', label: 'Thigh reference', default: 15, unit: 'cm',
@@ -48,9 +48,9 @@ export const METRICS = [
     guide: 'weight',
     how: 'Morning, after the bathroom, before eating or drinking.',
   },
-  { key: 'bodyFat', label: 'Body fat', unit: '%', better: 'down', color: 'var(--amber)', how: 'From a scan or a body-composition scale — same device and same conditions each time.' },
-  { key: 'visceralFat', label: 'Visceral fat', unit: '', better: 'down', color: 'var(--coral)', how: 'Scan or scale reading — same device each time.' },
-  { key: 'muscleMass', label: 'Muscle mass', unit: 'kg', better: 'up', color: 'var(--violet)', how: 'Scan or scale reading — same device each time.' },
+  { key: 'bodyFat', label: 'Body fat', unit: '%', better: 'down', color: 'var(--amber)', how: 'From a scan or a body-composition scale, same device and same conditions each time.' },
+  { key: 'visceralFat', label: 'Visceral fat', unit: '', better: 'down', color: 'var(--coral)', how: 'Scan or scale reading, same device each time.' },
+  { key: 'muscleMass', label: 'Muscle mass', unit: 'kg', better: 'up', color: 'var(--violet)', how: 'Scan or scale reading, same device each time.' },
   {
     key: 'neck', label: 'Neck', unit: 'cm', better: 'down', color: 'var(--indigo)', guide: 'neck',
     how: "Around the neck just below the Adam's apple, tape level.",
@@ -69,42 +69,42 @@ export const METRICS = [
   },
 
   {
-    key: 'armL', label: 'Upper arm — left', short: 'Left', unit: 'cm', better: 'up', color: 'var(--violet)',
+    key: 'armL', label: 'Upper arm, left', short: 'Left', unit: 'cm', better: 'up', color: 'var(--violet)',
     group: 'arm', side: 'L', refKey: 'arm', guide: 'arm',
     how: 'Arm relaxed at your side; measure at your saved distance up from the elbow crease. Always the same arm position.',
   },
   {
-    key: 'armR', label: 'Upper arm — right', short: 'Right', unit: 'cm', better: 'up', color: 'var(--violet)',
+    key: 'armR', label: 'Upper arm, right', short: 'Right', unit: 'cm', better: 'up', color: 'var(--violet)',
     group: 'arm', side: 'R', refKey: 'arm', guide: 'arm',
     how: 'Arm relaxed at your side; measure at your saved distance up from the elbow crease. Always the same arm position.',
   },
   {
-    key: 'forearmL', label: 'Forearm — left', short: 'Left', unit: 'cm', better: 'up', color: 'var(--violet)',
+    key: 'forearmL', label: 'Forearm, left', short: 'Left', unit: 'cm', better: 'up', color: 'var(--violet)',
     group: 'forearm', side: 'L', guide: 'forearm',
     how: 'Widest part below the elbow, arm relaxed.',
   },
   {
-    key: 'forearmR', label: 'Forearm — right', short: 'Right', unit: 'cm', better: 'up', color: 'var(--violet)',
+    key: 'forearmR', label: 'Forearm, right', short: 'Right', unit: 'cm', better: 'up', color: 'var(--violet)',
     group: 'forearm', side: 'R', guide: 'forearm',
     how: 'Widest part below the elbow, arm relaxed.',
   },
   {
-    key: 'thighL', label: 'Thigh — left', short: 'Left', unit: 'cm', better: 'up', color: 'var(--violet)',
+    key: 'thighL', label: 'Thigh, left', short: 'Left', unit: 'cm', better: 'up', color: 'var(--violet)',
     group: 'thigh', side: 'L', refKey: 'thigh', guide: 'thigh',
     how: 'Standing, weight even on both feet; measure at your saved distance above the top of the kneecap.',
   },
   {
-    key: 'thighR', label: 'Thigh — right', short: 'Right', unit: 'cm', better: 'up', color: 'var(--violet)',
+    key: 'thighR', label: 'Thigh, right', short: 'Right', unit: 'cm', better: 'up', color: 'var(--violet)',
     group: 'thigh', side: 'R', refKey: 'thigh', guide: 'thigh',
     how: 'Standing, weight even on both feet; measure at your saved distance above the top of the kneecap.',
   },
   {
-    key: 'calfL', label: 'Calf — left', short: 'Left', unit: 'cm', better: 'up', color: 'var(--violet)',
+    key: 'calfL', label: 'Calf, left', short: 'Left', unit: 'cm', better: 'up', color: 'var(--violet)',
     group: 'calf', side: 'L', guide: 'calf',
     how: 'Widest part, standing.',
   },
   {
-    key: 'calfR', label: 'Calf — right', short: 'Right', unit: 'cm', better: 'up', color: 'var(--violet)',
+    key: 'calfR', label: 'Calf, right', short: 'Right', unit: 'cm', better: 'up', color: 'var(--violet)',
     group: 'calf', side: 'R', guide: 'calf',
     how: 'Widest part, standing.',
   },

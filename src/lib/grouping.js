@@ -146,6 +146,6 @@ export function planShots(items, verdictOf, { maxMl = MAX_GROUP_ML } = {}) {
 export function shotsHeadline(plan, slot) {
   if (!plan || plan.before === 0) return null
   const when = slot === 'PM' ? 'tonight' : 'this morning'
-  if (plan.saved <= 0) return `${plan.before} separate shot${plan.before === 1 ? '' : 's'} ${when} — nothing safely combinable`
+  if (plan.saved <= 0) return `${plan.before} separate shot${plan.before === 1 ? '' : 's'} ${when}, nothing safely combinable`
   return `${plan.shots} shot${plan.shots === 1 ? '' : 's'} instead of ${plan.before} ${when}`
 }

@@ -17,7 +17,7 @@ page.on('pageerror', (e) => errors.push('pageerror: ' + e.message))
 
 const step = async (name, fn) => {
   try { await fn(); console.log('PASS', name) }
-  catch (e) { console.log('FAIL', name, '—', e.message.split('\n')[0]); errors.push(`step ${name}: ${e.message}`) }
+  catch (e) { console.log('FAIL', name, '–', e.message.split('\n')[0]); errors.push(`step ${name}: ${e.message}`) }
 }
 const waitText = async (re, timeout = 20000) => {
   const start = Date.now()
@@ -159,7 +159,7 @@ await step('deleting a stock batch leaves the protocol and history intact', asyn
   await page.waitForTimeout(500)
   const warn = await page.locator('[data-testid="confirm-delete-batch"]').textContent()
   if (!/protocol and your logged doses are untouched/i.test(warn.replace(/\s+/g, ' '))) {
-    throw new Error(`the confirm does not say what survives — got: ${warn.replace(/\s+/g, ' ').slice(0, 160)}`)
+    throw new Error(`the confirm does not say what survives, got: ${warn.replace(/\s+/g, ' ').slice(0, 160)}`)
   }
   await page.click('[data-testid="confirm-delete-batch-yes"]')
   await page.waitForTimeout(700)
@@ -220,7 +220,7 @@ await step('a compound I only own can be added to my protocol from stock', async
   await wizard().locator('[data-testid="manage-add"]').click()
   await page.waitForTimeout(600)
   const first = await wizard().locator('[data-testid="wizard-list"] > button').first().textContent()
-  if (!/in my stock/.test(first)) throw new Error(`what I own should sort first — got: ${first.slice(0, 80)}`)
+  if (!/in my stock/.test(first)) throw new Error(`what I own should sort first, got: ${first.slice(0, 80)}`)
 
   await wizard().locator('input[placeholder*="Search"]').fill('Thymosin Beta-4')
   await page.waitForTimeout(500)

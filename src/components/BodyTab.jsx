@@ -246,7 +246,7 @@ function MeasuringRules() {
   return (
     <div className="card p-3">
       <p className="mb-2 flex items-center gap-2 text-sm font-bold">
-        <Info size={15} style={{ color: 'var(--text-2)' }} /> How to measure — every time
+        <Info size={15} style={{ color: 'var(--text-2)' }} /> How to measure, every time
       </p>
       <ul className="space-y-1">
         {MEASURE_RULES.map((r) => (
@@ -340,7 +340,7 @@ function MeasureField({ group, form, onSet, bodyRefs }) {
       </div>
       {pair && (
         <p className="mt-1 text-xs font-medium" style={{ color: 'var(--text-2)' }}>
-          Left and right are stored separately — they're never averaged together.
+          Left and right are stored separately, they're never averaged together.
         </p>
       )}
     </div>

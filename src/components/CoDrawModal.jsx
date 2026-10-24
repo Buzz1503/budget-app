@@ -51,7 +51,7 @@ export default function CoDrawModal({ open, onClose, peptides }) {
         problems.push({
           a: p.name, b: other.name, verdict: 'NEVER',
           reason: p.separateReason
-            || `${p.name} is not a peptide and isn't in the compatibility matrix — draw and inject it on its own.`,
+            || `${p.name} is not a peptide and isn't in the compatibility matrix, draw and inject it on its own.`,
         })
       }
     }
@@ -111,7 +111,7 @@ export default function CoDrawModal({ open, onClose, peptides }) {
         {phase === 'blocked' && review && (
           <div className="rounded-[14px] p-4" style={{ background: 'color-mix(in srgb, var(--danger) 14%, transparent)', border: '1px solid color-mix(in srgb, var(--danger) 40%, transparent)' }}>
             <p className="flex items-center gap-2 text-sm font-extrabold" style={{ color: 'var(--danger)' }}>
-              <Ban size={16} /> Not one shot — inject these separately
+              <Ban size={16} /> Not one shot, inject these separately
             </p>
             <div className="mt-2 space-y-2">
               {review.problems.map((p, i) => (
@@ -126,10 +126,10 @@ export default function CoDrawModal({ open, onClose, peptides }) {
               ))}
             </div>
             <p className="mt-3 text-xs font-semibold" style={{ color: 'var(--text)' }}>
-              Inject these as separate shots instead — close this and log them one at a time.
+              Inject these as separate shots instead, close this and log them one at a time.
             </p>
             <button onClick={onClose} className="btn-primary mt-3 w-full rounded-full py-3 text-sm font-black">
-              Got it — log separately
+              Got it, log separately
             </button>
           </div>
         )}
@@ -137,7 +137,7 @@ export default function CoDrawModal({ open, onClose, peptides }) {
         {phase === 'ready' && (
           <>
             <p className="flex items-center justify-center gap-2 text-xs font-bold" style={{ color: 'var(--good)' }}>
-              <Check size={13} /> Every pair is a confirmed mix — one syringe
+              <Check size={13} /> Every pair is a confirmed mix, one syringe
             </p>
             <motion.button whileTap={{ scale: 0.97 }} onClick={confirm} data-testid="codraw-confirm"
               className="btn-primary flex w-full items-center justify-center gap-2 rounded-full py-3 text-sm font-black">

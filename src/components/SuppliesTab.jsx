@@ -139,7 +139,7 @@ export default function SuppliesTab({ goTo }) {
           <p className="mt-2 flex items-start gap-2 text-xs font-bold" style={{ color: 'var(--danger)' }}>
             <AlertTriangle size={13} className="mt-1 shrink-0" />
             <span>
-              {plan.orderNow.length} item{plan.orderNow.length === 1 ? '' : 's'} to order now — within your {leadDays}-day lead time.
+              {plan.orderNow.length} item{plan.orderNow.length === 1 ? '' : 's'} to order now, within your {leadDays}-day lead time.
             </span>
           </p>
         )}
@@ -151,7 +151,7 @@ export default function SuppliesTab({ goTo }) {
       </p>
       {plan.rows.length === 0 && (
         <div className="card p-4 text-center text-sm font-bold" style={{ color: 'var(--text-2)' }}>
-          Nothing with a set protocol yet — build your schedule first.
+          Nothing with a set protocol yet, build your schedule first.
         </div>
       )}
       {plan.rows.map((r) => <CompoundCard key={r.key} row={r} days={plan.days} currency={settings.currency} />)}
@@ -171,7 +171,7 @@ export default function SuppliesTab({ goTo }) {
 
       <p className="px-1 pb-2 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
         Costs come from what you've recorded paying per vial, plus editable unit prices for consumables.
-        Personal tracking tool — not medical advice, and not a purchasing recommendation.
+        Personal tracking tool, not medical advice, and not a purchasing recommendation.
       </p>
       </>)}
     </div>
@@ -294,26 +294,26 @@ function CompoundCard({ row, days, currency }) {
         <span className="chip shrink-0 !py-1 text-xs font-black" style={{ color: pri.tone }}>{pri.label}</span>
       </div>
 
-      {/* holdings — the Stock half */}
+      {/* holdings, the Stock half */}
       <div className="mt-2 grid grid-cols-3 gap-2">
         <Stat label="on hand" value={row.nasal ? `${row.spraysLeft} sprays` : `${round(row.stockMg, 1)} mg`} />
         <Stat label="runs out" warn={row.priority === 'now'}
-          value={isFinite(row.daysLeft) ? `~${row.daysLeft}d` : '—'}
+          value={isFinite(row.daysLeft) ? `~${row.daysLeft}d` : '–'}
           title={row.runOutDate ? `runs out ${row.runOutDate}` : 'no burn rate yet'}
           sub={row.runOutDate ? format(parseISO(row.runOutDate), row.daysLeft > 300 ? 'MMM yyyy' : 'd MMM') : ''} />
-        <Stat label="cost/dose" value={row.costPerDoseUsd != null ? `$${round(m.vial(row.costPerDoseUsd), 2)}` : '—'} />
+        <Stat label="cost/dose" value={row.costPerDoseUsd != null ? `$${round(m.vial(row.costPerDoseUsd), 2)}` : '–'} />
       </div>
 
       {exp && (
         <p className="mt-2 flex items-center gap-2 text-xs font-semibold"
           style={{ color: exp.daysLeft < 0 ? 'var(--danger)' : exp.daysLeft <= 5 ? 'var(--warn)' : 'var(--text-2)' }}>
           <Droplets size={12} />
-          Open vial ({round(row.openMg, 1)} mg left) — {exp.daysLeft < 0 ? `expired ${-exp.daysLeft}d ago` : `expires ${format(parseISO(exp.expiresAt), 'd MMM')} (${exp.daysLeft}d)`}
+          Open vial ({round(row.openMg, 1)} mg left), {exp.daysLeft < 0 ? `expired ${-exp.daysLeft}d ago` : `expires ${format(parseISO(exp.expiresAt), 'd MMM')} (${exp.daysLeft}d)`}
         </p>
       )}
       {!exp && row.openMg > 0 && (
         <p className="mt-2 flex items-center gap-2 text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
-          <Droplets size={12} /> Open vial: {round(row.openMg, 1)} mg — not reconstituted yet
+          <Droplets size={12} /> Open vial: {round(row.openMg, 1)} mg, not reconstituted yet
         </p>
       )}
       {!exp && !row.premixed && row.openMg > 0 && (
@@ -324,7 +324,7 @@ function CompoundCard({ row, days, currency }) {
         </button>
       )}
 
-      {/* order line — the Restock half */}
+      {/* order line, the Restock half */}
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t pt-3" style={{ borderColor: 'var(--border)' }}>
         <QtyStepper value={row.qty} suggested={row.suggestedVials}
           onChange={(n) => setRestockQty(row.key, n)} onReset={() => clearRestockQty(row.key)} />
@@ -363,7 +363,7 @@ function CompoundCard({ row, days, currency }) {
                   onChange={(n) => updateVial(v.id, { usdPerVial: n > 0 ? n : null })} />
               </VField>
               <VField label="vendor">
-                <input className="input !px-2 !py-2" value={v.vendor} placeholder="—"
+                <input className="input !px-2 !py-2" value={v.vendor} placeholder="–"
                   onChange={(e) => updateVial(v.id, { vendor: e.target.value })} />
               </VField>
               <button className="pb-1" onClick={() => removeVial(v.id)} aria-label="Remove vial row">

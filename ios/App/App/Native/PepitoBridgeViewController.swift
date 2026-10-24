@@ -8,5 +8,6 @@ class PepitoBridgeViewController: CAPBridgeViewController {
     override open func capacitorDidLoad() {
         bridge?.registerPluginInstance(PepitoBridgePlugin())
         bridge?.registerPluginInstance(PepitoSleepPlugin())
+        bridge?.registerPluginInstance(PepitoFilesPlugin())
     }
 }

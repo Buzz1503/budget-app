@@ -82,7 +82,7 @@ export default function MarkerDetail({ name, open, onClose }) {
           <div className="flex items-baseline gap-2">
             <span className="t-metric tabular-nums"
               style={{ color: latest && statusOf(latest.value, range) !== 'in' ? 'var(--warn)' : 'var(--text)' }}>
-              {latest ? latest.value : '—'}
+              {latest ? latest.value : '–'}
             </span>
             <span className="text-sm font-bold" style={{ color: 'var(--text-3)' }}>{marker.unit}</span>
           </div>
@@ -116,7 +116,7 @@ export default function MarkerDetail({ name, open, onClose }) {
           <div className="card p-4" data-testid="marker-graph-empty">
             <p className="text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
               {series.length === 1
-                ? 'Only one result so far — a second gives this a line to draw.'
+                ? 'Only one result so far, a second gives this a line to draw.'
                 : 'Nothing recorded for this marker yet.'}
             </p>
           </div>
@@ -146,7 +146,7 @@ export default function MarkerDetail({ name, open, onClose }) {
                     </span>
                     <span className="w-8 shrink-0 text-right text-xs font-bold"
                       style={{ color: st === 'in' ? 'var(--good)' : 'var(--warn)' }}>
-                      {st === 'in' ? 'in' : st === 'high' ? 'high' : st === 'low' ? 'low' : '—'}
+                      {st === 'in' ? 'in' : st === 'high' ? 'high' : st === 'low' ? 'low' : '–'}
                     </span>
                   </div>
                 )

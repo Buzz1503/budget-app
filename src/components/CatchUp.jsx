@@ -111,7 +111,7 @@ export default function CatchUpCard({ quiet = false }) {
         </p>
         <p className="mt-1 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
           Nothing was recorded either way on {days.length === 1 ? prettyDate(days[0].date) : `${prettyDate(days[0].date)} – ${prettyDate(days[days.length - 1].date)}`}.
-          Add what you took, or say you skipped it — either one is better than a hole.
+          Add what you took, or say you skipped it, either one is better than a hole.
         </p>
         <div className="mt-2 flex gap-2">
           <button onClick={() => setSheet('add')} data-testid="catch-up-single"
@@ -121,7 +121,7 @@ export default function CatchUpCard({ quiet = false }) {
           </button>
           <button onClick={() => setSheet('run')} data-testid="catch-up-open"
             className="btn-primary flex-1 rounded-full py-2 text-xs font-black">
-            Catch up{run && run.days > 1 ? ` — ${run.days} days` : ''}
+            Catch up{run && run.days > 1 ? `, ${run.days} days` : ''}
           </button>
         </div>
       </motion.div>
@@ -149,7 +149,7 @@ function CatchUpSheet({ open, days, run, onClose, onPickDay }) {
     let n = 0
     for (const d of days) {
       for (const g of d.groups) {
-        skipMany(g.items.map((i) => i.peptideId), 'Catch-up — away', d.date)
+        skipMany(g.items.map((i) => i.peptideId), 'Catch-up, away', d.date)
         n += g.items.length
       }
     }
@@ -168,7 +168,7 @@ function CatchUpSheet({ open, days, run, onClose, onPickDay }) {
               {days.length} day{days.length === 1 ? '' : 's'}
             </span>{' '}
             is recorded as deliberately skipped. Nothing comes out of any vial, because nothing was
-            taken — your run-out dates stay where they are, and those days stop reading as lapses.
+            taken, your run-out dates stay where they are, and those days stop reading as lapses.
           </p>
           <div className="flex gap-2">
             <button onClick={() => setConfirmSkip(false)} className="flex-1 rounded-full py-3 text-xs font-black"
@@ -213,7 +213,7 @@ function CatchUpSheet({ open, days, run, onClose, onPickDay }) {
           <button onClick={() => setConfirmSkip(true)} data-testid="catch-up-skip-all"
             className="flex w-full items-center justify-center gap-2 rounded-full py-3 text-xs font-black"
             style={{ background: 'var(--surface-sunk)', color: 'var(--warn)' }}>
-            <SkipForward size={13} /> I was away — mark them all skipped
+            <SkipForward size={13} /> I was away, mark them all skipped
           </button>
 
         </div>

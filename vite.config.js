@@ -22,7 +22,7 @@ export default defineConfig(({ mode }) => {
   return {
   base,
   // compile-time, so the service-worker registration is dead code in the native bundle
-  define: { __NATIVE__: JSON.stringify(native) },
+  define: { __NATIVE__: JSON.stringify(native), __APP_VERSION__: JSON.stringify(process.env.npm_package_version || '') },
   build: native ? { outDir: 'dist-native' } : undefined,
   plugins: [
     // Native only: stop iOS zooming the page in when a text box is focused. The

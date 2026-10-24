@@ -17,7 +17,7 @@ page.on('pageerror', (e) => errors.push('pageerror: ' + e.message))
 
 const step = async (name, fn) => {
   try { await fn(); console.log('PASS', name) }
-  catch (e) { console.log('FAIL', name, '—', e.message.split('\n')[0]); errors.push(`step ${name}: ${e.message}`) }
+  catch (e) { console.log('FAIL', name, '–', e.message.split('\n')[0]); errors.push(`step ${name}: ${e.message}`) }
 }
 const waitText = async (re, timeout = 20000) => {
   const start = Date.now()
@@ -266,7 +266,7 @@ await step('a supplement can be entered by hand with a form choice', async () =>
   await page.waitForTimeout(400)
   const forms = await page.locator('select[aria-label="Form"] option').allTextContents()
   for (const f of ['Tablet', 'Capsule', 'Powder', 'Spray', 'Liquid']) {
-    if (!forms.includes(f)) throw new Error(`the form list is missing ${f} — got [${forms.join(', ')}]`)
+    if (!forms.includes(f)) throw new Error(`the form list is missing ${f}, got [${forms.join(', ')}]`)
   }
   await page.fill('input[aria-label="Supplement name"]', 'Hand Entered')
   await page.selectOption('select[aria-label="Form"]', 'powder')

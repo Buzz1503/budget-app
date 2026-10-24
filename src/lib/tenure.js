@@ -137,7 +137,7 @@ export function onVsOff(peptide, { todayStr, weeks = 20 } = {}) {
   if (!peptide?.startedOn || !todayStr) return null
   const onDays = peptide.cycleOnDays || 0
   const offDays = peptide.cycleOffDays || 0
-  if (!onDays || !offDays) return { cycled: false, weeks, onWeeks: null, words: 'not cycled — continuous' }
+  if (!onDays || !offDays) return { cycled: false, weeks, onWeeks: null, words: 'not cycled, continuous' }
 
   const windowDays = weeks * 7
   const from = addDaysStr(todayStr, -(windowDays - 1))
@@ -305,7 +305,7 @@ export function doseTimeline(peptide, { doseEvents = [], doseLogs = [], skips = 
   for (const x of pushes.filter((y) => y.peptideId === peptide.id)) {
     points.push({
       id: x.id, date: x.from, kind: 'push', label: 'Pushed to the next day',
-      estimated: false, detail: `Moved to ${x.to} — not taken, not skipped`,
+      estimated: false, detail: `Moved to ${x.to}, not taken, not skipped`,
     })
   }
 
@@ -450,7 +450,7 @@ export function reassessPrompt(peptide, { tenure, titration = {}, todayStr } = {
   if (cycleLen > 0 && days > cycleLen * 3) {
     return {
       kind: 'long-cycle',
-      text: `Running ${durationWords(days)} — past three full cycles. Time to reassess?`,
+      text: `Running ${durationWords(days)}, past three full cycles. Time to reassess?`,
     }
   }
 
@@ -528,7 +528,7 @@ export function doseTenure(peptide, { doseEvents = [], titration = {}, pauses = 
 
 /** "350 mcg" without pulling in the formatting layer. */
 function formatUnit(value, unit) {
-  if (value == null) return '—'
+  if (value == null) return '–'
   return `${value} ${unit || ''}`.trim()
 }
 

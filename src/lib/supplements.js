@@ -75,7 +75,7 @@ export function takeVerb(supplement, past = true) {
 
 /** Placeholder for the dose box, which differs because the answers differ. */
 export function dosePlaceholder(form) {
-  return form === 'topical' ? 'Optional — leave empty if you don\'t measure it' : 'e.g. 2 capsules, or 3 g'
+  return form === 'topical' ? 'Optional, leave empty if you don\'t measure it' : 'e.g. 2 capsules, or 3 g'
 }
 
 /** A stack entry built from a library row — every field editable afterwards. */
@@ -129,7 +129,7 @@ const STACKED_INGREDIENTS = [
   {
     id: 'magnesium',
     match: /magnesium|magzorb/i,
-    text: 'More than one magnesium product on your shelf — keep combined supplemental elemental magnesium around 300–400 mg/day, or expect loose stools.',
+    text: 'More than one magnesium product on your shelf, keep combined supplemental elemental magnesium around 300–400 mg/day, or expect loose stools.',
   },
 ]
 

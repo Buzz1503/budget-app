@@ -415,7 +415,7 @@ export function reasonsFor({ daysSinceChange, recency, proximity, tier, distinct
 }
 
 export const ATTRIBUTION_CAVEAT =
-  'These are candidates, not a diagnosis. On a multi-compound stack more than one thing can contribute — and something outside your stack can too.'
+  'These are candidates, not a diagnosis. On a multi-compound stack more than one thing can contribute, and something outside your stack can too.'
 
 /** Attribute a whole batch of just-selected symptoms in one pass. */
 export function attributeAll(symptomIds, ctx) {

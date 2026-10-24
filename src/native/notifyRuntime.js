@@ -7,7 +7,7 @@
 import useStore from '../store/useStore'
 import { buildSchedule, doseReminderDevices } from './notifySchedule'
 import { stockNotices, vialChangeNotice } from './stockNotices'
-import { PepitoBridge, onSnapshotWritten, onActionsApplied } from './runtime'
+import { PepitoBridge, onSnapshotWritten, onActionsApplied, listen } from './runtime'
 import { useNativeFeed } from './feed'
 import { loadMatrix, LIB_TO_COMPOUND } from '../lib/mixMatrix'
 
@@ -90,5 +90,5 @@ export function startNotifications() {
     await rebuildSchedule()
   })
   // the Watch app installed or removed moves dose reminders between devices
-  void PepitoBridge.addListener('watchChanged', () => { void rebuildSchedule() }).catch(() => {})
+  void listen(PepitoBridge, 'PepitoBridge', 'watchChanged', () => { void rebuildSchedule() })
 }

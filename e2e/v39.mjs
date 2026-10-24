@@ -88,7 +88,7 @@ page.on('pageerror', (e) => errors.push('pageerror: ' + e.message))
 let failures = 0
 const step = async (name, fn) => {
   try { await fn(); console.log('PASS', name) }
-  catch (e) { failures++; console.log('FAIL', name, '—', e.message.split('\n')[0]); errors.push(`step ${name}: ${e.message}`) }
+  catch (e) { failures++; console.log('FAIL', name, '–', e.message.split('\n')[0]); errors.push(`step ${name}: ${e.message}`) }
 }
 
 const state = () => page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state)
@@ -251,7 +251,7 @@ await step('2 · Take photo and Choose from library are both offered, and only o
   if (cam !== 'environment') throw new Error('the camera input lost its capture attribute')
 
   const lib = await page.getAttribute('[data-testid="photo-library-input"]', 'capture')
-  if (lib !== null) throw new Error(`the library input carries capture="${lib}" — iOS would open the camera`)
+  if (lib !== null) throw new Error(`the library input carries capture="${lib}", iOS would open the camera`)
   const accept = await page.getAttribute('[data-testid="photo-library-input"]', 'accept')
   if (accept !== 'image/*') throw new Error(`library accept is "${accept}"`)
   const multiple = await page.getAttribute('[data-testid="photo-library-input"]', 'multiple')
@@ -269,7 +269,7 @@ await step('3 · a picked photo with no EXIF date pre-fills today and is highlig
   await page.waitForTimeout(2500)
 
   const rows = await page.locator('[data-testid="import-review"] > div').count()
-  if (rows !== 2) throw new Error(`${rows} rows in the review list, expected 2 — multi-select did not work`)
+  if (rows !== 2) throw new Error(`${rows} rows in the review list, expected 2, multi-select did not work`)
   await noOverflow('import review')
 
   const undated = await page.locator('[data-testid="import-review"] input[data-detected="0"]').count()
@@ -396,7 +396,7 @@ await step('4b · a sideways photo is stored upright, with the rotation baked in
 
   if (!dims) throw new Error('the rotated photo is not in IndexedDB')
   if (dims.type !== 'image/jpeg') throw new Error(`stored as ${dims.type}`)
-  if (!(dims.h > dims.w)) throw new Error(`stored ${dims.w}x${dims.h} — the EXIF rotation was ignored`)
+  if (!(dims.h > dims.w)) throw new Error(`stored ${dims.w}x${dims.h}, the EXIF rotation was ignored`)
   console.log(`  source ${out.src.join('x')} with Orientation 6, stored ${dims.w}x${dims.h}`)
 })
 
@@ -654,7 +654,7 @@ await step('bug1 · the photo actually renders behind the pins, in both views', 
         size: [Math.round(r.width), Math.round(r.height)],
       }
     })
-    if (!img) throw new Error(`${v}: no image element — pins are floating over nothing`)
+    if (!img) throw new Error(`${v}: no image element, pins are floating over nothing`)
     if (!img.src.startsWith('blob:')) throw new Error(`${v}: src is "${img.src.slice(0, 40)}"`)
     if (!img.complete || !img.natural[0]) throw new Error(`${v}: the image never decoded`)
     if (img.size[0] < 10 || img.size[1] < 10) throw new Error(`${v}: image laid out at ${img.size.join('x')}`)
@@ -720,7 +720,7 @@ await step('bug2+3 · the adjust screen is opaque, fits, and nothing is clipped'
           || r.left < box.left - 0.5 || r.right > box.right + 0.5)
         .map((x) => x.id)
     })
-    if (clipped.length) throw new Error(`${v}: ${clipped.length} pin(s) clipped — ${clipped.slice(0, 3).join(', ')}`)
+    if (clipped.length) throw new Error(`${v}: ${clipped.length} pin(s) clipped, ${clipped.slice(0, 3).join(', ')}`)
   }
 
   // the header controls the report said were missing
@@ -872,7 +872,7 @@ await step('14 · two peptides on one pin warn, mark both mixed and leave the sc
   if (!(await card.count())) throw new Error('no card for motsc')
   const text = await card.innerText()
   // v36: four on their own (the mixed one is counted apart, as unable to isolate)
-  if (!/4 injections/i.test(text) || !/1 reaction/i.test(text.split(/plus/i)[0])) throw new Error(`the card reads "${text.replace(/\n/g, ' ')}" — mixed shots were counted`)
+  if (!/4 injections/i.test(text) || !/1 reaction/i.test(text.split(/plus/i)[0])) throw new Error(`the card reads "${text.replace(/\n/g, ' ')}", mixed shots were counted`)
   if (!/unable to isolate/i.test(text)) throw new Error('the mixed shot is not flagged as unable to isolate')
 
   // and the live warning on a fresh mixed log
@@ -1078,7 +1078,7 @@ await step('19 · old Reaction Lab data migrates with nothing lost and the stray
   await reload()
 
   const s = await state()
-  if (s.injectionRecords.length !== 3) throw new Error(`${s.injectionRecords.length} records after migration, expected 3 — data was lost`)
+  if (s.injectionRecords.length !== 3) throw new Error(`${s.injectionRecords.length} records after migration, expected 3, data was lost`)
 
   const one = s.injectionRecords.find((r) => r.id === 'old1')
   if (one.pinId !== 'abd-l-upper-inner') throw new Error(`old1 landed on ${one.pinId}`)

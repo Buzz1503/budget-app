@@ -42,7 +42,7 @@ export function buildSummaryHtml({
       <td>${esc(weekdayLabel(p))} · ${esc(slotOf(p))}</td>
       <td>${level + 1} of ${maxLevel + 1}</td>
       <td>${p.cycleOnDays && p.cycleOffDays ? `${p.cycleOnDays}d on / ${p.cycleOffDays}d off` : 'Ongoing'}</td>
-      <td>${esc(ten ? (ten.running ? ten.currentWords : `stopped · ${ten.lifetimeWords} lifetime`) : '—')}</td>
+      <td>${esc(ten ? (ten.running ? ten.currentWords : `stopped · ${ten.lifetimeWords} lifetime`) : '–')}</td>
     </tr>`
   }).join('')
 
@@ -63,11 +63,11 @@ export function buildSummaryHtml({
       <td><strong>${esc(p.name)}</strong></td>
       <td>${esc(fmt(ten.startedOn))}</td>
       <td>${esc(ten.running ? ten.currentWords : 'not running')}${ten.runCount > 1 ? ` <span class="muted">(${ten.runCount} runs, ${esc(ten.lifetimeWords)} lifetime)</span>` : ''}</td>
-      <td>${esc(at?.progression || '—')}${at?.words ? `<br><span class="muted">${esc(at.words)}</span>` : ''}</td>
+      <td>${esc(at?.progression || '–')}${at?.words ? `<br><span class="muted">${esc(at.words)}</span>` : ''}</td>
       <td>${esc(cyc?.cycled ? cyc.words : 'ongoing')}</td>
       <td class="num">${exp ? exp.doses : 0}</td>
-      <td class="num">${exp ? show(exp.loggedMg) : '—'}</td>
-      <td class="num">${exp?.hasEstimate ? show(exp.estimatedMg) + ' *' : '—'}</td>
+      <td class="num">${exp ? show(exp.loggedMg) : '–'}</td>
+      <td class="num">${exp?.hasEstimate ? show(exp.estimatedMg) + ' *' : '–'}</td>
     </tr>`
   }).filter(Boolean).join('')
 
@@ -124,7 +124,7 @@ export function buildSummaryHtml({
       <td>${esc(PIN_BY_ID[rec.pinId]?.label || 'No site recorded')}</td>
       <td>${esc(ids.map(nameOfPeptide).join(' + '))}${ids.length > 1 ? ' <span class="muted">(shared a syringe)</span>' : ''}</td>
       <td>${esc(needleLabel(rec.needle))}</td>
-      <td>${esc(peakSeverity(rx) ? severityWord(peakSeverity(rx)) : '—')}</td>
+      <td>${esc(peakSeverity(rx) ? severityWord(peakSeverity(rx)) : '–')}</td>
       <td>${esc(st === 'resolved' ? `Resolved${ttr === 0 ? ' same day' : ` after ${ttr} day${ttr === 1 ? '' : 's'}`}` : st === 'abandoned' ? 'Not checked for a week' : `Open, ${daysOpen(rx, today)} day${daysOpen(rx, today) === 1 ? '' : 's'}`)}</td>
       <td class="num">${checksOf(rx).length}</td>
     </tr>`
@@ -135,11 +135,11 @@ export function buildSummaryHtml({
     .map((p) => tenureFor(p, { runs, todayStr: today }))
     .filter((x) => x && x.running)
     .sort((a, b) => b.currentDays - a.currentDays)[0]
-  const longestWords = longest ? longest.currentWords : '—'
+  const longestWords = longest ? longest.currentWords : '–'
 
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8" />
-<title>Peptide protocol summary — ${esc(fmt(from))} to ${esc(fmt(to))}</title>
+<title>Peptide protocol summary, ${esc(fmt(from))} to ${esc(fmt(to))}</title>
 <style>
   :root { color-scheme: light; }
   * { box-sizing: border-box; }
@@ -174,7 +174,7 @@ export function buildSummaryHtml({
   <p class="sub">${esc(fmt(from))} – ${esc(fmt(to))} · generated ${esc(format(new Date(), 'd MMM yyyy'))}</p>
 
   <div class="kpis">
-    <div class="kpi"><div class="v">${summary.overall.pct == null ? '—' : summary.overall.pct + '%'}</div><div class="l">Adherence</div></div>
+    <div class="kpi"><div class="v">${summary.overall.pct == null ? '–' : summary.overall.pct + '%'}</div><div class="l">Adherence</div></div>
     <div class="kpi"><div class="v">${summary.overall.taken}/${summary.overall.scheduled}</div><div class="l">Doses taken</div></div>
     <div class="kpi"><div class="v">${active.length}</div><div class="l">Active peptides</div></div>
     <div class="kpi"><div class="v">${esc(longestWords)}</div><div class="l">Longest running</div></div>

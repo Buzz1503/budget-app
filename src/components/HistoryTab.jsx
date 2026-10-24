@@ -1,3 +1,4 @@
+import LongList from './ui/LongList'
 import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { History, Syringe, FileText, Filter, CalendarArrowDown } from 'lucide-react'
@@ -92,7 +93,7 @@ export default function HistoryTab() {
 
       {/* ------------------------------------------------ secondary, below */}
 
-      {/* Breaks, where the adherence figure below is read — a thin month makes
+      {/* Breaks, where the adherence figure below is read, a thin month makes
           a different kind of sense once you can see a fortnight was paused. */}
       <PauseHistory max={4} compact />
 
@@ -165,7 +166,7 @@ export default function HistoryTab() {
             ))}
           </div>
           <p className="mt-2 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-3)' }}>
-            Moved, not missed and not skipped — nothing came out of stock, and adherence counts the day the
+            Moved, not missed and not skipped, nothing came out of stock, and adherence counts the day the
             dose landed on rather than the one it left.
           </p>
         </div>
@@ -181,9 +182,10 @@ export default function HistoryTab() {
             No doses logged in this window.
           </div>
         )}
-        {events.map((ev, i) => (
+        <LongList items={events} keyOf={(ev) => ev.key} step={40} rowHeight={72} className="space-y-2" testid="history-log"
+          renderItem={(ev, i) => (
           <motion.div key={ev.key} className="card p-3"
-            initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(i * 0.02, 0.3) }}>
+            initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i < 15 ? i * 0.02 : 0 }}>
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
@@ -208,7 +210,7 @@ export default function HistoryTab() {
               </div>
             </div>
           </motion.div>
-        ))}
+          )} />
       </div>
 
       {/* Adherence: a measure of whether you pressed a button, kept because it
@@ -218,7 +220,7 @@ export default function HistoryTab() {
           <p className="text-sm font-bold">Adherence</p>
           <span className="text-2xl font-black tabular-nums"
             style={{ color: pct == null ? 'var(--text-2)' : pct >= 80 ? 'var(--good)' : pct >= 50 ? 'var(--warn)' : 'var(--danger)' }}>
-            {pct == null ? '—' : `${pct}%`}
+            {pct == null ? '–' : `${pct}%`}
           </span>
         </div>
         <p className="text-xs font-semibold tabular-nums" style={{ color: 'var(--text-2)' }}>
@@ -227,7 +229,7 @@ export default function HistoryTab() {
         {/* the figure counts records, not history. Someone on a compound for a
             year and logging for a month should not read this as a year. */}
         <p className="text-xs font-medium" style={{ color: 'var(--text-3)' }} data-testid="adherence-basis">
-          Since logging began — it counts what you recorded, not how long you have been on anything.
+          Since logging began, it counts what you recorded, not how long you have been on anything.
         </p>
         {split.skipped > 0 && (
           <p className="mt-1 flex flex-wrap items-center gap-x-2 text-xs font-bold tabular-nums" data-testid="skip-summary">

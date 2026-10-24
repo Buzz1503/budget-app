@@ -108,7 +108,7 @@ function DayBody({
 
       {nothing && (
         <p className="py-4 text-center text-sm font-bold" style={{ color: 'var(--text-2)' }}>
-          Nothing scheduled — a clear day.
+          Nothing scheduled, a clear day.
         </p>
       )}
 
@@ -200,13 +200,13 @@ function DayBody({
 
       {/* The per-compound buttons above handle one dose at a time. A day where
           several shared a syringe is one event, not three, and the catch-up
-          sheet is the one that knows that — so the way to it stays. */}
+          sheet is the one that knows that, so the way to it stays. */}
       {isPast && day.missed > 0 && (
         <div className="rounded-[14px] p-3" data-testid="day-missed"
           style={{ background: 'color-mix(in srgb, var(--danger) 14%, transparent)' }}>
           <p className="flex items-center gap-1.5 text-xs font-black" style={{ color: 'var(--danger)' }}>
             <AlertCircle size={13} strokeWidth={3} />
-            {day.missed} missed — nothing recorded either way
+            {day.missed} missed, nothing recorded either way
           </p>
           <button onClick={() => { onClose(); onBackfill?.(date) }} data-testid="day-catch-up"
             className="btn-primary mt-2 w-full rounded-full py-3 text-xs font-black">
@@ -227,7 +227,7 @@ function DayBody({
 
       {isPast && (
         <p className="px-1 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-3)' }}>
-          Anything added here is recorded as having happened on this day — it moves the vial, the run-out
+          Anything added here is recorded as having happened on this day, it moves the vial, the run-out
           date and your adherence exactly as logging it at the time would have.
         </p>
       )}
@@ -342,7 +342,7 @@ function SkipSheet({ entry, date, onClose }) {
     <Modal open onClose={onClose} title={`Skipped ${entry.name}`}>
       <div className="space-y-3" data-testid="day-skip-sheet">
         <p className="text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
-          Recorded on {prettyDate(date)} as a decision rather than a lapse — it stops counting as missed.
+          Recorded on {prettyDate(date)} as a decision rather than a lapse, it stops counting as missed.
         </p>
         <div className="flex flex-wrap gap-1.5">
           {REASONS.map((r) => (

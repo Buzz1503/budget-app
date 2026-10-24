@@ -18,7 +18,7 @@ export function mixVerdict(nameA, nameB, knownGoodKeys = []) {
       verdict: 'red',
       overridable: false,
       title: 'Inject separately',
-      reason: `${who} should always be drawn and injected on its own — no co-draw.`,
+      reason: `${who} should always be drawn and injected on its own, no co-draw.`,
     }
   }
   const key = pairKey(nameA, nameB)
@@ -34,6 +34,6 @@ export function mixVerdict(nameA, nameB, knownGoodKeys = []) {
     verdict: 'amber',
     overridable: true,
     title: 'Separate unless verified',
-    reason: 'No verification for this pair yet — default to separate syringes. Mark known-good only once you have verified it yourself.',
+    reason: 'No verification for this pair yet, default to separate syringes. Mark known-good only once you have verified it yourself.',
   }
 }

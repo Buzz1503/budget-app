@@ -38,6 +38,7 @@ import { applyCheck, toAbandon, localDay } from '../lib/reactionCourse'
 import { captureFor, normaliseNeedle, coDrawInfo } from '../lib/injectionCapture'
 import { lastNeedle, rememberNeedle } from '../lib/needle'
 import { DEFAULT_SAUNA_SETTINGS, newSession, sessionFromTimer, hhmmOf, cleanRating } from '../sauna/sauna'
+import { haptic } from '../lib/feedback'
 import { applyPendingActions } from '../native/actions'
 import {
   changeVial, vialChangeNeeded, hasOpenVial, remainingMg as openRemainingMg, expiryOf, migrateVialModel,
@@ -1045,9 +1046,17 @@ const useStore = create(
         return get().doseLogs.slice(-count).map((l) => l.id)
       },
 
+      /** The feel of Log, Take and Skip, when haptics are on. */
+      _feedback(kind = 'success') {
+        if (get().settings?.haptics === false) return
+        if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return
+        haptic(kind)
+      },
+
       logDose(peptideId) {
         const p = get()._recordDose(peptideId, new Date().toISOString(), null)
         if (!p) return
+        get()._feedback('success')
         const [id] = get()._lastLoggedIds(1)
         get()._recordUnsited(peptideId, id)
         get().showToast(`${p.name} logged`, () => get().undoLog(id))
@@ -1080,6 +1089,7 @@ const useStore = create(
       logDoseOnSite(peptideId, pinId, extras = {}) {
         const p = get()._recordDose(peptideId, new Date().toISOString(), null)
         if (!p) return null
+        get()._feedback('success')
         const [id] = get()._lastLoggedIds(1)
         const record = get().logInjection({
           peptideId, pinId, doseLogId: id,
@@ -1151,6 +1161,7 @@ const useStore = create(
       // Co-draw: several peptides drawn into one syringe → one injection event
       // at one site with one shared timestamp + coDrawId.
       logCoDraw(peptideIds) {
+        get()._feedback('success')
         const loggedAt = new Date().toISOString()
         const coDrawId = `cd-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
         const logged = []
@@ -1774,6 +1785,7 @@ const useStore = create(
         const t = dateStr || todayStr()
         const s = get()
         if (s.skips.some((k) => k.kind === 'peptide' && k.peptideId === peptideId && k.date === t)) return
+        get()._feedback('skip')
         const p = s.peptides.find((x) => x.id === peptideId)
         set({
           skips: [...s.skips, {
@@ -2425,7 +2437,10 @@ const useStore = create(
             backfilled: !!dateStr,
           }],
         })
-        if (!quiet) get().showToast(`${supp?.name || 'Supplement'} ${supp?.form === 'topical' ? 'applied' : 'taken'}`, () => get().toggleSupplementTaken(id, dateStr))
+        if (!quiet) {
+          get()._feedback('success')
+          get().showToast(`${supp?.name || 'Supplement'} ${supp?.form === 'topical' ? 'applied' : 'taken'}`, () => get().toggleSupplementTaken(id, dateStr))
+        }
         return true
       },
 
@@ -2456,7 +2471,10 @@ const useStore = create(
         const log = makeAsNeededLog(item, { amount, unit, at, source }, `an-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`)
         if (!log) return null
         set((s) => ({ asNeededLogs: [...s.asNeededLogs, log] }))
-        if (source === 'phone') get().showToast(`${item.name} ${log.amount} ${log.unit} logged`, () => get().deleteAsNeededLog(log.id))
+        if (source === 'phone') {
+          get()._feedback('success')
+          get().showToast(`${item.name} ${log.amount} ${log.unit} logged`, () => get().deleteAsNeededLog(log.id))
+        }
         return log
       },
       updateAsNeededLog(id, patch = {}) {

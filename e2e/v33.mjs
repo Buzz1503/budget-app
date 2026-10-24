@@ -20,7 +20,7 @@ page.on('pageerror', (e) => errors.push('pageerror: ' + e.message))
 let failures = 0
 const step = async (name, fn) => {
   try { await fn(); console.log('PASS', name) }
-  catch (e) { failures++; console.log('FAIL', name, '—', e.message.split('\n')[0]); errors.push(`step ${name}: ${e.message}`) }
+  catch (e) { failures++; console.log('FAIL', name, '–', e.message.split('\n')[0]); errors.push(`step ${name}: ${e.message}`) }
 }
 const state = () => page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state)
 const closeAll = async () => {
@@ -154,7 +154,7 @@ await step('2 · missed doses are a quiet line, not a red alert', async () => {
     const tone = await quiet.evaluate((el) => getComputedStyle(el.querySelector('span')).color)
     console.log(`  quiet line present, ${tone}`)
   } else {
-    console.log('  (nothing missed — no line to show)')
+    console.log('  (nothing missed, no line to show)')
   }
 })
 

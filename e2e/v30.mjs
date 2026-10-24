@@ -47,7 +47,7 @@ page.on('pageerror', (e) => errors.push('pageerror: ' + e.message))
 
 const step = async (name, fn) => {
   try { await fn(); console.log('PASS', name) }
-  catch (e) { console.log('FAIL', name, '—', e.message.split('\n')[0]); errors.push(`step ${name}: ${e.message}`) }
+  catch (e) { console.log('FAIL', name, '–', e.message.split('\n')[0]); errors.push(`step ${name}: ${e.message}`) }
 }
 const state = () => page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state)
 const sheet = () => page.locator('[data-testid="sheet"]').last()
@@ -359,7 +359,7 @@ await step('the backfill comes out of the vial, so the run-out date catches up',
   const log = [...s.doseLogs].reverse().find((l) => l.backfilled)
   const open = s.openVials[log.peptideId]
   if (log.movedStock === false) {
-    console.log('  that day ran on a vial since finished — the open vial was left alone, as it should be')
+    console.log('  that day ran on a vial since finished, the open vial was left alone, as it should be')
     return
   }
   // what is left is worked out from the log: a dose dated before the vial was opened is not drawn from it
@@ -412,7 +412,7 @@ await step('"I skipped it" records a decision on that day, not on today', async 
   console.log(`  ${sk.length} skip(s) recorded on ${iso(-1)}`)
 })
 
-await step('a skip never touches the vial — nothing was taken', async () => {
+await step('a skip never touches the vial, nothing was taken', async () => {
   const s = await state()
   const skipped = s.skips.find((k) => k.date === iso(-1))
   if (!s.doseLogs.some((l) => l.date === iso(-1) && l.peptideId === skipped.peptideId)) return
@@ -423,7 +423,7 @@ await step('the catch-up flow can clear a whole run of days at once', async () =
   await more('history')
   await page.waitForTimeout(900)
   const card = page.locator('[data-testid="catch-up-card"]')
-  if (!(await card.count())) { console.log('  nothing left missed — skipped'); return }
+  if (!(await card.count())) { console.log('  nothing left missed, skipped'); return }
   await page.click('[data-testid="catch-up-open"]')
   await page.waitForTimeout(700)
   const days = await page.locator('[data-testid="catch-up-day"]').count()

@@ -17,7 +17,7 @@ page.on('pageerror', (e) => errors.push('pageerror: ' + e.message))
 
 const step = async (name, fn) => {
   try { await fn(); console.log('PASS', name) }
-  catch (e) { console.log('FAIL', name, '—', e.message.split('\n')[0]); errors.push(`step ${name}: ${e.message}`) }
+  catch (e) { console.log('FAIL', name, '–', e.message.split('\n')[0]); errors.push(`step ${name}: ${e.message}`) }
 }
 const state = () => page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state)
 const closeAll = async () => {
@@ -311,7 +311,7 @@ await step('the co-draw row sits below the inject cards and lists no compound na
   await nav('Home')
   await page.waitForTimeout(900)
   const row = page.locator('[data-testid="codraw-row"]')
-  if (!(await row.count())) { console.log('  nothing combinable in this slot — skipped'); return }
+  if (!(await row.count())) { console.log('  nothing combinable in this slot, skipped'); return }
   const cards = page.locator('[data-testid="inject-card"], main div.card.rows').first()
   const cardBox = await cards.boundingBox()
   const rowBox = await row.first().boundingBox()
@@ -330,7 +330,7 @@ await step('Home has no look-ahead: no Tomorrow card and no seven-day strip', as
 
 await step('the INJECT header is clear of the rule above it', async () => {
   const h = page.locator('[data-testid="inject-heading"]')
-  if (!(await h.count())) { console.log('  no oral group in this slot, so no header — skipped'); return }
+  if (!(await h.count())) { console.log('  no oral group in this slot, so no header, skipped'); return }
   const pt = await h.evaluate((el) => getComputedStyle(el).paddingTop)
   if (parseFloat(pt) < 20) throw new Error(`the header's top padding is only ${pt}`)
   console.log(`  padding-top ${pt}`)

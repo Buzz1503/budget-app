@@ -23,7 +23,7 @@ export function seedProtocolFor(id) {
   return SEED_BY_ID.get(id) || null
 }
 
-const RANGE = /(\d+(?:\.\d+)?)\s*(?:-|–|—|\s+to\s+)\s*(\d+(?:\.\d+)?)\s*(mcg|mg)\b/i
+const RANGE = /(\d+(?:\.\d+)?)\s*(?:-|–|–|\s+to\s+)\s*(\d+(?:\.\d+)?)\s*(mcg|mg)\b/i
 // a range quoted for a route this app doesn't inject is not a starting point
 const OTHER_ROUTE = /\b(oral|orally|iv\b|intravenous|infusion|topical|cosmetic|per compounding|ml per day)\b/i
 

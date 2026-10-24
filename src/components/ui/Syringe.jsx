@@ -52,7 +52,7 @@ export default function Syringe({ units }) {
       </svg>
       {over && (
         <p className="mt-1 text-xs font-semibold" style={{ color: 'var(--danger)' }}>
-          Over 100 u — split into multiple syringes or reconstitute stronger.
+          Over 100 u, split into multiple syringes or reconstitute stronger.
         </p>
       )}
     </div>

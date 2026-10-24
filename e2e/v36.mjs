@@ -25,7 +25,7 @@ page.on('pageerror', (e) => errors.push('pageerror: ' + e.message))
 let failures = 0
 const step = async (name, fn) => {
   try { await fn(); console.log('PASS', name) }
-  catch (e) { failures++; console.log('FAIL', name, '—', e.message.split('\n')[0]); errors.push(`step ${name}: ${e.message}`) }
+  catch (e) { failures++; console.log('FAIL', name, '–', e.message.split('\n')[0]); errors.push(`step ${name}: ${e.message}`) }
 }
 const state = () => page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state)
 const gotIt = async () => {
@@ -427,7 +427,7 @@ await step('3d · a step-up due during the pause is held and asked on resume', a
   if (!changed.length) throw new Error('holding did not restart the interval')
   const id = changed[0]
   if (after.titration[id].level !== before.titration[id].level) throw new Error('holding advanced the rung anyway')
-  console.log(`  ${name.split('—')[0].trim()} held; interval restarted from today`)
+  console.log(`  ${name.split('–')[0].trim()} held; interval restarted from today`)
 })
 
 await step('3e · pause history is kept', async () => {
@@ -481,7 +481,7 @@ await step('4 · the month grid draws completion, dots and markers', async () =>
   await monthView()
   if (!(await page.locator('[data-testid="month-grid"]').count())) throw new Error('no month grid')
   const cells = await page.locator('[data-testid^="cal-cell-"]').count()
-  if (cells % 7 !== 0) throw new Error(`${cells} cells — not whole weeks`)
+  if (cells % 7 !== 0) throw new Error(`${cells} cells, not whole weeks`)
 
   await showing(iso(-6))
   const ring = page.locator(`[data-testid="cal-cell-${iso(-6)}"] [data-testid="day-ring"]`)
@@ -607,7 +607,7 @@ await step('6b · it moves the vial, the run-out date and adherence', async () =
   // from — silently taking nothing from anywhere is the failure mode here
   const log = s.doseLogs.find((l) => l.id === globalThis.__backfilled.logId)
   if (log.movedStock === false) {
-    console.log('  that day ran on a vial since finished — the open vial was rightly left alone')
+    console.log('  that day ran on a vial since finished, the open vial was rightly left alone')
   } else if (open?.activatedAt && String(log.loggedAt || log.date) < open.activatedAt) {
     // what is left is worked out from the log: a dose dated before this vial was opened is not drawn from it
     console.log('  that day is before this vial was opened, so it was rightly left alone')
@@ -639,7 +639,7 @@ await step('6c · a dose can be marked skipped on a past day, with a reason', as
   const k = s.skips.find((x) => x.peptideId === id && x.date === iso(-3))
   if (!k) throw new Error('the skip was not recorded on that day')
   if (!k.reason) throw new Error('the reason was not kept')
-  console.log(`  ${id} skipped on ${k.date} — "${k.reason}"`)
+  console.log(`  ${id} skipped on ${k.date}, "${k.reason}"`)
 })
 
 // stage 2D: symptoms can no longer be added; what was stored stays

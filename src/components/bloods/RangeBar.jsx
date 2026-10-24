@@ -45,7 +45,7 @@ export function MarkerRow({ row, onOpen, compounds }) {
       <div className="flex items-baseline gap-2">
         <span className="min-w-0 flex-1 truncate text-xs font-bold">{marker.name}</span>
         <span className="shrink-0 text-sm font-black tabular-nums" style={{ color: tone }}>
-          {latest ? latest.value : '—'}
+          {latest ? latest.value : '–'}
           {marker.unit ? <span className="ml-1 text-xs font-bold" style={{ color: 'var(--text-3)' }}>{marker.unit}</span> : null}
         </span>
       </div>

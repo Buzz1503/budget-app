@@ -15,7 +15,7 @@ page.on('pageerror', (e) => errors.push('pageerror: ' + e.message))
 
 const step = async (name, fn) => {
   try { await fn(); console.log('PASS', name) }
-  catch (e) { console.log('FAIL', name, '—', e.message.split('\n')[0]); errors.push(`step ${name}: ${e.message}`) }
+  catch (e) { console.log('FAIL', name, '–', e.message.split('\n')[0]); errors.push(`step ${name}: ${e.message}`) }
 }
 const waitText = async (re, timeout = 20000) => {
   const start = Date.now()
@@ -297,7 +297,7 @@ await step('per-vial purchase editing survived the merge', async () => {
 // ---------- 5. body measurements ----------
 await step('Body tab states the global measuring rules once', async () => {
   await nav('Body')
-  await waitText(/How to measure — every time/)
+  await waitText(/How to measure, every time/)
   const txt = await body()
   for (const w of ['same time of day', 'not compressing', 'normal exhale']) {
     if (!txt.toLowerCase().includes(w.toLowerCase())) throw new Error(`missing rule "${w}"`)
@@ -338,11 +338,11 @@ await step('the entry form gives each measurement its exact instruction', async 
 
 await step('left and right are separate inputs and store separately', async () => {
   const m = modal()
-  await m.locator('input[aria-label="Upper arm — left in cm"]').fill('38')
-  await m.locator('input[aria-label="Upper arm — right in cm"]').fill('39.5')
-  await m.locator('input[aria-label="Thigh — left in cm"]').fill('58')
-  await m.locator('input[aria-label="Thigh — right in cm"]').fill('57')
-  await m.locator('input[aria-label="Calf — right in cm"]').fill('40')
+  await m.locator('input[aria-label="Upper arm, left in cm"]').fill('38')
+  await m.locator('input[aria-label="Upper arm, right in cm"]').fill('39.5')
+  await m.locator('input[aria-label="Thigh, left in cm"]').fill('58')
+  await m.locator('input[aria-label="Thigh, right in cm"]').fill('57')
+  await m.locator('input[aria-label="Calf, right in cm"]').fill('40')
   await m.locator('button:has-text("Save measurement")').click()
   await page.waitForTimeout(700)
   const st = await state()
@@ -357,10 +357,10 @@ await step('trends can chart each side on its own', async () => {
   await page.click('button:has-text("Trends")')
   await page.waitForTimeout(400)
   const txt = await body()
-  for (const w of ['Upper arm — left', 'Upper arm — right', 'Thigh — left', 'Calf — right']) {
+  for (const w of ['Upper arm, left', 'Upper arm, right', 'Thigh, left', 'Calf, right']) {
     if (!txt.includes(w)) throw new Error(`no trend chip for "${w}"`)
   }
-  await page.click('button:has-text("Upper arm — left")')
+  await page.click('button:has-text("Upper arm, left")')
   await page.waitForTimeout(400)
   await waitText(/up from the elbow crease/)
 })

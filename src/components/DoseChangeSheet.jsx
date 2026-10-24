@@ -62,7 +62,7 @@ export default function DoseChangeSheet({ peptideId, open, onClose }) {
   }
 
   return (
-    <Modal open onClose={onClose} title={`${displayName(peptide)} — change dose`}>
+    <Modal open onClose={onClose} title={`${displayName(peptide)}, change dose`}>
       <div className="space-y-3" data-testid="dose-change-sheet">
         {/* where you are, and where you are going */}
         <div className="flex items-center gap-3 rounded-[14px] p-3" style={{ background: 'var(--surface-sunk)' }}>
@@ -79,7 +79,7 @@ export default function DoseChangeSheet({ peptideId, open, onClose }) {
           <span className="min-w-0 flex-1 text-right">
             <span className="t-caption block" style={{ color: 'var(--text-3)' }}>New</span>
             <span className="t-metric-sm block tabular-nums" style={{ color: changed ? 'var(--good)' : 'var(--text-3)' }}>
-              {Number(value) > 0 ? formatDose(Number(value), unit) : '—'}
+              {Number(value) > 0 ? formatDose(Number(value), unit) : '–'}
             </span>
             {!nasal && Number(value) > 0 && (
               <span className="block text-xs font-medium tabular-nums" style={{ color: 'var(--text-3)' }}>
@@ -120,7 +120,7 @@ export default function DoseChangeSheet({ peptideId, open, onClose }) {
               {plan.raisedCeiling
                 ? `That is above the top of the ladder, so the ceiling moves up to ${formatDose(Number(value), unit)}.`
                 : plan.movedFloor
-                  ? 'That is between the ladder’s steps, so it becomes the new bottom of the ladder — everything above it stays.'
+                  ? 'That is between the ladder’s steps, so it becomes the new bottom of the ladder, everything above it stays.'
                   : `This compound has no titration ladder, so ${formatDose(Number(value), unit)} simply becomes the dose.`}
             </span>
           </p>

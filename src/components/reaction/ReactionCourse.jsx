@@ -430,10 +430,10 @@ export function ReactionDetail({ recordId, onClose }) {
 
         <div className="grid grid-cols-2 gap-2" data-testid="rd-stats">
           <Stat label="Status" value={status ? status[0].toUpperCase() + status.slice(1) : 'No reaction'} tid="rd-status" />
-          <Stat label="Days open" value={d.daysOpen == null ? '—' : d.daysOpen === 0 ? 'Same day' : String(d.daysOpen)} tid="rd-days-open" />
-          <Stat label="Time to resolve" value={d.timeToResolve == null ? '—' : d.timeToResolve === 0 ? 'Same day' : plural(d.timeToResolve, 'day')} tid="rd-resolve" />
-          <Stat label="Peak" value={d.peak ? severityWord(d.peak) : '—'} tid="rd-peak" tone={d.peak ? toneOf(d.peak) : null} />
-          <Stat label="Direction" value={d.direction ? DIRECTION_WORDS[d.direction] : d.checks < 2 ? 'Needs 2 checks' : '—'} tid="rd-direction" />
+          <Stat label="Days open" value={d.daysOpen == null ? '–' : d.daysOpen === 0 ? 'Same day' : String(d.daysOpen)} tid="rd-days-open" />
+          <Stat label="Time to resolve" value={d.timeToResolve == null ? '–' : d.timeToResolve === 0 ? 'Same day' : plural(d.timeToResolve, 'day')} tid="rd-resolve" />
+          <Stat label="Peak" value={d.peak ? severityWord(d.peak) : '–'} tid="rd-peak" tone={d.peak ? toneOf(d.peak) : null} />
+          <Stat label="Direction" value={d.direction ? DIRECTION_WORDS[d.direction] : d.checks < 2 ? 'Needs 2 checks' : '–'} tid="rd-direction" />
           <Stat label="Checks" value={`${d.checks}${d.gaps.length ? ` · ${plural(d.gaps.length, 'day')} missed` : ''}`} tid="rd-checks" />
         </div>
 
@@ -568,7 +568,7 @@ function StatsLine({ s }) {
   if (s.status === 'insufficient') {
     return (
       <div className="text-xs font-medium leading-snug" style={{ color: 'var(--text-2)' }} data-testid="stats-insufficient">
-        {plural(s.injections, 'injection')} · {plural(s.reactions, 'reaction')} — <b>Not enough data yet</b>
+        {plural(s.injections, 'injection')} · {plural(s.reactions, 'reaction')}, <b>Not enough data yet</b>
         <span style={{ color: 'var(--text-3)' }}> (needs {MIN_INJECTIONS} checked)</span>
       </div>
     )
@@ -621,13 +621,13 @@ export function PatternsSection({ onOpenPeptide }) {
               <StatsLine s={r.clean} />
               {r.coDraw && (
                 <div className="mt-0.5 text-xs font-medium leading-snug tabular-nums" style={{ color: 'var(--text-3)' }} data-testid="codraw-line">
-                  Plus {plural(r.coDraw.injections, 'injection')} that shared a syringe, {plural(r.coDraw.reactions, 'reaction')} —
+                  Plus {plural(r.coDraw.injections, 'injection')} that shared a syringe, {plural(r.coDraw.reactions, 'reaction')},
                   unable to isolate this compound, so not in the rate above.
                 </div>
               )}
               {r.viaBlends.map((b) => (
                 <div key={b.blendId} className="mt-0.5 text-xs font-medium leading-snug tabular-nums" style={{ color: 'var(--text-3)' }} data-testid="blend-line">
-                  Also an ingredient of {label(b.blendId)}: {plural(b.injections, 'injection')}, {plural(b.reactions, 'reaction')} —
+                  Also an ingredient of {label(b.blendId)}: {plural(b.injections, 'injection')}, {plural(b.reactions, 'reaction')},
                   a blend isn't clean data for {label(r.peptideId)}, so not counted here.
                 </div>
               ))}

@@ -197,7 +197,7 @@ export function stockNote(v) {
   if (v.where === 'current') return 'Comes out of the vial you have open, so your run-out date catches up too.'
   if (v.where === 'finished') return 'That day was on a vial you have since finished, so your open vial is left alone.'
   if (v.where === 'before') return 'You hadn\'t opened this vial yet on that day, so your open vial is left alone.'
-  return 'No vial recorded for that day, so there is nothing to take it out of — the dose is still logged.'
+  return 'No vial recorded for that day, so there is nothing to take it out of, the dose is still logged.'
 }
 
 /**

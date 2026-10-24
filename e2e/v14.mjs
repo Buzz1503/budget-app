@@ -15,7 +15,7 @@ page.on('pageerror', (e) => errors.push('pageerror: ' + e.message))
 
 const step = async (name, fn) => {
   try { await fn(); console.log('PASS', name) }
-  catch (e) { console.log('FAIL', name, '—', e.message.split('\n')[0]); errors.push(`step ${name}: ${e.message}`) }
+  catch (e) { console.log('FAIL', name, '–', e.message.split('\n')[0]); errors.push(`step ${name}: ${e.message}`) }
 }
 const waitText = async (re, timeout = 20000) => {
   const start = Date.now()
@@ -92,6 +92,6 @@ await step('no feelings check-in on Home, in Reactions, the calendar or History'
 })
 
 const noise = errors.filter((e) => e.startsWith('console') || e.startsWith('pageerror'))
-console.log(noise.length ? `FAIL console clean — ${noise.slice(0, 3).join(' | ')}` : 'PASS console clean')
+console.log(noise.length ? `FAIL console clean, ${noise.slice(0, 3).join(' | ')}` : 'PASS console clean')
 await browser.close()
 process.exit(errors.length ? 1 : 0)

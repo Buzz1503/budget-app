@@ -92,7 +92,7 @@ export default function CalcTab() {
 
       {manual ? (
         <p className="px-1 text-xs font-semibold" data-testid="calc-manual-hint" style={{ color: 'var(--text-2)' }}>
-          No compound selected — enter whatever is on the vial in front of you. Nothing is saved
+          No compound selected, enter whatever is on the vial in front of you. Nothing is saved
           to my protocol unless you ask.
         </p>
       ) : (
@@ -110,7 +110,7 @@ export default function CalcTab() {
       )}
 
       <div className="card space-y-3 p-3">
-        {/* preparation mode — reconstitution vs. a vial that's already in solution */}
+        {/* preparation mode, reconstitution vs. a vial that's already in solution */}
         <div className="flex gap-2">
           {[['recon', 'Reconstitute'], ['premixed', 'Pre-mixed solution']].map(([m, label]) => (
             <button key={m} onClick={() => setPrep(m)}
@@ -148,10 +148,10 @@ export default function CalcTab() {
         )}
         <div className="rounded-[14px] p-3 text-center" style={{ background: 'var(--surface-sunk)' }}>
           <p className="text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-2)' }}>Concentration</p>
-          <p className="text-base font-semibold num">{conc ? `${round(conc, 3)} mg/mL` : '—'}</p>
+          <p className="text-base font-semibold num">{conc ? `${round(conc, 3)} mg/mL` : '–'}</p>
           {premixed && (
             <p className="mt-1 text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
-              As supplied — no powder to dissolve{+vialMl > 0 ? ` · ${round(premixedVialMg(+concIn || 0, +vialMl || 0), 1)} mg per vial` : ''}
+              As supplied, no powder to dissolve{+vialMl > 0 ? ` · ${round(premixedVialMg(+concIn || 0, +vialMl || 0), 1)} mg per vial` : ''}
             </p>
           )}
         </div>
@@ -190,7 +190,7 @@ export default function CalcTab() {
                 style={{ background: 'color-mix(in srgb, var(--warn) 14%, transparent)', color: 'var(--warn)' }}>
                 <Droplet size={13} className="mt-1 shrink-0" />
                 <span>
-                  Oil is viscous — it draws and pushes far slower than water. Use a wider needle to draw, swap to a fresh one to inject, and go slowly.
+                  Oil is viscous, it draws and pushes far slower than water. Use a wider needle to draw, swap to a fresh one to inject, and go slowly.
                 </span>
               </p>
             )}
@@ -234,7 +234,7 @@ export default function CalcTab() {
               </label>
               <p className="text-xs font-medium" style={{ color: 'var(--text-2)' }}>
                 Saves the vial and water you entered. Dose, schedule and cycle are yours to set in
-                the Library — nothing is guessed.
+                the Library, nothing is guessed.
               </p>
               <div className="flex gap-2">
                 <button onClick={() => { setSaving(false); setSaveName('') }}
@@ -271,8 +271,8 @@ export default function CalcTab() {
 
       <p className="px-1 text-xs font-medium" style={{ color: 'var(--text-2)' }}>
         U-100 insulin syringe: 1 unit = 0.01 mL. {manual
-          ? 'Manual mode works from the numbers you type — no compound, no library entry, nothing stored.'
-          : 'Selecting a compound pre-fills its own defaults and switches to the right mode — pre-mixed vials are divided by their label concentration, with no reconstitution step.'}
+          ? 'Manual mode works from the numbers you type, no compound, no library entry, nothing stored.'
+          : 'Selecting a compound pre-fills its own defaults and switches to the right mode, pre-mixed vials are divided by their label concentration, with no reconstitution step.'}
       </p>
     </div>
   )

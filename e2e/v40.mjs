@@ -16,7 +16,7 @@ return Buffer.concat([Buffer.from([0x89,0x50,0x4E,0x47,0x0D,0x0A,0x1A,0x0A]),chu
 const PNG = makePng(250, 300)
 
 let fails = 0
-const step = async (n, fn) => { try { await fn(); console.log('PASS', n) } catch (e) { fails++; console.log('FAIL', n, '—', e.message.split('\n')[0]) } }
+const step = async (n, fn) => { try { await fn(); console.log('PASS', n) } catch (e) { fails++; console.log('FAIL', n, '–', e.message.split('\n')[0]) } }
 
 for (const [W, H] of [[390, 844], [375, 667]]) {
   const browser = await chromium.launch({ executablePath: EXE })

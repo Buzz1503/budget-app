@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, Suspense } from 'react'
+import { markInteractive } from '../lib/coldStart'
 import { HEALTH_BUILD, HomeHealthCard } from '../health/ui'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Check, Info, Clock, AlertTriangle, Sun, Moon, ChevronRight, Syringe, X, ShieldCheck, Layers, Bell, Zap, SkipForward, Undo2, MoreHorizontal, CalendarArrowDown, SlidersHorizontal, Pause, Play, PersonStanding } from 'lucide-react'
@@ -48,6 +49,8 @@ export default function Home({ goTo }) {
 
   const t = todayStr()
   const [slot, setSlot] = useState(() => currentSlot())
+  // cold start: the first time Home is on screen and can take a tap
+  useEffect(() => { markInteractive() }, [])
   const [selected, setSelected] = useState(() => new Set()) // co-draw selection
   const [coDraw, setCoDraw] = useState(false)
   const [showAbout, setShowAbout] = useState(false)
@@ -273,7 +276,7 @@ export default function Home({ goTo }) {
   const milestones = useMemo(() => peptides.map((p) => {
     const ten = tenureFor(p, { runs, pauses, todayStr: t })
     const hit = ten?.running ? milestonesFor(ten.currentDays).today : null
-    return hit ? { id: p.id, text: `${displayName(p)} — ${hit.label} on it today.` } : null
+    return hit ? { id: p.id, text: `${displayName(p)}, ${hit.label} on it today.` } : null
   }).filter(Boolean), [peptides, runs, t, pauses])
 
   // Everything still owed today across both slots, so the bell can clear it.
@@ -294,7 +297,7 @@ export default function Home({ goTo }) {
 
   return (
     <div className="space-y-3">
-      {/* Shown once, on first launch, and never again — it is not a standing
+      {/* Shown once, on first launch, and never again, it is not a standing
           row in the column. Afterwards it lives behind the ⓘ in the header. */}
       <Disclaimer
         open={!settings.disclaimerDismissed || showAbout}
@@ -356,7 +359,7 @@ export default function Home({ goTo }) {
 
       {/* first-run pointer at the row */}
       <CoachTip id="log-button" when={slotDue.length > 0}>
-        Tap a row to log it — that is the whole thing. Undo sits on the toast if you mis-tap,
+        Tap a row to log it, that is the whole thing. Undo sits on the toast if you mis-tap,
         and <span className="font-black">…</span> holds skip and vial actions.
       </CoachTip>
 
@@ -370,7 +373,7 @@ export default function Home({ goTo }) {
         {slotTotal === 0 && (
           <div className="p-8 text-center">
             <p className="t-label" style={{ color: 'var(--text-2)' }}>
-              {slot === 'AM' ? "Nothing this morning — you're clear" : "Nothing tonight — you're clear"}
+              {slot === 'AM' ? "Nothing this morning, you're clear" : "Nothing tonight, you're clear"}
             </p>
             {otherCount > 0 && (
               <button onClick={() => setSlot(otherSlot)} className="t-label mt-2 inline-flex items-center gap-1" style={{ color: 'var(--text)' }}>
@@ -403,7 +406,7 @@ export default function Home({ goTo }) {
             onLog={() => logDose(p.id)}
             onLogOnBody={() => setLogOnBody(p.id)}
             onUnlog={() => {
-              if (unlogToday(p.id)) showToast(`${displayName(p)} un-logged — back on the list`)
+              if (unlogToday(p.id)) showToast(`${displayName(p)} un-logged, back on the list`)
             }}
             selected={selected.has(p.id)} onToggleSelect={() => toggleSelect(p.id)}
             skipped={skippedIds.has(p.id)}
@@ -422,7 +425,7 @@ export default function Home({ goTo }) {
         ))}
       </div>
 
-      {/* Oral group — deliberately its own block. No site, no co-draw, no
+      {/* Oral group, deliberately its own block. No site, no co-draw, no
           units: tapping it is the whole interaction. */}
       {slotSupps.length > 0 && (
         <div className="space-y-2" data-testid="take-group">
@@ -572,7 +575,7 @@ function SkipSheet({ target, onClose, onConfirm }) {
             </button>
           ))}
         </div>
-        <p className="text-xs font-medium" style={{ color: 'var(--text-2)' }}>Optional — tap Skip without one.</p>
+        <p className="text-xs font-medium" style={{ color: 'var(--text-2)' }}>Optional, tap Skip without one.</p>
         <div className="flex gap-2">
           <button onClick={onClose} className="flex-1 rounded-full py-3 text-xs font-black"
             style={{ background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
@@ -688,7 +691,7 @@ function AlertBell({ alerts, nudge, goTo, onDismissNudge, stepUps = [], overdue 
 
       {/* A full overlay rather than a popover hung off the bell.
           The panel used to be painted in `--surface`, which is a five-percent
-          white — glass, by design, for a card sitting on the page. Floated over
+          white, glass, by design, for a card sitting on the page. Floated over
           the page as a panel it let the header and the cards read straight
           through it, so the screen showed both at once and neither legibly.
           The ground under it is dimmed and the panel itself is solid. */}
@@ -740,7 +743,7 @@ function AlertBell({ alerts, nudge, goTo, onDismissNudge, stepUps = [], overdue 
                     the list of things to do. It is a decision, not a dose. */}
                 {stepUps.map((st) => (
                   <BellItem key={st.id} icon={Zap} testid="bell-stepup"
-                    title={`${st.name} — ${st.weeks} week${st.weeks === 1 ? '' : 's'} at ${st.doseText}. Tolerating well?`}
+                    title={`${st.name}, ${st.weeks} week${st.weeks === 1 ? '' : 's'} at ${st.doseText}. Tolerating well?`}
                     body="Advancing moves to the next rung; holding keeps this dose and asks again next interval.">
                     <BellAction primary onClick={() => confirmStepUp(st.id)} testid="stepup-advance">
                       Advance
@@ -882,7 +885,7 @@ function PausedBanner({ onAskStepUp }) {
             <button key={p.id} onClick={() => onAskStepUp?.(p.id)} data-testid="held-step-up-open"
               className="rounded-full px-2.5 py-1.5 text-xs font-black"
               style={{ background: 'var(--surface-sunk)', color: 'var(--text)' }}>
-              {displayName(p)} — step up?
+              {displayName(p)}, step up?
             </button>
           ))}
         </div>
@@ -934,7 +937,7 @@ function Disclaimer({ open, firstRun, onClose }) {
     <Modal open={open} onClose={firstRun ? undefined : onClose} title="Pepito +">
       <div className="space-y-3">
         <p className="text-sm font-bold leading-relaxed">
-          Personal tracking tool — not medical advice.
+          Personal tracking tool, not medical advice.
         </p>
         <p className="text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
           Every dose, ladder, cycle and reconstitution in here is an editable starting point drawn from
@@ -942,7 +945,7 @@ function Disclaimer({ open, firstRun, onClose }) {
           qualified before you change what you're doing.
         </p>
         <p className="text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
-          Your logs, photos and measurements stay on this device — they're never uploaded anywhere.
+          Your logs, photos and measurements stay on this device, they're never uploaded anywhere.
         </p>
         <button onClick={onClose} className="btn-primary w-full rounded-full py-3 text-sm font-black">
           Got it
@@ -977,7 +980,7 @@ function ShotPlan({ plan, slot, onAccept }) {
   return (
     <motion.div layout className="space-y-2" data-testid="shot-plan"
       initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-      {/* The names are deliberately not rendered — the cards above already
+      {/* The names are deliberately not rendered, the cards above already
           carry them. They stay on the row as data, so what went into each
           syringe is still checkable against the matrix. */}
       {combinable.length > 0 && (
@@ -1001,7 +1004,7 @@ function ShotPlan({ plan, slot, onAccept }) {
           </button>
           {/* One syringe at a time. Two combinable groups are two separate
               injections into two separate sites, so the tap opens the first
-              and the row recomputes to offer the next once it is logged —
+              and the row recomputes to offer the next once it is logged,
               never a single tap that quietly logs one and drops the other. */}
           <motion.button whileTap={{ scale: 0.94 }} data-testid="log-together"
             onClick={() => onAccept(combinable[0])}
@@ -1020,7 +1023,7 @@ function ShotPlan({ plan, slot, onAccept }) {
             className="overflow-hidden px-1 text-xs font-medium leading-relaxed"
             style={{ color: 'var(--text-2)' }}>
             Only pairs the matrix rates <span className="font-bold">safe to mix</span> are combined, capped at
-            {' '}{MAX_GROUP_ML} mL a syringe — still inspect every draw.
+            {' '}{MAX_GROUP_ML} mL a syringe, still inspect every draw.
           </motion.p>
         )}
       </AnimatePresence>
@@ -1031,7 +1034,7 @@ function ShotPlan({ plan, slot, onAccept }) {
           <ShieldCheck size={12} className="mt-0.5 shrink-0" style={{ color: 'var(--warn)' }} />
           <span>
             <span className="font-black" style={{ color: 'var(--text)' }}>{g.items.map((x) => x.name).join(', ')}</span>
-            {' — '}{g.separateReason || 'always injected on its own.'}
+            {', '}{g.separateReason || 'always injected on its own.'}
           </span>
         </p>
       ))}
@@ -1086,7 +1089,7 @@ function DueCard({ peptide: p, index, done, titration, onLog, onLogOnBody, onUnl
       initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ ...spring, delay: index * 0.03 }}
       style={selected ? { background: 'var(--surface-sunk)' } : undefined}>
 
-      {/* Revealed by dragging the row aside — the same action the … menu holds,
+      {/* Revealed by dragging the row aside, the same action the … menu holds,
           for anyone who reaches for a swipe first. Rendered only while the drag
           is happening: the row's own background is translucent by design, so a
           layer parked underneath it shows through at rest. */}
@@ -1122,7 +1125,7 @@ function DueCard({ peptide: p, index, done, titration, onLog, onLogOnBody, onUnl
           className={`flex min-w-0 flex-1 cursor-pointer items-center gap-3 p-4 text-left ${beckon ? 'beckon' : ''}`}
           aria-label={done ? `${p.name} logged` : `Log ${p.name}`}>
           <span className="min-w-0 flex-1">
-            {/* wraps rather than truncates — a short name is short enough to fit */}
+            {/* wraps rather than truncates, a short name is short enough to fit */}
             <span className="t-label block font-semibold leading-tight">{name}</span>
             <span className="mt-1 flex items-baseline gap-2">
               <span className="t-metric-sm tabular-nums">{formatDose(dose, p.ladder.unit)}</span>
@@ -1131,7 +1134,7 @@ function DueCard({ peptide: p, index, done, titration, onLog, onLogOnBody, onUnl
             <span className="mt-1 flex items-center gap-1 text-xs font-medium leading-tight" style={{ color: 'var(--text-3)' }}>
               <Clock size={12} /> {p.timing}
             </span>
-            {/* The same dose, arriving later — quiet, because it is not a
+            {/* The same dose, arriving later, quiet, because it is not a
                 problem, just the reason this is here on a day it isn't due.
                 On its own line: appended to the timing note it wrapped that
                 note onto two lines and took the Log button down with it. */}
@@ -1145,7 +1148,7 @@ function DueCard({ peptide: p, index, done, titration, onLog, onLogOnBody, onUnl
           </span>
           {/* Logged, and tappable again to take it back. The tick used to be a
               dead mark: once a row was logged the only way out was the toast,
-              which is six seconds long — right for a mis-tap, useless for
+              which is six seconds long, right for a mis-tap, useless for
               noticing at bedtime that you ticked the wrong row this morning. */}
           {done ? (
             <motion.button whileTap={{ scale: 0.92 }}

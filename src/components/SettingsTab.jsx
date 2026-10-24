@@ -96,7 +96,7 @@ export default function SettingsTab({ goTo }) {
             onChange={(n) => updateSettings({ fx_usd_to_aud: n > 0 ? n : DEFAULT_FX_USD_TO_AUD })} />
         </Row>
         <p className="-mt-1 px-1 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
-          Vial prices are held in USD. Every {settings.currency} figure in the app is this rate times that —
+          Vial prices are held in USD. Every {settings.currency} figure in the app is this rate times that,
           nothing is stored in {settings.currency}, so correcting the rate corrects the whole history at once.
         </p>
         <Row label="Restock lead time (days)">
@@ -133,7 +133,7 @@ export default function SettingsTab({ goTo }) {
             return (
               <div key={l.id} className="flex items-center gap-2 text-xs font-semibold">
                 <span className="w-14 shrink-0" style={{ color: 'var(--text-2)' }}>{format(parseISO(l.date), 'd MMM')}</span>
-                <span className="flex-1 truncate leading-tight">{p?.name || l.peptideId} — {formatDose(l.doseValue, l.unit)}{l.insulinUnits ? ` (${l.insulinUnits} u)` : ''}</span>
+                <span className="flex-1 truncate leading-tight">{p?.name || l.peptideId}, {formatDose(l.doseValue, l.unit)}{l.insulinUnits ? ` (${l.insulinUnits} u)` : ''}</span>
                 <button className="font-bold" style={{ color: 'var(--danger)' }} onClick={() => undoLog(l.id)}>undo</button>
               </div>
             )
@@ -223,7 +223,7 @@ function BackupCard() {
       URL.revokeObjectURL(url)
       markBackedUp(bundle.createdAt)
       const mb = (blob.size / 1e6).toFixed(2)
-      setDone(`Backed up — ${bundle.counts.blobs} photo/scan file${bundle.counts.blobs === 1 ? '' : 's'} included (${mb} MB)`)
+      setDone(`Backed up, ${bundle.counts.blobs} photo/scan file${bundle.counts.blobs === 1 ? '' : 's'} included (${mb} MB)`)
     } catch (e) {
       setError(`Backup failed: ${e.message}`)
     } finally {
@@ -267,7 +267,7 @@ function BackupCard() {
         <ShieldCheck size={15} style={{ color: 'var(--good)' }} /> Full backup
       </p>
       <p className="text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
-        Everything lives in this browser. One file saves all your data <span className="font-bold" style={{ color: 'var(--text)' }}>including progress photos and scans</span> — keep a copy somewhere safe.
+        Everything lives in this browser. One file saves all your data <span className="font-bold" style={{ color: 'var(--text)' }}>including progress photos and scans</span>, keep a copy somewhere safe.
       </p>
 
       <button onClick={doBackup} disabled={!!busy}
@@ -297,7 +297,7 @@ function BackupCard() {
             <AlertTriangle size={14} /> Replace all current data?
           </p>
           <p className="mt-1 text-xs font-medium" style={{ color: 'var(--text-2)' }}>
-            From {info.createdAt ? format(parseISO(info.createdAt), 'd MMM yyyy, HH:mm') : 'unknown date'} —
+            From {info.createdAt ? format(parseISO(info.createdAt), 'd MMM yyyy, HH:mm') : 'unknown date'},
             {' '}{info.peptides} peptides, {info.doseLogs} dose logs, {info.measurements} measurements,
             {' '}{info.symptomLogs} check-ins, {info.gearItems} supplies, {info.reactions} reactions, {info.blobs} photo/scan files.
             <span className="font-bold" style={{ color: 'var(--text)' }}> This overwrites everything currently in the app.</span>
@@ -336,7 +336,7 @@ function CalendarCard() {
       const deliveries = deliveryEvents(restock, peptides)
       const { ics, eventCount } = buildIcs(peptides, titration, { from, until, includeDose, deliveries })
       if (eventCount === 0) {
-        setResult({ ok: false, msg: 'No scheduled peptides to export — set a protocol first.' })
+        setResult({ ok: false, msg: 'No scheduled peptides to export, set a protocol first.' })
         return
       }
       const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' })
@@ -346,7 +346,7 @@ function CalendarCard() {
       a.download = `peptide-schedule-${todayStr()}.ics`
       a.click()
       URL.revokeObjectURL(url)
-      setResult({ ok: true, msg: `${eventCount} recurring events exported — open the file to add them to your calendar.` })
+      setResult({ ok: true, msg: `${eventCount} recurring events exported, open the file to add them to your calendar.` })
     } catch (e) {
       setResult({ ok: false, msg: `Export failed: ${e.message}` })
     }
@@ -402,7 +402,7 @@ function CalendarCard() {
         <p className="text-xs font-bold" style={{ color: result.ok ? 'var(--good)' : 'var(--danger)' }}>{result.msg}</p>
       )}
       <p className="text-xs font-medium" style={{ color: 'var(--text-2)' }}>
-        This is a <span className="font-bold" style={{ color: 'var(--text)' }}>snapshot</span> — titration changes won't update
+        This is a <span className="font-bold" style={{ color: 'var(--text)' }}>snapshot</span>, titration changes won't update
         events already in your calendar. Re-export after you change your protocol.
       </p>
     </div>

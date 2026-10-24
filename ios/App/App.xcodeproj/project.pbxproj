@@ -23,6 +23,7 @@
 		39CEB95FC481335FDDC74964 /* PepitoCore in Frameworks */ = {isa = PBXBuildFile; productRef = 2DC6A7A5CB5B276442D98457 /* PepitoCore */; };
 		403C40421655826C11D63A04 /* WatchStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 992FEC1CC2BA6E671A6F0DA1 /* WatchStore.swift */; };
 		40CB774DBCA5BF42391F658D /* SleepSoundsIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 434AD2C6CFAE0F952965B9FF /* SleepSoundsIntents.swift */; };
+		492A601B88D78F923EBF2651 /* PepitoFilesPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9820238C32C53DF0D36630FB /* PepitoFilesPlugin.swift */; };
 		4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */ = {isa = PBXBuildFile; productRef = 4D22ABE82AF431CB00220026 /* CapApp-SPM */; };
 		4FBC143E42426AD425200D8D /* LateUseMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = B67174F79EF2EC5CBD5F5C67 /* LateUseMonitor.swift */; };
 		50379B232058CBB4000EE86E /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 50379B222058CBB4000EE86E /* capacitor.config.json */; };
@@ -167,6 +168,7 @@
 		88C6266E72ABDEC7D85FDB3B /* NotificationHandler.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationHandler.swift; sourceTree = "<group>"; };
 		9582B6822FE993A50072D4E8 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
+		9820238C32C53DF0D36630FB /* PepitoFilesPlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PepitoFilesPlugin.swift; sourceTree = "<group>"; };
 		992FEC1CC2BA6E671A6F0DA1 /* WatchStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WatchStore.swift; sourceTree = "<group>"; };
 		9F484EF5109C1C873B1A5E7A /* WatchIntents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WatchIntents.swift; sourceTree = "<group>"; };
 		A4A9084B105F8B9B70B31355 /* Assets.xcassets */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -264,6 +266,7 @@
 				1F99A1F5235C851292909F3B /* PepitoSleepPlugin.swift */,
 				D4D27F5826A50186F06FF06C /* SleepSounds.swift */,
 				434AD2C6CFAE0F952965B9FF /* SleepSoundsIntents.swift */,
+				9820238C32C53DF0D36630FB /* PepitoFilesPlugin.swift */,
 			);
 			name = Native;
 			path = Native;
@@ -613,6 +616,7 @@
 				A583A85466FF90ABF87C1B70 /* PepitoSleepPlugin.swift in Sources */,
 				28B2DA2409565050FE09FC52 /* SleepSounds.swift in Sources */,
 				40CB774DBCA5BF42391F658D /* SleepSoundsIntents.swift in Sources */,
+				492A601B88D78F923EBF2651 /* PepitoFilesPlugin.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

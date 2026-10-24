@@ -8,6 +8,7 @@ import { useLatestMeasurement } from '../../lib/useBody'
 import { stopBang, likelihood, signals, APNEA_LABEL, AIRWAY_NOTE, TESTOSTERONE_NOTE, SPO2_NOTE, APNEA } from '../../sleep/apnea'
 import { BackHeader, Updating } from './SleepAnalysis'
 import useSleepAnalysis from './useSleepAnalysis'
+import SleepReportButtons from './SleepReport'
 
 const muted = { color: 'var(--text-3)' }
 const soft = { color: 'var(--text-2)' }
@@ -146,6 +147,12 @@ export default function ApneaScreen({ lab, onBack }) {
           ))}
         </div>
         <p className="mt-2 text-xs font-medium" style={muted}>{TESTOSTERONE_NOTE}</p>
+      </section>
+
+      <section className="card space-y-2 p-4" data-testid="apnea-share">
+        <p className="t-label">Share with your doctor</p>
+        <p className="text-xs font-medium" style={muted}>A plain PDF with this screen, breathing, blood oxygen, snoring, what was logged in the evenings, weight, blood pressure and these bloods.</p>
+        <SleepReportButtons />
       </section>
 
       <Modal open={!!item} onClose={() => setEditing(null)} title={item?.label || ''}>

@@ -21,7 +21,7 @@ page.on('pageerror', (e) => errors.push('pageerror: ' + e.message))
 let failures = 0
 const step = async (name, fn) => {
   try { await fn(); console.log('PASS', name) }
-  catch (e) { failures++; console.log('FAIL', name, '—', e.message.split('\n')[0]); errors.push(`step ${name}: ${e.message}`) }
+  catch (e) { failures++; console.log('FAIL', name, '–', e.message.split('\n')[0]); errors.push(`step ${name}: ${e.message}`) }
 }
 const state = () => page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state)
 const closeAll = async () => {
@@ -375,7 +375,7 @@ await step('3 · nothing from the page bleeds through it', async () => {
 
 await step('3 · it is legible at 390px with several items and a long name', async () => {
   const items = await page.locator('[data-testid^="bell-"]').count()
-  if (items < 2) throw new Error(`only ${items} notification(s) — not a real test of the list`)
+  if (items < 2) throw new Error(`only ${items} notification(s), not a real test of the list`)
   const clipped = await page.evaluate(() => {
     const out = []
     for (const it of document.querySelectorAll('[data-testid^="bell-"]')) {
@@ -452,7 +452,7 @@ await step('4 · no skip markers and no "logged" legend on the plot', async () =
       .filter((c) => Number(c.getAttribute('r')) > 1)
       .filter((c) => Math.abs(Number(c.getAttribute('cy')) - base) < 0.5).length
   })
-  if (onBaseline) throw new Error(`${onBaseline} marker(s) sitting on the baseline — skips are still plotted`)
+  if (onBaseline) throw new Error(`${onBaseline} marker(s) sitting on the baseline, skips are still plotted`)
   const points = await page.locator('[data-testid="timeline-point"]').allInnerTexts()
   const skipsListed = points.filter((p) => /skipped/i.test(p)).length
   if (!skipsListed) throw new Error('the skip vanished from the events list as well')

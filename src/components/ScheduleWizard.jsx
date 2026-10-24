@@ -25,7 +25,7 @@ const FREQ_LABELS = {
 
 const SOURCE_NOTE = {
   seed: 'Pre-filled from this app’s own starting protocol for this compound.',
-  reference: 'Ladder built from the range stated in the reference below — floor at the low end, ceiling at the high end.',
+  reference: 'Ladder built from the range stated in the reference below, floor at the low end, ceiling at the high end.',
   none: 'The reference gives no clear numeric range for this compound, so no dose has been invented. Set your own below.',
   excluded: 'Dosing is deliberately withheld for this compound. Read the safety notes and leave the dose blank.',
 }
@@ -160,7 +160,7 @@ export default function ScheduleWizard({ open, onClose }) {
             <>
               <p className="text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
                 Everything I take, and the one place any of it changes. Edit a compound, take one out, or
-                add something new — the rest is left exactly as it is.
+                add something new, the rest is left exactly as it is.
               </p>
 
               <div className="space-y-2" data-testid="manage-list">
@@ -184,7 +184,7 @@ export default function ScheduleWizard({ open, onClose }) {
                         </p>
                         <p className="truncate text-xs font-semibold leading-tight" style={{ color: 'var(--text-2)' }}>
                           {gone ? 'will be removed'
-                            : edited ? 'edited — not saved yet'
+                            : edited ? 'edited, not saved yet'
                               : `${p.ladder?.ceiling > 0 ? `${formatDose(p.ladder.floor, p.ladder.unit)} → ${formatDose(p.ladder.ceiling, p.ladder.unit)}` : 'no dose set'} · ${FREQ_LABELS[p.frequency] || p.frequency}`}
                         </p>
                       </div>
@@ -219,14 +219,14 @@ export default function ScheduleWizard({ open, onClose }) {
                     <Plus size={13} className="shrink-0" style={{ color: 'var(--good)' }} />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-xs font-black leading-tight">{e.name}</p>
-                      <p className="truncate text-xs font-semibold leading-tight" style={{ color: 'var(--good)' }}>new — not saved yet</p>
+                      <p className="truncate text-xs font-semibold leading-tight" style={{ color: 'var(--good)' }}>new, not saved yet</p>
                     </div>
-                    <button onClick={() => { setIdx(entries.findIndex((x) => x.id === e.id)); setStep('config') }}
+                    <button onClick={() => { setIdx(entries.findIndex((x) => x.id === e.id)); setStep('config') }} aria-label={`Edit ${e.name}`}
                       className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full"
                       style={{ background: 'var(--surface)', color: 'var(--text)' }}>
                       <Pencil size={12} />
                     </button>
-                    <button onClick={() => setEntries((prev) => prev.filter((x) => x.id !== e.id))}
+                    <button onClick={() => setEntries((prev) => prev.filter((x) => x.id !== e.id))} aria-label={`Remove ${e.name}`}
                       className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full"
                       style={{ background: 'var(--surface)', color: 'var(--danger)' }}>
                       <Trash2 size={12} />
@@ -248,7 +248,7 @@ export default function ScheduleWizard({ open, onClose }) {
                 <input type="checkbox" checked={startOver} data-testid="manage-start-over"
                   onChange={(e) => setStartOver(e.target.checked)} className="mt-1" />
                 <span>
-                  Start over — clear my whole protocol first.
+                  Start over, clear my whole protocol first.
                   <span className="block font-medium" style={{ color: 'var(--text-2)' }}>
                     Your stock and your logged history are both kept.
                   </span>
@@ -277,14 +277,14 @@ export default function ScheduleWizard({ open, onClose }) {
                 </p>
                 <p className="mt-2 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
                   Every field opens with a starting point already filled in, so you're never staring at a blank box.
-                  Those are <span className="font-bold" style={{ color: 'var(--text)' }}>editable anecdotal starting points, not medical advice</span> —
+                  Those are <span className="font-bold" style={{ color: 'var(--text)' }}>editable anecdotal starting points, not medical advice</span>,
                   you'll see the evidence tier and confidence next to each one, and where a number came from.
                 </p>
               </div>
               <ul className="space-y-2 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
                 {[
                   'Pick your compounds from the full list.',
-                  'Check the suggested dose, ladder and reconstitution — change anything.',
+                  'Check the suggested dose, ladder and reconstitution, change anything.',
                   'Choose the route: SubQ, IM, or a nasal spray where it applies.',
                   'Set the days, the AM/PM slot and a start date.',
                   'Confirm, and Home, Calendar, Mix and Stock all fill in.',
@@ -303,7 +303,7 @@ export default function ScheduleWizard({ open, onClose }) {
                   <label className="mt-2 flex items-start gap-2 text-xs font-bold" style={{ color: 'var(--danger)' }}>
                     <input type="checkbox" checked={startOver} onChange={(e) => setStartOver(e.target.checked)} className="mt-1" />
                     <span>
-                      Start over — clear my current compounds and their stock first.
+                      Start over, clear my current compounds and their stock first.
                       <span className="block font-medium" style={{ color: 'var(--text-2)' }}>
                         Your logged history, measurements and photos are kept.
                       </span>
@@ -399,13 +399,13 @@ export default function ScheduleWizard({ open, onClose }) {
                 <p className="rounded-[14px] p-3 text-xs font-medium leading-relaxed" data-testid="wizard-backdated"
                   style={{ background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
                   Backdated to {prettyDate(startDate)}. That is a statement about how long you have been on these,
-                  not a set of doses — nothing is logged for those days, no vial moves, and your adherence figure
+                  not a set of doses, nothing is logged for those days, no vial moves, and your adherence figure
                   does not change, because it only ever counts what you actually recorded.
                 </p>
               )}
               <p className="text-xs font-medium leading-relaxed" style={{ color: 'var(--text-3)' }}>
-                If you started some of these at different times, set each one's own date — and what you were on
-                before you started logging — on its compound page, under Timeline → Since.
+                If you started some of these at different times, set each one's own date, and what you were on
+                before you started logging, on its compound page, under Timeline → Since.
               </p>
               <Nav back={() => { setIdx(Math.max(0, entries.length - 1)); setStep('config') }} next={() => setStep('review')} nextLabel="Review" />
             </>
@@ -448,7 +448,7 @@ export default function ScheduleWizard({ open, onClose }) {
                     <p className="text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
                       {e.ladder?.ceiling > 0
                         ? `${formatDose(e.ladder.floor, e.ladder.unit)} → ${formatDose(e.ladder.ceiling, e.ladder.unit)}`
-                        : 'no dose set — add it here when you know it'}
+                        : 'no dose set, add it here when you know it'}
                       {' · '}{FREQ_LABELS[e.frequency] || e.frequency} · {e.slot} · {ROUTE_LABEL[e.route] || e.route}
                     </p>
                   </div>
@@ -462,7 +462,7 @@ export default function ScheduleWizard({ open, onClose }) {
               )}
 
               <p className="text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
-                Nothing outside this list is touched. Personal tracking tool — not medical advice.
+                Nothing outside this list is touched. Personal tracking tool, not medical advice.
               </p>
               <Nav
                 back={() => setStep(peptides.length ? 'manage' : 'start')}
@@ -492,7 +492,7 @@ export default function ScheduleWizard({ open, onClose }) {
         </motion.div>
       </AnimatePresence>
 
-      {/* Removing says exactly what survives — the fear is always that it takes
+      {/* Removing says exactly what survives, the fear is always that it takes
           the vials and the history with it, and it does not. */}
       {confirmRemove && (
         <div className="mt-3 rounded-[14px] p-3" data-testid="confirm-remove-compound"
@@ -502,7 +502,7 @@ export default function ScheduleWizard({ open, onClose }) {
             Take {confirmRemove.name} out of my protocol?
           </p>
           <p className="mt-2 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
-            This stops the schedule — it comes off Home and the calendar.
+            This stops the schedule, it comes off Home and the calendar.
             <span className="font-bold" style={{ color: 'var(--text)' }}> Your vials stay in stock and your
             logged doses stay in history.</span>
           </p>
@@ -665,7 +665,7 @@ function PeptideStep({ entry: e, onPatch }) {
         </div>
         {nasal && (
           <p className="mt-2 text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
-            Nasal spray at {MCG_PER_SPRAY} mcg a spray — 10 mg vial + 2 mL BAC water, all of it into a bottle,
+            Nasal spray at {MCG_PER_SPRAY} mcg a spray, 10 mg vial + 2 mL BAC water, all of it into a bottle,
             + 3 mL saline = 5 mL, about 50 sprays. Dosed in whole sprays.
           </p>
         )}
@@ -715,7 +715,7 @@ function PeptideStep({ entry: e, onPatch }) {
           </div>
           <p className="mt-1 text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
             {conc > 0 ? <>{round(conc, 3)} mg/mL{units != null && isFinite(units) ? <> · first dose is <span style={{ color: 'var(--good)' }}>{round(units, 1)} units</span></> : null}</> : 'Set the vial and water to see the units to draw.'}
-            {e.source !== 'seed' && ' · typical default — check your actual vial.'}
+            {e.source !== 'seed' && ' · typical default, check your actual vial.'}
           </p>
         </div>
       )}
@@ -789,7 +789,7 @@ function PeptideStep({ entry: e, onPatch }) {
           <Field label="Vials on hand"><Num value={e.stockVials || 0} step="1" onChange={(v) => onPatch({ stockVials: Math.max(0, Math.round(v)) })} /></Field>
         </div>
         <p className="mt-2 text-xs font-medium" style={{ color: 'var(--text-2)' }}>
-          Feeds Stock and the restock list — run-out dates and order quantities come from these.
+          Feeds Stock and the restock list, run-out dates and order quantities come from these.
         </p>
       </details>
     </div>

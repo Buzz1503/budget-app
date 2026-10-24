@@ -21,7 +21,7 @@ page.on('pageerror', (e) => errors.push('pageerror: ' + e.message))
 
 const step = async (name, fn) => {
   try { await fn(); console.log('PASS', name) }
-  catch (e) { console.log('FAIL', name, '—', e.message.split('\n')[0]); errors.push(`step ${name}: ${e.message}`) }
+  catch (e) { console.log('FAIL', name, '–', e.message.split('\n')[0]); errors.push(`step ${name}: ${e.message}`) }
 }
 const waitText = async (re, timeout = 15000) => {
   const start = Date.now()
@@ -144,7 +144,7 @@ await step('every proposed group contains only MIX pairs', async () => {
     for (const v of verdicts) {
       if (v !== 'MIX') throw new Error(`group "${g}" contains a ${v} pair`)
     }
-    console.log(`  ${g} — ${verdicts.join(', ')}`)
+    console.log(`  ${g}, ${verdicts.join(', ')}`)
   }
 })
 
@@ -185,12 +185,12 @@ await step('manually selecting a CAUTION pair is refused, not gated', async () =
   await pick('SS-31')
   await page.waitForTimeout(400)
   await page.click('button:has-text("Log together")')
-  await waitText(/Not one shot — inject these separately/)
+  await waitText(/Not one shot, inject these separately/)
   const body = await modal().textContent()
   if (!/not confirmed/.test(body)) throw new Error('the caution pair is not labelled as unconfirmed')
   if (/Confirm it's clear/.test(body)) throw new Error('still offering the visual-inspection continue path')
 
-  await page.click('button:has-text("Got it — log separately")')
+  await page.click('button:has-text("Got it, log separately")')
   // dismissing the panel also drops the selection, so the co-draw bar animates
   // away — wait for it to actually leave rather than racing the exit animation
   const gone = Date.now()
@@ -231,7 +231,7 @@ await step('DSIP and GHK-Cu are offered as one shot in the plan', async () => {
     return null
   })
   if (!combined) {
-    throw new Error(`the plan does not combine them — got: ${(await plan().textContent()).slice(0, 200)}`)
+    throw new Error(`the plan does not combine them, got: ${(await plan().textContent()).slice(0, 200)}`)
   }
   console.log(`  the plan combines ${combined.join(' + ')}`)
 })
@@ -278,7 +278,7 @@ await step('the nasal prep recipe is shown, with the exact numbers', async () =>
     /200 mcg a spray/,
     /50 sprays/,
   ]) {
-    if (!want.test(body)) throw new Error(`recipe missing ${want} — got: ${body.slice(0, 400)}`)
+    if (!want.test(body)) throw new Error(`recipe missing ${want}, got: ${body.slice(0, 400)}`)
   }
   await wizard().locator('button[aria-label="Close"]').click()
   await page.waitForTimeout(500)

@@ -15,7 +15,7 @@ page.on('pageerror', (e) => errors.push('pageerror: ' + e.message))
 
 const step = async (name, fn) => {
   try { await fn(); console.log('PASS', name) }
-  catch (e) { console.log('FAIL', name, '—', e.message.split('\n')[0]); errors.push(`step ${name}: ${e.message}`) }
+  catch (e) { console.log('FAIL', name, '–', e.message.split('\n')[0]); errors.push(`step ${name}: ${e.message}`) }
 }
 const waitText = async (re, timeout = 12000) => {
   const start = Date.now()
@@ -92,7 +92,7 @@ await step('the whole "Log together" bar clears the bottom nav at 390px', async 
   if (geo.barZ <= geo.navZ) throw new Error(`bar z-index ${geo.barZ} is not above the nav's ${geo.navZ}`)
   if (geo.btnLeft < 0 || geo.btnRight > geo.vw) throw new Error(`button runs off-screen (${geo.btnLeft}–${geo.btnRight} of ${geo.vw})`)
   if (geo.btnTop < 0 || geo.btnBottom > geo.vh) throw new Error('button is off the bottom of the screen')
-  if (!/Log together/.test(geo.hitText)) throw new Error(`something covers the button — a tap hits "${geo.hitText}"`)
+  if (!/Log together/.test(geo.hitText)) throw new Error(`something covers the button, a tap hits "${geo.hitText}"`)
   if (!/Log together/.test(geo.label)) throw new Error(`label is "${geo.label}"`)
   console.log(`  bar ends ${Math.round(geo.barBottom)}, nav starts ${Math.round(geo.navTop)} (nav is ${Math.round(geo.navH)} tall)`)
 })

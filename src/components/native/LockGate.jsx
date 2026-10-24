@@ -7,8 +7,19 @@ import { shouldLock } from '../../native/lock'
 // return after the grace period. iPhone app only. Widgets, notifications and
 // the Watch never pass through here, so they keep working while it is locked.
 
+// The plugin is wrapped in an object: returned bare from an async function it
+// would be taken for a promise (Capacitor's proxy answers to .then), and the
+// await would never settle.
 async function bridge() {
-  try { return (await import('../../native/runtime')).PepitoBridge } catch { return null }
+  try { return { b: (await import('../../native/runtime')).PepitoBridge } } catch { return { b: null } }
+}
+
+/** App lifecycle events, only where the plugin exists. */
+async function lifecycle() {
+  try {
+    const { PepitoBridge, listen } = await import('../../native/runtime')
+    return { on: (event, fn) => listen(PepitoBridge, 'PepitoBridge', event, fn) }
+  } catch { return null }
 }
 
 export default function LockGate() {
@@ -22,7 +33,7 @@ export default function LockGate() {
   const unlock = async () => {
     if (asking.current) return
     asking.current = true
-    const b = await bridge()
+    const { b } = await bridge()
     try {
       const r = b ? await b.authenticate() : { unlocked: true }
       if (r?.unlocked) setLocked(false)
@@ -32,17 +43,17 @@ export default function LockGate() {
 
   // the app switcher shows a plain cover while the lock is on
   useEffect(() => {
-    void bridge().then((b) => b?.setPrivacyCover({ enabled: !!sec.faceIdLock }).catch(() => {}))
+    void bridge().then(async ({ b }) => { try { await b?.setPrivacyCover({ enabled: !!sec.faceIdLock }) } catch { /* no plugin */ } })
     if (!sec.faceIdLock) setLocked(false)
   }, [sec.faceIdLock])
 
   useEffect(() => {
     let subs = []
-    void bridge().then(async (b) => {
+    void lifecycle().then(async (b) => {
       if (!b) return
       subs = [
-        await b.addListener('appBackground', () => { backgroundedAt.current = Date.now() }),
-        await b.addListener('appActive', () => {
+        await b.on('appBackground', () => { backgroundedAt.current = Date.now() }),
+        await b.on('appActive', () => {
           const s = settings.current
           if (shouldLock({ enabled: !!s.faceIdLock, graceSec: s.graceSec, backgroundedAt: backgroundedAt.current })) setLocked(true)
         }),

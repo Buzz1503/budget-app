@@ -117,7 +117,7 @@ export default function ProtocolTab({ goTo }) {
 
   const exportIt = () => {
     const lines = [
-      `My protocol — ${prettyDate(t)}`,
+      `My protocol, ${prettyDate(t)}`,
       '',
       ...rows.map((r) => {
         const bits = [
@@ -133,9 +133,9 @@ export default function ProtocolTab({ goTo }) {
             : null,
           r.unlinked ? 'not in stock' : `${r.sealed} sealed`,
         ].filter(Boolean)
-        return `${r.p.name} — ${bits.join(' · ')}`
+        return `${r.p.name}, ${bits.join(' · ')}`
       }),
-      ...(supplements.length ? ['', 'Supplements', ...supplements.map((s) => `${s.name}${s.dose ? ` — ${s.dose}` : ''} · ${s.slot}`)] : []),
+      ...(supplements.length ? ['', 'Supplements', ...supplements.map((s) => `${s.name}${s.dose ? `, ${s.dose}` : ''} · ${s.slot}`)] : []),
       '',
       'Personal tracking record, not medical advice.',
     ]
@@ -262,7 +262,7 @@ export default function ProtocolTab({ goTo }) {
               <p className="mt-1 flex items-center gap-1 truncate text-xs font-bold leading-tight"
                 style={{ color: r.unlinked ? 'var(--warn)' : r.runway?.low ? 'var(--warn)' : 'var(--text-2)' }}>
                 {r.unlinked
-                  ? <><AlertTriangle size={10} /> not in stock — still scheduled</>
+                  ? <><AlertTriangle size={10} /> not in stock, still scheduled</>
                   : <><Package size={10} /> {r.runway && isFinite(r.runway.days) ? `${durationWords(r.runway.days)} left` : `${r.sealed} sealed`}</>}
               </p>
               {/* What this item costs each time it is taken, at today's rate. */}
@@ -296,7 +296,7 @@ export default function ProtocolTab({ goTo }) {
 
       <p className="px-1 pb-1 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
         This screen shows; it never edits. Tap any compound for its reference data, your own history and
-        your notes — dose and schedule are changed in Build / rebuild, so there is only ever one version
+        your notes, dose and schedule are changed in Build / rebuild, so there is only ever one version
         of the truth.
       </p>
 

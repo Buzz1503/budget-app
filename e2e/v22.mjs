@@ -19,7 +19,7 @@ page.on('pageerror', (e) => errors.push('pageerror: ' + e.message))
 
 const step = async (name, fn) => {
   try { await fn(); console.log('PASS', name) }
-  catch (e) { console.log('FAIL', name, '—', e.message.split('\n')[0]); errors.push(`step ${name}: ${e.message}`) }
+  catch (e) { console.log('FAIL', name, '–', e.message.split('\n')[0]); errors.push(`step ${name}: ${e.message}`) }
 }
 const waitText = async (re, timeout = 20000) => {
   const start = Date.now()
@@ -73,7 +73,7 @@ await step('the Add-stock search text is never obscured by the icon', async () =
   // the result list rather than a child of it — scoped to the sheet, not the list
   const input = page.locator('[data-testid="sheet-pinned"] input[aria-label="Search compounds"]')
   const padLeft = await input.evaluate((el) => parseFloat(getComputedStyle(el).paddingLeft))
-  if (!(padLeft >= 28)) throw new Error(`padding-left is only ${padLeft}px — the icon overlaps typed text`)
+  if (!(padLeft >= 28)) throw new Error(`padding-left is only ${padLeft}px, the icon overlaps typed text`)
 
   // belt and braces: the icon's own box must sit entirely left of where text starts
   const iconBox = await page.locator('[data-testid="sheet-pinned"] svg').first().boundingBox()
@@ -91,7 +91,7 @@ await step('Add-stock searches the full 86-compound matrix, not just my protocol
   await page.fill('input[aria-label="Search compounds"]', 'Thymosin Beta-4')
   await page.waitForTimeout(500)
   const results = page.locator('[data-testid="stock-picker"] button')
-  if ((await results.count()) === 0) throw new Error('TB-500 returned nothing — search is still scoped to my protocol')
+  if ((await results.count()) === 0) throw new Error('TB-500 returned nothing, search is still scoped to my protocol')
   const t = await results.first().textContent()
   if (!/TB-500/.test(t)) throw new Error(`did not find TB-500 in the results: ${t}`)
   if (!/not in my protocol/.test(t)) throw new Error('a compound outside my protocol should say so')
@@ -115,7 +115,7 @@ await step('picking a compound outside my protocol still creates a batch', async
   }
 })
 
-await step('v23: adding stock creates no protocol entry — owning is not taking', async () => {
+await step('v23: adding stock creates no protocol entry, owning is not taking', async () => {
   const st = await state()
   if (st.peptides.some((p) => p.id === 'tb500')) {
     throw new Error('adding stock put TB-500 into my protocol without being asked')

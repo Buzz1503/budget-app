@@ -124,12 +124,12 @@ export function backupNudge({ lastBackupAt, lastBackupEntryCount = 0, entryCount
   const newEntries = Math.max(0, entryCount - lastBackupEntryCount)
   if (!lastBackupAt) {
     return newEntries >= 1
-      ? { reason: 'never', text: "You've never backed up — one tap saves everything, including photos." }
+      ? { reason: 'never', text: "You've never backed up, one tap saves everything, including photos." }
       : null
   }
   const days = Math.floor((now - new Date(lastBackupAt)) / 86400000)
   if (days >= NUDGE_DAYS) {
-    return { reason: 'stale', days, text: `Last backup was ${days} days ago — back up to protect your data.` }
+    return { reason: 'stale', days, text: `Last backup was ${days} days ago, back up to protect your data.` }
   }
   if (newEntries >= NUDGE_ENTRIES) {
     return { reason: 'entries', newEntries, text: `${newEntries} new entries since your last backup.` }

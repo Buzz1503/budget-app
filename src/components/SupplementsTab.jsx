@@ -37,7 +37,7 @@ export default function SupplementsTab() {
           <Pill size={22} style={{ color: 'var(--warn)' }} /> Supplements
         </h1>
         <p className="text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
-          What you take daily — {supplements.length} on the shelf
+          What you take daily, {supplements.length} on the shelf
         </p>
       </div>
 
@@ -50,7 +50,7 @@ export default function SupplementsTab() {
               <p className="flex items-start gap-2 text-xs font-semibold leading-relaxed">
                 <AlertTriangle size={14} className="mt-px shrink-0" style={{ color: 'var(--warn)' }} />
                 <span>
-                  <span className="font-black">{c.name}</span> — {c.text}
+                  <span className="font-black">{c.name}</span>, {c.text}
                 </span>
               </p>
             </div>
@@ -68,7 +68,7 @@ export default function SupplementsTab() {
           <Pill size={22} className="mx-auto mb-2" style={{ color: 'var(--text-2)' }} />
           <p className="text-sm font-black">Nothing on the shelf yet</p>
           <p className="mt-1 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
-            Add from the library — the ones you already own are listed first — or enter your own.
+            Add from the library, the ones you already own are listed first, or enter your own.
           </p>
         </div>
       )}

@@ -45,7 +45,7 @@ describe('minimum injections', () => {
     expect(statsFor(many(10, 'a', (i) => ({ reacted: i < 3 }))).rate).toBeCloseTo(0.3)
   })
 
-  it('unchecked injections are neither reactions nor clear — they are left out of the rate', () => {
+  it('unchecked injections are neither reactions nor clear, they are left out of the rate', () => {
     const rows = [...many(5, 'a', (i) => ({ reacted: i === 0 })), ...many(6, 'a', () => ({ checked: false }))]
     const s = statsFor(rows)
     expect(s.injections).toBe(11)
@@ -297,7 +297,7 @@ describe('reactions in the calendar, the summary and the backup', () => {
     const cal = buildCalendar({ peptides, reactions: [rx], injectionRecords: records, todayStr: '2026-10-08', from: '2026-09-25', to: '2026-10-05' })
     const withReaction = cal.days.filter((d) => d.events.some((e) => e.kind === 'reaction')).map((d) => d.date)
     expect(withReaction).toEqual(['2026-09-28'])
-    expect(cal.byDate['2026-09-28'].events.find((e) => e.kind === 'reaction').text).toMatch(/Reaction — Left .*BPC-157 \(moderate\)/)
+    expect(cal.byDate['2026-09-28'].events.find((e) => e.kind === 'reaction').text).toMatch(/Reaction, Left .*BPC-157 \(moderate\)/)
   })
 
   it('the summary lists it with its outcome and needle', () => {

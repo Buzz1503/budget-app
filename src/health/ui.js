@@ -21,3 +21,4 @@ export const EffectsView = HEALTH_BUILD ? lazy(() => import('../components/healt
 export const SleepTab = HEALTH_BUILD ? lazy(() => import('../components/health/SleepTab')) : none
 export const SaunaHealthProvider = HEALTH_BUILD ? lazy(() => import('../components/health/SaunaHealthProvider')) : none
 export const SaunaWatchCards = HEALTH_BUILD ? lazy(() => import('../components/health/SaunaWatchCards')) : none
+export const SleepReportButtons = HEALTH_BUILD ? lazy(() => import('../components/health/SleepReport')) : none

@@ -130,7 +130,7 @@ export function round(n, places = 2) {
 // the mcg it works out to, because the number of sprays is what you do and the
 // mcg is what you're actually taking.
 export function formatDose(value, unit) {
-  if (value == null || Number.isNaN(value)) return '—'
+  if (value == null || Number.isNaN(value)) return '–'
   if (unit === 'spray') {
     const n = round(value, 0)
     return `${n} spray${n === 1 ? '' : 's'} (${sprayToMcg(n)} mcg)`
@@ -145,6 +145,6 @@ export function formatUnits(units) {
 
 // Spelled-out form for the places where "u" is too cryptic to scan at a glance.
 export function formatUnitsLong(units) {
-  if (units == null || !isFinite(units)) return '—'
+  if (units == null || !isFinite(units)) return '–'
   return `${round(units, 1)} units`
 }

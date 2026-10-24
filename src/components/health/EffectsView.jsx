@@ -4,7 +4,8 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import useStore, { todayStr } from '../../store/useStore'
 import Modal from '../ui/Modal'
 import { Stagger, StaggerItem } from '../ui/Motion'
-import { compoundEffects, trackedForEffects, FAMILY_NAME } from '../../health/engine/compoundEffects'
+import { trackedForEffects, FAMILY_NAME } from '../../health/engine/compoundEffects'
+import useComputed from '../../lib/compute/useComputed'
 import { METRIC_INFO, BODY_METRICS } from '../../health/engine/phases'
 import { COMPARE } from '../../health/engine/config'
 import { dailySeries, seriesByFamily } from '../../body/bodySeries'
@@ -212,9 +213,13 @@ export default function EffectsView() {
   const t = todayStr()
   const [openId, setOpenId] = useState(null)
   const saunaCount = useStore((s) => s.saunaSessions.length)
-  const list = useMemo(() => trackedForEffects(compounds)
-    .map((c) => ({ c, fx: compoundEffects(c, compounds, input, t) }))
-    .sort((a, b) => (b.fx?.run.start || '').localeCompare(a.fx?.run.start || '')), [compounds, input, t])
+  // worked out in the compute worker and cached by its input: the last list shows at once
+  const job = useMemo(() => ({ compounds, input, today: t }), [compounds, input, t])
+  const { result, updating } = useComputed('compoundEffects', job)
+  const list = useMemo(() => {
+    const byId = new Map(compounds.map((c) => [c.id, c]))
+    return (result || []).map((x) => ({ c: byId.get(x.id), fx: x.fx })).filter((x) => x.c)
+  }, [result, compounds])
 
   const picked = list.find((x) => x.c.id === openId)
   if (picked?.fx) return <CompoundEffectsDetail compound={picked.c} fx={picked.fx} input={input} onBack={() => setOpenId(null)} />
@@ -228,6 +233,9 @@ export default function EffectsView() {
     )
   }
 
+  if (!result && trackedForEffects(compounds).length) {
+    return <div className="card p-5" data-testid="effects-loading"><p className="text-sm font-medium" style={{ color: 'var(--text-2)' }}>Working out the effects…</p></div>
+  }
   if (!list.length && !saunaCount) {
     return (
       <div className="card p-5" data-testid="effects-empty">
@@ -241,6 +249,7 @@ export default function EffectsView() {
     <div className="space-y-3" data-testid="effects-view">
       <p className="px-1 text-sm font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
         For each compound, the time before it against the time on it. Shared changes are called out; descriptive only.
+        {updating && <span className="ml-1 text-xs font-bold" style={{ color: 'var(--text-3)' }} data-testid="effects-updating">Updating</span>}
       </p>
       <Stagger className="card rows overflow-hidden">
         {saunaCount > 0 && (

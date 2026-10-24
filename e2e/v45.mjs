@@ -20,7 +20,7 @@ page.on('pageerror', (e) => errors.push('pageerror: ' + e.message))
 let failures = 0
 const step = async (name, fn) => {
   try { await fn(); console.log('PASS', name) }
-  catch (e) { failures++; console.log('FAIL', name, '—', e.message.split('\n')[0]); errors.push(`step ${name}: ${e.message}`) }
+  catch (e) { failures++; console.log('FAIL', name, '–', e.message.split('\n')[0]); errors.push(`step ${name}: ${e.message}`) }
 }
 
 const state = () => page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state)
@@ -168,7 +168,7 @@ await step('1b · each range shows only its own results, and the axes follow the
   for (const [key, years] of [['5Y', 5], ['2Y', 2]]) {
     await page.click(`[data-testid="range-${key}"]`); await page.waitForTimeout(350)
     const expect = within(years)
-    if (expect.length < 2) { console.log(`  ${key}: ${expect.length} result(s) — sparse, skipped here`); continue }
+    if (expect.length < 2) { console.log(`  ${key}: ${expect.length} result(s), sparse, skipped here`); continue }
     const got = await page.locator('[data-testid="graph-point"]').evaluateAll((els) => els.map((e) => e.getAttribute('data-date')))
     if (got.join() !== expect.join()) throw new Error(`${key} draws ${got} but should draw ${expect}`)
     const used = await heightUsed()
@@ -478,7 +478,7 @@ await step('3a · an open reaction sits at the top of Reactions with site, pepti
   if (!(await card.count())) throw new Error('no open-reactions card in Reactions')
   const rows = card.locator('[data-testid="open-reaction-row"]')
   const ids = await rows.evaluateAll((els) => els.map((e) => e.getAttribute('data-record')))
-  if (ids.join() !== 'o1,o2') throw new Error(`rows are ${ids} — a resolved or abandoned reaction is on Home, or one is missing`)
+  if (ids.join() !== 'o1,o2') throw new Error(`rows are ${ids}, a resolved or abandoned reaction is on Home, or one is missing`)
   const first = (await rows.first().innerText()).replace(/\n/g, ' ')
   if (!/abdomen/i.test(first)) throw new Error(`no site in "${first}"`)
   if (!/BPC/i.test(first)) throw new Error(`no peptide in "${first}"`)
@@ -683,7 +683,7 @@ await step('3h · Patterns: by peptide, needle and region; rates only from five;
   const bpc = await page.locator('[data-testid="peptide-card-bpc157"]').innerText()
   if (!/6 injections/.test(bpc) || !/1 reaction\b/.test(bpc) || !/17%/.test(bpc)) throw new Error(`bpc157 reads "${bpc.replace(/\n/g, ' ')}"`)
   const ghk = await page.locator('[data-testid="peptide-card-ghkcu"]').innerText()
-  if (!/Not enough data yet/.test(ghk) || /%/.test(ghk)) throw new Error(`ghkcu reads "${ghk.replace(/\n/g, ' ')}" — a rate under five injections`)
+  if (!/Not enough data yet/.test(ghk) || /%/.test(ghk)) throw new Error(`ghkcu reads "${ghk.replace(/\n/g, ' ')}", a rate under five injections`)
   if (!/3 injections/.test(ghk)) throw new Error('the raw count is missing under the threshold')
 
   const tb = await page.locator('[data-testid="peptide-card-tb500"]').innerText()
@@ -740,13 +740,13 @@ await step('3j · a reaction is on the calendar on the day it started', async ()
   }
   await page.click(`[data-testid="cal-cell-${date}"]`); await page.waitForTimeout(800)
   const sheet = await page.locator('[data-testid="day-sheet"]').innerText()
-  if (!/Reaction —/.test(sheet)) throw new Error(`the day sheet reads "${sheet.replace(/\n/g, ' ').slice(0, 200)}"`)
+  if (!/Reaction,/.test(sheet)) throw new Error(`the day sheet reads "${sheet.replace(/\n/g, ' ').slice(0, 200)}"`)
   await closeAll()
   // and not on a day nothing started
   const other = dayOffset(-5)
   if (await page.locator(`[data-testid="cal-cell-${other}"]`).count()) {
     await page.click(`[data-testid="cal-cell-${other}"]`); await page.waitForTimeout(700)
-    if (/Reaction —/.test(await page.locator('[data-testid="day-sheet"]').innerText())) throw new Error('a reaction on the wrong day')
+    if (/Reaction,/.test(await page.locator('[data-testid="day-sheet"]').innerText())) throw new Error('a reaction on the wrong day')
     await closeAll()
   }
 })

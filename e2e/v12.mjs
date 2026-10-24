@@ -15,7 +15,7 @@ page.on('pageerror', (e) => errors.push('pageerror: ' + e.message))
 
 const step = async (name, fn) => {
   try { await fn(); console.log('PASS', name) }
-  catch (e) { console.log('FAIL', name, '—', e.message.split('\n')[0]); errors.push(`step ${name}: ${e.message}`) }
+  catch (e) { console.log('FAIL', name, '–', e.message.split('\n')[0]); errors.push(`step ${name}: ${e.message}`) }
 }
 const waitText = async (re, timeout = 20000) => {
   const start = Date.now()
@@ -355,7 +355,7 @@ await step('a reference-only compound gets a ladder built from its stated range'
   if (!/Reference range: 100–300 mcg/.test(body)) throw new Error(`range not quoted: ${body.slice(0, 200)}`)
   const vals = await wiz('input[inputmode="decimal"], input[inputmode="numeric"]').evaluateAll((els) => els.map((e) => e.value))
   if (vals[0] !== '100' || vals[1] !== '300') throw new Error(`ladder should be 100→300, got ${vals.slice(0, 2)}`)
-  if (!/typical default — check your actual vial/.test(body)) throw new Error('the generic vial is not labelled as a default')
+  if (!/typical default, check your actual vial/.test(body)) throw new Error('the generic vial is not labelled as a default')
 })
 
 await step('a TX compound gets no dose at all, only the reason', async () => {
@@ -404,7 +404,7 @@ await step('review saves the changes without wiping anything else', async () => 
   else { await wiz('button:has-text("Review")').click(); await page.waitForTimeout(400) }
   await wiz('button:has-text("Save my protocol")').waitFor({ timeout: 15000 })
   const review = await modal().textContent()
-  if (!/updates existing/.test(review)) throw new Error(`review does not flag existing entries — got: ${review.slice(0, 300)}`)
+  if (!/updates existing/.test(review)) throw new Error(`review does not flag existing entries, got: ${review.slice(0, 300)}`)
   await wiz('button:has-text("Save my protocol")').click()
   await waitText(/saved|removed|Nothing changed/i, 15000)
   await wiz('button:text-is("Done")').click()

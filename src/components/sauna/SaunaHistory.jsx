@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import LongList from '../ui/LongList'
+import { useMemo } from 'react'
 import { format, parseISO } from 'date-fns'
 import { ChevronRight } from 'lucide-react'
 import useStore, { todayStr } from '../../store/useStore'
@@ -75,27 +76,20 @@ const PAGE = 20
 /** Every session, newest first; tap one for its detail, edit and delete. */
 export function HistoryList({ onOpen }) {
   const sessions = useStore((s) => s.saunaSessions)
-  const [shown, setShown] = useState(PAGE)
   const list = useMemo(() => [...sessions].sort((a, b) => (b.date + b.start).localeCompare(a.date + a.start)), [sessions])
   if (!list.length) return <p className="px-1 text-sm font-medium" style={{ color: 'var(--text-2)' }} data-testid="sauna-history-empty">No sessions yet.</p>
   return (
-    <section className="card rows overflow-hidden" data-testid="sauna-list">
-      {list.slice(0, shown).map((s) => (
-        <button key={s.id} onClick={() => onOpen(s.id)} className="flex w-full items-center gap-3 px-4 py-3 text-left" data-testid="sauna-list-row">
+    <LongList as="section" items={list} keyOf={(s) => s.id} step={PAGE} rowHeight={60} className="card rows overflow-hidden" testid="sauna-list"
+      renderItem={(s) => (
+        <button onClick={() => onOpen(s.id)} className="flex w-full items-center gap-3 px-4 py-3 text-left" data-testid="sauna-list-row">
           <span className="min-w-0 flex-1">
             <span className="block text-sm font-bold tabular-nums">{format(parseISO(s.date), 'EEE d MMM yyyy')} · {s.start}</span>
             <span className="block text-xs font-medium tabular-nums" style={{ color: 'var(--text-3)' }}>
-              {s.lengthMin} min at {s.tempC} C · {s.type}{s.hr?.samples?.length ? ' · Watch' : ''}
+              {s.lengthMin} min at {s.tempC} C · {s.type}{s.hr?.samples?.length ? ' · Watch' : ''}{s.rating?.feel != null ? ` · felt ${s.rating.feel} of 5` : ''}
             </span>
           </span>
           <ChevronRight size={16} style={{ color: 'var(--text-3)' }} />
         </button>
-      ))}
-      {list.length > shown && (
-        <button onClick={() => setShown((n) => n + PAGE * 5)} className="w-full px-4 py-3 text-sm font-bold" style={{ color: 'var(--text-2)' }} data-testid="sauna-list-more">
-          Show {Math.min(PAGE * 5, list.length - shown)} more
-        </button>
-      )}
-    </section>
+      )} />
   )
 }

@@ -112,7 +112,7 @@ export default function PhotosSection() {
         </div>
 
         {/* Two inputs on purpose. The capture attribute is what sends iOS
-            straight to the camera, so the library button must not carry it —
+            straight to the camera, so the library button must not carry it,
             with it, "Choose from library" opens the camera instead. */}
         <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={onFile} data-testid="photo-camera-input" />
         <input ref={libraryRef} type="file" accept="image/*" multiple className="hidden" onChange={onLibrary} data-testid="photo-library-input" />
@@ -158,7 +158,7 @@ export default function PhotosSection() {
         </div>
       ) : (
         <p className="px-1 text-center text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
-          No photos yet — capture your first to start a visual timeline.
+          No photos yet, capture your first to start a visual timeline.
         </p>
       )}
 
@@ -296,7 +296,7 @@ function ReviewImports({ items, pose, onClose }) {
                     style={row.detected ? undefined : { borderColor: 'var(--warn)', background: 'color-mix(in srgb, var(--warn) 14%, transparent)' }}
                   />
                   <p className="text-xs font-semibold" style={{ color: row.detected ? 'var(--text-2)' : 'var(--warn)' }}>
-                    {row.detected ? 'Date taken, from the photo' : 'No date in this photo — check it'}
+                    {row.detected ? 'Date taken, from the photo' : 'No date in this photo, check it'}
                   </p>
                   {sameDay && (
                     <label className="flex items-center gap-2 text-xs font-bold" style={{ color: 'var(--text-2)' }}>

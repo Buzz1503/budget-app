@@ -165,7 +165,7 @@ export default function SiteMapSettings() {
         on={!!siteMap?.includePhotoInBackup}
         onChange={setInclude}
         label="Include map photo in backup"
-        hint="Off by default — a backup file with this on contains a full-body photograph."
+        hint="Off by default, a backup file with this on contains a full-body photograph."
       />
 
       <div className="flex items-center justify-between gap-3">

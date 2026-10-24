@@ -32,20 +32,20 @@ export const VERDICT_META = {
 
 // Reason code → reaction-chamber animation flavor + a short teaching caption.
 const REASON_FX = {
-  R00: { fx: 'blend', teach: 'Clean merge — compatible vehicles, charge and residues.' },
+  R00: { fx: 'blend', teach: 'Clean merge, compatible vehicles, charge and residues.' },
   R01: { fx: 'gel', teach: 'Opposite charges complex into a stringy gel (coacervate).' },
-  R02: { fx: 'precipitate', teach: 'pH/vehicle clash — one component drops out of solution.' },
-  R03: { fx: 'copperOxidise', teach: 'Copper oxidises the partner — colour shifts, potency lost.' },
-  R04: { fx: 'copperReduce', teach: 'Thiol strips the copper — the blue complex decolourises and drops.' },
+  R02: { fx: 'precipitate', teach: 'pH/vehicle clash, one component drops out of solution.' },
+  R03: { fx: 'copperOxidise', teach: 'Copper oxidises the partner, colour shifts, potency lost.' },
+  R04: { fx: 'copperReduce', teach: 'Thiol strips the copper, the blue complex decolourises and drops.' },
   R05: { fx: 'clump', teach: 'Disulfide scrambling cross-links and clumps the peptides.' },
-  R06: { fx: 'haze', teach: 'An aggregation-prone partner seeds fibrils — cloudy haze.' },
-  R07: { fx: 'cosolvent', teach: 'Needs DMSO/organic solvent — crashes on dilution into water.' },
-  R08: { fx: 'denature', teach: 'Large/glycosylated protein — excipients shear-denature on mixing.' },
+  R06: { fx: 'haze', teach: 'An aggregation-prone partner seeds fibrils, cloudy haze.' },
+  R07: { fx: 'cosolvent', teach: 'Needs DMSO/organic solvent, crashes on dilution into water.' },
+  R08: { fx: 'denature', teach: 'Large/glycosylated protein, excipients shear-denature on mixing.' },
   R09: { fx: 'precipitate', teach: 'Ionic-strength / osmolarity mismatch salts the peptide out.' },
   R10: { fx: 'redox', teach: 'Redox-active cofactor (B12/NAD⁺) degrades its partner.' },
   R11: { fx: 'clump', teach: 'Acidic vehicle rapidly deamidates a GHRH analogue.' },
-  R12: { fx: 'haze', teach: 'Surface-active / protease-labile — adsorbs and degrades fast.' },
-  R13: { fx: 'forbidden', teach: 'Different route or tissue plane — not a co-administration product.' },
+  R12: { fx: 'haze', teach: 'Surface-active / protease-labile, adsorbs and degrades fast.' },
+  R13: { fx: 'forbidden', teach: 'Different route or tissue plane, not a co-administration product.' },
 }
 
 export function reasonFx(code) {
@@ -104,5 +104,5 @@ export function confidenceFor(idA, idB) {
   if (PROVEN_BLENDS.has(key(idA, idB))) {
     return { level: 'proven', label: 'Proven blend', detail: 'Backed by manufacturing evidence.' }
   }
-  return { level: 'model', label: 'Chemistry model', detail: 'Physicochemical prediction — not proof of compatibility.' }
+  return { level: 'model', label: 'Chemistry model', detail: 'Physicochemical prediction, not proof of compatibility.' }
 }

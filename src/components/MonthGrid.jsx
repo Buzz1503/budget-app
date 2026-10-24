@@ -98,7 +98,7 @@ export default function MonthGrid({ cal, anchor, todayStr: t, onOpenDay }) {
         </div>
       </div>
 
-      {/* legend — folded away, because it is read once and then never again */}
+      {/* legend, folded away, because it is read once and then never again */}
       <div className="card overflow-hidden">
         <button onClick={() => setLegend((v) => !v)} aria-expanded={legend} data-testid="legend-toggle"
           className="flex w-full items-center gap-2 px-3 py-2.5 text-left">
@@ -128,7 +128,7 @@ export default function MonthGrid({ cal, anchor, todayStr: t, onOpenDay }) {
                   </span>
                 </div>
                 <p className="text-xs font-medium leading-relaxed" style={{ color: 'var(--text-3)' }}>
-                  A day the protocol was paused is greyed out across the whole cell — nothing on it counts
+                  A day the protocol was paused is greyed out across the whole cell, nothing on it counts
                   as missed.
                 </p>
               </div>
@@ -155,7 +155,7 @@ function DayCell({ day: d, muted, onOpen }) {
   // said in words, because the ring and the dots are colour and shape only
   const label = [
     format(parseISO(d.date), 'd MMMM'),
-    d.wholeDayPaused ? `paused${d.pauseReason ? ` — ${d.pauseReason}` : ''}`
+    d.wholeDayPaused ? `paused${d.pauseReason ? `, ${d.pauseReason}` : ''}`
       : owed > 0 ? `${d.done} of ${owed} logged` : 'nothing scheduled',
     d.missed > 0 ? `${d.missed} missed` : null,
     d.offCycle?.length ? `${d.offCycle.length} off cycle` : null,
@@ -212,7 +212,7 @@ function DayCell({ day: d, muted, onOpen }) {
         )}
       </span>
 
-      {/* not doses, so deliberately not dots — they sit in the corner instead */}
+      {/* not doses, so deliberately not dots, they sit in the corner instead */}
       {(hasBlood || hasWorkout || hasSauna) && (
         <span className="absolute right-0.5 top-0.5 flex gap-px">
           {hasWorkout && <Dumbbell size={8} data-testid="day-workout-marker" style={{ color: 'var(--text-3)' }} />}

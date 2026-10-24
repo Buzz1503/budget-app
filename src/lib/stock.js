@@ -52,9 +52,9 @@ export function breakdownText(batches = []) {
 /** One line per peptide: the total, and what it's made of. */
 export function summaryLine(name, batches = []) {
   const n = batches.reduce((s, b) => s + Math.max(0, b.qtyOnHand || 0), 0)
-  if (n === 0) return `${name} — none in stock`
+  if (n === 0) return `${name}, none in stock`
   const breakdown = breakdownText(batches)
-  return `${name} — ${n} vial${n === 1 ? '' : 's'}${breakdown ? `: ${breakdown}` : ''}`
+  return `${name}, ${n} vial${n === 1 ? '' : 's'}${breakdown ? `: ${breakdown}` : ''}`
 }
 
 /**

@@ -389,7 +389,7 @@ export function validateValue(marker, raw, overrides = {}) {
     value,
     status,
     warn: slipped || wild
-      ? `${value} is a long way outside the interval (${fmtRange(range, marker.unit)}). Worth checking for a stray digit — it will be saved either way.`
+      ? `${value} is a long way outside the interval (${fmtRange(range, marker.unit)}). Worth checking for a stray digit, it will be saved either way.`
       : null,
   }
 }

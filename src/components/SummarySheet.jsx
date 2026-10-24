@@ -83,7 +83,7 @@ export default function SummarySheet({ open, onClose, from, to, summary }) {
             data-testid="summary-frame" className="block w-full" style={{ height: '58vh', border: 0 }} />
         </div>
         <p className="px-1 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
-          Personal tracking record, not medical advice. Close with the ✕ above — nothing here leaves your
+          Personal tracking record, not medical advice. Close with the ✕ above, nothing here leaves your
           device unless you save or print it yourself.
         </p>
       </div>

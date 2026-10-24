@@ -169,8 +169,8 @@ export function buildCalendar({
     let prevOn = cycleInfo(p, addDaysStr(from, -1)).isOn
     for (const date of dates) {
       const on = cycleInfo(p, date).isOn
-      if (on && !prevOn) pushEvent(date, { kind: 'cycle-on', peptideId: p.id, text: `${p.name} — cycle starts` })
-      if (!on && prevOn) pushEvent(date, { kind: 'cycle-off', peptideId: p.id, text: `${p.name} — rest period starts` })
+      if (on && !prevOn) pushEvent(date, { kind: 'cycle-on', peptideId: p.id, text: `${p.name}, cycle starts` })
+      if (!on && prevOn) pushEvent(date, { kind: 'cycle-off', peptideId: p.id, text: `${p.name}, rest period starts` })
       prevOn = on
     }
     // projected step-ups
@@ -179,7 +179,7 @@ export function buildCalendar({
       if (row?.stepUp) {
         pushEvent(date, {
           kind: 'step-up', peptideId: p.id,
-          text: `${p.name} — step up to level ${row.level + 1}`,
+          text: `${p.name}, step up to level ${row.level + 1}`,
           dose: row.dose, unit: p.ladder.unit,
         })
       }
@@ -187,13 +187,13 @@ export function buildCalendar({
     // reconstituted-vial expiry and projected run-out
     const exp = expiryInfo(p, openVials[p.id], todayStr)
     if (exp?.expiresAt) {
-      pushEvent(exp.expiresAt, { kind: 'vial-expiry', peptideId: p.id, text: `${p.name} — open vial expires` })
+      pushEvent(exp.expiresAt, { kind: 'vial-expiry', peptideId: p.id, text: `${p.name}, open vial expires` })
     }
     const ro = runOutInfo(p, titration[p.id], vials, openVials[p.id], todayStr, pauses, { pushes })
     if (ro.runOutDate && isFinite(ro.daysLeft)) {
       pushEvent(ro.runOutDate, {
         kind: 'restock-by', peptideId: p.id,
-        text: `${p.name} — stock runs out${ro.daysLeft <= leadDays ? ' (order now)' : ''}`,
+        text: `${p.name}, stock runs out${ro.daysLeft <= leadDays ? ' (order now)' : ''}`,
       })
     }
 
@@ -202,11 +202,11 @@ export function buildCalendar({
     // two are different dates for anyone who was on something before installing
     // this, and the calendar should show the one they would recognise.
     for (const r of runsFor(p, runs)) {
-      pushEvent(r.startedOn, { kind: 'started', peptideId: p.id, text: `${p.name} — started` })
+      pushEvent(r.startedOn, { kind: 'started', peptideId: p.id, text: `${p.name}, started` })
       if (r.endedOn) continue
       for (const m of MILESTONES) {
         pushEvent(addDaysStr(r.startedOn, m.days), {
-          kind: 'anniversary', peptideId: p.id, text: `${p.name} — ${m.label} on it`,
+          kind: 'anniversary', peptideId: p.id, text: `${p.name}, ${m.label} on it`,
         })
       }
     }
@@ -222,7 +222,7 @@ export function buildCalendar({
     const first = (rx.ratings || []).find((r) => r.severity !== 'none')
     pushEvent(openedOn(rx), {
       kind: 'reaction', peptideId: rec.peptideId, recordId: rec.id,
-      text: `Reaction — ${PIN_BY_ID[rec.pinId]?.label || 'no site'}${p ? `, ${p.name}` : ''}${first ? ` (${severityWord(first.severity).toLowerCase()})` : ''}`,
+      text: `Reaction, ${PIN_BY_ID[rec.pinId]?.label || 'no site'}${p ? `, ${p.name}` : ''}${first ? ` (${severityWord(first.severity).toLowerCase()})` : ''}`,
     })
   }
 
@@ -231,7 +231,7 @@ export function buildCalendar({
     if (!date) continue
     const id = key.startsWith('vial:') ? key.slice(5) : null
     const p = id ? peptides.find((x) => x.id === id) : null
-    pushEvent(date, { kind: 'delivery', peptideId: id, text: `${p ? p.name : 'Order'} — delivery expected` })
+    pushEvent(date, { kind: 'delivery', peptideId: id, text: `${p ? p.name : 'Order'}, delivery expected` })
   }
 
   // The same set of peptides recurs constantly, so plan each distinct set once.
@@ -413,7 +413,7 @@ export function groupEvents(events, max = 2) {
     } else {
       out.push({
         kind,
-        text: `${list.length} compounds — ${EVENT_META[kind].label.toLowerCase()}`,
+        text: `${list.length} compounds, ${EVENT_META[kind].label.toLowerCase()}`,
         count: list.length,
       })
     }

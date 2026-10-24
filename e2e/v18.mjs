@@ -18,7 +18,7 @@ page.on('pageerror', (e) => errors.push('pageerror: ' + e.message))
 
 const step = async (name, fn) => {
   try { await fn(); console.log('PASS', name) }
-  catch (e) { console.log('FAIL', name, '—', e.message.split('\n')[0]); errors.push(`step ${name}: ${e.message}`) }
+  catch (e) { console.log('FAIL', name, '–', e.message.split('\n')[0]); errors.push(`step ${name}: ${e.message}`) }
 }
 const waitText = async (re, timeout = 20000) => {
   const start = Date.now()
@@ -116,7 +116,7 @@ await step('the pre-mixed oil vial keeps its real concentration', async () => {
   const te = st.peptides.find((p) => p.id === 'testosterone-e')
   if (!te) return // not every stack carries it
   const mgPerMl = te.recon.vialMg / te.recon.bacMl
-  if (mgPerMl !== 250) throw new Error(`Test E reads ${mgPerMl} mg/mL — should be 250`)
+  if (mgPerMl !== 250) throw new Error(`Test E reads ${mgPerMl} mg/mL, should be 250`)
 })
 
 await step('the BAC field is editable and the concentration follows it', async () => {
@@ -202,7 +202,7 @@ await step('the primary nav is untouched', async () => {
   }
 })
 
-await step('Home is still decluttered — no streak, no disclaimer in the column', async () => {
+await step('Home is still decluttered, no streak, no disclaimer in the column', async () => {
   await nav('Home')
   const t = await main()
   if (/day streak/i.test(t)) throw new Error('a streak came back to Home')

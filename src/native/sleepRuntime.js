@@ -70,5 +70,5 @@ export function startSleepRuntime(addListener) {
   void collectSleepData()
   void refreshSleepStatus()
   addListener?.('appActive', () => { void collectSleepData(); void refreshSleepStatus() })
-  try { PepitoSleep.addListener?.('sleepSoundsChanged', () => { void collectSleepData() }) } catch { /* fine */ }
+  void import('./runtime').then(({ listen }) => listen(PepitoSleep, 'PepitoSleep', 'sleepSoundsChanged', () => { void collectSleepData() }))
 }

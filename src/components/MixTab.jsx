@@ -47,7 +47,7 @@ export default function MixTab() {
     flags: [p.vehicle === 'oil' ? 'oil vehicle' : 'always separate', p.route === 'IM' ? 'IM' : null].filter(Boolean),
     alwaysSeparate: true,
     separateReason: p.separateReason
-      || `${p.name} is not a peptide and isn't in the compatibility matrix — draw and inject it on its own.`,
+      || `${p.name} is not a peptide and isn't in the compatibility matrix, draw and inject it on its own.`,
   })), [peptides])
 
   const separateIds = useMemo(() => new Set(separateCompounds.map((c) => c.id)), [separateCompounds])
@@ -144,7 +144,7 @@ export default function MixTab() {
       <div className="card flex items-start gap-2 p-3" style={{ background: 'color-mix(in srgb, var(--info) 12%, var(--surface))' }}>
         <Pin size={14} className="mt-1 shrink-0" style={{ color: 'var(--text-2)' }} />
         <p className="text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
-          A <span className="font-bold" style={{ color: 'var(--text)' }}>“safe to mix”</span> result means no chemical conflict was found — <span className="font-bold" style={{ color: 'var(--text)' }}>not proof of compatibility</span>. Always inspect the drawn solution before injecting.
+          A <span className="font-bold" style={{ color: 'var(--text)' }}>“safe to mix”</span> result means no chemical conflict was found, <span className="font-bold" style={{ color: 'var(--text)' }}>not proof of compatibility</span>. Always inspect the drawn solution before injecting.
         </p>
       </div>
 
@@ -320,7 +320,7 @@ function VerdictPanel({ ca, cb, pair, playKey, reasonCodes, classes, forcedSepar
           {forcedSeparate.separateReason}
         </p>
         <p className="mx-auto mt-2 max-w-sm text-center text-xs font-bold" style={{ color: 'var(--text)' }}>
-          Two shots, two syringes — never draw it into the same barrel as a peptide.
+          Two shots, two syringes, never draw it into the same barrel as a peptide.
         </p>
       </motion.div>
     )
@@ -398,7 +398,7 @@ function VerdictPanel({ ca, cb, pair, playKey, reasonCodes, classes, forcedSepar
           {!inspected ? (
             <>
               <p className="mt-1 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
-                Inspect the drawn solution — <span className="font-bold" style={{ color: 'var(--text)' }}>hazy, stringy, discoloured or particulate means discard.</span> Only inject if it's clear.
+                Inspect the drawn solution, <span className="font-bold" style={{ color: 'var(--text)' }}>hazy, stringy, discoloured or particulate means discard.</span> Only inject if it's clear.
               </p>
               <button
                 onClick={() => setInspected(true)}
@@ -410,7 +410,7 @@ function VerdictPanel({ ca, cb, pair, playKey, reasonCodes, classes, forcedSepar
             </>
           ) : (
             <p className="mt-1 flex items-center gap-2 text-xs font-bold" style={{ color: 'var(--good)' }}>
-              <Check size={14} /> Confirmed clear — safe to draw. Discard immediately if it changes.
+              <Check size={14} /> Confirmed clear, safe to draw. Discard immediately if it changes.
             </p>
           )}
         </div>

@@ -239,7 +239,7 @@ export function suggestSite(peptideId, ctx = {}) {
 
   const days = best.last === -Infinity ? null : Math.round((now - best.last) / DAY)
   const reason = best.breaks === null
-    ? (days == null ? 'Never used.' : `Least recently used — ${days === 0 ? 'today' : days === 1 ? 'yesterday' : `${days} days ago`}.`)
+    ? (days == null ? 'Never used.' : `Least recently used, ${days === 0 ? 'today' : days === 1 ? 'yesterday' : `${days} days ago`}.`)
     : best.breaks === 'reacting'
       ? 'Every site is reacting. This is the least recently used.'
       : best.breaks === 'in-window'

@@ -100,7 +100,7 @@ export function testosteroneEnanthate(startDate) {
     vehicle: 'oil',
     preparation: 'premixed',
     alwaysSeparate: true,
-    separateReason: 'Oil-based and not in the peptide compatibility matrix — different vehicle and route, so it is always its own shot.',
+    separateReason: 'Oil-based and not in the peptide compatibility matrix, different vehicle and route, so it is always its own shot.',
     cycleOnDays: 0,
     cycleOffDays: 0, // ongoing
     ladder: { floor: 50, step: 0, intervalWeeks: 1, ceiling: 50, unit: 'mg' },

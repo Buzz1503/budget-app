@@ -57,7 +57,7 @@ export default function PauseSheet({ open, onClose }) {
       peptideIds: scope === 'some' ? [...picked] : null,
     })
     if (!id) {
-      showToast('Something is already paused — resume that first')
+      showToast('Something is already paused, resume that first')
       return
     }
     showToast(
@@ -72,7 +72,7 @@ export default function PauseSheet({ open, onClose }) {
       <div className="space-y-3" data-testid="pause-sheet">
         <p className="text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
           Days inside a pause are not counted as missed and do not touch your stock. Log a dose during
-          one if you take it — that records normally and the pause carries on.
+          one if you take it, that records normally and the pause carries on.
         </p>
 
         {/* why */}

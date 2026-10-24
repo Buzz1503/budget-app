@@ -171,6 +171,9 @@ info['NSMicrophoneUsageDescription'] = 'Sleep sounds listens for snoring, coughi
 info['NSMotionUsageDescription'] = 'Sleep sounds checks whether your iPhone moved in the night, so snoring readings from a phone in the bed are marked less reliable.'
 info['NSHomeKitUsageDescription'] = 'Sleep sounds reads a bedroom temperature sensor every 5 minutes while it runs, if you have one.' if FEATURES['homeKit']
 info['UIBackgroundModes'] = ((info['UIBackgroundModes'] || []) | ['audio'])
+# the daily backups and doctor reports, visible in the Files app under On My iPhone › Pepito+
+info['UIFileSharingEnabled'] = true
+info['LSSupportsOpeningDocumentsInPlace'] = true
 write_plist(info_path, info)
 
 # ---------------------------------------------------------------- Widgets

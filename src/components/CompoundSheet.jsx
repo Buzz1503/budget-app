@@ -141,7 +141,7 @@ export default function CompoundSheet({ open, compoundId, onClose, goTo }) {
             </div>
           ) : (
             <p className="py-6 text-center text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
-              Nothing to plot — this one isn't in my protocol, so it has no start date and no dose history.
+              Nothing to plot, this one isn't in my protocol, so it has no start date and no dose history.
             </p>
           )
         )}
@@ -204,7 +204,7 @@ function AboutTab({ reference, name }) {
         <p className="flex items-start gap-2 rounded-[14px] p-3 text-xs font-bold"
           style={{ background: 'color-mix(in srgb, var(--danger) 12%, transparent)', color: 'var(--danger)' }}>
           <AlertTriangle size={13} className="mt-px shrink-0" />
-          Dosing is deliberately withheld for this compound — read the safety notes below.
+          Dosing is deliberately withheld for this compound, read the safety notes below.
         </p>
       )}
 
@@ -247,7 +247,7 @@ function MineTab({ peptide, rung, cyc, runway, unlinked, batches, note, onNote, 
     return (
       <div className="space-y-3">
         <p className="text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
-          This one isn't in my protocol — it's{batches.length ? ' just stock on the shelf' : ' only in the catalogue'}.
+          This one isn't in my protocol, it's{batches.length ? ' just stock on the shelf' : ' only in the catalogue'}.
           Nothing is scheduled for it and nothing is logged against it.
         </p>
         <button onClick={onEdit} data-testid="add-to-protocol"
@@ -266,13 +266,13 @@ function MineTab({ peptide, rung, cyc, runway, unlinked, batches, note, onNote, 
   return (
     <div className="space-y-3">
       <div className="rounded-[14px] px-3 py-1" style={{ background: 'var(--surface-sunk)' }}>
-        <Row label="Dose now" value={rung ? formatDose(rung.dose, peptide.ladder?.unit) : '—'} tone="var(--good)" />
+        <Row label="Dose now" value={rung ? formatDose(rung.dose, peptide.ladder?.unit) : '–'} tone="var(--good)" />
         <Row label="Ladder" value={peptide.ladder?.ceiling > 0
           ? `${formatDose(peptide.ladder.floor, peptide.ladder.unit)} → ${formatDose(peptide.ladder.ceiling, peptide.ladder.unit)}`
           : 'not set'} />
-        <Row label="Rung" value={rung ? `${rung.level + 1} of ${rung.maxLevel + 1}` : '—'} />
+        <Row label="Rung" value={rung ? `${rung.level + 1} of ${rung.maxLevel + 1}` : '–'} />
         <Row label="Frequency" value={FREQ_LABELS[peptide.frequency] || peptide.frequency} />
-        <Row label="Days" value={days.size === 7 ? 'Every day' : [...days].map((d) => WEEKDAYS[d]).join(', ') || '—'} />
+        <Row label="Days" value={days.size === 7 ? 'Every day' : [...days].map((d) => WEEKDAYS[d]).join(', ') || '–'} />
         <Row label="Slot" value={peptide.slot || 'AM'} />
         <Row label="Route" value={nasal ? 'Nasal spray' : (peptide.route || 'SubQ')} />
         {!nasal && (
@@ -280,7 +280,7 @@ function MineTab({ peptide, rung, cyc, runway, unlinked, batches, note, onNote, 
             ? `${peptide.recon.vialMg} mg in ${peptide.recon.bacMl} mL · ${Math.round(conc * 1000) / 1000} mg/mL`
             : 'not set'} />
         )}
-        <Row label="Cycle" value={cyc?.ongoing ? 'Ongoing' : (cycleStatus(peptide, todayStr())?.words || '—')}
+        <Row label="Cycle" value={cyc?.ongoing ? 'Ongoing' : (cycleStatus(peptide, todayStr())?.words || '–')}
           tone={cyc && !cyc.ongoing && !cyc.isOn ? 'var(--text-2)' : undefined} />
         {cyc && !cyc.ongoing && (
           <div className="py-2" data-testid="restart-dose">
@@ -313,13 +313,13 @@ function MineTab({ peptide, rung, cyc, runway, unlinked, batches, note, onNote, 
         </p>
         <p className="mt-1 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
           {unlinked
-            ? 'This still schedules and still logs — there is just no vial behind it, so nothing is being drawn down.'
+            ? 'This still schedules and still logs, there is just no vial behind it, so nothing is being drawn down.'
             : runway.basis === 'protocol'
               ? `${runway.words} left${runway.restockByDate ? ` · restock by ${prettyDate(runway.restockByDate)}` : ''}`
               : runway.basis === 'anecdotal'
-                ? `${runway.words} left — estimated at the reference dose, ${runway.doseWords} ${runway.freqWords}, not at one of your own.`
+                ? `${runway.words} left, estimated at the reference dose, ${runway.doseWords} ${runway.freqWords}, not at one of your own.`
                 : batches.length
-                  ? `${batches.length} batch${batches.length === 1 ? '' : 'es'} on the shelf. No dose to measure them against — ${runway.note}.`
+                  ? `${batches.length} batch${batches.length === 1 ? '' : 'es'} on the shelf. No dose to measure them against, ${runway.note}.`
                   : 'Nothing recorded in stock.'}
         </p>
       </div>
@@ -451,7 +451,7 @@ function BackfillModal({ peptide, onClose }) {
     <Modal open onClose={onClose} title={`Add a past ${peptide.name} dose`}>
       <div className="space-y-3" data-testid="backfill-form">
         <p className="text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
-          Recorded exactly like a live one, at the dose your ladder was on — so your vial, your run-out
+          Recorded exactly like a live one, at the dose your ladder was on, so your vial, your run-out
           date and your adherence all catch up with what actually happened.
         </p>
         <label className="block">
@@ -463,7 +463,7 @@ function BackfillModal({ peptide, onClose }) {
         </label>
         {date > t && (
           <p className="text-xs font-bold" style={{ color: 'var(--danger)' }}>
-            That's in the future — a dose you haven't taken isn't a log.
+            That's in the future, a dose you haven't taken isn't a log.
           </p>
         )}
         <div className="flex gap-2">
@@ -496,7 +496,7 @@ function EditLogModal({ log, onClose }) {
 
   const del = () => {
     undoLog(log.id)
-    showToast('Dose deleted — the drug went back in the vial')
+    showToast('Dose deleted, the drug went back in the vial')
     onClose()
   }
 
@@ -536,7 +536,7 @@ function EditLogModal({ log, onClose }) {
             Changing the dose moves the vial by the difference, not by a whole extra dose.
           </p>
           <div className="flex gap-2">
-            <button onClick={() => setConfirmDelete(true)} data-testid="delete-log"
+            <button onClick={() => setConfirmDelete(true)} data-testid="delete-log" aria-label="Delete this dose"
               className="rounded-full px-3 py-3 text-xs font-black"
               style={{ background: 'var(--surface-sunk)', color: 'var(--danger)' }}>
               <Trash2 size={13} />
