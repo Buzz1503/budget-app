@@ -16,5 +16,5 @@
     "noFallthroughCasesInSwitch": true,
     "types": ["vite/client"]
   },
-  "include": ["src/health/**/*.ts", "src/body/**/*.ts", "src/sauna/**/*.ts", "src/env.d.ts"]
+  "include": ["src/health/**/*.ts", "src/body/**/*.ts", "src/sauna/**/*.ts", "src/sleep/**/*.ts", "src/env.d.ts"]
 }

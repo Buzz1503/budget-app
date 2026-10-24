@@ -35,11 +35,24 @@ export interface Comparison {
   ci: CI
   label: Label
   text: string
+  /** "9 min lower (95% CI 3 to 15 lower)" */
+  short: string
 }
 
 const fmt = (v: number, dp: number) => {
   const r = Number(Math.abs(v).toFixed(dp))
   return dp === 0 ? String(Math.round(Math.abs(v))) : String(r)
+}
+
+/** "9 min lower", or "about the same" when it rounds to nothing. */
+export function amountWords(o: OutcomeDef, diff: number): string {
+  if (fmt(diff, o.dp) === '0' || Number(fmt(diff, o.dp)) === 0) return 'about the same'
+  return `${fmt(diff, o.dp)}${o.unit ? ` ${o.unit}` : ''} ${diff >= 0 ? o.words[0] : o.words[1]}`
+}
+
+/** "9 min lower (95% CI 3 to 15 lower)", without the outcome's name. */
+export function effectShort(o: OutcomeDef, diff: number, ci: CI): string {
+  return effectWords(o, diff, ci).slice(o.label.length + 1)
 }
 
 /** "Deep sleep 9 min lower (95% CI 3 to 15 lower)" */
@@ -52,7 +65,8 @@ export function effectWords(o: OutcomeDef, diff: number, ci: CI): string {
   const range = sameSide
     ? `95% CI ${fmt(lo, o.dp)} to ${fmt(hi, o.dp)} ${dir}`
     : `95% CI ${fmt(ci.lo, o.dp)} ${ci.lo < 0 ? o.words[1] : o.words[0]} to ${fmt(ci.hi, o.dp)} ${ci.hi < 0 ? o.words[1] : o.words[0]}`
-  return `${o.label} ${fmt(diff, o.dp)}${unit} ${dir} (${range})`
+  const amount = amountWords(o, diff)
+  return amount === 'about the same' ? `${o.label} about the same (${range})` : `${o.label} ${fmt(diff, o.dp)}${unit} ${dir} (${range})`
 }
 
 /** Pairs of values for one factor on one outcome: with and without. */
@@ -80,6 +94,7 @@ export function compare(rows: NightRow[], factor: string, outcome: OutcomeKey, n
     factor, outcome, nWith: a.length, nWithout: b.length, meanWith: mean(a), meanWithout: mean(b), diff, ci,
     label: excludesZero(ci) ? 'Clear' : 'Unclear',
     text: `${effectWords(o, diff, ci)} with ${factorName(factor, names).toLowerCase()}`,
+    short: effectShort(o, diff, ci),
   }
 }
 
@@ -109,7 +124,9 @@ export function simpleComparisons(rows: NightRow[], names: Names, outcomes = pre
         have = Math.min(have, Math.min(a.length, b.length))
       }
     }
-    if (!any) locked.push({ factor: f, have: Number.isFinite(have) ? have : 0 })
+    // a factor that never happened is not "almost there": it is left out
+    const happened = rows.some((r) => r.binary[f] === true)
+    if (!any && happened) locked.push({ factor: f, have: Number.isFinite(have) ? have : 0 })
   }
   return { comparisons: out, locked, chanceNote: out.length > ANALYSIS.manyComparisons ? CHANCE_NOTE : null }
 }
@@ -124,6 +141,9 @@ export interface Adjusted {
   label: Label
   raw: Comparison | null
   text: string
+  short: string
+  /** the simple comparison's amount: "7 min lower" */
+  rawShort: string | null
 }
 
 /** Sleep debt over the 7 nights before each row (need minus sleep, hours), for the model. */
@@ -184,6 +204,7 @@ export function adjustedEffects(rows: NightRow[], outcome: OutcomeKey, names: Na
     const name = factorName(f, names).toLowerCase()
     return {
       factor: f, outcome, effect: fit.coef[j], ci, label: (excludesZero(ci) ? 'Clear' : 'Unclear') as Label, raw,
+      short: effectShort(o, fit.coef[j], ci), rawShort: raw ? amountWords(o, raw.diff) : null,
       text: `${raw ? `Alone: ${effectWords(o, raw.diff, raw.ci).replace(/ \(95%.*$/, '')}. ` : ''}After accounting for everything else: ${effectWords(o, fit.coef[j], ci)} with ${name}`,
     }
   })
@@ -192,7 +213,7 @@ export function adjustedEffects(rows: NightRow[], outcome: OutcomeKey, names: Na
 
 // ---------------------------------------------------------- helps and hurts
 
-export interface Ranked { factor: string; outcome: OutcomeKey; effect: number; ci: CI; n: number; text: string; adjusted: boolean }
+export interface Ranked { factor: string; outcome: OutcomeKey; effect: number; ci: CI; n: number; text: string; short: string; rawShort: string | null; adjusted: boolean }
 
 /**
  * "What helps" and "What hurts": clear effects ranked by size against the
@@ -205,8 +226,8 @@ export function helpsAndHurts(rows: NightRow[], names: Names, opts: { needMin?: 
     const spread = sd(rows.map((r) => r.outcomes[o]).filter((v): v is number => v != null)) || 1
     const adj = adjustedEffects(rows, o, names, opts)
     const items = adj.locked
-      ? simpleComparisons(rows, names, [o]).comparisons.map((c) => ({ factor: c.factor, effect: c.diff, ci: c.ci, n: c.nWith + c.nWithout, text: c.text, adjusted: false }))
-      : adj.effects.map((e) => ({ factor: e.factor, effect: e.effect, ci: e.ci, n: adj.n, text: e.text, adjusted: true }))
+      ? simpleComparisons(rows, names, [o]).comparisons.map((c) => ({ factor: c.factor, effect: c.diff, ci: c.ci, n: c.nWith + c.nWithout, text: c.text, short: c.short, rawShort: null, adjusted: false }))
+      : adj.effects.map((e) => ({ factor: e.factor, effect: e.effect, ci: e.ci, n: adj.n, text: e.text, short: e.short, rawShort: e.rawShort, adjusted: true }))
     for (const it of items) {
       if (!excludesZero(it.ci)) continue
       const good = (it.effect > 0) === (def.better === 'up')
@@ -235,7 +256,7 @@ export function dataBins(values: number[], unit: string, dp = 1): Array<{ label:
   const t1 = pos[Math.floor(pos.length / 3)]
   const t2 = pos[Math.floor((2 * pos.length) / 3)]
   const w = (v: number) => Number(v.toFixed(dp))
-  const bins = [{ label: 'None', test: (v: number) => v === 0 }]
+  const bins: Array<{ label: string; test: (v: number) => boolean }> = [{ label: 'None', test: (v: number) => v === 0 }]
   if (t1 === t2 || t1 === pos[0]) {
     bins.push({ label: `Up to ${w(t2)} ${unit}`, test: (v) => v > 0 && v <= t2 }, { label: `Over ${w(t2)} ${unit}`, test: (v) => v > t2 })
   } else {

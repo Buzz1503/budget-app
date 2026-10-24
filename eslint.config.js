@@ -40,7 +40,7 @@ export default [
     },
   },
   {
-    files: ['src/components/native/**/*.jsx', 'src/components/health/**/*.jsx', 'src/components/charts/**/*.jsx', 'src/components/charts/**/*.js', 'src/components/body/**/*.jsx', 'src/components/sauna/**/*.jsx', 'src/components/sauna/**/*.js', 'src/components/sleep/**/*.jsx', 'src/components/sleep/**/*.js', 'src/health/**/*.jsx'],
+    files: ['src/components/native/**/*.jsx', 'src/components/health/**/*.jsx', 'src/components/charts/**/*.jsx', 'src/components/charts/**/*.js', 'src/components/body/**/*.jsx', 'src/components/sauna/**/*.jsx', 'src/components/sauna/**/*.js', 'src/components/sleep/**/*.jsx', 'src/components/sleep/**/*.js', 'src/components/health/**/*.js', 'src/health/**/*.jsx'],
     languageOptions: {
       ecmaVersion: 'latest',
       sourceType: 'module',
@@ -48,7 +48,7 @@ export default [
       globals: {
         window: 'readonly', document: 'readonly', navigator: 'readonly', console: 'readonly',
         requestAnimationFrame: 'readonly', setTimeout: 'readonly', clearTimeout: 'readonly', setInterval: 'readonly', clearInterval: 'readonly',
-        localStorage: 'readonly', __NATIVE__: 'readonly',
+        localStorage: 'readonly', __NATIVE__: 'readonly', Worker: 'readonly', URL: 'readonly', Blob: 'readonly',
       },
     },
     plugins: { 'react-hooks': reactHooks },

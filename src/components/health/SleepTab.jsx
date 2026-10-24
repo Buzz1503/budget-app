@@ -10,21 +10,22 @@ import useChartEvents from '../charts/useChartEvents'
 import { addDays, dateRange } from '../../health/tz'
 import { planBedtime } from '../../health/engine/planner'
 import { nightsEnding, consistencySd, clockFromNoon } from '../../health/engine/sleep'
-import { wobble as wobbleOf } from '../../health/engine/phases'
 import { COMPARE, SLEEP_VIEW } from '../../health/engine/config'
 import { mean, round } from '../../health/engine/stats'
 import {
   scoreBand, scoreBreakdown, stageStats, vitalVsUsual, weekdayWeekend, midpointFromNoon, chronogram, clockOf,
-  windDownAt, debtNights, durationWords, sleepFactors, lateWorkoutDay, higherLoadDay,
+  windDownAt, debtNights, durationWords,
 } from '../../health/engine/sleepView'
-import useHealthModel, { tz, useCompounds } from './useHealthModel'
-import { dayFlags } from '../../sauna/saunaEffects'
-import { minutesOf } from '../../sauna/sauna'
+import useHealthModel, { tz } from './useHealthModel'
 import { NotConnected, EmptyState } from './BodyHealthView'
 import { HEALTH_BANDS } from './bands'
 import { Hypnogram, Chronogram, DebtBars, NightCalendar } from './SleepCharts'
 import EveningSheet from '../sleep/EveningSheet'
 import MorningCheck from '../sleep/MorningCheck'
+import NightStrips from './NightStrips'
+import AnalysisScreen from './SleepAnalysis'
+import RestlessnessScreen from './RestlessnessScreen'
+import useSleepLab from './useSleepLab'
 
 const clock = (ms) => clockOf(clockFromNoon(ms, tz))
 const dayWords = (d, t) => (d === t ? 'Last night' : d === addDays(t, -1) ? 'The night before' : `Night to ${format(parseISO(d), 'EEE d MMM')}`)
@@ -58,6 +59,12 @@ function SleepScreen({ model }) {
   const dates = useMemo(() => [...model.nightBy.keys()].sort(), [model])
   const [date, setDate] = useState(() => (model.nightBy.has(t) ? t : dates.at(-1)))
   const [calendar, setCalendar] = useState(false)
+  const [view, setView] = useState(null) // 'analysis' | 'restless' | 'apnea' | 'nightmares'
+  const lab = useSleepLab()
+  const restlessOn = useStore((s) => s.sleepSettings.restlessness !== false)
+  const nightExtras = useStore((s) => s.nightExtras)
+  if (view === 'analysis') return <AnalysisScreen lab={lab} onBack={() => setView(null)} />
+  if (view === 'restless') return <RestlessnessScreen lab={lab} onBack={() => setView(null)} />
   if (!dates.length || !date) {
     return <div className="card p-4"><p className="text-sm font-medium" style={{ color: 'var(--text-2)' }}>No main sleep recorded yet.</p></div>
   }
@@ -74,7 +81,16 @@ function SleepScreen({ model }) {
       </StaggerItem>
       <StaggerItem className="space-y-2">
         <SectionTitle sub="Awake at the top, deep sleep at the bottom">Through the night</SectionTitle>
-        <section className="card p-4"><Hypnogram night={night} tz={tz} /></section>
+        <section className="card p-4">
+          <Hypnogram night={night} tz={tz} />
+          <NightStrips night={night} overnight={night.overnight} restless={lab.extras.get(date)?.restless}
+            soundSessions={nightExtras[date]?.sounds} restlessOn={restlessOn} />
+          <NightFactorsLine feature={lab.featureBy.get(date)} />
+        </section>
+      </StaggerItem>
+      <StaggerItem className="space-y-2">
+        <SectionTitle sub="Your own nights, compared">Sleep Lab</SectionTitle>
+        <LabLinks onOpen={setView} />
       </StaggerItem>
       <StaggerItem className="space-y-2">
         <SectionTitle sub="Each part out of 100">Score breakdown</SectionTitle>
@@ -87,7 +103,7 @@ function SleepScreen({ model }) {
       </StaggerItem>
       <StaggerItem className="space-y-2"><Timing model={model} t={t} /></StaggerItem>
       <StaggerItem className="space-y-2"><DebtAndPlan model={model} t={t} /></StaggerItem>
-      <StaggerItem className="space-y-2"><Factors model={model} t={t} /></StaggerItem>
+      <StaggerItem className="space-y-2"><Factors /></StaggerItem>
       <StaggerItem className="space-y-2">
         <SectionTitle sub="Tap Overlay to add compound lanes">Trends</SectionTitle>
         <Trends model={model} />
@@ -98,6 +114,33 @@ function SleepScreen({ model }) {
           onPick={(d) => { setDate(d); setCalendar(false) }} />
       </Modal>
     </Stagger>
+  )
+}
+
+/** "2 drinks, last 9:40 pm · Temazepam 10 mg 9:15 pm · Magnesium 0.4 g" */
+function NightFactorsLine({ feature }) {
+  if (!feature?.line?.length) return null
+  return <p className="mt-2 text-xs font-medium tabular-nums" style={{ color: 'var(--text-2)' }} data-testid="night-factors">{feature.line.join(' · ')}</p>
+}
+
+const LAB_LINKS = [
+  ['analysis', 'Analysis', 'What helps and what hurts your sleep'],
+  ['restless', 'Restlessness', 'Movement through the night, from the Watch'],
+]
+
+function LabLinks({ onOpen }) {
+  return (
+    <section className="card rows p-0" data-testid="lab-links">
+      {LAB_LINKS.map(([id, title, sub]) => (
+        <button key={id} onClick={() => onOpen(id)} className="flex w-full items-center gap-2 px-4 py-3 text-left" data-testid={`lab-open-${id}`}>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-black">{title}</span>
+            <span className="block text-xs font-medium" style={{ color: 'var(--text-3)' }}>{sub}</span>
+          </span>
+          <ChevronRight size={16} style={{ color: 'var(--text-3)' }} />
+        </button>
+      ))}
+    </section>
   )
 }
 
@@ -355,74 +398,19 @@ function DebtAndPlan({ model, t }) {
 
 // ------------------------------------------------- what affects your sleep
 
-function Factors({ model, t }) {
-  const habits = useStore((s) => s.habits).filter((h) => !h.hidden)
-  const [habitsOpen, setHabitsOpen] = useState(false)
-  const saunaSessions = useStore((s) => s.saunaSessions)
-  const habitLogs = useStore((s) => s.habitLogs)
-  const doseLogs = useStore((s) => s.doseLogs)
-  const compounds = useCompounds()
-  const rows = useMemo(() => {
-    const days = dateRange(addDays(t, -365), addDays(t, -1))
-    const next = (d) => addDays(d, 1)
-    const sauna = dayFlags(saunaSessions,
-      (wake) => { const n = model.nightBy.get(wake); return n ? { start: n.start, score: null, deepMin: null, sleepingHR: null } : null },
-      (date, hhmm) => tz.startOfDay(date) + minutesOf(hhmm) * 60000)
-    const factors = [
-      { key: 'late', label: 'Late workouts', phrase: 'days with a workout ending within 3 h of bedtime', inGroup: lateWorkoutDay(model.sessions, model.nightBy) },
-      { key: 'load', label: 'Higher-load training days', phrase: 'higher-load training days', inGroup: (d) => higherLoadDay(model.load, d) },
-      // sauna: any session, a longer one (over 30 min), and one ending within 3 h of bedtime
-      { key: 'sauna', label: 'Sauna', phrase: 'days with a sauna', inGroup: sauna.has },
-      { key: 'saunaLong', label: 'Sauna over 30 min', phrase: 'days with a sauna over 30 min', inGroup: (d) => sauna.minutes(d) > 30 },
-      { key: 'saunaLate', label: 'Late sauna', phrase: 'days with a sauna ending within 3 h of bedtime', inGroup: sauna.late },
-      ...compounds.filter((c) => doseLogs.some((l) => l.peptideId === c.id)).map((c) => {
-        const dosed = new Set(doseLogs.filter((l) => l.peptideId === c.id).map((l) => l.date))
-        const onIt = (d) => (c.runs || []).some((r) => r.startedOn <= d && (!r.endedOn || r.endedOn >= d))
-        return { key: `dose:${c.id}`, label: `${c.name} dose days`, phrase: `days with a ${c.name} dose`, inGroup: (d) => (dosed.has(d) ? true : onIt(d) ? false : null) }
-      }),
-      ...habits.map((h) => ({
-        key: `habit:${h.id}`, label: h.name, phrase: `days with ${h.name}`,
-        inGroup: (d) => { const log = habitLogs[d]; return log && Object.keys(log).length ? log[h.id] === true : null },
-      })),
-    ]
-    const scorePts = [...model.nightBy.keys()].map((d) => ({ date: d, value: model.sleepScore(d)?.score })).filter((p) => p.value != null)
-    const deepPts = [...model.nightBy.values()].filter((n) => n.hasStages).map((n) => ({ date: n.date, value: n.deepMin }))
-    const hrvPts = [...model.series.hrv.entries()].map(([date, value]) => ({ date, value }))
-    const outcomes = [
-      { key: 'sleepScore', label: 'Sleep score', unit: '', dp: 0, wobble: wobbleOf(scorePts, 'sleepScore', t).value, fn: (d) => model.sleepScore(next(d))?.score ?? null },
-      { key: 'deepSleep', label: 'Deep sleep', unit: 'min', dp: 0, wobble: wobbleOf(deepPts, 'deepSleep', t).value, fn: (d) => { const n = model.nightBy.get(next(d)); return n?.hasStages ? n.deepMin : null } },
-      { key: 'hrv', label: 'Next-morning HRV', unit: 'ms', dp: 0, wobble: wobbleOf(hrvPts, 'hrv', t).value, fn: (d) => model.series.hrv.get(next(d)) ?? null },
-    ]
-    return sleepFactors({ days, factors, outcomes })
-  }, [model, t, habits, habitLogs, doseLogs, compounds, saunaSessions])
+/** The evening sheet's entry point; the comparisons themselves are in Sleep › Analysis. */
+function Factors() {
+  const [open, setOpen] = useState(false)
   return (
     <>
-      <SectionTitle sub={`Nights after each, against nights without. Needs ${SLEEP_VIEW.minPerGroup} nights in each group.`}>What goes with your sleep</SectionTitle>
+      <SectionTitle sub="Drinks, meals and the rest of the evening. All optional.">This evening</SectionTitle>
       <section className="card rows p-0" data-testid="sleep-factors">
-        {/* the habits journal's entry point (with the calendar day sheet) */}
-        <button onClick={() => setHabitsOpen(true)} className="flex w-full items-center gap-2 px-4 py-3 text-left" data-testid="log-habits">
+        <button onClick={() => setOpen(true)} className="flex w-full items-center gap-2 px-4 py-3 text-left" data-testid="log-habits">
           <span className="min-w-0 flex-1 text-sm font-black">Log this evening</span>
           <ChevronRight size={16} style={{ color: 'var(--text-3)' }} />
         </button>
-        {rows.map((r) => (
-          <div key={r.key} className="px-4 py-3" data-testid="sleep-factor" data-enough={r.enough ? '1' : '0'}>
-            <div className="flex items-baseline gap-2">
-              <p className="min-w-0 flex-1 text-sm font-bold">{r.label}</p>
-              {r.gate && <p className="text-xs font-bold tabular-nums" style={{ color: 'var(--text-3)' }} data-testid="factor-gate">{r.gate}</p>}
-            </div>
-            {r.enough && r.results.filter((x) => x.text).map((x) => (
-              <div key={x.key} className="mt-2">
-                <p className="text-sm font-medium" style={{ color: 'var(--text-2)' }}>{x.text}</p>
-                <p className="text-[11px] font-bold tabular-nums" style={{ color: 'var(--text-3)' }}>{x.verdict} · {x.nWith} nights with, {x.nWithout} without</p>
-              </div>
-            ))}
-          </div>
-        ))}
       </section>
-      <p className="px-1 text-[11px] font-medium" style={{ color: 'var(--text-3)' }}>
-        Higher or lower on days with, not because of. {COMPARE.caveat}
-      </p>
-      <EveningSheet open={habitsOpen} onClose={() => setHabitsOpen(false)} />
+      <EveningSheet open={open} onClose={() => setOpen(false)} />
     </>
   )
 }

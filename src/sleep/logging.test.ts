@@ -42,7 +42,7 @@ describe('as-needed items', () => {
 
 describe('variable grams', () => {
   it('converts existing supplements and keeps their ids, so history stays', () => {
-    const sups = [{ id: 's1', name: 'Magnesium Glycinate 500mg', slot: 'PM' }, { id: 's2', name: 'Vitamin D', slot: 'AM' }]
+    const sups: Array<{ id: string; name: string; slot: string; amountUnit?: string | null }> = [{ id: 's1', name: 'Magnesium Glycinate 500mg', slot: 'PM' }, { id: 's2', name: 'Vitamin D', slot: 'AM' }]
     const r = migrateVariableSupplements(sups, (i) => `new-${i}`, '2026-10-24')
     expect(r.converted).toEqual(['s1'])
     expect(r.added).toEqual(['new-1'])
@@ -64,7 +64,7 @@ describe('variable grams', () => {
 
 describe('evening factors', () => {
   it('habits become the factor list; caffeine, cold plunge and late meal are hidden, their records kept', () => {
-    const old = [
+    const old: Array<{ id: string; name: string; hidden?: boolean }> = [
       { id: 'alcohol', name: 'Alcohol' }, { id: 'caffeine-late', name: 'Caffeine after 2pm' }, { id: 'late-meal', name: 'Late meal' },
       { id: 'cold-plunge', name: 'Cold plunge' }, { id: 'screen-bed', name: 'Screen in bed' }, { id: 'stress', name: 'Stressful day' },
       { id: 'h-mine', name: 'Reading' },

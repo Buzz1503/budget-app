@@ -7,7 +7,7 @@ import { hhmm, parseHhmm } from '../../health/engine/planner'
 import { HEALTH_BANDS } from './bands'
 
 const SLEEP = 'var(--series-sleep)'
-const W = 340
+export const W = 340
 const MIN = 60000
 
 // one hue, deeper stages stronger
