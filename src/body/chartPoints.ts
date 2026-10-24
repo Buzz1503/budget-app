@@ -89,6 +89,11 @@ export function fitToData(bounds: { from: string; to: string }, series: SeriesPo
   return { from, to }
 }
 
+/** Charts of the Sleep tab and the Sauna tab: pins and lanes start off there. */
+export const SLEEP_CHARTS = ['sleep', 'sleepScore', 'deepSleep', 'remSleep', 'sleepHR', 'sleepHrv', 'bedtime', 'restlessness', 'snoring', 'awake', 'sleepLatency', 'waso', 'hrDip']
+/** Whether a chart opens with overlay pins off (lanes are always off until chosen). */
+export const pinsOffByDefault = (chartType: string) => chartType.startsWith('sauna') || chartType.startsWith('sleep') || SLEEP_CHARTS.includes(chartType)
+
 /** A series with fewer than 3 points is shown as a short list of its values, not a chart. */
 export const chartMode = (series: SeriesPoint[]): 'list' | 'chart' => (series.length < LIST_UNDER_POINTS ? 'list' : 'chart')
 
@@ -164,6 +169,7 @@ export const MIN_SPAN: Record<string, number> = {
   rhr: 10, hrv: 20, sleep: 3, readiness: 40,
   vo2max: 4, bp: 20, waist: 4, // not in the brief's list: calls made here
   sleepScore: 30, deepSleep: 40, remSleep: 40, sleepHR: 10, bedtime: 60, saunaLength: 10, saunaTemp: 10,
+  restlessness: 4, snoring: 20, awake: 30, sleepLatency: 20, waso: 30, hrDip: 10,
 }
 const STEPS = [0.1, 0.2, 0.25, 0.5, 1, 2, 2.5, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000]
 

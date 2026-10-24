@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   bucketPoints, bucketFor, weekStart, yAxis, labelPlacement, pickLabels, xTicks, groupEvents, rangeChangeWords, MIN_SPAN,
   rangeBounds, rangeChange, lineSegments, mergeScans, nearestPoint, GAP_DAYS, MERGE_DAYS, RANGES, LABEL_SPACING,
-  MIN_SPAN_DAYS, defaultRangeFor, chartMode, fitToData,
+  MIN_SPAN_DAYS, defaultRangeFor, chartMode, fitToData, pinsOffByDefault,
 } from './chartPoints'
 import type { SeriesPoint, LabelBox, PlotPoint } from './chartPoints'
 
@@ -236,5 +236,21 @@ describe('ranges fit the data', () => {
     expect(chartMode([])).toBe('list')
     expect(chartMode(pts('2026-10-01', '2026-10-02'))).toBe('list')
     expect(chartMode(pts('2026-10-01', '2026-10-02', '2026-10-03'))).toBe('chart')
+  })
+})
+
+describe('overlays and axes', () => {
+  it('pins start off on sauna and sleep charts, on elsewhere', () => {
+    for (const c of ['saunaLength', 'sleep', 'sleepScore', 'deepSleep', 'sleepHrv', 'bedtime', 'restlessness']) expect(pinsOffByDefault(c)).toBe(true)
+    for (const c of ['weight', 'hrv', 'rhr', 'readiness']) expect(pinsOffByDefault(c)).toBe(false)
+  })
+
+  it('axis maxima come from the data with a minimum span', () => {
+    const a = yAxis([60, 61], MIN_SPAN.deepSleep)
+    expect(a.hi - a.lo).toBeGreaterThanOrEqual(40)
+    expect(a.lo).toBeLessThanOrEqual(60)
+    const b = yAxis([5, 140], MIN_SPAN.deepSleep)
+    expect(b.hi).toBeGreaterThanOrEqual(140)
+    expect(b.hi).toBeLessThan(200)
   })
 })

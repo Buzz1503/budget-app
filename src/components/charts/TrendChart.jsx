@@ -5,7 +5,7 @@ import { haptic } from '../../lib/feedback'
 import {
   RANGES, rangeBounds, bucketFor, bucketPoints, yAxis, MIN_SPAN, labelPlacement, pickLabels,
   xTicks, groupEvents, rangeChange, shortDate, lineSegments, mergeScans, nearestPoint,
-  defaultRangeFor, LIST_UNDER_POINTS, chartMode,
+  defaultRangeFor, LIST_UNDER_POINTS, chartMode, pinsOffByDefault,
 } from '../../body/chartPoints'
 import { laneValuesAt } from '../../body/lanes'
 import { bloodPoints, shortName } from '../../health/engine/overlay'
@@ -139,8 +139,8 @@ export default function TrendChart({
   // normal wobble: how far daily values usually sit from their 7-day average
   const wobble = useMemo(() => (wobbleProp !== undefined ? wobbleProp
     : metric in PHASES.wobbleFallback ? wobbleOf(series || [], metric, t).value : null), [wobbleProp, metric, series, t])
-  // sauna charts open with pins off; any chart remembers what was chosen
-  const pinsOn = pinsDefault ?? !String(chartType).startsWith('sauna')
+  // sauna and sleep charts open with pins off; any chart remembers what was chosen
+  const pinsOn = pinsDefault ?? !pinsOffByDefault(String(chartType))
   const ov = { pins: saved?.pins ?? pinsOn, wobble: saved?.wobble ?? false, bloods: saved?.bloods ?? [] }
   const setOv = (patch) => setChartOverlay?.(chartType, patch)
   const markerNames = useMemo(() => [...new Set(tests.flatMap((x) => Object.keys(x.values || {})))].sort(), [tests])
