@@ -2558,9 +2558,10 @@ const useStore = create(
         const s0 = get().saunaSessions.find((x) => x.id === id)
         if (!s0) return
         const r = cleanRating(input, new Date().toISOString())
-        // water changed after it was written: written again as the new amount
-        const waterWritten = s0.waterWritten && s0.waterMl === r.waterMl
-        get().updateSaunaSession(id, { ...r, waterWritten: !!waterWritten })
+        // water already written to Apple Health stays as it is: the app never
+        // deletes from Health, so a changed amount would count twice there
+        if (s0.waterWritten) r.waterMl = s0.waterMl
+        get().updateSaunaSession(id, { ...r, waterWritten: !!s0.waterWritten })
       },
       deleteSaunaSession(id) {
         const gone = get().saunaSessions.find((x) => x.id === id)

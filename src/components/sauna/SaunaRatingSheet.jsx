@@ -41,8 +41,14 @@ export default function SaunaRatingSheet({ id, onClose }) {
               className="min-h-[36px] rounded-full px-3 text-xs font-bold" style={chip(f[k])} data-testid={`sauna-rate-${k}`}>{label}</button>
           ))}
         </div>
-        <Stepper label="Water after" unit="ml" value={f.waterMl} onChange={(v) => set({ waterMl: v })} step={100} min={0} max={3000} testid="sauna-water" />
-        {__NATIVE__ && <p className="text-xs font-medium" style={{ color: 'var(--text-3)' }}>Water is saved to Apple Health as water.</p>}
+        {session.waterWritten ? (
+          <p className="text-sm font-medium tabular-nums" style={{ color: 'var(--text-2)' }} data-testid="sauna-water-saved">{session.waterMl} ml water, saved to Apple Health.</p>
+        ) : (
+          <>
+            <Stepper label="Water after" unit="ml" value={f.waterMl} onChange={(v) => set({ waterMl: v })} step={100} min={0} max={3000} testid="sauna-water" />
+            {__NATIVE__ && <p className="text-xs font-medium" style={{ color: 'var(--text-3)' }}>Saved to Apple Health as water, once.</p>}
+          </>
+        )}
         <div className="flex gap-2">
           <button type="button" onClick={save} className="btn-primary flex-1 rounded-full py-2.5 text-sm font-black" data-testid="sauna-rate-save">Save</button>
           <button type="button" onClick={onClose} className="flex-1 rounded-full py-2.5 text-sm font-black" style={{ background: 'var(--surface-sunk)', color: 'var(--text-2)' }} data-testid="sauna-rate-skip">Skip</button>

@@ -287,8 +287,11 @@ await step('5 · a save from before v30.1 keeps its data and loses only the them
   // v36 adds Minoxidil and Tretinoin to any older save; nothing already on the
   // shelf may change or go
   if (!after.supplements.some((x) => x.id === 'mig-sup' && x.dose === '400 mg')) throw new Error('a supplement already on the shelf changed')
+  // v26 (the Sleep Lab) adds magnesium glycinate and phosphatidylserine, logged
+  // in grams, when the save has neither; everything else stays
   const added = after.supplements.length - seeded.supplements
-  if (added !== 2) throw new Error(`the migration added ${added} supplements, expected the two topicals`)
+  const grams = after.supplements.filter((x) => x.amountUnit === 'g' && String(x.id).startsWith('sup-sleep-')).length
+  if (added !== 2 + grams || grams > 2) throw new Error(`the migration added ${added} supplements, expected the two topicals and ${grams} gram-logged ones`)
   if (after.settings.theme) throw new Error('settings.theme survived the migration')
   if (await page.evaluate(() => document.documentElement.dataset.theme)) throw new Error('the root gained a theme again')
   console.log(`  upgraded from v10: ${after.doseLogs.length} logs, ${after.supplements.length} supplements, theme dropped`)

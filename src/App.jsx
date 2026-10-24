@@ -18,22 +18,40 @@ import { HEALTH_BUILD, HealthBoot, HealthSettings, SleepTab } from './health/ui'
 import { useNativeFeed } from './native/feed'
 import { ShortcutsScreen, NotificationsScreen, WatchScreen, LockSettingsScreen, LockGate } from './native/ui'
 
-const ProtocolTab = lazy(() => import('./components/ProtocolTab'))
-const CalendarTab = lazy(() => import('./components/CalendarTab'))
-const CalcTab = lazy(() => import('./components/CalcTab'))
-const MixTab = lazy(() => import('./components/MixTab'))
-const SuppliesTab = lazy(() => import('./components/SuppliesTab'))
-const SettingsTab = lazy(() => import('./components/SettingsTab'))
-const RightNowTab = lazy(() => import('./components/RightNowTab'))
-const ReactionsScreen = lazy(() => import('./components/ReactionsScreen'))
-const SaunaTab = lazy(() => import('./components/sauna/SaunaTab'))
-const BodyTab = lazy(() => import('./components/BodyTab'))
-const HistoryTab = lazy(() => import('./components/HistoryTab'))
-const SupplementsTab = lazy(() => import('./components/SupplementsTab'))
-const BloodsTab = lazy(() => import('./components/BloodsTab'))
-const ImportScans = lazy(() => import('./components/ImportScans'))
-const DataReports = lazy(() => import('./components/data/DataReports'))
-const ScheduleWizard = lazy(() => import('./components/ScheduleWizard'))
+/**
+ * A screen whose code loads on first use. Once loaded (by the prefetch after
+ * Home, or by opening it) it renders directly, without a Suspense round trip.
+ */
+function screen(loader) {
+  let Loaded = null
+  const load = () => loader().then((m) => { Loaded = m.default; return m })
+  const Lazy = lazy(load)
+  function Screen(props) { return Loaded ? <Loaded {...props} /> : <Lazy {...props} /> }
+  Screen.load = load
+  return Screen
+}
+
+const ProtocolTab = screen(() => import('./components/ProtocolTab'))
+const CalendarTab = screen(() => import('./components/CalendarTab'))
+const CalcTab = screen(() => import('./components/CalcTab'))
+const MixTab = screen(() => import('./components/MixTab'))
+const SuppliesTab = screen(() => import('./components/SuppliesTab'))
+const SettingsTab = screen(() => import('./components/SettingsTab'))
+const RightNowTab = screen(() => import('./components/RightNowTab'))
+const ReactionsScreen = screen(() => import('./components/ReactionsScreen'))
+const SaunaTab = screen(() => import('./components/sauna/SaunaTab'))
+const BodyTab = screen(() => import('./components/BodyTab'))
+const HistoryTab = screen(() => import('./components/HistoryTab'))
+const SupplementsTab = screen(() => import('./components/SupplementsTab'))
+const BloodsTab = screen(() => import('./components/BloodsTab'))
+const ImportScans = screen(() => import('./components/ImportScans'))
+const DataReports = screen(() => import('./components/data/DataReports'))
+const ScheduleWizard = screen(() => import('./components/ScheduleWizard'))
+// every lazy screen, for the prefetch after Home. The dev server serves modules
+// one by one, so there they are all asked for straight away and a screen opened
+// early (as the e2e suites do) is not left waiting.
+const SCREEN_LOADERS = [ProtocolTab.load, CalendarTab.load, CalcTab.load, MixTab.load, SuppliesTab.load, SettingsTab.load, RightNowTab.load, ReactionsScreen.load, SaunaTab.load, BodyTab.load, HistoryTab.load, SupplementsTab.load, BloodsTab.load, ImportScans.load, DataReports.load, ScheduleWizard.load]
+if (import.meta.env.DEV) for (const fn of SCREEN_LOADERS) void fn().catch(() => {})
 
 /** While a screen's code loads: a quiet placeholder rather than a blank page. */
 function ScreenLoading() {
@@ -104,14 +122,12 @@ export default function App() {
   // 'wizard' isn't a screen — it's a modal any screen can ask for.
   const goTo = (id) => (id === 'wizard' ? setWizard(true) : setTab(ALIASES[id] || id))
 
-  // the bottom-bar tabs' code, fetched once the app is idle after start-up, so
-  // the first tap on Body or Sauna opens at once
+  // every screen's code, fetched as soon as Home is up, so no later tap waits
+  // on a download; start-up itself only parses Home
   useEffect(() => {
-    const id = setTimeout(() => {
-      void import('./components/BodyTab'); void import('./components/sauna/SaunaTab')
-      if (HEALTH_BUILD) void import('./components/health/SleepTab')
-    }, 2500)
-    return () => clearTimeout(id)
+    const load = () => { for (const fn of SCREEN_LOADERS) void fn().catch(() => {}) }
+    const id = typeof requestIdleCallback === 'function' ? requestIdleCallback(load, { timeout: 600 }) : setTimeout(load, 300)
+    return () => (typeof cancelIdleCallback === 'function' ? cancelIdleCallback(id) : clearTimeout(id))
   }, [])
 
   // iPhone app: a notification tap (Open Stock, Check now) asks for a screen

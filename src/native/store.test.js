@@ -104,12 +104,10 @@ describe('applyNativeActions', () => {
     const [s] = useStore.getState().saunaSessions
     expect(s.rating).toMatchObject({ feel: 4, lightheaded: true, headache: false, cramps: false })
     expect(s).toMatchObject({ electrolytes: true, waterMl: 600, waterWritten: false })
-    // changing the water after it was written writes the new amount
+    // once written to Apple Health the water stays, so it never counts twice there
     useStore.getState().updateSaunaSession(s.id, { waterWritten: true })
-    useStore.getState().rateSaunaSession(s.id, { feel: 4, waterMl: 600 })
-    expect(useStore.getState().saunaSessions[0].waterWritten).toBe(true)
-    useStore.getState().rateSaunaSession(s.id, { feel: 4, waterMl: 800 })
-    expect(useStore.getState().saunaSessions[0].waterWritten).toBe(false)
+    useStore.getState().rateSaunaSession(s.id, { feel: 3, waterMl: 800 })
+    expect(useStore.getState().saunaSessions[0]).toMatchObject({ waterMl: 600, waterWritten: true, rating: { feel: 3 } })
   })
 
   it('a session never stopped is saved at two hours and marked for review', () => {
