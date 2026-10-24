@@ -525,8 +525,7 @@ public struct WatchSaunaRatingContent: View {
             HStack(spacing: PepitoTheme.Space.s4) {
                 ForEach(1...5, id: \.self) { n in
                     Button("\(n)") { var r = rating; r.feel = r.feel == n ? nil : n; onChange(r) }
-                        .buttonStyle(WatchSecondaryButtonStyle(height: 36))
-                        .foregroundStyle(rating.feel == n ? Pal.accent : Pal.text)
+                        .buttonStyle(WatchSecondaryButtonStyle(height: 36, selected: rating.feel == n))
                         .accessibilityLabel("Felt \(n) of 5")
                         .accessibilityAddTraits(rating.feel == n ? .isSelected : [])
                 }

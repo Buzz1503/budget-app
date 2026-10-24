@@ -49,16 +49,19 @@ public struct WatchPrimaryButtonStyle: ButtonStyle {
     }
 }
 
-/// A quieter full-width or round action.
+/// A quieter full-width or round action. `selected` is a chosen option in a
+/// row of them (a unit, a rating): light fill, dark label, like the iPhone's chips.
 public struct WatchSecondaryButtonStyle: ButtonStyle {
     public var height: CGFloat
-    public init(height: CGFloat = 44) { self.height = height }
+    public var selected: Bool
+    public init(height: CGFloat = 44, selected: Bool = false) { self.height = height; self.selected = selected }
     public func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 17, weight: .semibold))
-            .foregroundStyle(Pal.text)
+            .foregroundStyle(selected ? Pal.bg : Pal.text)
             .frame(maxWidth: .infinity, minHeight: height)
-            .background(Capsule().fill(Color.white.opacity(configuration.isPressed ? 0.24 : 0.16)))
+            .background(Capsule().fill(selected ? Pal.text.opacity(configuration.isPressed ? 0.8 : 1)
+                                                : Color.white.opacity(configuration.isPressed ? 0.24 : 0.16)))
             .contentShape(Capsule())
     }
 }

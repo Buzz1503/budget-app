@@ -81,8 +81,7 @@ public struct WatchAsNeededAmountContent: View {
                 HStack(spacing: PepitoTheme.Space.s4) {
                     ForEach(item.units, id: \.self) { u in
                         Button(u) { onUnit(u) }
-                            .buttonStyle(WatchSecondaryButtonStyle(height: 36))
-                            .foregroundStyle(u == unit ? Pal.text : Pal.text2)
+                            .buttonStyle(WatchSecondaryButtonStyle(height: 36, selected: u == unit))
                             .accessibilityAddTraits(u == unit ? .isSelected : [])
                     }
                 }

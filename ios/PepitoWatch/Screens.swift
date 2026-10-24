@@ -186,7 +186,7 @@ struct EveningScreen: View {
                     finish(EveningSheetModel.actions(drinks: drinks, factors: Array(on).sorted(), taken: items))
                 })
         }
-        .navigationTitle("This evening")
+        .navigationTitle("Evening")
         .containerBackground(WatchBG.doses, for: .navigation)
         .sheet(item: $amountFor) { item in
             EveningAmountSheet(item: item) { amount in taken[item.id] = amount; amountFor = nil }
@@ -359,7 +359,7 @@ struct SaunaSummaryScreen: View {
                 }
             }
         }
-        .navigationTitle(rating == nil ? "Summary" : "How was it?")
+        .navigationTitle(rating == nil ? "Summary" : "Rating")
         .navigationBarBackButtonHidden(true)
     }
 

@@ -179,7 +179,7 @@ final class WatchSnapshotTests: XCTestCase {
         // the evening sheet from the evening prompt's Log
         let toggles: [Snapshot.Toggle] = [.init(id: "stress", name: "Stressful day"), .init(id: "unwell", name: "Unwell"),
                                           .init(id: "pain", name: "Pain"), .init(id: "away", name: "Slept away from home")]
-        shoot("evening-sheet", BG.doses, chrome: .child("This evening"), aodToo: false) {
+        shoot("evening-sheet", BG.doses, chrome: .child("Evening"), aodToo: false) {
             WatchEveningContent(sedatives: Array(asNeeded.prefix(3)), taken: ["an-temazepam": 10], drinks: 2, toggles: toggles, on: ["stress"],
                                 onNothing: {}, onSedative: { _ in }, onDrinks: { _ in }, onToggle: { _ in }, onSave: {})
         }
@@ -189,7 +189,7 @@ final class WatchSnapshotTests: XCTestCase {
         rating.feel = 4
         rating.electrolytes = true
         rating.waterMl = 500
-        shoot("sauna-rating", BG.sauna, chrome: .child("How was it?"), aodToo: false) {
+        shoot("sauna-rating", BG.sauna, chrome: .child("Rating"), aodToo: false) {
             WatchSaunaRatingContent(rating: rating, onChange: { _ in }, onSave: {}, onSkip: {})
         }
 
