@@ -47,6 +47,23 @@ export function moveStartEntry(measurements: Entry[], bodyStart: BodyStart | nul
   return { measurements: list, bodyStart: followed, moved: true }
 }
 
+/** The 13 Jan 2025 date the estimated starting entry used to sit on. */
+const LEGACY_START_DATE = '2025-01-13'
+
+/**
+ * A starting point that still points at the 13 Jan 2025 scan (a 102.6 kg start
+ * and "since 13 Jan 2025") goes back to the estimated entry on 1 Jan 2025
+ * (105.6 kg, "Start (estimated)"). The entry is recreated when it is missing
+ * and refreshed when it is there; the 13 Jan scan itself stays as a normal
+ * scan. Any other starting point, one chosen by hand elsewhere, is left alone.
+ */
+export function repairStartPoint(measurements: Entry[], bodyStart: BodyStart | null | undefined): { measurements: Entry[]; bodyStart: BodyStart | null; repaired: boolean } {
+  if (bodyStart?.date !== LEGACY_START_DATE) return { measurements, bodyStart: bodyStart ?? null, repaired: false }
+  const start = { ...EVOLT_START_SCAN }
+  const list = [...measurements.filter((m) => !isStartId(m.id)), start].sort((a, b) => a.date.localeCompare(b.date))
+  return { measurements: list, bodyStart: startFromEntry(start), repaired: true }
+}
+
 export function applyScanHistory(
   measurements: Entry[],
   bodyStart: BodyStart | null | undefined,

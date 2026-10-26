@@ -170,13 +170,14 @@ export interface Projection {
  * When the goal would be reached at the pace of the last 28 days (a least-
  * squares line through the readings). Always an estimate.
  */
-export function projectGoal(series: Array<{ date: string; value: number }>, goal: number | null | undefined, today: string, { windowDays = 28, unit = 'kg' }: { windowDays?: number; unit?: string } = {}): Projection | null {
+export function projectGoal(series: Array<{ date: string; value: number }>, goal: number | null | undefined, today: string, { windowDays = 28, unit = 'kg', current: now = null }: { windowDays?: number; unit?: string; current?: number | null } = {}): Projection | null {
   if (goal == null || !Number.isFinite(goal)) return null
   const from = fromNum(dayNum(today) - (windowDays - 1))
   const win = series.filter((p) => p.date >= from && p.date <= today)
   if (win.length < 3) return { status: 'insufficient', perWeek: null, date: null, words: `Needs a few more readings in the last ${windowDays} days.` }
   const slope = slopePerDay(win) as number
-  const current = win[win.length - 1].value
+  // where you are now is the headline reading when one is given; the pace is the trend over the window
+  const current = now ?? win[win.length - 1].value
   const gap = goal - current
   const perWeek = r2(slope * 7)
   if (Math.abs(gap) < 0.05) return { status: 'reached', perWeek, date: null, words: 'At your goal.' }

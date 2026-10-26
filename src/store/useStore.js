@@ -8,7 +8,7 @@ import {
 import { SEED_KNOWN_GOOD } from '../lib/mixing'
 import { canPush } from '../lib/pushes'
 import { pauseEnd } from '../lib/pauses'
-import { applyScanHistory, moveStartEntry } from '../body/scanHistory'
+import { applyScanHistory, moveStartEntry, repairStartPoint } from '../body/scanHistory'
 import { migrateSourceFamilies } from '../body/sources'
 import { applyScanImport } from '../body/scanImport'
 import { validWakeTarget } from '../health/engine/planner'
@@ -3124,7 +3124,7 @@ const useStore = create(
     }),
     {
       name: 'peptide-command-center', // storage key is history — renaming it would orphan existing data
-      version: 26,
+      version: 27,
       storage: createJSONStorage(() => safeStorage),
       // Saves written before a release can't pick new library entries up from
       // the seed, so each version bump backfills them here — once. Deleting one
@@ -3159,6 +3159,11 @@ const useStore = create(
         let s = migrateBefore25(persisted, from)
         if (s && from < 25) s = migrateStock(s)
         if (s && from < 26) s = migrateSleepLab(s)
+        // v27: a starting point still on the 13 Jan 2025 scan goes back to the estimated 1 Jan 2025 entry
+        if (s && from < 27) {
+          const fixed = repairStartPoint(s.measurements || [], s.bodyStart)
+          if (fixed.repaired) s = { ...s, measurements: fixed.measurements, bodyStart: fixed.bodyStart }
+        }
         return s
       },
       partialize: (s) => {

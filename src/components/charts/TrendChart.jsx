@@ -115,7 +115,7 @@ const SCRUB_MOVE = 4 // px of drag before a press becomes a scrub rather than a 
 export default function TrendChart({
   metric, chartType = metric, title, unit = '', dp = 1, series, current = null, currentCaption = null,
   events = [], wobble: wobbleProp, window: fixed = null, defaultRange = '90D', testid, note = null, onEditDate = null,
-  startLine = null, refBand = null, format = null, changeUnit = null, controls = null, pinsDefault,
+  startLine = null, refBand = null, format = null, changeUnit = null, controls = null, headerNote = null, pinsDefault,
 }) {
   // how a value reads: a number by default, or e.g. a clock time for bedtime
   const show = format || ((v) => fmt(v, dp))
@@ -274,6 +274,7 @@ export default function TrendChart({
               {[currentCaption, change].filter(Boolean).join(' · ')}
             </p>
           )}
+          {headerNote}
         </div>
         <button onClick={() => setOverlayOpen((v) => !v)} data-testid="overlay-button" aria-expanded={overlayOpen}
           className="flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold"

@@ -8,7 +8,7 @@ import Sparkline from '../charts/Sparkline'
 import BodyChart, { useChartSource } from '../charts/BodyChart'
 import useChartEvents from '../charts/useChartEvents'
 import { useBodyInput, useBodyStart, sinceWords } from '../../lib/useBody'
-import { dailySeries, familySeries, seriesByFamily, pickFamily, weeklyChange, FAMILY_FIELDS } from '../../body/bodySeries'
+import { dailySeries, familySeries, seriesByFamily, pickFamily, scaleWeeklyRate, getLatestMeasurement, FAMILY_FIELDS } from '../../body/bodySeries'
 import { compareSinceStart } from '../../body/startPoint'
 import { dexaScans, resolveSource } from '../../body/sources'
 import { SCAN_METRICS } from '../../body/scanFields'
@@ -36,15 +36,17 @@ function SectionTitle({ children, sub }) {
 
 // ---------------------------------------------------------------- hero
 
-/** Weight from the same source the weight chart shows (Scale unless you chose Evolt), against the starting weight. */
+/**
+ * The headline weight is the newest reading from Scale or Evolt, whichever
+ * source the chart below is showing, against the starting weight. The weekly
+ * rate uses Scale readings only, so it is always one device.
+ */
 function Hero({ onLog, onOpenStart }) {
   const input = useBodyInput()
   const start = useBodyStart()
   const t = todayStr()
-  const families = useMemo(() => seriesByFamily('weight', input), [input])
-  const [family] = useChartSource('weight', Object.keys(families))
-  const w = compareSinceStart('weight', start, input, t, { family })
-  const rate = weeklyChange(family ? families[family] : [])
+  const w = compareSinceStart('weight', start, input, t)
+  const rate = useMemo(() => scaleWeeklyRate(input, t), [input, t])
   if (!w.latest) {
     return (
       <section className="card p-5" data-testid="composition-hero">
@@ -71,7 +73,7 @@ function Hero({ onLog, onOpenStart }) {
         </button>
       )}
       <p className="mt-1 text-sm font-medium tabular-nums" style={{ color: 'var(--text-2)' }} data-testid="hero-rate">
-        {rate != null ? `${signed(rate, 2)} kg a week over the last 4 weeks` : 'Weekly rate needs 4 weigh-ins across 2 weeks'}
+        {rate != null ? `${signed(rate, 2)} kg a week over the last 4 weeks` : 'Weekly rate needs 2 Scale weigh-ins a week or more apart'}
       </p>
       <p className="mt-3 text-xs font-medium tabular-nums" style={{ color: 'var(--text-3)' }}>
         {shortD(w.latest.date)}, {w.latest.sourceLabel}
@@ -282,7 +284,7 @@ function GoalCard() {
   const input = useBodyInput()
   const [edit, setEdit] = useState(false)
   const t = todayStr()
-  const weight = projectGoal(dailySeries('weight', input), goals.weight, t)
+  const weight = projectGoal(dailySeries('weight', input), goals.weight, t, { current: getLatestMeasurement('weight', input, t)?.value ?? null })
   const from = format(new Date(Date.parse(`${t}T00:00:00Z`) - 27 * 86400000), 'yyyy-MM-dd')
   const fam = pickFamily('bodyFat', input, from, t)
   const bf = fam ? projectGoal(familySeries('bodyFat', input, fam), goals.bodyFat, t, { unit: 'points' }) : null

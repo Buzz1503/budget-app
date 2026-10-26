@@ -76,7 +76,7 @@ export function useSinceStart(field) {
 /** The latest reading's device, or null for a typed-in value. */
 export const latestDevice = (l) => (!l || l.source === 'manual' ? null : l.sourceLabel)
 
-/** "since 13 Jan 2025" */
+/** "since 1 Jan 2025" */
 export const sinceWords = (start) => (start ? `since ${format(parseISO(start.date), 'd MMM yyyy')}` : '')
 
 export { sinceStart }

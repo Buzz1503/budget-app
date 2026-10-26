@@ -233,11 +233,32 @@ export interface Latest extends DayPoint {
   count: number
 }
 
-/** The current value of a field: the most recent day with one, from any source. */
+/**
+ * The headline weight: the newest weight reading from Scale or Evolt. On one
+ * day Scale wins (Withings, then typed in, then other apps), then Evolt. DEXA
+ * never counts, and neither does the estimated starting entry: it is a
+ * starting point, not a weigh-in.
+ */
+export function headlineWeight(input: BodyInput): DayPoint | null {
+  const pool = readingsFrom(input).filter((r) => r.values.weight != null && !r.estimated && (r.family === 'scale' || r.family === 'evolt'))
+  let best: Reading | null = null
+  const rank = (r: Reading) => (r.family === 'scale' ? 10 + SCALE_RANK[r.source === 'manual' ? 'manual' : r.source === 'withings' ? 'withings' : 'other'] : 0)
+  for (const r of pool) {
+    if (!best || r.date > best.date || (r.date === best.date && (rank(r) > rank(best) || (rank(r) === rank(best) && r.order > best.order)))) best = r
+  }
+  if (!best) return null
+  return { date: best.date, value: best.values.weight as number, source: best.source, sourceLabel: best.sourceLabel, family: best.family }
+}
+
+/**
+ * The current value of a field: the most recent day with one, from any
+ * source. Weight follows headlineWeight (the newest Scale or Evolt reading);
+ * everything else is the last point of its merged daily series.
+ */
 export function getLatestMeasurement(field: BodyField, input: BodyInput, today: string): Latest | null {
   const s = dailySeries(field, input)
-  if (!s.length) return null
-  const last = s[s.length - 1]
+  const last = field === 'weight' ? (headlineWeight(input) ?? s[s.length - 1]) : s[s.length - 1]
+  if (!last) return null
   const ageDays = Math.max(0, dayNum(today) - dayNum(last.date))
   return {
     ...last,
@@ -273,6 +294,32 @@ export function weeklyChange(series: DayPoint[]): number | null {
   if (dayNum(end) - dayNum(win[0].date) < WEEKLY.minSpanDays) return null
   const s = slopePerDay(win)
   return s == null ? null : round(s * 7)
+}
+
+/**
+ * The headline reading when it comes from a different source than the chart is
+ * showing (and that source has a line to switch to), else null: the chart's
+ * "Latest reading is from Evolt, 26 Oct" caption shows only then.
+ */
+export function latestFromOtherSource(headline: { family?: string; date: string } | null, shown: string | null, available: string[]): { family: string; date: string } | null {
+  if (!headline?.family || !shown || headline.family === shown || !available.includes(headline.family)) return null
+  return { family: headline.family, date: headline.date }
+}
+
+export const SCALE_RATE = { windowDays: 28, minReadings: 2, minSpanDays: 7 }
+
+/**
+ * Change per week from the Scale readings of the last 4 weeks up to today:
+ * one device only, never mixed with a scan. Hidden (null) with fewer than 2
+ * readings, or when they are under a week apart (two readings a day apart
+ * would turn ordinary noise into a rate).
+ */
+export function scaleWeeklyRate(input: BodyInput, today: string): number | null {
+  const series = familySeries('weight', input, 'scale').filter((p) => dayNum(today) - dayNum(p.date) < SCALE_RATE.windowDays && p.date <= today)
+  if (series.length < SCALE_RATE.minReadings) return null
+  if (dayNum(series[series.length - 1].date) - dayNum(series[0].date) < SCALE_RATE.minSpanDays) return null
+  const slope = slopePerDay(series)
+  return slope == null ? null : round(slope * 7)
 }
 
 /** Mean of the readings in the 7 days up to the latest one. */

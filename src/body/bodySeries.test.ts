@@ -20,7 +20,7 @@ describe('getLatestMeasurement', () => {
     expect(r).toMatchObject({ value: 90.9, source: 'manual', sourceLabel: 'Manual' })
   })
 
-  it('on the same day: an Evolt scan, then Withings, then typed in, then other apps', () => {
+  it('on the same day the headline weight is Scale: Withings, then typed in, then other apps, then an Evolt scan', () => {
     const day = '2026-10-10'
     const all = {
       measurements: [
@@ -32,7 +32,8 @@ describe('getLatestMeasurement', () => {
         { date: day, weight: 94.0, weightSource: 'Renpho' },
       ],
     }
-    expect(getLatestMeasurement('weight', all, T)?.source).toBe('scan')
+    expect(getLatestMeasurement('weight', all, T)).toMatchObject({ source: 'withings', value: 93.0 })
+    expect(getLatestMeasurement('weight', { measurements: [all.measurements[1]], health: [] }, T)?.source).toBe('scan')
     // inside Scale, Withings beats a typed-in weight beats another app
     expect(getLatestMeasurement('weight', { ...all, measurements: [all.measurements[0]] }, T)).toMatchObject({ source: 'withings', value: 93.0 })
     expect(getLatestMeasurement('weight', { measurements: [all.measurements[0]], health: [all.health[1]] }, T)).toMatchObject({ source: 'manual', value: 92.0 })

@@ -3,7 +3,9 @@ import { format, parseISO } from 'date-fns'
 import useStore from '../../store/useStore'
 import TrendChart from './TrendChart'
 import { useBodyInput, useBodyStart } from '../../lib/useBody'
-import { seriesByFamily, FAMILY_LABEL } from '../../body/bodySeries'
+import { todayStr } from '../../store/useStore'
+import { latestCaption } from '../../lib/useBody'
+import { seriesByFamily, getLatestMeasurement, latestFromOtherSource, FAMILY_LABEL } from '../../body/bodySeries'
 import { getStartValue } from '../../body/startPoint'
 import { resolveSource } from '../../body/sources'
 import { latestScanMeta } from '../../body/composition'
@@ -49,10 +51,21 @@ export default function BodyChart({ metric, chartType = `body-${metric}`, title,
   const meta = useMemo(() => latestScanMeta(input.measurements || [], metric), [input, metric])
   const refBand = family === 'evolt' && meta.range ? { lo: meta.range[0], hi: meta.range[1], label: 'Evolt reference range' } : null
   const last = series[series.length - 1]
+  // Weight: the header is the headline weight (newest Scale or Evolt reading), whatever the chart shows.
+  // When that reading is from the other source, say so; tapping the line switches the chart to it.
+  const headline = useMemo(() => (metric === 'weight' ? getLatestMeasurement('weight', input, todayStr()) : null), [metric, input])
+  const other = latestFromOtherSource(headline, family, available)
+  const shown = headline || last
+  const caption = shown ? latestCaption(shown) : null
   return (
     <TrendChart key={`${metric}-${family}`} metric={metric} chartType={chartType} title={title} unit={unit} dp={dp} series={series} events={events}
       defaultRange={defaultRange} startLine={startLine} refBand={refBand} testid={testid || `body-chart-${metric}`}
-      current={last?.value ?? null} currentCaption={last ? `${format(parseISO(last.date), 'd MMM')}, ${last.sourceLabel}` : null}
+      current={shown?.value ?? null} currentCaption={caption}
+      headerNote={other ? (
+        <button onClick={() => setFamily(other.family)} className="mt-0.5 text-left text-xs font-bold underline decoration-dotted underline-offset-2" style={{ color: 'var(--text-2)' }} data-testid="chart-latest-other">
+          Latest reading is from {FAMILY_LABEL[other.family] || other.family}, {format(parseISO(other.date), 'd MMM')}
+        </button>
+      ) : null}
       controls={<SourceToggle options={available} value={family} onChange={setFamily} />} note={note} onEditDate={onEditDate} />
   )
 }
