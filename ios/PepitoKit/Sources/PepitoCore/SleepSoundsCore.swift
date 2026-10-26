@@ -96,7 +96,10 @@ public enum SleepSoundsCore {
 
     // MARK: stopping on its own
 
-    public enum StopReason: String, Sendable { case focusOff, unplugged, tooLong }
+    /// Why a session ended. The first three come from `shouldStop`; `app` is a hand stop,
+    /// `interrupted` an interruption that never ended, `appClosed` a session found open
+    /// on the next launch (iOS or the user closed the app, or it crashed).
+    public enum StopReason: String, Sendable { case focusOff, unplugged, tooLong, app, interrupted, appClosed }
     public static let maxHours = 11.0
 
     /// Whether a running session should stop: unplugged after 4 am, or past 11 hours.
@@ -113,6 +116,58 @@ public enum SleepSoundsCore {
     public static func inEveningWindow(_ now: Date, calendar: Calendar = .current) -> Bool {
         let h = calendar.component(.hour, from: now)
         return h >= 20 || h < 4
+    }
+
+    // MARK: keeping the session while it runs
+
+    /// The session file is written when listening starts and again this often,
+    /// so a closed app leaves everything up to the last checkpoint.
+    public static let checkpointEverySec = 300.0
+    /// A test run for the "Test for 1 minute" button.
+    public static let testSeconds = 60.0
+
+    /// A stretch of the night with no audio captured: a call, Siri, an alarm,
+    /// AirPods switching, another app taking the microphone.
+    public struct Gap: Codable, Equatable, Sendable {
+        public var s: Double   // start, epoch ms
+        public var e: Double   // end, epoch ms
+        public var reason: String
+        public init(s: Double, e: Double, reason: String) { self.s = s; self.e = e; self.reason = reason }
+    }
+
+    /// Maps the analyzer's audio time to the clock. Each engine start (the first and every
+    /// resume after an interruption) is its own segment, because the audio timeline restarts.
+    public struct SegmentClock: Equatable, Sendable {
+        public var baseWall: Double     // epoch seconds when the segment's first buffer began
+        public var baseSeconds: Double  // the analyzer's time for that buffer
+        public init(baseWall: Double, baseSeconds: Double) { self.baseWall = baseWall; self.baseSeconds = baseSeconds }
+        public func wall(_ seconds: Double) -> Double { baseWall + (seconds - baseSeconds) }
+    }
+
+    /// The session as it stands: everything heard so far, whether it is still open or finished.
+    public static func session(id: String, start: Double, now: Double, detections: [Detection], levels: [(t: Double, db: Double)],
+                               moves: [(t: Double, g: Double)], room: [[Double]], startedBy: String, gaps: [Gap],
+                               checkpoints: Int, open: Bool, stopReason: String?) -> SleepSoundsSession {
+        let minutes = minuteLevels(levels)
+        let moving = movingMinutes(moves)
+        return SleepSoundsSession(
+            id: id, start: start, end: now, events: events(detections), levels: minutes, loudMinutes: loudMinutes(minutes),
+            movingMinutes: moving, lowConfidence: moving > movedALotMinutes, room: room, startedBy: startedBy, stopReason: stopReason,
+            open: open, lastCheckpoint: now, gaps: gaps, checkpoints: checkpoints, recovered: false)
+    }
+
+    /// A session found still open on a later launch: it ends at its last checkpoint, with
+    /// any gap that was running closed there, and says why.
+    public static func recover(_ s: SleepSoundsSession) -> SleepSoundsSession {
+        guard s.open else { return s }
+        var out = s
+        out.end = max(s.lastCheckpoint, s.start)
+        out.open = false
+        out.recovered = true
+        out.stopReason = s.stopReason ?? StopReason.appClosed.rawValue
+        out.events = s.events.filter { $0.s < out.end }.map { var e = $0; e.e = min(e.e, out.end); return e }
+        out.gaps = s.gaps.map { var g = $0; g.e = min(max(g.e, g.s), out.end); return g }
+        return out
     }
 
     // MARK: the phone moving
@@ -132,7 +187,7 @@ public enum SleepSoundsCore {
 public struct SleepSoundsSession: Codable, Equatable, Sendable {
     public var id: String
     public var start: Double         // epoch ms
-    public var end: Double
+    public var end: Double           // the last checkpoint while open, the stop time once finished
     public var events: [SleepSoundsCore.Event]
     /// [minute start epoch ms, dB relative to full scale]
     public var levels: [[Double]]
@@ -144,10 +199,46 @@ public struct SleepSoundsSession: Codable, Equatable, Sendable {
     public var room: [[Double]]
     public var startedBy: String     // "app", "shortcut", "automation"
     public var stopReason: String?
+    /// still listening (or the app closed before it could finish): written at start and at each checkpoint
+    public var open: Bool
+    public var lastCheckpoint: Double
+    /// stretches with no audio: interruptions and route changes
+    public var gaps: [SleepSoundsCore.Gap]
+    public var checkpoints: Int
+    /// found open on a later launch and closed at its last checkpoint
+    public var recovered: Bool
 
     public init(id: String, start: Double, end: Double, events: [SleepSoundsCore.Event], levels: [[Double]], loudMinutes: Int,
-                movingMinutes: Int, lowConfidence: Bool, room: [[Double]], startedBy: String, stopReason: String?) {
+                movingMinutes: Int, lowConfidence: Bool, room: [[Double]], startedBy: String, stopReason: String?,
+                open: Bool = false, lastCheckpoint: Double? = nil, gaps: [SleepSoundsCore.Gap] = [], checkpoints: Int = 0, recovered: Bool = false) {
         self.id = id; self.start = start; self.end = end; self.events = events; self.levels = levels; self.loudMinutes = loudMinutes
         self.movingMinutes = movingMinutes; self.lowConfidence = lowConfidence; self.room = room; self.startedBy = startedBy; self.stopReason = stopReason
+        self.open = open; self.lastCheckpoint = lastCheckpoint ?? end; self.gaps = gaps; self.checkpoints = checkpoints; self.recovered = recovered
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, start, end, events, levels, loudMinutes, movingMinutes, lowConfidence, room, startedBy, stopReason
+        case open, lastCheckpoint, gaps, checkpoints, recovered
+    }
+
+    /// Files written before checkpoints existed have none of the newer keys.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        start = try c.decode(Double.self, forKey: .start)
+        end = try c.decode(Double.self, forKey: .end)
+        events = try c.decode([SleepSoundsCore.Event].self, forKey: .events)
+        levels = try c.decode([[Double]].self, forKey: .levels)
+        loudMinutes = try c.decode(Int.self, forKey: .loudMinutes)
+        movingMinutes = try c.decode(Int.self, forKey: .movingMinutes)
+        lowConfidence = try c.decode(Bool.self, forKey: .lowConfidence)
+        room = try c.decode([[Double]].self, forKey: .room)
+        startedBy = try c.decode(String.self, forKey: .startedBy)
+        stopReason = try c.decodeIfPresent(String.self, forKey: .stopReason)
+        open = try c.decodeIfPresent(Bool.self, forKey: .open) ?? false
+        lastCheckpoint = try c.decodeIfPresent(Double.self, forKey: .lastCheckpoint) ?? end
+        gaps = try c.decodeIfPresent([SleepSoundsCore.Gap].self, forKey: .gaps) ?? []
+        checkpoints = try c.decodeIfPresent(Int.self, forKey: .checkpoints) ?? 0
+        recovered = try c.decodeIfPresent(Bool.self, forKey: .recovered) ?? false
     }
 }

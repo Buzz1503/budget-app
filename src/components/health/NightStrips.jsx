@@ -32,14 +32,21 @@ export default function NightStrips({ night, overnight, restless, soundSessions,
   }
 
   const sounds = (soundSessions || []).flatMap((s) => s.events || [])
+  const gaps = (soundSessions || []).flatMap((s) => s.gaps || []).filter((g) => g.e > t0 && g.s < t1)
   if ((soundSessions || []).length) {
     rows.push({
       key: 'sound', label: 'Sound',
-      draw: (y) => sounds.filter((e) => e.e > t0 && e.s < t1).map((e, i) => (
+      draw: (y) => [
+        // stretches with no audio (a call, Siri, an alarm) are shaded, so a quiet row is never mistaken for a silent room
+        ...gaps.map((g, i) => (
+          <rect key={`g${i}`} x={x(Math.max(g.s, t0))} y={y + 3} width={Math.max(1.5, x(Math.min(g.e, t1)) - x(Math.max(g.s, t0)))} height={ROW - 8} fill="var(--text-3)" opacity="0.25" data-testid="strip-gap"><title>No audio captured</title></rect>
+        )),
+        ...sounds.filter((e) => e.e > t0 && e.s < t1).map((e, i) => (
         e.label === 'snoring'
           ? <rect key={i} x={x(Math.max(e.s, t0))} y={y + 6} width={Math.max(1.5, x(Math.min(e.e, t1)) - x(Math.max(e.s, t0)))} height={ROW - 12} rx="1.5" fill="var(--text-2)" data-testid="strip-snore" />
           : <circle key={i} cx={x(e.s)} cy={y + ROW / 2} r="2.5" fill="none" stroke="var(--text-2)" strokeWidth="1.2"><title>{e.label === 'cough' ? 'Cough' : 'Talking'}</title></circle>
-      )),
+        )),
+      ],
       testid: 'strip-sound',
     })
   }

@@ -109,7 +109,8 @@ export function buildRows(features: NightFeatures[], inputs: Map<string, NightIn
       continuous.daylightMorningMin = n.daylightMorningMin
       continuous.waterL = n.waterL
     }
-    const snoring = n?.sounds && !n.sounds.lowConfidence ? n.sounds.snoringMin : null
+    // a night counts only when the phone listened for at least 4 hours; a night that did not run is missing, never 0
+    const snoring = n?.sounds && n.sounds.eligible && !n.sounds.lowConfidence ? n.sounds.snoringMin : null
     const outcomes: NightRow['outcomes'] = n ? {
       sleepScore: n.score,
       totalSleep: n.asleepMin,

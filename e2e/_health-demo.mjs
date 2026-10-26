@@ -533,6 +533,52 @@ await step('Sleep: "Log this evening" opens the evening sheet, tonight and past 
   if (await page.locator('[data-testid="morning-check"]').count()) throw new Error('morning check still showing')
 })
 
+await step('Sleep sounds: row, last night, timeline, trend, session log, settings', async () => {
+  // a session spanning the demo night, with a snoring burst every 20 minutes, filed under today
+  await page.evaluate(() => {
+    const raw = JSON.parse(localStorage.getItem('peptide-command-center'))
+    const d = new Date()
+    const t = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    const end = Date.now() - 3600000
+    const start = end - 25 * 3600000
+    const events = []
+    for (let i = 0; i < 70; i++) events.push({ s: start + i * 20 * 60000, e: start + i * 20 * 60000 + 4 * 60000, label: 'snoring', c: 0.8 })
+    events.push({ s: start + 5 * 3600000, e: start + 5 * 3600000 + 2000, label: 'cough', c: 0.9 })
+    const levels = Array.from({ length: 1500 }, (_, i) => [start + i * 60000, i % 200 < 3 ? -30 : -58])
+    const gaps = Array.from({ length: 12 }, (_, i) => ({ s: start + (i * 2 + 1) * 3600000 + 600000, e: start + (i * 2 + 1) * 3600000 + 1500000, reason: 'interrupted' }))
+    const session = { id: 'ss-demo', start, end, events, levels, loudMinutes: 6, movingMinutes: 0, lowConfidence: false, room: [], startedBy: 'shortcut', stopReason: 'focusOff', gaps, checkpoints: 300, open: false, recovered: false }
+    raw.state.nightExtras = { ...(raw.state.nightExtras || {}), [t]: { ...((raw.state.nightExtras || {})[t] || {}), sounds: [session] } }
+    raw.state.sleepSettings = { ...(raw.state.sleepSettings || {}), sleepSounds: true }
+    localStorage.setItem('peptide-command-center', JSON.stringify(raw))
+  })
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await page.waitForSelector('nav button')
+  await page.waitForTimeout(1500)
+  await tab('Sleep')
+  await seen('[data-testid="sounds-row"]')
+  const line = await page.textContent('[data-testid="sounds-line"]')
+  if (!/^Last night: .* snoring/.test(line)) throw new Error(`row reads "${line}"`)
+  if (!/^Snoring /.test((await page.textContent('[data-testid="hero-snoring"]')).trim())) throw new Error('no snoring line in the night header')
+  await seen('[data-testid="strip-snore"]')
+  await page.click('[data-testid="sounds-row"]')
+  await seen('[data-testid="lab-sounds"]')
+  for (const k of ['snoring', 'share', 'longest', 'loudest', 'coughs', 'talking', 'avg', 'loud']) await seen(`[data-testid="stat-${k}"]`)
+  await seen('[data-testid="density-bin"]')
+  await seen('[data-testid="density-gap"]')
+  await page.locator('[data-testid="burst-chip"]').first().click()
+  if (!/^Snoring \d\d:\d\d to \d\d:\d\d.* Confidence 80%\.$/.test((await page.textContent('[data-testid="burst-detail"]')).trim())) throw new Error('burst detail')
+  await seen('[data-testid="sounds-chart"], [data-testid="sounds-trend"]')
+  await page.locator('[data-testid="session-row"]').first().click()
+  await seen('[data-testid="session-detail"]')
+  if (!/Interrupted|call/.test(await page.textContent('[data-testid="detail-gaps"]'))) throw new Error('gap not listed')
+  await closeSheet()
+  if (!/No audio is ever saved/.test(await page.textContent('[data-testid="sounds-no-audio"]'))) throw new Error('no audio statement')
+  await noOverflow('Sleep sounds')
+  // back, then the Morning check summary opens the same screen
+  await page.click('[data-testid="lab-back"]')
+  await seen('[data-testid="sleep-view"]')
+})
+
 await step('Sauna settings: switching off "Show sauna on Home" removes the row', async () => {
   await tab('Sauna')
   await page.click('[data-testid="sauna-settings-open"]')

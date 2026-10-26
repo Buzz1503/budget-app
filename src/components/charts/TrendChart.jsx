@@ -115,7 +115,7 @@ const SCRUB_MOVE = 4 // px of drag before a press becomes a scrub rather than a 
 export default function TrendChart({
   metric, chartType = metric, title, unit = '', dp = 1, series, current = null, currentCaption = null,
   events = [], wobble: wobbleProp, window: fixed = null, defaultRange = '90D', testid, note = null, onEditDate = null,
-  startLine = null, refBand = null, format = null, changeUnit = null, controls = null, headerNote = null, pinsDefault,
+  startLine = null, refBand = null, format = null, changeUnit = null, controls = null, headerNote = null, pinsDefault, gapDays = undefined,
 }) {
   // how a value reads: a number by default, or e.g. a clock time for bedtime
   const show = format || ((v) => fmt(v, dp))
@@ -148,7 +148,8 @@ export default function TrendChart({
   const { from, to } = fixed || rangeBounds(range, t, series || [], startLine?.date)
   const bucket = fixed ? bucketForSpan(fixed.from, fixed.to) : bucketFor(range, from, to)
   const points = useMemo(() => mergeScans(bucketPoints(series || [], bucket, from, to)), [series, bucket, from, to])
-  const segments = useMemo(() => lineSegments(points), [points])
+  // gapDays marks a missed night as a gap on the daily view (weekly and monthly averages already span them)
+  const segments = useMemo(() => lineSegments(points, bucket === 'day' ? gapDays : undefined), [points, bucket, gapDays])
   const band = ov.wobble && wobble ? [wobble, -wobble] : []
   // the starting value, drawn when the start is inside or before the range
   // shown (and kept on the axis so the line is always in view)

@@ -917,4 +917,67 @@ final class LateUseTests: XCTestCase {
         log = LateUseLog.record(log, night: "2026-10-23", minutes: 5)
         XCTAssertEqual(log["2026-10-23"], 10)
     }
+
+    // MARK: checkpoints, gaps and recovery
+
+    private func session(open: Bool, now: Double, gaps: [SleepSoundsCore.Gap] = [], detections: [SleepSoundsCore.Detection] = []) -> SleepSoundsSession {
+        SleepSoundsCore.session(id: "ss-1", start: 1_000_000, now: now, detections: detections, levels: [(1_000, -60), (1_030, -58)],
+                                moves: [], room: [], startedBy: "shortcut", gaps: gaps, checkpoints: 2, open: open, stopReason: nil)
+    }
+
+    func testASessionIsSavedAsOpenAndKeepsEverythingHeardSoFar() {
+        let det = [SleepSoundsCore.Detection(t: 1_100, duration: 5, label: "snoring", confidence: 0.9)]
+        let s = session(open: true, now: 1_200_000, detections: det)
+        XCTAssertTrue(s.open)
+        XCTAssertEqual(s.lastCheckpoint, 1_200_000)
+        XCTAssertEqual(s.events.count, 1)
+        XCTAssertEqual(s.checkpoints, 2)
+        // it round-trips through JSON with its open flag
+        let back = try! JSONDecoder().decode(SleepSoundsSession.self, from: JSONEncoder().encode(s))
+        XCTAssertEqual(back, s)
+    }
+
+    func testAKilledAppLeavesTheNightUpToTheLastCheckpoint() {
+        let gap = SleepSoundsCore.Gap(s: 1_100_000, e: 9_999_999, reason: "interrupted") // still open when the app went
+        let det = [SleepSoundsCore.Detection(t: 1_050, duration: 5, label: "snoring", confidence: 0.9),
+                   SleepSoundsCore.Detection(t: 1_300, duration: 5, label: "snoring", confidence: 0.9)] // after the checkpoint
+        var open = session(open: true, now: 1_200_000, gaps: [gap], detections: det)
+        open.events = SleepSoundsCore.events(det)
+        let r = SleepSoundsCore.recover(open)
+        XCTAssertFalse(r.open)
+        XCTAssertTrue(r.recovered)
+        XCTAssertEqual(r.end, 1_200_000)
+        XCTAssertEqual(r.stopReason, "appClosed")
+        XCTAssertEqual(r.events.count, 1, "nothing after the checkpoint survives")
+        XCTAssertEqual(r.gaps[0].e, 1_200_000, "an open gap is closed at the checkpoint")
+        // a finished session is left alone
+        let done = session(open: false, now: 1_200_000)
+        XCTAssertEqual(SleepSoundsCore.recover(done), done)
+    }
+
+    func testFilesWrittenBeforeCheckpointsStillDecode() {
+        let old = """
+        {"id":"ss-9","start":1000,"end":9000,"events":[],"levels":[],"loudMinutes":0,"movingMinutes":0,"lowConfidence":false,"room":[],"startedBy":"app"}
+        """
+        let s = try! JSONDecoder().decode(SleepSoundsSession.self, from: Data(old.utf8))
+        XCTAssertFalse(s.open)
+        XCTAssertEqual(s.lastCheckpoint, 9000)
+        XCTAssertEqual(s.gaps, [])
+        XCTAssertFalse(s.recovered)
+    }
+
+    func testEachResumeMapsAudioTimeToTheClockOnItsOwn() {
+        // the first segment began at t=100 s on the clock; after a call the audio timeline restarts at 0 and resumes at t=5000 s
+        let first = SleepSoundsCore.SegmentClock(baseWall: 100, baseSeconds: 0)
+        let second = SleepSoundsCore.SegmentClock(baseWall: 5000, baseSeconds: 0)
+        XCTAssertEqual(first.wall(30), 130)
+        XCTAssertEqual(second.wall(30), 5030)
+        XCTAssertEqual(SleepSoundsCore.SegmentClock(baseWall: 200, baseSeconds: 12.5).wall(15), 202.5)
+    }
+
+    func testTheNewStopReasonsAreNamedForTheLog() {
+        XCTAssertEqual(SleepSoundsCore.StopReason.interrupted.rawValue, "interrupted")
+        XCTAssertEqual(SleepSoundsCore.StopReason.appClosed.rawValue, "appClosed")
+        XCTAssertEqual(SleepSoundsCore.checkpointEverySec, 300)
+    }
 }

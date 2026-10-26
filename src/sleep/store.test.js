@@ -137,6 +137,17 @@ describe('overnight data from the Watch and the iPhone', () => {
     expect(useStore.getState().nightExtras['2026-10-24'].restless).toEqual(summary)
   })
 
+  it('a session closed after a kill replaces its open copy by id', () => {
+    useStore.setState({ nightExtras: {} })
+    const open = { id: 'ss-2', start: 1000, end: 5000, events: [], levels: [], loudMinutes: 0, movingMinutes: 0, lowConfidence: false, room: [], startedBy: 'shortcut', open: true }
+    const closed = { ...open, open: false, recovered: true, stopReason: 'appClosed', end: 4000 }
+    useStore.getState().addSoundSessions([open], () => '2026-10-24')
+    useStore.getState().addSoundSessions([closed], () => '2026-10-24')
+    const list = useStore.getState().nightExtras['2026-10-24'].sounds
+    expect(list).toHaveLength(1)
+    expect(list[0]).toMatchObject({ recovered: true, stopReason: 'appClosed', end: 4000 })
+  })
+
   it('Sleep sounds nights are kept once by id, under the morning they ended', () => {
     useStore.setState({ nightExtras: {} })
     const ss = { id: 'ss-1', start: 1000, end: 2000, events: [], levels: [], loudMinutes: 0, movingMinutes: 0, lowConfidence: false, room: [], startedBy: 'automation' }

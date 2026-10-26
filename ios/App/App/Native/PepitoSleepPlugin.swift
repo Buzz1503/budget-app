@@ -19,6 +19,7 @@ public class PepitoSleepPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "soundsStatus", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "startSounds", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "stopSounds", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "testSounds", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "finishedSounds", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "acknowledgeSounds", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "screenTimeStatus", returnType: CAPPluginReturnPromise),
@@ -29,7 +30,11 @@ public class PepitoSleepPlugin: CAPPlugin, CAPBridgedPlugin {
     ]
 
     override public func load() {
-        DispatchQueue.main.async { SleepSoundsEngine.shared.prepareHomeKit() }
+        DispatchQueue.main.async {
+            SleepSoundsEngine.shared.prepareHomeKit()
+            // a night left open by a closed app is closed at its last checkpoint
+            SleepSoundsEngine.shared.recoverOpenSessions()
+        }
     }
 
     // MARK: - sleep sounds
@@ -45,7 +50,9 @@ public class PepitoSleepPlugin: CAPPlugin, CAPBridgedPlugin {
                     : AVAudioApplication.shared.recordPermission == .denied ? "denied" : "undetermined",
                 "lastStart": orNull((d.object(forKey: "pepito.sleepsounds.lastStart") as? Date).map { $0.timeIntervalSince1970 * 1000 }),
                 "lastStartedBy": orNull(d.string(forKey: "pepito.sleepsounds.lastStartedBy")),
-                "roomSensor": e.hasRoomSensor
+                "roomSensor": e.hasRoomSensor,
+                "gapOpen": e.hasOpenGap,
+                "lastCheckpoint": orNull(e.lastCheckpointMs)
             ])
         }
     }
@@ -64,6 +71,17 @@ public class PepitoSleepPlugin: CAPPlugin, CAPBridgedPlugin {
         DispatchQueue.main.async {
             SleepSoundsEngine.shared.stop(reason: call.getString("reason") ?? "app")
             call.resolve(["running": false])
+        }
+    }
+
+    /// Listen for one minute and say what was heard. Nothing is stored.
+    @objc func testSounds(_ call: CAPPluginCall) {
+        let run = {
+            DispatchQueue.main.async { SleepSoundsEngine.shared.runTest { call.resolve($0) } }
+        }
+        if AVAudioApplication.shared.recordPermission == .granted { run(); return }
+        AVAudioApplication.requestRecordPermission { granted in
+            if granted { run() } else { call.resolve(["ran": false, "reason": "microphone"]) }
         }
     }
 

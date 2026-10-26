@@ -135,7 +135,7 @@ const STEPS = {
 }
 
 /** The "Make it automatic" walkthrough: a Personal Automation in Shortcuts set to Run Immediately. */
-function AutomationGuide() {
+export function AutomationGuide() {
   const [pick, setPick] = useState('focus')
   const s = STEPS[pick]
   return (

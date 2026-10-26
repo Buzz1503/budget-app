@@ -19,10 +19,10 @@ export function sleepReportData({ lab, apnea, state, days, today, weight }) {
   const inp = extras.map((e) => e.input)
   const sig = signals(extras.map((e) => ({
     date: e.night.date, breathing: e.overnight?.breathing ?? null, elevated: e.overnight?.breathingElevated ?? null,
-    spo2: e.spo2?.readings ? e.spo2 : null, snoringMin: e.sounds?.snoringMin ?? null, lowConfidence: !!e.sounds?.lowConfidence,
+    spo2: e.spo2?.readings ? e.spo2 : null, snoringMin: e.sounds?.eligible ? e.sounds.snoringMin : null, lowConfidence: !!e.sounds?.lowConfidence,
     awakenings: e.overnight?.awakenings ?? null, morning: state.morningChecks?.[e.night.date] || null,
   })))
-  const snore = extras.filter((e) => e.sounds && !e.sounds.lowConfidence)
+  const snore = extras.filter((e) => e.sounds?.eligible && !e.sounds.lowConfidence)
   const bp = lab.model.daily.filter((r) => r.date >= from && r.date <= today && r.bpSys != null && r.bpDia != null).map((r) => ({ date: r.date, sys: r.bpSys, dia: r.bpDia }))
   const round = (v) => (v == null ? null : Math.round(v))
   return {

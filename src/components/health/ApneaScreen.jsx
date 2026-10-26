@@ -39,7 +39,7 @@ export function useApnea(lab) {
     const since30 = addDays(t, -APNEA.signalDays)
     const bp = lab.model.daily.filter((r) => r.date >= addDays(t, -APNEA.bpDays) && r.bpSys != null && r.bpDia != null).map((r) => ({ sys: r.bpSys, dia: r.bpDia }))
     const sb = stopBang({
-      soundNights: extras.filter((e) => e.night.date >= since90 && e.sounds).map((e) => ({ date: e.night.date, snoringMin: e.sounds.snoringMin, lowConfidence: e.sounds.lowConfidence })),
+      soundNights: extras.filter((e) => e.night.date >= since90 && e.sounds?.eligible).map((e) => ({ date: e.night.date, snoringMin: e.sounds.snoringMin, lowConfidence: e.sounds.lowConfidence })),
       morning: Object.entries(morningChecks).filter(([d]) => d >= since90).sort(([a], [b]) => a.localeCompare(b)).map(([date, m]) => ({ date, ...m })),
       bp,
       weightKg: weight?.value ?? null,
@@ -52,7 +52,7 @@ export function useApnea(lab) {
     const recent = extras.filter((e) => e.night.date >= since30)
     const sig = signals(recent.map((e) => ({
       date: e.night.date, breathing: e.overnight?.breathing ?? null, elevated: e.overnight?.breathingElevated ?? null,
-      spo2: e.spo2?.readings ? e.spo2 : null, snoringMin: e.sounds?.snoringMin ?? null, lowConfidence: !!e.sounds?.lowConfidence,
+      spo2: e.spo2?.readings ? e.spo2 : null, snoringMin: e.sounds?.eligible ? e.sounds.snoringMin : null, lowConfidence: !!e.sounds?.lowConfidence,
       awakenings: e.overnight?.awakenings ?? null, morning: morningChecks[e.night.date] || null,
     })))
     return { sb, sig, like: likelihood(sb.band, sig), recent }

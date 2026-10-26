@@ -12,13 +12,16 @@ const localDate = (ms) => {
   const d = new Date(ms)
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
+const localHour = (ms) => new Date(ms).getHours()
 
 /** Move finished Sleep sounds nights and late phone use into the store. */
 export async function collectSleepData() {
   try {
-    const { sessions = [] } = await PepitoSleep.finishedSounds()
+    const { sessions: all = [] } = await PepitoSleep.finishedSounds()
+    // a session still listening stays on the phone until it has finished
+    const sessions = all.filter((s) => !s.open)
     if (sessions.length) {
-      useStore.getState().addSoundSessions(sessions, (s) => sessionNight(s, localDate))
+      useStore.getState().addSoundSessions(sessions, (s) => sessionNight(s, localDate, localHour))
       await PepitoSleep.acknowledgeSounds({ ids: sessions.map((s) => s.id) })
     }
   } catch { /* no plugin */ }
@@ -48,6 +51,10 @@ export async function startSounds() {
 }
 export async function stopSounds() {
   try { const r = await PepitoSleep.stopSounds({ reason: 'app' }); await collectSleepData(); return r } catch { return { running: false } }
+}
+/** Listen for one minute and say what was heard. Nothing is kept. */
+export async function testSounds() {
+  try { return await PepitoSleep.testSounds() } catch { return { ran: false, reason: 'unavailable' } }
 }
 export async function screenTimeStatus() {
   try { return await PepitoSleep.screenTimeStatus() } catch { return { available: false } }

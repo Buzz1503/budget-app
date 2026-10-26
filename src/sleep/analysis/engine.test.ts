@@ -198,7 +198,7 @@ describe('rows', () => {
       new Map([['2026-10-24', {
         date: '2026-10-24', asleepMin: 400, deepMin: 50, remMin: 90, awakeMin: 20, awakenings: 2, hrLow: 50, hrAvg: 55, hrv: 50, score: 80, rhrNext: 54,
         readinessNext: 70, breathing: 3, spo2Dips: 0, restless: { indexPerHour: 2 }, morning: { rested: 4 },
-        sounds: { recorded: true, snoringMin: 20, snoringPct: 5, longestSnoreMin: 4, coughs: 0, talking: 0, loudMinutes: 0, lowConfidence: false, roomMeanC: 25, roomMaxC: 26, humidityMean: 50, startedBy: 'automation' },
+        sounds: { recorded: true, snoringMin: 20, snoringPct: 5, longestSnoreMin: 4, coughs: 0, talking: 0, loudMinutes: 0, lowConfidence: false, roomMeanC: 25, roomMaxC: 26, humidityMean: 50, startedBy: 'automation', capturedMin: 420, eligible: true, longestSnoreAt: null, loudestWindow: null, avgDb: -55, loudEvents: [] },
         lateUseMin: 30, audio: { minutesInBed: 40, minutesAfterSleep: 15, avgDb: 55 }, latencyMin: 10, hrDipPct: 15, daylightMorningMin: 20, waterL: 2,
       }]]),
     )

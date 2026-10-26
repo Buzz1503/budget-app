@@ -160,6 +160,14 @@ an iOS app (bundle id com.buzz.pepito). State is one persisted Zustand store,
   weekday/weekend; "Clear" only when the CI excludes zero). Wording: association, never cause; n shown.
 - Heavy work runs in one Web Worker (`src/lib/compute`: `jobs.ts`, `useComputed`), cached by input hash in
   memory and IndexedDB `pepito-compute` (not in the backup). Sleep analysis and Body › Effects use it.
+- Sleep sounds (iPhone): the session file in the App Group is written at start and rewritten every 5 minutes
+  (`SleepSoundsCore.session`, `open`, `lastCheckpoint`, `gaps`); a file still open on the next launch is closed at its
+  last checkpoint as "app closed" (`recover`, `SleepSoundsEngine.recoverOpenSessions`). Interruptions, route changes and
+  engine stops are gaps, then listening resumes (one `Segment` per engine run, each with its own clock). The web layer
+  only collects closed sessions. `src/sleep/sounds.ts` (night numbers, `capturedMin`, `eligible`) and `soundsView.ts`
+  (status line, session log, density, trend). Zero is not missing: ran and heard nothing is 0, did not run is `null`
+  and a gap in the trend. Snoring feeds the analysis, apnea screen and report only from nights with 4 hours of audio.
+  Screen `components/health/SoundsScreen.jsx` (row on the Sleep tab, Morning check line, "Test for 1 minute"); no audio is ever saved.
 - Apnea (`src/sleep/apnea.ts`, "Screen, not a diagnosis"), nightmares (`nightmares.ts`, estimate,
   calibrated from 10 confirmed nights), overnight extras (`src/health/overnight.ts`, NIGHTS_SCHEMA 4).
 - Native: Watch restlessness (CMSensorRecorder, `RestlessRecorder`, backup start from complications via

@@ -1,3 +1,4 @@
+import { ChevronRight } from 'lucide-react'
 import useStore, { todayStr } from '../../store/useStore'
 import { DREAMS, PARTNER, morningAnswered } from '../../sleep/logging'
 
@@ -21,7 +22,7 @@ function Pick({ on, onClick, children, testid }) {
  * headache, dry mouth, times up to pee and what a partner noticed. On top of
  * the Sleep tab until it is done for today.
  */
-export default function MorningCheck({ wakeDate = null, compact = false, notice = null }) {
+export default function MorningCheck({ wakeDate = null, compact = false, notice = null, soundsSummary = null, onOpenSounds = null }) {
   const date = wakeDate || todayStr()
   const c = useStore((s) => s.morningChecks[date]) || {}
   const answer = useStore((s) => s.answerMorningCheck)
@@ -35,6 +36,12 @@ export default function MorningCheck({ wakeDate = null, compact = false, notice 
         <span className="text-xs font-medium" style={{ color: 'var(--text-3)' }}>Optional</span>
       </div>
       {notice && <p className="text-xs font-medium" style={{ color: 'var(--text-3)' }} data-testid="morning-notice">{notice}</p>}
+      {soundsSummary && onOpenSounds && (
+        <button type="button" onClick={onOpenSounds} className="flex w-full items-center gap-1 text-left text-xs font-bold tabular-nums" style={{ color: 'var(--text-2)' }} data-testid="morning-sounds">
+          <span className="min-w-0 flex-1">{soundsSummary}</span>
+          <ChevronRight size={14} style={{ color: 'var(--text-3)' }} />
+        </button>
+      )}
       <Row label="How rested (1 to 5)" testid="morning-rested">
         {[1, 2, 3, 4, 5].map((n) => <Pick key={n} on={c.rested === n} onClick={() => toggle('rested', n)} testid={`morning-rested-${n}`}>{n}</Pick>)}
       </Row>
