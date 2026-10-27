@@ -213,9 +213,13 @@ final class SleepSoundsEngine: NSObject, HMHomeManagerDelegate {
         let dets = detections, lv = levels
         lock.unlock()
         let events = SleepSoundsCore.events(dets)
-        let heard: [[String: Any]] = Dictionary(grouping: events, by: \.label).map { label, list in
-            ["label": label, "count": list.count, "seconds": Int(list.reduce(0) { $0 + ($1.e - $1.s) } / 1000)]
-        }.sorted { ($0["label"] as? String ?? "") < ($1["label"] as? String ?? "") }
+        var heard: [[String: Any]] = []
+        for label in Set(events.map(\.label)).sorted() {
+            let list = events.filter { $0.label == label }
+            let total = list.reduce(0.0) { $0 + ($1.e - $1.s) }
+            let row: [String: Any] = ["label": label, "count": list.count, "seconds": Int(total / 1000)]
+            heard.append(row)
+        }
         let dbs = lv.map(\.db)
         return [
             "ran": true,
@@ -547,11 +551,11 @@ enum SleepSoundsNotices {
         let n = UNUserNotificationCenter.current()
         remove(ids: ["pepito.sounds.startfailed", "pepito.sounds.stopped", "pepito.sounds.paused"])
         n.getPendingNotificationRequests { reqs in
-            let pending: [(id: String, fire: Date)] = reqs.compactMap { r in
-                guard let t = r.trigger as? UNCalendarNotificationTrigger, let d = t.nextTriggerDate() else { return nil }
-                return (r.identifier, d)
+            var pending: [(id: String, fire: Date)] = []
+            for r in reqs {
+                if let t = r.trigger as? UNCalendarNotificationTrigger, let d = t.nextTriggerDate() { pending.append((id: r.identifier, fire: d)) }
             }
-            remove(ids: SleepSoundsCore.checksToCancel(pending, startedAt: at))
+            SleepSoundsNotices.remove(ids: SleepSoundsCore.checksToCancel(pending, startedAt: at))
         }
     }
 

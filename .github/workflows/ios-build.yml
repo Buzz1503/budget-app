@@ -37,35 +37,35 @@ jobs:
           xcodebuild -version
           xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug \
             -destination 'generic/platform=iOS Simulator' -skipPackagePluginValidation \
-            CODE_SIGNING_ALLOWED=NO build > /tmp/xb.log 2>&1; rc=$?; grep -E 'error:|BUILD (SUCCEEDED|FAILED)' /tmp/xb.log | sort -u | head -80; exit $rc
+            CODE_SIGNING_ALLOWED=NO build > /tmp/xb.log 2>&1 && rc=0 || rc=$?; grep -E 'error:|BUILD (SUCCEEDED|FAILED)' /tmp/xb.log | sort -u | head -80; if [ $rc -ne 0 ]; then tail -60 /tmp/xb.log; fi; exit $rc
 
       - name: Widget extension
         if: always()
         run: |
           xcodebuild -project ios/App/App.xcodeproj -scheme PepitoWidgets -configuration Debug \
             -destination 'generic/platform=iOS Simulator' -skipPackagePluginValidation \
-            CODE_SIGNING_ALLOWED=NO build > /tmp/xb.log 2>&1; rc=$?; grep -E 'error:|BUILD (SUCCEEDED|FAILED)' /tmp/xb.log | sort -u | head -80; exit $rc
+            CODE_SIGNING_ALLOWED=NO build > /tmp/xb.log 2>&1 && rc=0 || rc=$?; grep -E 'error:|BUILD (SUCCEEDED|FAILED)' /tmp/xb.log | sort -u | head -80; if [ $rc -ne 0 ]; then tail -60 /tmp/xb.log; fi; exit $rc
 
       - name: Screen Time monitor extension
         if: always()
         run: |
           xcodebuild -project ios/App/App.xcodeproj -scheme PepitoLateUse -configuration Debug \
             -destination 'generic/platform=iOS Simulator' -skipPackagePluginValidation \
-            CODE_SIGNING_ALLOWED=NO build > /tmp/xb.log 2>&1; rc=$?; grep -E 'error:|BUILD (SUCCEEDED|FAILED)' /tmp/xb.log | sort -u | head -80; exit $rc
+            CODE_SIGNING_ALLOWED=NO build > /tmp/xb.log 2>&1 && rc=0 || rc=$?; grep -E 'error:|BUILD (SUCCEEDED|FAILED)' /tmp/xb.log | sort -u | head -80; if [ $rc -ne 0 ]; then tail -60 /tmp/xb.log; fi; exit $rc
 
       - name: Watch app
         if: always()
         run: |
           xcodebuild -project ios/App/App.xcodeproj -scheme PepitoWatch -configuration Debug \
             -destination 'generic/platform=watchOS Simulator' -skipPackagePluginValidation \
-            CODE_SIGNING_ALLOWED=NO build > /tmp/xb.log 2>&1; rc=$?; grep -E 'error:|BUILD (SUCCEEDED|FAILED)' /tmp/xb.log | sort -u | head -80; exit $rc
+            CODE_SIGNING_ALLOWED=NO build > /tmp/xb.log 2>&1 && rc=0 || rc=$?; grep -E 'error:|BUILD (SUCCEEDED|FAILED)' /tmp/xb.log | sort -u | head -80; if [ $rc -ne 0 ]; then tail -60 /tmp/xb.log; fi; exit $rc
 
       - name: Watch widgets
         if: always()
         run: |
           xcodebuild -project ios/App/App.xcodeproj -scheme PepitoWatchWidgets -configuration Debug \
             -destination 'generic/platform=watchOS Simulator' -skipPackagePluginValidation \
-            CODE_SIGNING_ALLOWED=NO build > /tmp/xb.log 2>&1; rc=$?; grep -E 'error:|BUILD (SUCCEEDED|FAILED)' /tmp/xb.log | sort -u | head -80; exit $rc
+            CODE_SIGNING_ALLOWED=NO build > /tmp/xb.log 2>&1 && rc=0 || rc=$?; grep -E 'error:|BUILD (SUCCEEDED|FAILED)' /tmp/xb.log | sort -u | head -80; if [ $rc -ne 0 ]; then tail -60 /tmp/xb.log; fi; exit $rc
 
   # Renders every widget, the Live Activity and every Watch screen to PNG
   # (ios/PepitoKit/Tests/PepitoSnapshotTests) and commits them to
