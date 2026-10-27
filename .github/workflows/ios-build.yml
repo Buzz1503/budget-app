@@ -6,7 +6,7 @@ name: iOS build check
 # installs nothing anywhere and does not touch the Pages deploy.
 on:
   push:
-    branches: [native-health, native-stage3, native-design, compound-cycling, stock-tracking, sauna-health, sleep-lab, latest-weight-sleep-sounds]
+    branches: [native-health, native-stage3, native-design, compound-cycling, stock-tracking, sauna-health, sleep-lab, latest-weight-sleep-sounds, readability-pass]
   workflow_dispatch:
 
 jobs:

@@ -64,6 +64,17 @@ an iOS app (bundle id com.buzz.pepito). State is one persisted Zustand store,
   under every chart. Series colours only from `--series-*` tokens. Ranges fit the data
   (`fitToData`: axis starts at the first point, 14 days minimum); a series under 90 days
   opens on All; under 3 points is a list, not a chart; pins are off on sauna charts.
+  Readable: y axis padded to the data (`AXIS_PAD`), a reference band only where it overlaps
+  (`bandInView`, else `bandCaption`), value labels by priority last, first, lowest, highest, then
+  the start label (`labelPriority`, `placeLabels`, collisions hide), no +1 badges, pins as dots
+  under the dates (the line only while tapped), 190 plot height; tap or expand for full screen
+  (`zoomWindow`, `panWindow`, 14 days minimum). Scale weights more than 3 kg from both neighbours
+  within 14 days (`suspectWeights`) are left out of every line and number (`excludeWeight` in
+  `useBodyInput`) until kept; `readingReviews` holds keep or hide, the reading is never deleted.
+- Body › Composition opens with two Evolt boxes (`lastScanStory`, `sinceStartStory` in
+  `composition.ts`): the latest scan against the one before, then since the start. These two use
+  Evolt only; every other latest value still uses `getLatestMeasurement`. Scan to scan
+  (`scanToScan`) replaces the weekly bars.
 - Demo: `VITE_DEMO_HEALTH=1 npx vite --port 5175` (dev only), then `e2e/_health-demo.mjs`.
 - Sauna: `saunaSessions`, `saunaSettings`, `saunaTimer` in the store (in the backup);
   pure logic in `src/sauna` (`sauna.ts`, `saunaEffects.ts` on the compare engine;
@@ -77,6 +88,10 @@ an iOS app (bundle id com.buzz.pepito). State is one persisted Zustand store,
   default on) keeps reading HR 5 min after Stop; saved as `session.coolDown`.
 - Nothing with health values goes to the network or to the console.
 - No heat or temperature warnings anywhere (web, Watch, notifications); a test scans for them.
+- Sauna insights (`src/sauna/insights.ts`): since you started against the 4 weeks before
+  (`beforeVsSince`, `compoundCaveat`), inside sauna days (`withinSauna`, split by rank at the median),
+  heat adaptation as heart rate at minute 10 (`heatAdaptation10`), the grid from the first week
+  (`gridWeeks`). Locked lines read "Needs X. You have Y."
 - Sauna rating (`session.rating`, `electrolytes`, `waterMl`): optional step after saving on the phone
   (`SaunaRatingSheet`) and the Watch (`SaunaRatingModel`, `saunaRating` action matched by start). Sessions
   with no heart rate get `hrAround` (before, after, at 30 min) from `src/native/saunaHR.js`.
@@ -175,6 +190,15 @@ an iOS app (bundle id com.buzz.pepito). State is one persisted Zustand store,
   minutes each send a notification at that moment with when and why; `SleepSoundsNotices.scheduleChecks` plans a bedtime
   check ("not listening yet") for 7 nights, cleared once listening starts. A tap sets `pendingStart`, the web layer starts
   in the foreground (`startIfAsked`). The Stop shortcut never answers a bare "was not running" (`notRunningWords`).
+- Night card (`components/health/NightCard.jsx`, maths in `src/sleep/nightView.ts`): stages and the
+  Move, Sound, HR, SpO2 lanes on one clock, one crosshair (`momentAt`), restless bands, What happened
+  (`whatHappened`), the summary line (`nightSummary`), full screen down to 30 minutes (`zoomNight`).
+- Sleep sounds schedule (`sleepSettings.schedule`, default on, 21:00 to 05:00): the phone stops at the
+  scheduled time itself (`SleepSoundsCore.until`, stop reason "scheduled"); on iOS 18+ the
+  "Start sleep sounds on schedule" intent is an `AudioRecordingIntent` with the Sleep sounds Live
+  Activity (`SleepSoundsActivityAttributes`, Stop via `StopSleepSoundsLiveIntent` and `SleepSoundsHooks`);
+  a failed start and a missed start get a time-sensitive "Tap to start Sleep sounds". Check my setup is
+  `checkSetup` over the start log.
 - Apnea (`src/sleep/apnea.ts`, "Screen, not a diagnosis"), nightmares (`nightmares.ts`, estimate,
   calibrated from 10 confirmed nights), overnight extras (`src/health/overnight.ts`, NIGHTS_SCHEMA 4).
 - Native: Watch restlessness (CMSensorRecorder, `RestlessRecorder`, backup start from complications via
