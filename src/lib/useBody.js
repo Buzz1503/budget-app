@@ -7,7 +7,7 @@ import { useMemo } from 'react'
 import { format, parseISO } from 'date-fns'
 import useStore, { todayStr } from '../store/useStore'
 import { useHealthLink } from './healthLink'
-import { getLatestMeasurement, dailySeries } from '../body/bodySeries'
+import { getLatestMeasurement, dailySeries, suspectWeights } from '../body/bodySeries'
 import { getStartValue, effectiveStart, sinceStart, compareSinceStart } from '../body/startPoint'
 import { trackedEvents } from '../health/engine/phases'
 import { useCompounds } from './useCompounds'
@@ -21,7 +21,13 @@ export const BODY_FIELDS = new Set([
 export function useBodyInput() {
   const measurements = useStore((s) => s.measurements)
   const health = useHealthLink((s) => s.bodyDaily)
-  return useMemo(() => ({ measurements, health }), [measurements, health])
+  const reviews = useStore((s) => s.readingReviews)
+  return useMemo(() => {
+    // a Scale weight that looks wrong is left out of every line and number until kept
+    const suspects = suspectWeights({ measurements, health }).map((x) => ({ ...x, state: reviews?.[x.key] || null }))
+    const excludeWeight = suspects.filter((x) => x.state !== 'keep').map((x) => x.key)
+    return { measurements, health, excludeWeight, suspects }
+  }, [measurements, health, reviews])
 }
 
 /** The current value of a body field: newest day with a value, any source. */

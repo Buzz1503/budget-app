@@ -49,7 +49,9 @@ export default function BodyChart({ metric, chartType = `body-${metric}`, title,
   const series = family ? families[family] : []
   const startLine = useMemo(() => (start ? getStartValue(metric, start, input, { family }) : null), [metric, start, input, family])
   const meta = useMemo(() => latestScanMeta(input.measurements || [], metric), [input, metric])
-  const refBand = family === 'evolt' && meta.range ? { lo: meta.range[0], hi: meta.range[1], label: 'Evolt reference range' } : null
+  const refBand = family === 'evolt' && meta.range ? { lo: meta.range[0], hi: meta.range[1], label: 'Evolt healthy range' } : null
+  const review = useStore((s) => s.setReadingReview)
+  const suspects = metric === 'weight' && family === 'scale' ? (input.suspects || []) : []
   const last = series[series.length - 1]
   // Weight: the header is the headline weight (newest Scale or Evolt reading), whatever the chart shows.
   // When that reading is from the other source, say so; tapping the line switches the chart to it.
@@ -61,6 +63,7 @@ export default function BodyChart({ metric, chartType = `body-${metric}`, title,
     <TrendChart key={`${metric}-${family}`} metric={metric} chartType={chartType} title={title} unit={unit} dp={dp} series={series} events={events}
       defaultRange={defaultRange} startLine={startLine} refBand={refBand} testid={testid || `body-chart-${metric}`}
       current={shown?.value ?? null} currentCaption={caption}
+      suspects={suspects} onReview={(x, state) => review(x.key, state)}
       headerNote={other ? (
         <button onClick={() => setFamily(other.family)} className="mt-0.5 text-left text-xs font-bold underline decoration-dotted underline-offset-2" style={{ color: 'var(--text-2)' }} data-testid="chart-latest-other">
           Latest reading is from {FAMILY_LABEL[other.family] || other.family}, {format(parseISO(other.date), 'd MMM')}

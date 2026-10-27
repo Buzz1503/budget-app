@@ -1,11 +1,11 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { format, parseISO } from 'date-fns'
 import { ChevronDown, ChevronRight, Plus } from 'lucide-react'
 import useStore, { todayStr } from '../../store/useStore'
 import NumberField from '../ui/NumberField'
 import { CountIn, Stagger, StaggerItem } from '../ui/Motion'
 import Sparkline from '../charts/Sparkline'
-import BodyChart, { useChartSource } from '../charts/BodyChart'
+import BodyChart from '../charts/BodyChart'
 import useChartEvents from '../charts/useChartEvents'
 import { useBodyInput, useBodyStart, sinceWords } from '../../lib/useBody'
 import { dailySeries, familySeries, seriesByFamily, pickFamily, scaleWeeklyRate, getLatestMeasurement, FAMILY_FIELDS } from '../../body/bodySeries'
@@ -13,7 +13,7 @@ import { compareSinceStart } from '../../body/startPoint'
 import { dexaScans, resolveSource } from '../../body/sources'
 import { SCAN_METRICS } from '../../body/scanFields'
 import {
-  lossSplit, evoltScans, ffmi, heightFor, projectGoal, weeklyBars, latestScanMeta, seriesForMetric,
+  evoltScans, ffmi, heightFor, projectGoal, latestScanMeta, seriesForMetric, lastScanStory, sinceStartStory, scanToScan,
 } from '../../body/composition'
 import SegmentMap from './SegmentMap'
 import ScanCompare from './ScanCompare'
@@ -37,9 +37,8 @@ function SectionTitle({ children, sub }) {
 // ---------------------------------------------------------------- hero
 
 /**
- * The headline weight is the newest reading from Scale or Evolt, whichever
- * source the chart below is showing, against the starting weight. The weekly
- * rate uses Scale readings only, so it is always one device.
+ * Without any Evolt scan: the headline weight (newest Scale reading) against the
+ * starting weight. The weekly rate uses Scale readings only, so it is always one device.
  */
 function Hero({ onLog, onOpenStart }) {
   const input = useBodyInput()
@@ -83,52 +82,89 @@ function Hero({ onLog, onOpenStart }) {
   )
 }
 
-// ---------------------------------------------------------- what you lost
+// ------------------------------------------------- the two boxes at the top
 
-function SplitBar({ fat, lean }) {
-  const f = Math.abs(fat)
-  const l = Math.abs(lean)
-  const total = f + l || 1
+const TONE = { good: GOOD, bad: BAD, flat: 'var(--text-2)' }
+
+function StoryLines({ lines, testid }) {
   return (
-    <div className="mt-3" aria-hidden="true">
-      <div className="flex h-2.5 w-full overflow-hidden rounded-full" style={{ background: 'var(--surface-sunk)' }}>
-        <span style={{ width: `${(f / total) * 100}%`, background: 'var(--series-fat)' }} />
-        <span style={{ width: `${(l / total) * 100}%`, background: 'var(--series-lean)' }} />
-      </div>
-      <div className="mt-1 flex justify-between text-[11px] font-bold" style={{ color: 'var(--text-3)' }}>
-        <span>Fat {f.toFixed(1)} kg</span><span>Lean {l.toFixed(1)} kg</span>
-      </div>
+    <div className="mt-3 space-y-1" data-testid={testid}>
+      {lines.map((l) => (
+        <p key={l.key} className="text-sm font-semibold tabular-nums" style={{ color: TONE[l.tone] }} data-testid={`${testid}-${l.key}`} data-tone={l.tone}>{l.text}</p>
+      ))}
     </div>
   )
 }
 
-function LostCard() {
+/**
+ * Box 1, the hero: the latest Evolt scan's weight and what changed since the
+ * scan before it, all from one device on one day. A newer Withings weigh-in is
+ * one muted line; tapping it opens the weight chart on Scale.
+ */
+function ScanBox({ onLog, onShowScale }) {
+  const measurements = useStore((s) => s.measurements)
+  const input = useBodyInput()
+  const story = useMemo(() => lastScanStory(measurements), [measurements])
+  const scale = useMemo(() => familySeries('weight', input, 'scale').at(-1) || null, [input])
+  if (!story) return null
+  const newer = scale && scale.date > story.latest.date ? scale : null
+  return (
+    <section className="card p-5" data-testid="scan-box">
+      <div className="flex items-start gap-3">
+        <p className="t-caption min-w-0 flex-1" style={{ color: 'var(--text-3)' }}>Current weight and what changed since your last scan</p>
+        <button onClick={onLog} aria-label="Log a tape measurement" className="flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 text-xs font-bold" style={{ background: 'var(--surface-sunk)', color: 'var(--text-2)' }} data-testid="composition-log">
+          <Plus size={13} /> Tape
+        </button>
+      </div>
+      <p className="mt-1 font-black tabular-nums leading-none" style={{ fontSize: 56 }} data-testid="hero-weight">
+        <CountIn value={story.latest.weight} decimals={1} /><span className="ml-1 text-lg font-bold" style={{ color: 'var(--text-3)' }}>kg</span>
+      </p>
+      <p className="mt-2 text-xs font-medium tabular-nums" style={{ color: 'var(--text-3)' }} data-testid="hero-source">{format(parseISO(story.latest.date), 'd MMM yyyy')}, {story.latest.device}</p>
+      {story.change ? (
+        <>
+          <p className="mt-3 text-base font-black tabular-nums" style={{ color: TONE[story.change.tone] }} data-testid="scan-change">{story.change.text}</p>
+          <StoryLines lines={story.lines} testid="scan-lines" />
+        </>
+      ) : (
+        <p className="mt-3 text-sm font-medium" style={{ color: 'var(--text-2)' }} data-testid="scan-single">Your next scan will show what changed.</p>
+      )}
+      {newer && (
+        <button onClick={onShowScale} className="mt-3 block text-left text-xs font-medium tabular-nums underline decoration-dotted underline-offset-2" style={{ color: 'var(--text-3)' }} data-testid="scan-scale-note">
+          {newer.sourceLabel || 'Scale'} {newer.value.toFixed(1)} kg on {shortD(newer.date)}
+        </button>
+      )}
+    </section>
+  )
+}
+
+/** Box 2: since the starting point, the same wording, the start's own values against the latest scan. */
+function StartBox({ onOpenStart }) {
   const measurements = useStore((s) => s.measurements)
   const start = useBodyStart()
+  const story = useMemo(() => sinceStartStory(measurements, start), [measurements, start])
   if (!start) return null
-  const real = lossSplit(measurements, start.date)
-  const startEntry = measurements.find((m) => m.id === start.entryId && m.estimated)
-  const est = startEntry ? lossSplit(measurements, start.date, startEntry) : null
-  if (!real && !est) return null
+  if (!story) {
+    return (
+      <section className="card p-5" data-testid="start-box">
+        <p className="t-caption" style={{ color: 'var(--text-3)' }}>Since you started</p>
+        <p className="mt-1 text-sm font-medium" style={{ color: 'var(--text-2)' }} data-testid="start-empty">
+          Starting point {format(parseISO(start.date), 'd MMM yyyy')}. A weight at the start, or a scan after it, shows what changed.
+        </p>
+        <button onClick={onOpenStart} className="mt-2 text-xs font-bold underline decoration-dotted underline-offset-2" style={{ color: 'var(--text-2)' }} data-testid="edit-start">Change the starting point</button>
+      </section>
+    )
+  }
   return (
-    <section className="card p-5" data-testid="lost-card">
-      <p className="t-caption" style={{ color: 'var(--text-3)' }}>What changed, Evolt to Evolt</p>
-      {real && (
-        <>
-          <p className="mt-2 text-xl font-black leading-snug" data-testid="lost-line">{real.lines[0]}</p>
-          {real.lines.slice(1).map((l) => <p key={l} className="text-sm font-medium" style={{ color: 'var(--text-2)' }}>{l}</p>)}
-          {Math.sign(real.fat) === Math.sign(real.lean) && real.fat !== 0 && <SplitBar fat={real.fat} lean={real.lean} />}
-          <p className="mt-2 text-xs font-medium tabular-nums" style={{ color: 'var(--text-3)' }}>
-            Scans of {format(parseISO(real.from.date), 'd MMM yyyy')} ({real.from.weight} kg) and {format(parseISO(real.to.date), 'd MMM yyyy')} ({real.to.weight} kg).
-          </p>
-        </>
-      )}
-      {est && (
-        <div className="mt-4 border-t pt-3" style={{ borderColor: 'var(--border)' }} data-testid="lost-estimate">
-          <p className="text-xs font-bold" style={{ color: 'var(--text-2)' }}>Against the adjusted start ({est.from.weight} kg, estimate)</p>
-          <p className="text-sm font-medium" style={{ color: 'var(--text-2)' }}>{est.lines.join(' ')}</p>
-        </div>
-      )}
+    <section className="card p-5" data-testid="start-box">
+      <p className="t-caption" style={{ color: 'var(--text-3)' }}>Since you started</p>
+      <button onClick={onOpenStart} className="mt-1 block text-left text-xl font-black leading-snug tabular-nums" style={{ color: TONE[story.lead.tone] }} data-testid="hero-since">
+        {story.lead.text}
+      </button>
+      <StoryLines lines={story.lines} testid="start-lines" />
+      <p className="mt-3 text-[11px] font-medium tabular-nums" style={{ color: 'var(--text-3)' }} data-testid="start-note">
+        {story.estimated ? `Start is an estimate based on ${story.startWeight.toFixed(1)} kg. ` : ''}
+        <button onClick={onOpenStart} className="underline decoration-dotted underline-offset-2" data-testid="edit-start">Change the starting point</button>
+      </p>
     </section>
   )
 }
@@ -326,52 +362,63 @@ function GoalCard() {
 
 // ------------------------------------------------------------------ charts
 
-const WEEK_W = 340
-const WEEK_PAD = { l: 8, r: 8, t: 22, b: 22 }
-const WEEK_H = 150
+const STEP_GW = 42 // one scan's group, px
+const STEP_H = 168
+const STEP_PAD = { t: 18, b: 30 }
 
 /**
- * Weekly change: one bar per week for the last 12, from a zero line, the value
- * on each bar, the week's start date under it. Down in the accent, up in amber.
- * A week with fewer than 2 weigh-ins is an empty slot with a dash.
+ * Scan to scan: for every Evolt scan, the change in fat mass and lean mass since
+ * the scan before, as two thin bars from a zero line, the value on each bar and
+ * the scan date under it. Newest on the right, the last 8 in view, scroll for more.
  */
-function WeeklyBars({ series }) {
-  const t = todayStr()
-  const bars = weeklyBars(series, t)
-  if (bars.every((b) => b.mean == null)) return null
-  const max = Math.max(0.3, ...bars.map((b) => Math.abs(b.change || 0)))
-  const mid = WEEK_PAD.t + (WEEK_H - WEEK_PAD.t - WEEK_PAD.b) / 2
-  const half = (WEEK_H - WEEK_PAD.t - WEEK_PAD.b) / 2 - 12
-  const slot = (WEEK_W - WEEK_PAD.l - WEEK_PAD.r) / bars.length
+function ScanSteps() {
+  const measurements = useStore((s) => s.measurements)
+  const steps = useMemo(() => scanToScan(measurements), [measurements])
+  const box = useRef(null)
+  useEffect(() => { if (box.current) box.current.scrollLeft = box.current.scrollWidth }, [steps.length])
+  if (!steps.length) return null
+  const max = Math.max(0.3, ...steps.flatMap((x) => [Math.abs(x.fat || 0), Math.abs(x.lean || 0)]))
+  const mid = STEP_PAD.t + (STEP_H - STEP_PAD.t - STEP_PAD.b) / 2
+  const half = (STEP_H - STEP_PAD.t - STEP_PAD.b) / 2 - 10
+  const width = Math.max(8 * STEP_GW, steps.length * STEP_GW) + 8
+  const bar = (v, x, fill, kind, date) => {
+    if (v == null) return <text x={x} y={mid + 3} fontSize="9" textAnchor="middle" fill="var(--text-3)">–</text>
+    const h = Math.max(1.5, (Math.abs(v) / max) * half)
+    const down = v < 0
+    const text = `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(1)}`
+    return (
+      <g data-testid={`step-${kind}`} data-value={v} data-date={date}>
+        <rect x={x - 4} width="8" y={down ? mid : mid - h} height={h} rx="2" fill={fill} />
+        <text x={x} y={down ? mid + h + 9 : mid - h - 3} fontSize="8" fontWeight="700" textAnchor="middle" fill="var(--text-2)" className="tabular-nums">{text}</text>
+      </g>
+    )
+  }
   return (
-    <div className="card p-3" data-testid="weekly-bars">
-      <p className="t-caption" style={{ color: 'var(--text-2)' }}>Weekly change, last 12 weeks</p>
-      <svg viewBox={`0 0 ${WEEK_W} ${WEEK_H}`} className="mt-2 w-full" role="img" aria-label="Change in average weight from each week to the week before">
-        <line x1={WEEK_PAD.l} x2={WEEK_W - WEEK_PAD.r} y1={mid} y2={mid} stroke="var(--text-3)" strokeWidth="1" data-testid="weekly-zero" />
-        {bars.map((b, i) => {
-          const cx = WEEK_PAD.l + i * slot + slot / 2
-          const label = format(parseISO(b.weekStart), 'd MMM')
-          if (b.change == null) {
+    <div className="card p-3" data-testid="scan-steps">
+      <p className="t-caption" style={{ color: 'var(--text-2)' }}>Scan to scan</p>
+      <p className="text-xs font-medium" style={{ color: 'var(--text-2)' }}>What each scan changed: fat and lean mass since the scan before.</p>
+      <div ref={box} className="mt-2 overflow-x-auto" data-testid="scan-steps-scroll">
+        <svg width={width} height={STEP_H} role="img" aria-label="Fat mass and lean mass change from each Evolt scan to the one before">
+          <line x1="0" x2={width} y1={mid} y2={mid} stroke="var(--text-3)" strokeWidth="1" />
+          {steps.map((x, i) => {
+            const left = width - (steps.length - i) * STEP_GW
+            const cx = left + STEP_GW / 2
             return (
-              <g key={b.weekStart} data-testid="weekly-empty" data-week={b.weekStart}>
-                <text x={cx} y={mid + 3} fontSize="10" fontWeight="700" textAnchor="middle" fill="var(--text-3)">–</text>
-                <text x={cx} y={WEEK_H - 8} fontSize="7" fontWeight="600" textAnchor="middle" fill="var(--text-3)" className="tabular-nums">{label}</text>
+              <g key={x.date} data-testid="step-group" data-date={x.date}>
+                {bar(x.fat, cx - 6, x.fat != null && x.fat > 0 ? BAD : GOOD, 'fat', x.date)}
+                {bar(x.lean, cx + 6, 'var(--series-muscle)', 'lean', x.date)}
+                <text x={cx} y={STEP_H - 10} fontSize="8" fontWeight="600" textAnchor="middle" fill="var(--text-3)" className="tabular-nums">{format(parseISO(x.date), 'd MMM')}</text>
+                <text x={cx} y={STEP_H - 1} fontSize="7" fontWeight="600" textAnchor="middle" fill="var(--text-3)" className="tabular-nums">{format(parseISO(x.date), 'yyyy')}</text>
               </g>
             )
-          }
-          const h = Math.max(1.5, (Math.abs(b.change) / max) * half)
-          const down = b.change < 0
-          const text = `${b.change > 0 ? '+' : b.change < 0 ? '−' : ''}${Math.abs(b.change).toFixed(1)}`
-          return (
-            <g key={b.weekStart} data-testid="weekly-bar" data-change={b.change} data-week={b.weekStart}>
-              <rect x={cx - slot * 0.32} width={slot * 0.64} y={down ? mid : mid - h} height={h} rx="3" fill={down ? GOOD : BAD} />
-              <text x={cx} y={down ? mid + h + 9 : mid - h - 3} fontSize="8" fontWeight="700" textAnchor="middle" fill="var(--text-2)" className="tabular-nums">{text}</text>
-              <text x={cx} y={WEEK_H - 8} fontSize="7" fontWeight="600" textAnchor="middle" fill="var(--text-3)" className="tabular-nums">{label}</text>
-            </g>
-          )
-        })}
-      </svg>
-      <p className="text-[11px] font-medium" style={{ color: 'var(--text-3)' }}>Each bar is a week's average weight against the week before, in kg. Down in the accent, up in amber. A dash means fewer than 2 weigh-ins that week.</p>
+          })}
+        </svg>
+      </div>
+      <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[11px] font-medium" style={{ color: 'var(--text-3)' }}>
+        <span><span className="mr-1 inline-block h-2 w-2 rounded-sm" style={{ background: GOOD }} />Fat mass down</span>
+        <span><span className="mr-1 inline-block h-2 w-2 rounded-sm" style={{ background: BAD }} />Fat mass up</span>
+        <span><span className="mr-1 inline-block h-2 w-2 rounded-sm" style={{ background: 'var(--series-muscle)' }} />Lean mass (up is good)</span>
+      </div>
     </div>
   )
 }
@@ -386,14 +433,12 @@ function Charts() {
   const input = useBodyInput()
   const events = useChartEvents()
   const [fm, setFm] = useState('bodyFat')
-  const weightFamilies = useMemo(() => seriesByFamily('weight', input), [input])
-  const [wf] = useChartSource('weight', Object.keys(weightFamilies))
   const def = FAMILY_METRICS.find((m) => m.key === fm)
   const anyComposition = Object.keys(seriesByFamily(fm, input)).length > 0
   return (
     <div className="space-y-3">
-      <BodyChart metric="weight" chartType="composition-weight" title="Weight" unit="kg" dp={1} events={events} testid="composition-weight-chart" />
-      <WeeklyBars series={wf ? weightFamilies[wf] : []} />
+      <div id="composition-weight-chart"><BodyChart metric="weight" chartType="composition-weight" title="Weight" unit="kg" dp={1} events={events} testid="composition-weight-chart" /></div>
+      <ScanSteps />
       <div className="flex gap-1.5" role="group" aria-label="Metric">
         {FAMILY_METRICS.map((m) => (
           <button key={m.key} onClick={() => setFm(m.key)} aria-pressed={fm === m.key} data-testid={`family-metric-${m.key}`}
@@ -434,11 +479,22 @@ export default function CompositionView({ onLog, onOpenStart, onOpenDexa }) {
   const [metric, setMetric] = useState(null)
   const scans = useMemo(() => measurements.filter((m) => m.source === 'scan' && /evolt/i.test(m.device || '')), [measurements])
   const hasFamily = useBodyInput()
+  const hasScans = useMemo(() => evoltScans(measurements).some((m) => typeof m.weight === 'number'), [measurements])
+  const setChartSource = useStore((s) => s.setChartSource)
+  // the newer Withings line: the weight chart on Scale, scrolled into view
+  const showScale = () => {
+    setChartSource('weight', 'scale')
+    setTimeout(() => document.getElementById('composition-weight-chart')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
+  }
   const anyComposition = FAMILY_FIELDS.size && (hasFamily.measurements?.length || hasFamily.health?.length)
   return (
     <div className="space-y-4" data-testid="composition-view">
-      <Hero onLog={onLog} onOpenStart={onOpenStart} />
-      <LostCard />
+      {hasScans ? (
+        <>
+          <ScanBox onLog={onLog} onShowScale={showScale} />
+          <StartBox onOpenStart={onOpenStart} />
+        </>
+      ) : <Hero onLog={onLog} onOpenStart={onOpenStart} />}
       {anyComposition ? (
         <Stagger className="grid grid-cols-2 gap-3" data-testid="key-tiles">
           {KEY_TILES.map((d) => <KeyTile key={d.key} def={d} onOpen={setMetric} />)}

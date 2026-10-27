@@ -1,11 +1,12 @@
 import { useMemo, useRef, useState } from 'react'
-import { Layers, Check, X } from 'lucide-react'
+import { Layers, Check, X, Maximize2, ZoomIn, ZoomOut, ChevronLeft, ChevronRight } from 'lucide-react'
 import useStore, { todayStr } from '../../store/useStore'
 import { haptic } from '../../lib/feedback'
 import {
-  RANGES, rangeBounds, bucketFor, bucketPoints, yAxis, MIN_SPAN, labelPlacement, pickLabels,
+  RANGES, rangeBounds, bucketFor, bucketPoints, yAxis, MIN_SPAN, labelPlacement,
   xTicks, groupEvents, rangeChange, shortDate, lineSegments, mergeScans, nearestPoint,
   defaultRangeFor, LIST_UNDER_POINTS, chartMode, pinsOffByDefault,
+  bandInView, bandCaption, placeLabels, labelPriority, zoomWindow, panWindow,
 } from '../../body/chartPoints'
 import { laneValuesAt } from '../../body/lanes'
 import { bloodPoints, shortName } from '../../health/engine/overlay'
@@ -24,8 +25,11 @@ export const colorFor = (metric) => SERIES_COLOR[metric] || 'var(--series-weight
 
 export const W = 340
 export const PAD = { l: 34, r: 14, t: 16, b: 20 }
-export const PLOT_H = 150
-const PIN_ROW = 24
+/** Plot height on a card; with the axes the chart is at least 220 pt tall at phone width. */
+export const PLOT_H = 190
+/** Plot height in full screen. */
+const FULL_PLOT_H = 300
+const PIN_ROW = 22
 const dayNum = (d) => Math.round(Date.parse(`${d}T00:00:00Z`) / 86400000)
 const fmt = (v, dp) => Number(v).toFixed(dp)
 
@@ -63,20 +67,32 @@ const bucketForSpan = (from, to) => {
   return span <= 45 ? 'day' : span <= 200 ? 'week' : 'month'
 }
 
-export function useChartGeometry({ points, from, to, metric, zero = false, extraValues = [] }) {
+export function useChartGeometry({ points, from, to, metric, zero = false, extraValues = [], plotH = PLOT_H }) {
   return useMemo(() => {
     const axis = yAxis([...points.map((p) => p.value), ...extraValues], MIN_SPAN[metric] ?? 1, { zero })
     const x0 = dayNum(from)
     const x1 = dayNum(to)
     const xFor = (d) => (x1 === x0 ? (PAD.l + W - PAD.r) / 2 : PAD.l + ((dayNum(d) - x0) / (x1 - x0)) * (W - PAD.l - PAD.r))
-    const yFor = (v) => PAD.t + PLOT_H - ((v - axis.lo) / (axis.hi - axis.lo || 1)) * PLOT_H
+    const yFor = (v) => PAD.t + plotH - ((v - axis.lo) / (axis.hi - axis.lo || 1)) * plotH
     return { axis, xFor, yFor }
-  }, [points, from, to, metric, zero, extraValues])
+  }, [points, from, to, metric, zero, extraValues, plotH])
+}
+
+/** The date labels along the bottom, as boxes other labels must not cover. */
+export function xTickBoxes(from, to, plotBottom) {
+  const ticks = xTicks(from, to)
+  const x0 = dayNum(from)
+  const x1 = dayNum(to)
+  return ticks.map((t, i) => ({
+    id: `x${t.date}`, w: t.label.length * 5 + 2, h: 10, y: plotBottom + 13,
+    x: PAD.l + ((dayNum(t.date) - x0) / Math.max(1, x1 - x0)) * (W - PAD.l - PAD.r),
+    anchor: i === 0 ? 'start' : i === ticks.length - 1 ? 'end' : 'middle',
+  }))
 }
 
 /** Gridlines, their labels and the dates along the bottom. */
-export function Axes({ axis, yFor, from, to, dp, format = null }) {
-  const plotBottom = PAD.t + PLOT_H
+export function Axes({ axis, yFor, from, to, dp, format = null, plotH = PLOT_H }) {
+  const plotBottom = PAD.t + plotH
   const ticks = xTicks(from, to)
   const x0 = dayNum(from)
   const x1 = dayNum(to)
@@ -101,30 +117,59 @@ export function Axes({ axis, yFor, from, to, dp, format = null }) {
 const pointDates = (p) => (p.from === p.to ? shortDate(p.from) : `${shortDate(p.from)} to ${shortDate(p.to)}`)
 const SCRUB_MOVE = 4 // px of drag before a press becomes a scrub rather than a tap
 
+/** A pin's short label: the start of its text, cut at a word, never mid-word. */
+export function pinLabel(text = '', max = 14) {
+  const head = String(text).split(/ · |, |\. /)[0]
+  if (head.length <= max) return head
+  const words = head.split(' ')
+  let out = ''
+  for (const w of words) {
+    if ((out ? `${out} ${w}` : w).length > max) break
+    out = out ? `${out} ${w}` : w
+  }
+  return out || words[0]
+}
+
 /**
  * One metric from one source over time. Every point is joined to the next by
  * one connected line (a silence longer than 120 days is a faint dashed
- * connector, not a break), averaged points are dots and scans are rings, the
- * value labels are thinned to one per 48 px, scans a few days apart share one
- * marker with a "+1" badge, and pressing and dragging reads any point, with
- * each lane's value at that date.
+ * connector, not a break), averaged points are dots and scans are rings, and
+ * pressing and dragging reads any point, with each lane's value at that date.
+ *
+ * Readable first: the y axis fits the data with a little room, a reference band
+ * is drawn only where it overlaps the axis (else one caption says where it is),
+ * value labels are the last, first, lowest and highest point, then the start
+ * label, each kept only where it collides with nothing. Scans within 10 days
+ * share one marker silently (the scrub lists them all). Event pins are small
+ * labelled dots in one row under the dates; the line through the plot appears
+ * only for the pin tapped. Readings that look wrong (`suspects`) are hollow grey
+ * dots, left out of the line, listed under the chart to keep or hide.
+ *
+ * Tap the chart (or the expand button) for full screen: pinch to zoom, two
+ * fingers or the arrows to pan, the same scrub, chips and source switch.
  *
  * `startLine` ({ value, date }) adds the "Since start" range, a dashed line at
  * the start value, and measures the header change from it.
  */
-export default function TrendChart({
-  metric, chartType = metric, title, unit = '', dp = 1, series, current = null, currentCaption = null,
-  events = [], wobble: wobbleProp, window: fixed = null, defaultRange = '90D', testid, note = null, onEditDate = null,
-  startLine = null, refBand = null, format = null, changeUnit = null, controls = null, headerNote = null, pinsDefault, gapDays = undefined,
-}) {
+export default function TrendChart(props) {
+  const {
+    metric, chartType = metric, title, unit = '', dp = 1, series, current = null, currentCaption = null,
+    events = [], wobble: wobbleProp, window: fixed = null, defaultRange = '90D', testid, note = null, onEditDate = null,
+    startLine = null, refBand = null, format = null, changeUnit = null, controls = null, headerNote = null, pinsDefault, gapDays = undefined,
+    suspects = [], onReview = null, full = false, initialRange = null, onClose = null,
+  } = props
   // how a value reads: a number by default, or e.g. a clock time for bedtime
   const show = format || ((v) => fmt(v, dp))
   // null until a chip is tapped: a series with under 90 days of data opens on All
-  const [rangeKey, setRangeKey] = useState(null)
+  const [rangeKey, setRangeKey] = useState(initialRange)
   const [overlayOpen, setOverlayOpen] = useState(false)
   const [selected, setSelected] = useState(null)
   const [scrub, setScrub] = useState(null)
+  const [isFull, setFull] = useState(false)
+  const [zoom, setZoom] = useState(null) // full screen only: the window shown inside the range
   const drag = useRef(null)
+  const pinch = useRef(null)
+  const touches = useRef(new Map())
   const svgRef = useRef(null)
   const swallowClick = useRef(false)
   const tests = useStore((s) => s.bloods?.tests || [])
@@ -135,6 +180,7 @@ export default function TrendChart({
   const chosen = rangeKey ?? defaultRangeFor(series || [], t, defaultRange)
   // "Since start" needs a starting point on this chart; without one it is the 90 day view
   const range = chosen === 'Start' && !startLine ? '90D' : chosen
+  const plotH = full ? FULL_PLOT_H : PLOT_H
 
   // normal wobble: how far daily values usually sit from their 7-day average
   const wobble = useMemo(() => (wobbleProp !== undefined ? wobbleProp
@@ -145,56 +191,85 @@ export default function TrendChart({
   const setOv = (patch) => setChartOverlay?.(chartType, patch)
   const markerNames = useMemo(() => [...new Set(tests.flatMap((x) => Object.keys(x.values || {})))].sort(), [tests])
 
-  const { from, to } = fixed || rangeBounds(range, t, series || [], startLine?.date)
-  const bucket = fixed ? bucketForSpan(fixed.from, fixed.to) : bucketFor(range, from, to)
+  const bounds = fixed || rangeBounds(range, t, series || [], startLine?.date)
+  const { from, to } = full && zoom ? zoom : bounds
+  const bucket = fixed || (full && zoom) ? bucketForSpan(from, to) : bucketFor(range, from, to)
   const points = useMemo(() => mergeScans(bucketPoints(series || [], bucket, from, to)), [series, bucket, from, to])
   // gapDays marks a missed night as a gap on the daily view (weekly and monthly averages already span them)
   const segments = useMemo(() => lineSegments(points, bucket === 'day' ? gapDays : undefined), [points, bucket, gapDays])
   const band = ov.wobble && wobble ? [wobble, -wobble] : []
-  // the starting value, drawn when the start is inside or before the range
-  // shown (and kept on the axis so the line is always in view)
-  const start = startLine && startLine.date <= to && points.length ? startLine : null
+  // the starting value: on the axis only on "Since start"; elsewhere drawn when it falls inside it
+  const startOn = startLine && startLine.date <= to && points.length ? startLine : null
   const extra = useMemo(() => [
     ...(band.length ? points.flatMap((p) => [p.value + wobble, p.value - wobble]) : []),
-    ...(start ? [start.value] : []),
-    ...(refBand ? [refBand.lo, refBand.hi] : []),
-  ], [points, band.length, wobble, start, refBand])
-  const { axis, xFor, yFor } = useChartGeometry({ points, from, to, metric, extraValues: extra })
+    ...(startOn && range === 'Start' ? [startOn.value] : []),
+  ], [points, band.length, wobble, startOn, range])
+  const { axis, xFor, yFor } = useChartGeometry({ points, from, to, metric, extraValues: extra, plotH })
+  const start = startOn && startOn.value >= axis.lo && startOn.value <= axis.hi ? startOn : null
+  const startOff = startOn && !start ? `Start ${show(startOn.value)}${unit ? ` ${unit}` : ''}, ${startOn.value > axis.hi ? 'above' : 'below'} this chart` : null
   const color = colorFor(metric)
+  const refIn = bandInView(refBand, axis)
+  const refOff = bandCaption(refBand, axis, unit)
 
   const avg = points.filter((p) => !p.scan)
-  const place = labelPlacement(points.map((p) => p.value))
-  const boxes = points.map((p, i) => {
-    const text = p.estimated ? 'Start (est.)' : show(p.value)
-    return { x: xFor(p.x), y: yFor(p.value) + (place[i] === 'above' ? -11 : 13), w: text.length * 5.2 + 3, h: 10, value: p.value, scan: p.scan, text }
-  })
-  const keep = pickLabels(boxes)
-
+  const plotBottom = PAD.t + plotH
   const groups = ov.pins ? groupEvents(events.filter((e) => e.date >= from && e.date <= to)) : []
   const { compounds: laneCompounds, chosen: laneIds, lanes, toggle: toggleLane } = useLanes(chartType, from, to)
   const blood = ov.bloods.length ? bloodPoints(tests, ov.bloods, from, to) : []
-  const plotBottom = PAD.t + PLOT_H
-  const laneTop = plotBottom + PAD.b
-  const pinTop = laneTop + lanes.length * LANE_H
-  const H = pinTop + (groups.length ? PIN_ROW : 0)
+  // pins sit in one row under the dates, then the compound lanes
+  const pinTop = plotBottom + PAD.b
+  const laneTop = pinTop + (groups.length ? PIN_ROW : 0)
+  const H = laneTop + lanes.length * LANE_H + 2
   const shownValue = current ?? (points.length ? points[points.length - 1].value : null)
   const change = rangeChange({
     series: series || [], from, to, range: fixed ? 'window' : range,
     startValue: startLine?.value ?? null, startDate: startLine?.date ?? null, unit: changeUnit ?? unit, dp,
   }).words
 
+  // value labels by priority (last, first, lowest, highest, then the start label); a label that
+  // would cover another, the dates or the plot's edge is left out
+  const place = labelPlacement(points.map((p) => p.value))
+  const labelText = (p) => (p.estimated ? 'Start (est.)' : show(p.value))
+  const cands = labelPriority(points.map((p) => p.value)).map((i) => {
+    const x = xFor(points[i].x)
+    const text = labelText(points[i])
+    return {
+      id: `p${i}`, i, text, w: text.length * 5.2 + 3, h: 10, x,
+      y: yFor(points[i].value) + (place[i] === 'above' ? -7 : 14),
+      anchor: x < PAD.l + 18 ? 'start' : x > W - PAD.r - 18 ? 'end' : 'middle',
+    }
+  })
+  if (start) {
+    const text = `Start ${show(start.value)}`
+    cands.push({ id: 'start', text, w: text.length * 4.6 + 3, h: 9, x: W - PAD.r, y: yFor(start.value) - 3, anchor: 'end' })
+  }
+  const keep = placeLabels(cands, xTickBoxes(from, to, plotBottom), { l: PAD.l, r: W, t: 0, b: plotBottom + 2 })
+
+  // pins: small dots in one row, a short label where it fits
+  const pinCands = groups.map((g, i) => {
+    const text = pinLabel(g.events[0]?.text)
+    return { id: `pin${i}`, text, x: xFor(g.date) + 6, y: pinTop + 12, w: text.length * 4.4 + 2, h: 9, anchor: 'start' }
+  })
+  const pinKeep = placeLabels([...pinCands].reverse(), groups.map((g, i) => ({ id: `d${i}`, x: xFor(g.date), y: pinTop + 13, w: 8, h: 8 })), { l: 0, r: W, t: pinTop, b: pinTop + PIN_ROW })
+
   const bloodY = (b) => {
     const vals = blood.filter((x) => x.marker === b.marker).map((x) => x.value)
     const lo = Math.min(...vals)
     const hi = Math.max(...vals)
-    return plotBottom - 10 - (hi === lo ? 0.5 : (b.value - lo) / (hi - lo)) * (PLOT_H - 20)
+    return plotBottom - 10 - (hi === lo ? 0.5 : (b.value - lo) / (hi - lo)) * (plotH - 20)
   }
+
+  const flagged = suspects.filter((x) => x.state !== 'hide' && x.state !== 'keep')
+  const hidden = suspects.filter((x) => x.state === 'hide')
+  const flaggedIn = flagged.filter((x) => x.date >= from && x.date <= to)
+  const clampY = (v) => Math.min(plotBottom - 2, Math.max(PAD.t + 2, yFor(v)))
 
   const sel = selected?.type === 'point' ? points[selected.i] : null
   const pin = selected?.type === 'pin' ? groups[selected.i] : null
   const laneChange = selected?.type === 'lane' ? selected.change : null
 
-  // ---- scrubbing: press and drag for a crosshair with value, date, source and lane values
+  // ---- scrubbing: press and drag for a crosshair with value, date, source and lane values;
+  // in full screen, two fingers pinch to zoom and drag to pan
   const svgX = (e) => {
     const r = svgRef.current.getBoundingClientRect()
     return ((e.clientX - r.left) / (r.width || 1)) * W
@@ -206,8 +281,33 @@ export default function TrendChart({
       return i >= 0 ? i : cur
     })
   }
-  const onDown = (e) => { drag.current = { x: e.clientX, id: e.pointerId, on: false } }
+  const spanDays = dayNum(to) - dayNum(from)
+  const frac = (x) => Math.min(1, Math.max(0, (x - PAD.l) / (W - PAD.l - PAD.r)))
+  const onDown = (e) => {
+    touches.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    if (full && touches.current.size === 2) {
+      const [a, b] = [...touches.current.values()]
+      const r = svgRef.current.getBoundingClientRect()
+      pinch.current = { dist: Math.hypot(a.x - b.x, a.y - b.y) || 1, mid: (a.x + b.x) / 2, win: { from, to }, width: r.width || 1, left: r.left }
+      drag.current = null
+      setScrub(null)
+      return
+    }
+    drag.current = { x: e.clientX, id: e.pointerId, on: false }
+  }
   const onMove = (e) => {
+    if (touches.current.has(e.pointerId)) touches.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    const p = pinch.current
+    if (full && p && touches.current.size === 2) {
+      const [a, b] = [...touches.current.values()]
+      const dist = Math.hypot(a.x - b.x, a.y - b.y) || 1
+      const mid = (a.x + b.x) / 2
+      const at = frac(((p.mid - p.left) / p.width) * W)
+      const zoomed = zoomWindow(p.win, p.dist / dist, at, bounds)
+      const days = -((mid - p.mid) / p.width) * (dayNum(zoomed.to) - dayNum(zoomed.from))
+      setZoom(panWindow(zoomed, days, bounds))
+      return
+    }
     const d = drag.current
     if (!d || !points.length) return
     if (!d.on && Math.abs(e.clientX - d.x) > SCRUB_MOVE) {
@@ -217,7 +317,9 @@ export default function TrendChart({
     }
     if (d.on) scrubTo(e)
   }
-  const onUp = () => {
+  const onUp = (e) => {
+    touches.current.delete(e?.pointerId)
+    if (touches.current.size < 2) pinch.current = null
     const d = drag.current
     drag.current = null
     if (d?.on) {
@@ -227,13 +329,23 @@ export default function TrendChart({
       setTimeout(() => { swallowClick.current = false }, 0)
     }
   }
-  const tap = (fn) => (e) => { if (swallowClick.current) { e.stopPropagation(); return } fn(e) }
+  const tap = (fn) => (e) => { e.stopPropagation(); if (swallowClick.current) return; fn(e) }
+  // a tap on the plot itself (not a point or a pin) opens full screen
+  const tapPlot = (e) => {
+    if (full || fixed || swallowClick.current) return
+    if (e.target?.closest?.('[data-testid^="lane-"]')) return
+    setFull(true)
+  }
+  const zoomBy = (factor) => setZoom(zoomWindow({ from, to }, factor, 0.5, bounds))
+  const panBy = (sign) => setZoom(panWindow({ from, to }, sign * Math.max(1, Math.round(spanDays / 3)), bounds))
 
   const scrubbed = scrub != null ? points[scrub] : null
   const readout = scrubbed ? {
     x: xFor(scrubbed.x),
     lines: [
-      `${scrubbed.estimated ? 'Start (est.) ' : ''}${show(scrubbed.value)}${unit ? ` ${unit}` : ''} · ${pointDates(scrubbed)} · ${scrubbed.sources.join(', ')}`,
+      ...(scrubbed.members
+        ? scrubbed.members.map((m) => `${show(m.value)}${unit ? ` ${unit}` : ''} · ${pointDates(m)}`)
+        : [`${scrubbed.estimated ? 'Start (est.) ' : ''}${show(scrubbed.value)}${unit ? ` ${unit}` : ''} · ${pointDates(scrubbed)} · ${scrubbed.sources.join(', ')}`]),
       ...laneValuesAt(lanes, scrubbed.x),
     ],
   } : null
@@ -262,8 +374,9 @@ export default function TrendChart({
     )
   }
 
-  return (
-    <div className="card p-3" data-testid={testid || `trend-chart-${chartType}`} data-range={fixed ? 'window' : range} data-bucket={bucket}>
+  const chart = (
+    <div className={full ? 'flex min-h-0 flex-1 flex-col overflow-y-auto' : 'card p-3'} data-testid={full ? 'chart-full' : (testid || `trend-chart-${chartType}`)}
+      data-range={fixed ? 'window' : range} data-bucket={bucket} data-from={from} data-to={to}>
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
           <p className="t-caption" style={{ color: 'var(--text-2)' }}>{title}</p>
@@ -277,16 +390,40 @@ export default function TrendChart({
           )}
           {headerNote}
         </div>
-        <button onClick={() => setOverlayOpen((v) => !v)} data-testid="overlay-button" aria-expanded={overlayOpen}
-          className="flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold"
-          style={{ background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
-          <Layers size={12} /> Overlay
-        </button>
+        {full ? (
+          <button onClick={onClose} aria-label="Close full screen" className="flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 text-xs font-bold"
+            style={{ background: 'var(--surface-sunk)', color: 'var(--text)' }} data-testid="chart-full-close">
+            <X size={14} /> Close
+          </button>
+        ) : (
+          <div className="flex shrink-0 items-center gap-1.5">
+            {!fixed && (
+              <button onClick={() => setFull(true)} aria-label={`Open ${title} full screen`} data-testid="chart-expand"
+                className="flex items-center rounded-full p-1.5" style={{ background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
+                <Maximize2 size={13} />
+              </button>
+            )}
+            <button onClick={() => setOverlayOpen((v) => !v)} data-testid="overlay-button" aria-expanded={overlayOpen}
+              className="flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold"
+              style={{ background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
+              <Layers size={12} /> Overlay
+            </button>
+          </div>
+        )}
       </div>
       {controls && <div className="mt-2">{controls}</div>}
-      {!fixed && <div className="mt-2"><RangeChips value={range} withStart={!!startLine} onChange={(k) => { setRangeKey(k); setSelected(null) }} /></div>}
+      {!fixed && <div className="mt-2"><RangeChips value={range} withStart={!!startLine} onChange={(k) => { setRangeKey(k); setSelected(null); setZoom(null) }} /></div>}
+      {full && (
+        <div className="mt-2 flex items-center gap-1.5" data-testid="chart-zoom">
+          <button onClick={() => zoomBy(0.5)} aria-label="Zoom in" data-testid="zoom-in" className="rounded-full p-2" style={{ background: 'var(--surface-sunk)' }}><ZoomIn size={15} /></button>
+          <button onClick={() => zoomBy(2)} aria-label="Zoom out" data-testid="zoom-out" className="rounded-full p-2" style={{ background: 'var(--surface-sunk)' }}><ZoomOut size={15} /></button>
+          <button onClick={() => panBy(-1)} aria-label="Earlier" data-testid="pan-left" className="rounded-full p-2" style={{ background: 'var(--surface-sunk)' }}><ChevronLeft size={15} /></button>
+          <button onClick={() => panBy(1)} aria-label="Later" data-testid="pan-right" className="rounded-full p-2" style={{ background: 'var(--surface-sunk)' }}><ChevronRight size={15} /></button>
+          <span className="ml-1 text-[11px] font-medium tabular-nums" style={{ color: 'var(--text-3)' }} data-testid="zoom-window">{shortDate(from)} to {shortDate(to)} · pinch to zoom</span>
+        </div>
+      )}
 
-      {overlayOpen && (
+      {overlayOpen && !full && (
         <div className="mt-2 space-y-2 rounded-[14px] p-3" style={{ background: 'var(--surface-sunk)' }} data-testid="overlay-panel">
           <div className="flex flex-wrap gap-1.5">
             <Chip on={ov.pins} onClick={() => setOv({ pins: !ov.pins })} testid="ov-pins">Pins</Chip>
@@ -314,28 +451,24 @@ export default function TrendChart({
         <p className="mt-3 text-xs font-medium" style={{ color: 'var(--text-2)' }} data-testid="chart-empty">No data in this range yet.</p>
       ) : (
         <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} className="mt-2 w-full select-none" role="img" aria-label={`${title} over time`}
-          style={{ touchAction: 'pan-y' }} data-testid="chart-svg"
-          onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
-          <Axes axis={axis} yFor={yFor} from={from} to={to} dp={dp} format={format} />
-          {refBand && (
+          style={{ touchAction: full ? 'none' : 'pan-y' }} data-testid="chart-svg" data-plot-h={plotH}
+          onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} onClick={tapPlot}>
+          <Axes axis={axis} yFor={yFor} from={from} to={to} dp={dp} format={format} plotH={plotH} />
+          {refIn && (
             <g data-testid="chart-ref-band">
-              <rect x={PAD.l} width={W - PAD.l - PAD.r} y={yFor(refBand.hi)} height={Math.max(1, yFor(refBand.lo) - yFor(refBand.hi))} fill="var(--text)" opacity="0.06" />
-              <text x={PAD.l + 3} y={yFor(refBand.hi) + 9} fontSize="8" fontWeight="700" fill="var(--text-3)">{refBand.label || 'Reference range'}</text>
+              <rect x={PAD.l} width={W - PAD.r - PAD.l} y={yFor(refIn.hi)} height={Math.max(1, yFor(refIn.lo) - yFor(refIn.hi))} fill="var(--text)" opacity="0.06" />
             </g>
           )}
           {start && (
-            <g data-testid="chart-start-line">
-              <line x1={PAD.l} x2={W - PAD.r} y1={yFor(start.value)} y2={yFor(start.value)} stroke="var(--text-3)" strokeDasharray="4 4" strokeWidth="1" opacity="0.7" />
-              <text x={PAD.l + 3} y={yFor(start.value) - 3} fontSize="8" fontWeight="700" fill="var(--text-3)" className="tabular-nums">Start {show(start.value)}</text>
-            </g>
+            <line x1={PAD.l} x2={W - PAD.r} y1={yFor(start.value)} y2={yFor(start.value)} stroke="var(--text-3)" strokeDasharray="4 4" strokeWidth="1" opacity="0.7" data-testid="chart-start-line" />
           )}
           {band.length > 0 && avg.length > 1 && (
             <polygon data-testid="wobble-band" fill={color} opacity="0.08"
               points={[...avg.map((p) => `${xFor(p.x)},${yFor(p.value + wobble)}`), ...[...avg].reverse().map((p) => `${xFor(p.x)},${yFor(p.value - wobble)}`)].join(' ')} />
           )}
-          {groups.map((g, i) => (
-            <line key={`pl${g.date}`} x1={xFor(g.date)} x2={xFor(g.date)} y1={PAD.t} y2={plotBottom} stroke="var(--text-3)" strokeDasharray="3 3" strokeWidth="1" opacity="0.6" data-pin-line={i + 1} />
-          ))}
+          {pin && (
+            <line x1={xFor(pin.date)} x2={xFor(pin.date)} y1={PAD.t} y2={pinTop + 6} stroke="var(--text-2)" strokeDasharray="3 3" strokeWidth="1" data-testid="pin-line" />
+          )}
           {segments.map((sg, i) => (
             <line key={`s${i}`} x1={xFor(sg.a.x).toFixed(1)} y1={yFor(sg.a.value).toFixed(1)} x2={xFor(sg.b.x).toFixed(1)} y2={yFor(sg.b.value).toFixed(1)}
               stroke={color} strokeWidth={sg.gap ? 1.5 : 2} strokeLinecap="round" strokeDasharray={sg.gap ? '3 5' : undefined} opacity={sg.gap ? 0.45 : 1}
@@ -347,45 +480,39 @@ export default function TrendChart({
               <text x={xFor(b.date) + 6} y={bloodY(b) - 4} fontSize="8" fontWeight="700" fill="var(--text-3)">{shortName(b.marker)} {b.value}</text>
             </g>
           ))}
+          {flaggedIn.map((x) => (
+            <circle key={`q${x.date}${x.value}`} cx={xFor(x.date)} cy={clampY(x.value)} r="3.5" fill="none" stroke="var(--text-3)" strokeWidth="1.5" data-testid="chart-suspect">
+              <title>{`${show(x.value)}${unit ? ` ${unit}` : ''} on ${shortDate(x.date)}, looks wrong`}</title>
+            </circle>
+          ))}
           {points.map((p, i) => {
             const cx = xFor(p.x)
             const cy = yFor(p.value)
-            const more = p.members ? p.members.length - 1 : 0
             return (
               <g key={`${p.x}-${p.scan}`}>
                 {p.scan
-                  ? <circle cx={cx} cy={cy} r="4" fill="var(--surface-solid)" stroke={color} strokeWidth="2" strokeDasharray={p.estimated ? '2 2' : undefined} data-testid={p.estimated ? 'chart-start-est' : 'chart-scan'} />
+                  ? <circle cx={cx} cy={cy} r="4" fill="var(--surface-solid)" stroke={color} strokeWidth="2" strokeDasharray={p.estimated ? '2 2' : undefined} data-testid={p.estimated ? 'chart-start-est' : 'chart-scan'} data-members={p.members?.length || 1} />
                   : <circle cx={cx} cy={cy} r="3" fill={color} data-testid="chart-point" />}
-                {more > 0 && (
-                  <g data-testid="chart-merged">
-                    <circle cx={cx + 7} cy={cy - 7} r="6" fill="var(--surface2)" stroke="var(--border)" />
-                    <text x={cx + 7} y={cy - 4.5} fontSize="7" fontWeight="800" textAnchor="middle" fill="var(--text)">+{more}</text>
-                  </g>
-                )}
-                {keep.has(i) && (
-                  <text x={boxes[i].x} y={boxes[i].y + 3} fontSize="9" fontWeight="600" textAnchor="middle" fill="var(--text-2)" className="tabular-nums" data-testid="chart-label">{boxes[i].text}</text>
-                )}
                 <circle cx={cx} cy={cy} r="11" fill="transparent" onClick={tap(() => setSelected({ type: 'point', i }))} data-testid="chart-hit" style={{ cursor: 'pointer' }} />
               </g>
             )
           })}
+          {cands.filter((c) => keep.has(c.id)).map((c) => (
+            <text key={c.id} x={c.x} y={c.y} fontSize={c.id === 'start' ? 8 : 9} fontWeight={c.id === 'start' ? 700 : 600} textAnchor={c.anchor}
+              fill={c.id === 'start' ? 'var(--text-3)' : 'var(--text-2)'} className="tabular-nums" data-testid={c.id === 'start' ? 'chart-start-label' : 'chart-label'}>{c.text}</text>
+          ))}
           {laneChange && (
             <line x1={xFor(laneChange.date)} x2={xFor(laneChange.date)} y1={PAD.t} y2={laneTop + lanes.length * LANE_H} stroke="var(--text-2)" strokeDasharray="3 3" data-testid="lane-guide" />
           )}
-          <LaneRows lanes={lanes} top={laneTop} xFor={xFor} left={PAD.l} right={W - PAD.r} picked={laneChange}
-            onPick={(change) => setSelected({ type: 'lane', change })} />
           {groups.map((g, i) => (
             <g key={`pin${g.date}`} onClick={tap(() => setSelected({ type: 'pin', i }))} style={{ cursor: 'pointer' }} data-testid="chart-pin" data-count={g.events.length}>
-              <circle cx={xFor(g.date)} cy={pinTop + 9} r="8" fill="var(--surface2)" stroke="var(--border)" />
-              <text x={xFor(g.date)} y={pinTop + 12} fontSize="9" fontWeight="800" textAnchor="middle" fill="var(--text)">{i + 1}</text>
-              {g.events.length > 1 && (
-                <g data-testid="pin-count">
-                  <circle cx={xFor(g.date) + 8} cy={pinTop + 3} r="5.5" fill="var(--text)" />
-                  <text x={xFor(g.date) + 8} y={pinTop + 5.5} fontSize="7" fontWeight="900" textAnchor="middle" fill="var(--bg)">{g.events.length}</text>
-                </g>
-              )}
+              <rect x={xFor(g.date) - 8} y={pinTop} width={pinKeep.has(`pin${i}`) ? pinCands[i].w + 16 : 16} height={PIN_ROW} fill="transparent" />
+              <circle cx={xFor(g.date)} cy={pinTop + 9} r={pin === g ? 4.5 : 3.5} fill={pin === g ? 'var(--text)' : 'var(--text-2)'} />
+              {pinKeep.has(`pin${i}`) && <text x={pinCands[i].x} y={pinTop + 12} fontSize="8" fontWeight="700" fill="var(--text-3)" data-testid="pin-label">{pinCands[i].text}{g.events.length > 1 ? ` +${g.events.length - 1}` : ''}</text>}
             </g>
           ))}
+          <LaneRows lanes={lanes} top={laneTop} xFor={xFor} left={PAD.l} right={W - PAD.r} picked={laneChange}
+            onPick={(change) => setSelected({ type: 'lane', change })} />
           {readout && (
             <g data-testid="scrub" pointerEvents="none">
               <line x1={readout.x} x2={readout.x} y1={PAD.t} y2={plotBottom} stroke="var(--text)" strokeWidth="1" opacity="0.7" />
@@ -407,6 +534,33 @@ export default function TrendChart({
         </svg>
       )}
 
+      {(refOff || startOff) && (
+        <p className="mt-1 text-[11px] font-medium tabular-nums" style={{ color: 'var(--text-3)' }} data-testid="chart-off-range">{[refOff, startOff].filter(Boolean).join('. ')}</p>
+      )}
+      {refIn && !refOff && <p className="mt-1 text-[11px] font-medium tabular-nums" style={{ color: 'var(--text-3)' }} data-testid="chart-ref-caption">Shaded: {refBand.label || 'reference range'} {refBand.lo} to {refBand.hi}{unit === '%' ? '%' : unit ? ` ${unit}` : ''}</p>}
+
+      {(flagged.length > 0 || hidden.length > 0) && onReview && (
+        <div className="mt-2 space-y-1.5 rounded-[10px] p-2.5" style={{ background: 'var(--surface-sunk)' }} data-testid="chart-suspects">
+          {flagged.length > 0 && (
+            <p className="text-xs font-bold tabular-nums" style={{ color: 'var(--text-2)' }}>
+              {flagged.length === 1 ? '1 reading looks wrong' : `${flagged.length} readings look wrong`} ({flagged.slice(0, 3).map((x) => `${show(x.value)}${unit ? ` ${unit}` : ''}, ${monthYear(x.date)}`).join('; ')}). Tap to keep or hide.
+            </p>
+          )}
+          {flagged.map((x) => (
+            <div key={`r${x.date}${x.value}`} className="flex items-center gap-2" data-testid="suspect-row">
+              <span className="min-w-0 flex-1 text-[11px] font-medium tabular-nums" style={{ color: 'var(--text-3)' }}>{show(x.value)}{unit ? ` ${unit}` : ''}, {shortDate(x.date)}{x.sourceLabel ? `, ${x.sourceLabel}` : ''}</span>
+              <button onClick={() => onReview(x, 'keep')} className="rounded-full px-2.5 py-1 text-[11px] font-bold" style={{ background: 'var(--surface2)' }} data-testid="suspect-keep">Keep</button>
+              <button onClick={() => onReview(x, 'hide')} className="rounded-full px-2.5 py-1 text-[11px] font-bold" style={{ background: 'var(--surface2)' }} data-testid="suspect-hide">Hide</button>
+            </div>
+          ))}
+          {hidden.length > 0 && (
+            <button onClick={() => hidden.forEach((x) => onReview(x, null))} className="text-[11px] font-bold" style={{ color: 'var(--text-3)' }} data-testid="suspect-show">
+              {hidden.length === 1 ? '1 reading hidden' : `${hidden.length} readings hidden`}. Kept in your data. Show again
+            </button>
+          )}
+        </div>
+      )}
+
       {sel && (
         <div className="mt-2 flex items-start gap-2 rounded-[10px] p-2.5" style={{ background: 'var(--surface-sunk)' }} data-testid="point-popover">
           <div className="min-w-0 flex-1 text-xs font-medium tabular-nums" style={{ color: 'var(--text-2)' }}>
@@ -415,7 +569,7 @@ export default function TrendChart({
                 {sel.members.map((m) => (
                   <p key={m.x} className="font-bold" style={{ color: 'var(--text)' }} data-testid="merged-row">{pointDates(m)}: {show(m.value)}{unit ? ` ${unit}` : ''}</p>
                 ))}
-                <p>{sel.members.length} scans within 10 days · {sel.sources.join(', ')}</p>
+                <p>{sel.members.length} scans within 10 days, drawn as the latest · {sel.sources.join(', ')}</p>
               </>
             ) : (
               <>
@@ -447,4 +601,20 @@ export default function TrendChart({
       {note && <p className="mt-1 text-xs font-medium leading-snug" style={{ color: 'var(--text-3)' }}>{note}</p>}
     </div>
   )
+
+  if (full) return chart
+  return (
+    <>
+      {chart}
+      {isFull && (
+        <div className="fixed inset-0 z-[70] flex flex-col p-4" style={{ background: 'var(--bg)', paddingTop: 'max(16px, env(safe-area-inset-top))', paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}
+          role="dialog" aria-modal="true" aria-label={`${title}, full screen`} data-testid="chart-fullscreen">
+          <TrendChart {...props} full initialRange={range} onClose={() => setFull(false)} />
+        </div>
+      )}
+    </>
+  )
 }
+
+const MONTH = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const monthYear = (d) => `${MONTH[Number(d.slice(5, 7)) - 1]} ${d.slice(0, 4)}`

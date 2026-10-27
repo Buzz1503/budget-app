@@ -13,6 +13,7 @@
 // is never charted or averaged with anything.
 
 import { familyOfEntry, FAMILY_LABEL as SOURCE_FAMILY_LABEL, SCALE_RANK } from './sources'
+import { suspectReadings } from './chartPoints'
 
 export type BodySource = 'scan' | 'manual' | 'withings' | 'other'
 /**
@@ -58,6 +59,8 @@ export interface HealthBodyLike {
 export interface BodyInput {
   measurements?: MeasurementLike[]
   health?: HealthBodyLike[]
+  /** Scale weights left out of every line and number ("date|value"), see `suspectWeights`; never deleted */
+  excludeWeight?: string[]
 }
 
 export interface DayPoint {
@@ -111,8 +114,9 @@ export const sourceLabel = (source: BodySource, name?: string | null): string =>
 
 const isEstimated = (m: MeasurementLike) => m.estimated === true
 
-function readingsFrom({ measurements = [], health = [] }: BodyInput): Reading[] {
+function readingsFrom({ measurements = [], health = [], excludeWeight = [] }: BodyInput): Reading[] {
   const out: Reading[] = []
+  const skip = new Set(excludeWeight)
   measurements.forEach((m, i) => {
     if (m.hiddenFromCharts) return
     const family = familyOfEntry(m)
@@ -137,7 +141,27 @@ function readingsFrom({ measurements = [], health = [] }: BodyInput): Reading[] 
     if (num(h.bpDia) != null) values.bpDia = num(h.bpDia) as number
     out.push({ date: h.date, order: measurements.length + i, source, sourceLabel: sourceLabel(source, h.weightSource), family: 'scale', values })
   })
+  if (skip.size) {
+    for (const r of out) {
+      if (r.family === 'scale' && r.values.weight != null && skip.has(weightKey(r.date, r.values.weight))) delete r.values.weight
+    }
+  }
   return out
+}
+
+/** The key a Scale weight is kept or hidden by: its day and value. */
+export const weightKey = (date: string, value: number) => `${date}|${value}`
+
+export interface SuspectWeight { date: string; value: number; sourceLabel?: string; key: string }
+
+/**
+ * Scale weigh-ins that look wrong: more than 3 kg from both neighbouring
+ * weigh-ins, each within 14 days (`suspectReadings`). Only flagged; the
+ * reading stays in the data and can be kept.
+ */
+export function suspectWeights(input: BodyInput): SuspectWeight[] {
+  const daily = familySeries('weight', { measurements: input.measurements, health: input.health }, 'scale')
+  return suspectReadings(daily).map((p) => ({ date: p.date, value: p.value, sourceLabel: p.sourceLabel, key: weightKey(p.date, p.value) }))
 }
 
 /** One value per day for a stored field: the best source that day, the later entry on a tie. */

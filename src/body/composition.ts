@@ -238,3 +238,122 @@ export function latestScanMeta(measurements: ScanLike[], field: string): { statu
   const range = ((s.ranges || {}) as Record<string, [number, number]>)[field] || null
   return { status, range, date: s.date }
 }
+
+// ------------------------------------------------- the two boxes at the top
+
+export type Tone = 'good' | 'bad' | 'flat'
+export interface StoryLine { key: string; text: string; tone: Tone }
+
+const shortDay = (d: string) => `${Number(d.slice(8, 10))} ${MONTHS[Number(d.slice(5, 7)) - 1]}`
+const toneOf = (delta: number, better: 'down' | 'up'): Tone => (Math.abs(delta) < 0.05 ? 'flat' : (better === 'down' ? delta < 0 : delta > 0) ? 'good' : 'bad')
+const f1 = (v: number) => v.toFixed(1)
+
+/** "Fat mass down 0.9 kg (26.9 to 26.0)" */
+function changeSince(key: string, label: string, a: number | null, b: number | null, better: 'down' | 'up'): StoryLine | null {
+  if (a == null || b == null) return null
+  const d = r1(b - a)
+  if (Math.abs(d) < 0.05) return { key, text: `${label} unchanged at ${f1(b)} kg`, tone: 'flat' }
+  return { key, text: `${label} ${d < 0 ? 'down' : 'up'} ${f1(Math.abs(d))} kg (${f1(a)} to ${f1(b)})`, tone: toneOf(d, better) }
+}
+
+/** "Body fat mass down from 40.4 to 26.0 kg" */
+function changeFrom(key: string, label: string, a: number | null, b: number | null, better: 'down' | 'up'): StoryLine | null {
+  if (a == null || b == null) return null
+  const d = r1(b - a)
+  if (Math.abs(d) < 0.05) return { key, text: `${label} unchanged at ${f1(b)} kg`, tone: 'flat' }
+  return { key, text: `${label} ${d < 0 ? 'down' : 'up'} from ${f1(a)} to ${f1(b)} kg`, tone: toneOf(d, better) }
+}
+
+/** "Body fat 28.1%, was 28.9%" */
+function bodyFatLine(a: number | null, b: number | null): StoryLine | null {
+  if (a == null || b == null) return null
+  return { key: 'bodyFat', text: `Body fat ${f1(b)}%, was ${f1(a)}%`, tone: toneOf(b - a, 'down') }
+}
+
+export interface ScanStory {
+  latest: { date: string; weight: number; device: string }
+  previous: { date: string; weight: number | null } | null
+  /** "Down 1.2 kg since 16 Oct", null with a single scan */
+  change: StoryLine | null
+  lines: StoryLine[]
+}
+
+/**
+ * Box 1: the latest Evolt scan's weight, and what changed since the scan before it.
+ * Weight and body composition from the same device on the same day.
+ */
+export function lastScanStory(measurements: ScanLike[]): ScanStory | null {
+  const scans = evoltScans(measurements).filter((s) => n(s, 'weight') != null)
+  const last = scans[scans.length - 1]
+  if (!last) return null
+  const prev = scans.length > 1 ? scans[scans.length - 2] : null
+  const latest = { date: last.date, weight: n(last, 'weight') as number, device: String(last.device || 'Evolt') }
+  if (!prev) return { latest, previous: null, change: null, lines: [] }
+  const w0 = n(prev, 'weight') as number
+  const dw = r1(latest.weight - w0)
+  const change: StoryLine = Math.abs(dw) < 0.05
+    ? { key: 'weight', text: `No change since ${shortDay(prev.date)}`, tone: 'flat' }
+    : { key: 'weight', text: `${dw < 0 ? 'Down' : 'Up'} ${f1(Math.abs(dw))} kg since ${shortDay(prev.date)}`, tone: toneOf(dw, 'down') }
+  const lines = [
+    changeSince('fatMass', 'Fat mass', n(prev, 'fatMass'), n(last, 'fatMass'), 'down'),
+    changeSince('skeletalMuscleMass', 'Skeletal muscle', n(prev, 'skeletalMuscleMass'), n(last, 'skeletalMuscleMass'), 'up'),
+    bodyFatLine(n(prev, 'bodyFat'), n(last, 'bodyFat')),
+  ].filter(Boolean) as StoryLine[]
+  return { latest, previous: { date: prev.date, weight: w0 }, change, lines }
+}
+
+export interface StartStory { lead: StoryLine; lines: StoryLine[]; estimated: boolean; startWeight: number; startDate: string }
+
+/**
+ * Box 2: since the starting point, against the latest Evolt scan. The start's own values
+ * when it has them (the estimated 1 Jan 2025 entry does), else the first Evolt scan from then.
+ */
+export function sinceStartStory(measurements: ScanLike[], start: { date: string; values?: Record<string, number | null | undefined>; entryId?: string | null } | null): StartStory | null {
+  if (!start) return null
+  const scans = evoltScans(measurements)
+  const last = [...scans].reverse().find((s) => n(s, 'weight') != null)
+  if (!last) return null
+  const entry = start.entryId ? measurements.find((m) => m.id === start.entryId) || null : null
+  const first = scans.find((s) => s.date >= start.date) || null
+  const v = (k: string): number | null => {
+    const own = start.values?.[k]
+    if (typeof own === 'number') return own
+    if (entry && n(entry, k) != null) return n(entry, k)
+    return first && first !== last ? n(first, k) : null
+  }
+  const w0 = v('weight')
+  const w1 = n(last, 'weight') as number
+  if (w0 == null) return null
+  const d = r1(w1 - w0)
+  const lead: StoryLine = {
+    key: 'weight',
+    text: `${Math.abs(d) < 0.05 ? 'No change' : `${d < 0 ? 'Down' : 'Up'} ${f1(Math.abs(d))} kg`} since ${longDate(start.date)} (${f1(w0)} to ${f1(w1)} kg)`,
+    tone: toneOf(d, 'down'),
+  }
+  const lines = [
+    changeFrom('fatMass', 'Body fat mass', v('fatMass'), n(last, 'fatMass'), 'down'),
+    changeFrom('skeletalMuscleMass', 'Skeletal muscle', v('skeletalMuscleMass'), n(last, 'skeletalMuscleMass'), 'up'),
+    bodyFatLine(v('bodyFat'), n(last, 'bodyFat')),
+    changeFrom('leanMass', 'Lean mass', v('leanMass'), n(last, 'leanMass'), 'up'),
+  ].filter(Boolean) as StoryLine[]
+  const estimated = !!(entry?.estimated)
+  return { lead, lines, estimated, startWeight: w0, startDate: start.date }
+}
+
+export interface ScanStep { date: string; fat: number | null; lean: number | null }
+
+/** Scan to scan: fat mass and lean mass change since the scan before, per Evolt scan (the estimated start left out). */
+export function scanToScan(measurements: ScanLike[]): ScanStep[] {
+  const scans = evoltScans(measurements)
+  const out: ScanStep[] = []
+  for (let i = 1; i < scans.length; i++) {
+    const a = scans[i - 1]
+    const b = scans[i]
+    const fa = n(a, 'fatMass')
+    const fb = n(b, 'fatMass')
+    const la = n(a, 'leanMass')
+    const lb = n(b, 'leanMass')
+    out.push({ date: b.date, fat: fa != null && fb != null ? r1(fb - fa) : null, lean: la != null && lb != null ? r1(lb - la) : null })
+  }
+  return out
+}

@@ -171,15 +171,24 @@ export const MIN_SPAN: Record<string, number> = {
   sleepScore: 30, deepSleep: 40, remSleep: 40, sleepHR: 10, bedtime: 60, saunaLength: 10, saunaTemp: 10,
   restlessness: 4, snoring: 20, awake: 30, sleepLatency: 20, waso: 30, hrDip: 10,
 }
+/** Share of the data's span added above and below the y axis. */
+export const AXIS_PAD = 0.05
 const STEPS = [0.1, 0.2, 0.25, 0.5, 1, 2, 2.5, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000]
 
 /**
  * A y axis that is never tighter than the metric's minimum span, centred on
  * the data, with 4 or 5 round gridlines. `zero` starts it at 0.
  */
-export function yAxis(values: number[], minSpan = 1, { zero = false }: { zero?: boolean } = {}): { lo: number; hi: number; ticks: number[] } {
+export function yAxis(values: number[], minSpan = 1, { zero = false, pad = AXIS_PAD }: { zero?: boolean; pad?: number } = {}): { lo: number; hi: number; ticks: number[] } {
   let lo = values.length ? Math.min(...values) : 0
   let hi = values.length ? Math.max(...values) : 1
+  // a little room above and below, so no point sits on the edge of the plot
+  if (!zero && hi > lo) {
+    const room = (hi - lo) * pad
+    // never below zero for data that never is (minutes, kg)
+    lo = lo >= 0 ? Math.max(0, lo - room) : lo - room
+    hi += room
+  }
   if (zero) {
     lo = 0
     hi = Math.max(hi, minSpan)
@@ -403,4 +412,119 @@ export function rangeChange({ series, from, to, range, startValue = null, startD
   const delta = round(last.value - first.value, 4)
   const days = dayNum(last.date) - dayNum(first.date)
   return { delta, words: worded(delta, unit, dp, `over ${days} day${days === 1 ? '' : 's'}`) }
+}
+
+// ---------------------------------------------------------- reference band
+
+export interface Band { lo: number; hi: number; label?: string }
+
+/** The part of a reference band inside the axis, or null when none of it is. */
+export function bandInView(band: Band | null, axis: { lo: number; hi: number }): { lo: number; hi: number } | null {
+  if (!band) return null
+  const lo = Math.max(band.lo, axis.lo)
+  const hi = Math.min(band.hi, axis.hi)
+  return hi > lo ? { lo, hi } : null
+}
+
+/** When the band is wholly outside the chart: "Evolt healthy range 15 to 20%, below this chart". */
+export function bandCaption(band: Band | null, axis: { lo: number; hi: number }, unit = ''): string | null {
+  if (!band || bandInView(band, axis)) return null
+  const where = band.hi <= axis.lo ? 'below' : 'above'
+  const u = unit === '%' ? '%' : unit ? ` ${unit}` : ''
+  return `${band.label || 'Reference range'} ${band.lo} to ${band.hi}${u}, ${where} this chart`
+}
+
+// ------------------------------------------------------ label collisions
+
+export interface Placed { id: string; x: number; y: number; w: number; h: number; anchor?: 'start' | 'middle' | 'end' }
+
+/** A label's box from its anchor point (x is the text anchor, y the baseline). */
+export function boxOf(p: Placed): { l: number; r: number; t: number; b: number } {
+  const l = p.anchor === 'end' ? p.x - p.w : p.anchor === 'start' ? p.x : p.x - p.w / 2
+  return { l, r: l + p.w, t: p.y - p.h, b: p.y + 2 }
+}
+
+const overlaps = (a: ReturnType<typeof boxOf>, b: ReturnType<typeof boxOf>) => a.l < b.r && b.l < a.r && a.t < b.b && b.t < a.b
+
+/**
+ * Which labels to draw: candidates in priority order (first wins), each kept
+ * only if it overlaps no label already kept, no fixed obstacle (the axis
+ * labels) and stays inside the bounds. Lower priority labels hide.
+ */
+export function placeLabels(candidates: Placed[], obstacles: Placed[] = [], bounds: { l: number; r: number; t: number; b: number } | null = null): Set<string> {
+  const kept: Array<ReturnType<typeof boxOf>> = obstacles.map(boxOf)
+  const out = new Set<string>()
+  for (const c of candidates) {
+    const b = boxOf(c)
+    if (bounds && (b.l < bounds.l || b.r > bounds.r || b.t < bounds.t || b.b > bounds.b)) continue
+    if (kept.some((k) => overlaps(k, b))) continue
+    kept.push(b)
+    out.add(c.id)
+  }
+  return out
+}
+
+/** The value labels worth reading, by priority: last, first, lowest, highest (indexes, no repeats). */
+export function labelPriority(values: number[]): number[] {
+  if (!values.length) return []
+  const last = values.length - 1
+  const lo = values.indexOf(Math.min(...values))
+  const hi = values.indexOf(Math.max(...values))
+  return [...new Set([last, 0, lo, hi])]
+}
+
+// ---------------------------------------------------------- zoom and pan
+
+export interface Window { from: string; to: string }
+
+/** The narrowest full-screen window, in days. */
+export const ZOOM_MIN_DAYS = 14
+
+/**
+ * Zoom a date window by `factor` (under 1 zooms in) around a point `at` (0 left, 1 right),
+ * never narrower than `minDays` and never outside `bounds`.
+ */
+export function zoomWindow(win: Window, factor: number, at: number, bounds: Window, minDays = ZOOM_MIN_DAYS): Window {
+  const a = dayNum(win.from)
+  const b = dayNum(win.to)
+  const lo = dayNum(bounds.from)
+  const hi = dayNum(bounds.to)
+  const span = Math.max(minDays, Math.min(hi - lo, Math.round((b - a) * factor)))
+  const centre = a + (b - a) * Math.min(1, Math.max(0, at))
+  let from = Math.round(centre - span * Math.min(1, Math.max(0, at)))
+  let to = from + span
+  if (from < lo) { to += lo - from; from = lo }
+  if (to > hi) { from -= to - hi; to = hi }
+  return { from: fromNum(Math.max(lo, from)), to: fromNum(to) }
+}
+
+/** Slide a window by `days`, kept inside `bounds`. */
+export function panWindow(win: Window, days: number, bounds: Window): Window {
+  const a = dayNum(win.from)
+  const b = dayNum(win.to)
+  const lo = dayNum(bounds.from)
+  const hi = dayNum(bounds.to)
+  const shift = Math.max(lo - a, Math.min(hi - b, Math.round(days)))
+  return { from: fromNum(a + shift), to: fromNum(b + shift) }
+}
+
+// --------------------------------------------------- likely bad readings
+
+export const SUSPECT = { kg: 3, days: 14 }
+
+/**
+ * Readings that look wrong: more than `kg` away from both neighbouring readings,
+ * each within `days`. They are only flagged here; nothing is ever deleted.
+ */
+export function suspectReadings<P extends { date: string; value: number }>(series: P[], { kg = SUSPECT.kg, days = SUSPECT.days } = {}): P[] {
+  const s = [...series].sort((a, b) => a.date.localeCompare(b.date))
+  const out: P[] = []
+  for (let i = 1; i < s.length - 1; i++) {
+    const p = s[i]
+    const a = s[i - 1]
+    const b = s[i + 1]
+    const near = dayNum(p.date) - dayNum(a.date) <= days && dayNum(b.date) - dayNum(p.date) <= days
+    if (near && Math.abs(p.value - a.value) > kg && Math.abs(p.value - b.value) > kg) out.push(p)
+  }
+  return out
 }

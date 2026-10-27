@@ -88,6 +88,7 @@ function initialState() {
     photos: [], // progress-photo metadata; blobs live in IndexedDB by blobKey
     bodyGoals: {}, // { metric: targetValue }; weight and bodyFat drive the Composition projection
     bodyProfile: { heightCm: null }, // height for FFMI; empty uses the latest scan's
+    readingReviews: {},                 // Scale weights that looked wrong, by "date|value": 'keep' or 'hide' (never deleted)
     // Fixed distances up a limb, in cm, so every arm/thigh reading is taken at
     // the identical spot. Set once, editable, shown next to the field each time.
     bodyRefs: { ...DEFAULT_BODY_REFS },
@@ -2947,6 +2948,15 @@ const useStore = create(
       /** Back to the default: the first tracked compound's start date. */
       resetBodyStart() {
         set({ bodyStart: null })
+      },
+      /** Keep or hide a weigh-in that looked wrong; null puts it back to flagged. The reading itself is never touched. */
+      setReadingReview(key, state) {
+        set((s) => {
+          const next = { ...(s.readingReviews || {}) }
+          if (state == null) delete next[key]
+          else next[key] = state
+          return { readingReviews: next }
+        })
       },
       setBodyProfile(patch = {}) {
         set((s) => ({ bodyProfile: { ...s.bodyProfile, ...patch } }))

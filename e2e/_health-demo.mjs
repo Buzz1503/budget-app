@@ -190,12 +190,13 @@ await step('History › compound shows its Effects page', async () => {
   await closeSheet()
 })
 
-await step('Composition hero: the newest weight from any source, with date and source', async () => {
+await step('Composition hero: a weight with its date and source', async () => {
   await tab('Body')
   await page.click('[data-testid="body-seg-composition"]')
   await seen('[data-testid="hero-weight"]')
-  const hero = await page.locator('[data-testid="composition-hero"]').innerText()
-  if (!/, (Withings|Manual|Scan|Apple Health)/.test(hero)) throw new Error(`hero source line missing: "${hero}"`)
+  // before the Evolt history is imported this is the Scale weight; box 1 is checked once the scans are in
+  const hero = await page.locator('[data-testid="scan-box"], [data-testid="composition-hero"]').first().innerText()
+  if (!/, (Withings|Manual|Scan|Apple Health|Evolt 360)/.test(hero)) throw new Error(`hero source line missing: "${hero}"`)
   await page.click('[data-testid="body-section-stats"]')
   const weekly = await page.locator('[data-testid="weight-weekly"]').innerText()
   if (/Needs/.test(weekly)) throw new Error('change per week still says it needs weigh-ins')
@@ -285,14 +286,21 @@ await step('Starting point: v22 imports the Evolt history and every "since" coun
   await page.click('[data-testid="body-seg-composition"]')
   await page.click('[data-testid="body-section-stats"]')
   const delta = await page.locator('[data-testid="hero-since"]').innerText()
-  if (!/^Down .* kg since 1 Jan 2025$/.test(delta)) throw new Error(`weight change reads "${delta}"`)
+  if (!/^Down \d+\.\d kg since 1 Jan 2025 \(105\.6 to \d+\.\d kg\)$/.test(delta)) throw new Error(`weight change reads "${delta}"`)
   // body fat compares Evolt with Evolt
   const bfTile = await page.locator('[data-testid="key-tile-bodyFat"]').innerText()
   if (!/12 Oct, Evolt 360/.test(bfTile) || !/−6\.7 pts since 1 Jan 2025/.test(bfTile)) throw new Error(`body fat tile reads "${bfTile}", expected Evolt against Evolt`)
-  const lost = await page.locator('[data-testid="lost-line"]').innerText()
-  if (lost !== 'Down 9.3 kg since 13 Jan 2025.') throw new Error(`lost card reads "${lost}"`)
-  if (!/91% of the loss was fat/.test(await page.locator('[data-testid="lost-card"]').innerText())) throw new Error('no fat share')
-  await seen('[data-testid="lost-estimate"]')
+  const lines = await page.locator('[data-testid="start-lines"]').innerText()
+  if (!/Body fat mass down from 40\.4 to/.test(lines) || !/Body fat [\d.]+%, was 38\.3%/.test(lines) || !/Lean mass .* from 65\.2 to/.test(lines)) throw new Error(`since start lines read "${lines}"`)
+  if (!/^Start is an estimate based on 105\.6 kg\./.test(await page.locator('[data-testid="start-note"]').innerText())) throw new Error('no estimate note')
+  if (/13 Jan 2025/.test(await page.locator('[data-testid="scan-box"]').innerText() + await page.locator('[data-testid="start-box"]').innerText())) throw new Error('the 13 Jan 2025 Evolt to Evolt line is still in the boxes')
+  if (await page.locator('[data-testid="lost-card"], [data-testid="composition-hero"]').count()) throw new Error('the old weight card or the Evolt to Evolt card is still there')
+  // box 1: the latest Evolt scan against the one before
+  const src = await page.locator('[data-testid="hero-source"]').innerText()
+  if (!/^\d+ \w+ \d{4}, Evolt 360$/.test(src)) throw new Error(`hero source line reads "${src}"`)
+  const change = await page.locator('[data-testid="scan-change"]').innerText()
+  if (!/^(Down|Up) \d+\.\d kg since \d+ \w+$|^No change since/.test(change)) throw new Error(`scan change reads "${change}"`)
+  await seen('[data-testid="scan-lines-fatMass"]')
   await noOverflow('Stats with starting point')
 })
 
@@ -343,7 +351,7 @@ await step('Trends: Start line on the weight chart, the start entry on 1 Jan 202
   await page.click('[data-testid="body-section-trends"]')
   await page.click('[data-testid="trend-chip-weight"]')
   const chart = page.locator('[data-testid="trends-chart"]')
-  await chart.locator('[data-testid="chart-start-line"]').waitFor({ timeout: 5000 })
+  await chart.locator('[data-testid="chart-start-line"]').waitFor({ state: 'attached', timeout: 5000 })
   await page.locator('[data-testid="legend-since"]').first().waitFor({ timeout: 5000 })
   const st = await page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state.measurements.filter((m) => m.date === '2025-01-01'))
   if (st.length !== 1 || st[0].device !== 'Evolt 360' || !st[0].estimated) throw new Error('1 Jan 2025 should hold the one estimated Evolt start')
@@ -359,7 +367,7 @@ await step('Composition: all metrics, body map, scan compare, goal and device ch
   // skeletal muscle is its own row; the scale's "muscle mass" never shows a scan value
   await seen('[data-testid="metric-row-skeletalMuscleMass"]')
   await page.click('[data-testid="metric-row-visceralFatArea"]')
-  await seen('[data-testid="metric-sheet"] [data-testid="chart-ref-band"]')
+  await seen('[data-testid="metric-sheet"] [data-testid="chart-ref-band"], [data-testid="metric-sheet"] [data-testid="chart-off-range"]')
   await closeSheet()
   await seen('[data-testid="segment-map"]')
   if ((await page.getAttribute('[data-testid="segment-torso"]', 'data-tone')) !== 'bad') throw new Error('torso lean fell 0.28 kg since the first scan: should read amber')
@@ -376,10 +384,20 @@ await step('Composition: all metrics, body map, scan compare, goal and device ch
   await page.click('[data-testid="family-chart-bodyFat"] [data-testid="source-scale"]')
   await seen('[data-testid="family-chart-bodyFat"] [data-testid="chart-segment"]')
   await page.click('[data-testid="family-chart-bodyFat"] [data-testid="source-evolt"]')
-  if (!(await page.locator('[data-testid="weekly-zero"]').count())) {
-    const info = await page.evaluate(() => { const s = JSON.parse(localStorage.getItem('peptide-command-center')).state; return { src: s.chartSources, weights: s.measurements.filter((m) => m.weight != null).slice(-3).map((m) => m.date + ' ' + m.source) } })
-    throw new Error(`no weekly bars: ${JSON.stringify(info)}`)
-  }
+  // scan to scan replaces the weekly bars: one group per Evolt scan, fat and lean
+  if (await page.locator('[data-testid="weekly-bars"]').count()) throw new Error('the weekly bars are still there')
+  const groups = await page.locator('[data-testid="scan-steps"] [data-testid="step-group"]').count()
+  if (groups < 2) throw new Error(`scan to scan has ${groups} groups`)
+  await seen('[data-testid="scan-steps"] [data-testid="step-fat"]')
+  // a tap on the weight chart opens it full screen, zoom stays inside the range
+  await page.click('[data-testid="composition-weight-chart"] [data-testid="chart-expand"]')
+  await seen('[data-testid="chart-fullscreen"] [data-testid="chart-full"]')
+  const before = await page.getAttribute('[data-testid="chart-full"]', 'data-from')
+  await page.click('[data-testid="zoom-in"]')
+  const after = await page.getAttribute('[data-testid="chart-full"]', 'data-from')
+  if (!(after > before)) throw new Error(`zoom in did not narrow the window (${before} to ${after})`)
+  await page.click('[data-testid="chart-full-close"]')
+  if (await page.locator('[data-testid="chart-fullscreen"]').count()) throw new Error('full screen did not close')
   await noOverflow('Composition')
 })
 
