@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { soundsNight, sessionNight, capturedMin, loudEventsOf, loudestWindow, SOUNDS } from './sounds'
 import type { SoundsSession } from './sounds'
-import { soundsLine, sessionRows, stopReasonText, snoreDensity, burstAt, trendPoints, shortRuns, minutesWords, gapReasonText } from './soundsView'
+import { soundsLine, sessionRows, stopReasonText, snoreDensity, burstAt, trendPoints, shortRuns, minutesWords, gapReasonText, logRows, startMessage, startResultWords } from './soundsView'
 import { buildRows } from './analysis/dataset'
 
 const T = Date.parse('2026-10-23T22:00:00Z')
@@ -199,5 +199,32 @@ describe('the status line', () => {
     expect(minutesWords(432)).toBe('7 h 12 min')
     expect(minutesWords(240)).toBe('4 h')
     expect(minutesWords(38)).toBe('38 min')
+  })
+})
+
+describe('the start log', () => {
+  const at = Date.parse('2026-10-26T22:41:00Z')
+  const entries = [
+    { at, kind: 'start' as const, by: 'shortcut', result: 'blockedLocked', error: 'The operation could not be completed. (com.apple.coreaudio.avfaudio 561145187)' },
+    { at: at + 1000, kind: 'start' as const, by: 'app', result: 'started' },
+    { at: at - 1000, kind: 'stop' as const, by: 'shortcut', result: 'notRunning' },
+  ]
+  it('names every outcome and keeps the iOS error text', () => {
+    const rows = logRows(entries)
+    expect(rows.map((r) => r.title)).toEqual(['Start: Started', 'Start: Blocked: the phone was locked', 'Stop: Nothing was running to stop'])
+    expect(rows[1].detail).toBe('Shortcuts automation. The operation could not be completed. (com.apple.coreaudio.avfaudio 561145187)')
+    expect(rows.map((r) => r.ok)).toEqual([true, false, false])
+    for (const r of ['started', 'alreadyRunning', 'noPermission', 'blockedLocked', 'blockedBackground', 'audioError', 'skippedDaytime', 'notRunning']) {
+      expect(startResultWords(r)).not.toBe('Unknown result')
+    }
+  })
+
+  it('tells you what to do after each start result', () => {
+    expect(startMessage('started')).toBe('Listening. It keeps going with the screen locked.')
+    expect(startMessage('noPermission')).toMatch(/Allow it in Settings/)
+    expect(startMessage('blockedLocked')).toMatch(/locked/)
+    expect(startMessage('blockedBackground')).toMatch(/background/)
+    expect(startMessage('audioError', 'error 561145187')).toBe('The audio session could not start. error 561145187')
+    for (const r of ['started', 'noPermission', 'blockedLocked', 'blockedBackground', 'audioError']) expect(startMessage(r)).not.toMatch(/—/)
   })
 })

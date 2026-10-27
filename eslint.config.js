@@ -48,7 +48,7 @@ export default [
       globals: {
         window: 'readonly', document: 'readonly', navigator: 'readonly', console: 'readonly',
         requestAnimationFrame: 'readonly', setTimeout: 'readonly', clearTimeout: 'readonly', setInterval: 'readonly', clearInterval: 'readonly',
-        localStorage: 'readonly', __NATIVE__: 'readonly', __APP_VERSION__: 'readonly', Worker: 'readonly', URL: 'readonly', Blob: 'readonly', btoa: 'readonly',
+        localStorage: 'readonly', Event: 'readonly', __NATIVE__: 'readonly', __APP_VERSION__: 'readonly', Worker: 'readonly', URL: 'readonly', Blob: 'readonly', btoa: 'readonly',
       },
     },
     plugins: { 'react-hooks': reactHooks },

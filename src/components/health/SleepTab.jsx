@@ -27,7 +27,7 @@ import AnalysisScreen from './SleepAnalysis'
 import RestlessnessScreen from './RestlessnessScreen'
 import ApneaScreen from './ApneaScreen'
 import NightmaresScreen from './NightmaresScreen'
-import SoundsScreen, { SoundsRow, useNightSounds, useSoundsLive } from './SoundsScreen'
+import SoundsScreen, { SoundsRow, useNightSounds, useSoundsLive, useSoundsControl } from './SoundsScreen'
 import useSleepLab from './useSleepLab'
 import SleepSetupCard from './SleepSetup'
 import { useNativeFeed } from '../../native/feed'
@@ -75,6 +75,13 @@ function SleepScreen({ model }) {
   const soundsNotice = useSoundsNotice(t, nightExtras)
   const soundsOn = useStore((s) => !!s.sleepSettings.sleepSounds)
   const live = useSoundsLive(soundsOn)
+  const control = useSoundsControl(live, null)
+  const openSounds = useNativeFeed((s) => s.openSounds)
+  useEffect(() => {
+    if (!openSounds) return
+    setView('sounds')
+    useNativeFeed.setState({ openSounds: false })
+  }, [openSounds])
   const shown = useNightSounds(model, date || dates.at(-1))
   const today = useNightSounds(model, t)
   const isLatest = date === dates.at(-1)
@@ -112,7 +119,8 @@ function SleepScreen({ model }) {
             events={(lab.extras.get(date)?.events || []).map((e) => ({ t: e.t, level: lab.extras.get(date)?.rating === 'Likely' ? 'likely' : 'possible', label: `Heart rate +${e.surge} bpm` }))} />
           <NightFactorsLine feature={lab.featureBy.get(date)} />
         </section>
-        <SoundsRow line={lineFor(shown.n, dayWords(date, t), date === t, isLatest)} onOpen={() => setView('sounds')} />
+        <SoundsRow line={lineFor(shown.n, dayWords(date, t), date === t, isLatest)} onOpen={() => setView('sounds')}
+          running={!!live?.running} onToggle={typeof __NATIVE__ !== 'undefined' && __NATIVE__ ? control.toggle : null} busy={control.busy} message={control.message} />
       </StaggerItem>
       <StaggerItem className="space-y-2">
         <SectionTitle sub="Your own nights, compared">Sleep Lab</SectionTitle>

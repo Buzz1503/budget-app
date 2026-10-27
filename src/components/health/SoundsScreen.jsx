@@ -9,7 +9,7 @@ import { clockOf } from '../../health/engine/sleepView'
 import { soundsNight } from '../../sleep/sounds'
 import {
   soundsLine, sessionRows, snoreDensity, burstAt, trendPoints, shortRuns, minutesWords, levelWords,
-  gapReasonText, startedByText,
+  gapReasonText, startedByText, startMessage, logRows,
 } from '../../sleep/soundsView'
 import { tz } from './useHealthModel'
 import { Hypnogram, W } from './SleepCharts'
@@ -22,6 +22,7 @@ const soft = { color: 'var(--text-2)' }
 const L = 44
 const R = 8
 const native = () => import('../../native/sleepRuntime')
+const CHANGED = 'pepito-sounds-changed'
 const isNative = () => typeof __NATIVE__ !== 'undefined' && __NATIVE__
 
 const clock = (ms) => clockOf(clockFromNoon(ms, tz))
@@ -36,9 +37,37 @@ export function useSoundsLive(enabled) {
     const read = () => native().then((n) => n.soundsStatus()).then((r) => { if (live) setStatus(r) })
     void read()
     const id = setInterval(read, 60000)
-    return () => { live = false; clearInterval(id) }
+    // a start or stop from any screen refreshes every reader
+    window.addEventListener(CHANGED, read)
+    return () => { live = false; clearInterval(id); window.removeEventListener(CHANGED, read) }
   }, [enabled])
   return status
+}
+
+/**
+ * Start and stop in the foreground, the reliable way. Turns Sleep sounds on, and keeps what the
+ * phone answered (started, blocked, no permission, audio error) to show under the button.
+ */
+export function useSoundsControl(live, refresh) {
+  const set = useStore((s) => s.setSleepSettings)
+  const [message, setMessage] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const toggle = async () => {
+    setBusy(true)
+    const n = await native()
+    if (live?.running) {
+      await n.stopSounds()
+      setMessage(null)
+    } else {
+      set({ sleepSounds: true, soundsOnSince: new Date().toISOString().slice(0, 10) })
+      const r = await n.startSounds('app')
+      setMessage({ ok: r.result === 'started' || r.result === 'alreadyRunning', text: startMessage(r.result, r.error) })
+    }
+    await refresh?.()
+    window.dispatchEvent(new Event(CHANGED))
+    setBusy(false)
+  }
+  return { toggle, message, busy }
 }
 
 /** The sounds numbers for one night, from the sessions filed under it and (when it has arrived) the Watch's sleep. */
@@ -51,16 +80,28 @@ export function useNightSounds(model, date) {
   }, [sessions, model, date])
 }
 
-/** The Sleep tab's row: one live line, tap for the screen. */
-export function SoundsRow({ line, onOpen }) {
+/** The Sleep tab's row: one live line, tap for the screen, and the Start button (the reliable way to start). */
+export function SoundsRow({ line, onOpen, running = false, onToggle = null, busy = false, message = null }) {
   return (
-    <button type="button" onClick={onOpen} className="card flex w-full items-center gap-2 px-4 py-3 text-left" data-testid="sounds-row">
-      <span className="min-w-0 flex-1">
-        <span className="block text-sm font-black">Sleep sounds</span>
-        <span className="block text-xs font-medium tabular-nums" style={soft} data-testid="sounds-line">{line}</span>
-      </span>
-      <ChevronRight size={16} style={muted} />
-    </button>
+    <section className="card p-0" data-testid="sounds-card">
+      <button type="button" onClick={onOpen} className="flex w-full items-center gap-2 px-4 py-3 text-left" data-testid="sounds-row">
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-black">Sleep sounds</span>
+          <span className="block text-xs font-medium tabular-nums" style={soft} data-testid="sounds-line">{line}</span>
+        </span>
+        <ChevronRight size={16} style={muted} />
+      </button>
+      {onToggle && (
+        <div className="px-4 pb-3">
+          <button type="button" onClick={onToggle} disabled={busy} data-testid="sounds-start"
+            className="min-h-[40px] w-full rounded-full px-4 text-sm font-black disabled:opacity-60"
+            style={running ? { background: 'var(--surface-sunk)', color: 'var(--text)' } : { background: 'var(--accent)', color: 'var(--accent-fg)' }}>
+            {running ? 'Stop Sleep sounds' : 'Start Sleep sounds'}
+          </button>
+          {message && <p className="mt-2 text-xs font-medium" style={message.ok ? soft : { color: 'var(--text)' }} data-testid="sounds-start-result">{message.text}</p>}
+        </div>
+      )}
+    </section>
   )
 }
 
@@ -193,6 +234,8 @@ function SessionDetail({ session, onClose }) {
 
 function SessionLog({ byNight }) {
   const rows = useMemo(() => sessionRows(byNight), [byNight])
+  const attempts = useStore((s) => s.soundsLog)
+  const tries = useMemo(() => logRows(attempts || []).slice(0, 30), [attempts])
   const [open, setOpen] = useState(null)
   const session = useMemo(() => Object.values(byNight).flat().find((s) => s.id === open) || null, [byNight, open])
   return (
@@ -214,6 +257,20 @@ function SessionLog({ byNight }) {
             </button>
           )} />
       )}
+      <h3 className="px-1 pt-2 text-sm font-black">Start attempts</h3>
+      {tries.length === 0 ? (
+        <p className="card p-4 text-sm font-medium" style={soft} data-testid="attempts-none">No attempts logged yet. Each start, from the app, a Shortcuts automation or a notification, is listed here with its result.</p>
+      ) : (
+        <div className="card rows p-0" data-testid="sounds-attempts">
+          {tries.map((r) => (
+            <div key={r.key} className="px-4 py-3" data-testid="attempt-row" data-ok={String(r.ok)}>
+              <p className="text-sm font-bold tabular-nums">{dayShort(r.at)}, {clock(r.at)}</p>
+              <p className="text-xs font-medium" style={r.ok ? soft : { color: 'var(--text)' }}>{r.title}</p>
+              <p className="text-[11px] font-medium" style={muted}>{r.detail}</p>
+            </div>
+          ))}
+        </div>
+      )}
       <Modal open={!!session} onClose={() => setOpen(null)} title="Session">
         <SessionDetail session={session} onClose={() => setOpen(null)} />
       </Modal>
@@ -222,6 +279,25 @@ function SessionLog({ byNight }) {
 }
 
 /** On/off, the Shortcuts walkthrough, a one-minute test, and the plain statement about audio. */
+function SetupCheck({ live }) {
+  if (!isNative() || !live) return null
+  const items = [
+    ['Microphone allowed', live.microphone === 'granted', 'Allow it in Settings, Pepito+, Microphone.'],
+    ['Background audio on', live.backgroundAudio !== false, 'The app is missing the audio background mode. Reinstall the latest build.'],
+    ['Notifications allowed', live.notifications !== false, 'Without them it cannot tell you when it stops or cannot start.'],
+  ]
+  return (
+    <div className="rows" data-testid="sounds-setup-check">
+      {items.map(([label, ok, fix]) => (
+        <div key={label} className="py-2" data-ok={String(ok)}>
+          <p className="text-xs font-bold">{label}: {ok ? 'yes' : 'no'}</p>
+          {!ok && <p className="text-[11px] font-medium" style={muted}>{fix}</p>}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function SoundsSettings({ live, refresh }) {
   const ss = useStore((s) => s.sleepSettings)
   const set = useStore((s) => s.setSleepSettings)
@@ -235,12 +311,7 @@ function SoundsSettings({ live, refresh }) {
     setTest(r)
     void refresh()
   }
-  const toggleNow = async () => {
-    const n = await native()
-    if (live?.running) await n.stopSounds()
-    else await n.startSounds()
-    void refresh()
-  }
+  const { toggle: toggleNow, message: startNote } = useSoundsControl(live, refresh)
   return (
     <section className="card space-y-1 p-4" data-testid="sounds-settings">
       <p className="t-label">Settings and automation</p>
@@ -248,6 +319,7 @@ function SoundsSettings({ live, refresh }) {
         testId="sounds-switch" label="Sleep sounds" hint="Snoring, coughing and sleep talking, from Apple's on-device sound recognition." />
       <p className="text-xs font-medium" style={soft} data-testid="sounds-no-audio">No audio is ever saved. The phone keeps only the time, the kind of sound and how sure it was, plus one noise level a minute.</p>
       <p className="text-xs font-medium" style={muted}>Phone on the nightstand and charging. Music or a podcast you are listening to keeps playing as it is.</p>
+      <SetupCheck live={live} />
       {isNative() ? (
         <div className="space-y-2 pt-2">
           <div className="flex flex-wrap items-center gap-2">
@@ -259,6 +331,8 @@ function SoundsSettings({ live, refresh }) {
             </button>
             <span className="text-xs font-medium" style={muted} data-testid="sounds-auto-status">{autoStarted ? 'Has started by itself' : 'Not set up yet'}</span>
           </div>
+          {startNote && <p className="text-xs font-medium" style={soft} data-testid="sounds-now-result">{startNote.text}</p>}
+          <p className="text-xs font-medium" style={muted}>Start from here or the Sleep tab is the most reliable. The automation is a second path: when it cannot start, a notification at bedtime asks you to tap.</p>
           <div className="flex flex-wrap items-center gap-2">
             <button type="button" onClick={runTest} disabled={test === 'running' || live?.running} data-testid="sounds-test"
               className="min-h-[36px] rounded-full px-3 text-xs font-black disabled:opacity-50" style={{ background: 'var(--surface-sunk)', color: 'var(--text)' }}>

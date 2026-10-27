@@ -4,6 +4,7 @@ import SoundAnalysis
 import CoreMotion
 import HomeKit
 import UIKit
+import UserNotifications
 import PepitoCore
 
 /// Sleep sounds: snoring, coughing and sleep talking from Apple's built-in
@@ -49,6 +50,7 @@ final class SleepSoundsEngine: NSObject, HMHomeManagerDelegate {
     private var gapStart: (at: Date, reason: String)?
     private var checkpoints = 0
     private var lastCheckpoint = Date()
+    private var pausedNoticeSent = false
     private let lock = NSLock()
 
     var isRunning: Bool { startedAt != nil }
@@ -65,23 +67,45 @@ final class SleepSoundsEngine: NSObject, HMHomeManagerDelegate {
 
     // MARK: - start and stop
 
+    /// Starts listening and reports exactly what happened. Every attempt goes in the start log
+    /// (with the iOS error text); an automatic start that fails sends a notification to start it by hand.
     @discardableResult
-    func start(by: String = "app") -> Bool {
-        if isRunning { return true }
-        guard AVAudioApplication.shared.recordPermission == .granted || requestMic() else { return false }
-        lock.lock(); detections = []; levels = []; moves = []; room = []; lock.unlock()
-        gaps = []; gapStart = nil; checkpoints = 0
-        do {
-            try startAudio()
-        } catch {
-            stopAudio()
-            return false
+    func startWithResult(by: String = "app") -> SleepSoundsCore.LogEntry {
+        let now = ms(Date())
+        if isRunning { return .init(at: now, kind: "start", by: by, result: SleepSoundsCore.StartResult.alreadyRunning.rawValue) }
+        let granted = AVAudioApplication.shared.recordPermission == .granted
+        var entry: SleepSoundsCore.LogEntry
+        if !granted {
+            if by != "test" { AVAudioApplication.requestRecordPermission { _ in } }
+            entry = .init(at: now, kind: "start", by: by, result: SleepSoundsCore.StartResult.noPermission.rawValue)
+        } else {
+            lock.lock(); detections = []; levels = []; moves = []; room = []; lock.unlock()
+            gaps = []; gapStart = nil; checkpoints = 0; pausedNoticeSent = false
+            do {
+                try startAudio()
+                entry = .init(at: now, kind: "start", by: by, result: SleepSoundsCore.StartResult.started.rawValue)
+            } catch {
+                stopAudio()
+                let ns = error as NSError
+                let result = SleepSoundsCore.classifyStart(
+                    permission: true, errorCode: ns.code,
+                    locked: !UIApplication.shared.isProtectedDataAvailable,
+                    appActive: UIApplication.shared.applicationState == .active)
+                entry = .init(at: now, kind: "start", by: by, result: result.rawValue, error: "\(ns.localizedDescription) (\(ns.domain) \(ns.code))")
+            }
         }
-        let now = Date()
-        startedAt = now
+        if by != "test" { record(entry) }
+        guard entry.result == SleepSoundsCore.StartResult.started.rawValue else {
+            if by != "app", by != "test", let r = SleepSoundsCore.StartResult(rawValue: entry.result) {
+                SleepSoundsNotices.post(id: "pepito.sounds.startfailed", body: SleepSoundsCore.startFailedNotice(r))
+            }
+            return entry
+        }
+        let began = Date()
+        startedAt = began
         startedBy = by
-        sessionId = "ss-\(Int(now.timeIntervalSince1970))"
-        lastCheckpoint = now
+        sessionId = "ss-\(Int(began.timeIntervalSince1970))"
+        lastCheckpoint = began
         startMotion()
         startRoom()
         UIDevice.current.isBatteryMonitoringEnabled = true
@@ -92,12 +116,53 @@ final class SleepSoundsEngine: NSObject, HMHomeManagerDelegate {
         nc.addObserver(self, selector: #selector(configChanged), name: .AVAudioEngineConfigurationChange, object: engine)
         nc.addObserver(self, selector: #selector(terminating), name: UIApplication.willTerminateNotification, object: nil)
         if by != "test" {
-            UserDefaults.standard.set(now, forKey: "pepito.sleepsounds.lastStart")
+            UserDefaults.standard.set(began, forKey: "pepito.sleepsounds.lastStart")
             UserDefaults.standard.set(by, forKey: "pepito.sleepsounds.lastStartedBy")
+            // listening: tonight's "not listening yet" check is not needed, and a failed-start notice is stale
+            SleepSoundsNotices.listeningStarted(at: began)
             // the record exists from the first second, so a kill at any point leaves something
             writeSession(open: true, reason: nil)
         }
-        return true
+        return entry
+    }
+
+    @discardableResult
+    func start(by: String = "app") -> Bool {
+        let r = startWithResult(by: by).result
+        return r == SleepSoundsCore.StartResult.started.rawValue || r == SleepSoundsCore.StartResult.alreadyRunning.rawValue
+    }
+
+    // MARK: - the start log
+
+    private var logURL: URL { SharedStore.shared().directory.appendingPathComponent("sleep-sounds-start-log.json") }
+
+    func startLog() -> [SleepSoundsCore.LogEntry] {
+        guard let d = try? Data(contentsOf: logURL) else { return [] }
+        return (try? JSONDecoder().decode([SleepSoundsCore.LogEntry].self, from: d)) ?? []
+    }
+
+    func record(_ entry: SleepSoundsCore.LogEntry) {
+        let next = SleepSoundsCore.appended(startLog(), entry)
+        if let data = try? JSONEncoder().encode(next) { try? data.write(to: logURL, options: .atomic) }
+    }
+
+    /// A tap on a "start it" notification asks the web layer to start in the foreground.
+    var pendingStart: Bool {
+        get { UserDefaults.standard.bool(forKey: "pepito.sleepsounds.pendingStart") }
+        set { UserDefaults.standard.set(newValue, forKey: "pepito.sleepsounds.pendingStart") }
+    }
+
+    /// Words for the Stop automation when nothing is running.
+    func notRunningWords() -> String {
+        recoverOpenSessions()
+        let last = startLog().last { $0.kind == "start" }
+        var end: (ms: Double, reason: String?)?
+        let files = (try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? []
+        for url in files where url.pathExtension == "json" {
+            guard let d = try? Data(contentsOf: url), let s = try? JSONDecoder().decode(SleepSoundsSession.self, from: d), !s.open else { continue }
+            if end == nil || s.end > end!.ms { end = (s.end, s.stopReason) }
+        }
+        return SleepSoundsCore.notRunningWords(lastStart: last, lastEnd: end, nowMs: ms(Date()))
     }
 
     func stop(reason: String? = nil) {
@@ -106,6 +171,10 @@ final class SleepSoundsEngine: NSObject, HMHomeManagerDelegate {
         let wasTest = startedBy == "test"
         // the finished record is written while the session still exists
         if !wasTest { writeSession(open: false, reason: reason) }
+        if !wasTest, SleepSoundsCore.isUnexpected(reason) {
+            // at the moment it stops, with when and why, not at wake-up
+            SleepSoundsNotices.post(id: "pepito.sounds.stopped", body: SleepSoundsCore.stoppedNotice(reason: reason, atMs: ms(Date())))
+        }
         let summary = wasTest ? testSummary() : nil
         stopAudio()
         motion.stopDeviceMotionUpdates()
@@ -285,6 +354,7 @@ final class SleepSoundsEngine: NSObject, HMHomeManagerDelegate {
         guard let g = gapStart else { return }
         gaps.append(.init(s: ms(g.at), e: ms(Date()), reason: g.reason))
         gapStart = nil
+        if pausedNoticeSent { pausedNoticeSent = false; SleepSoundsNotices.remove(ids: ["pepito.sounds.paused"]) }
     }
 
     /// Tries to listen again; if the microphone is still taken the gap stays open and the next minute tries again.
@@ -410,6 +480,13 @@ final class SleepSoundsEngine: NSObject, HMHomeManagerDelegate {
         // the engine stopped without telling us: that is a gap too
         if !engine.isRunning { beginGap(gapStart?.reason ?? "interrupted") }
         if gapStart != nil { resume() }
+        // still paused after an hour: give up, and say when and why it stopped
+        if let g = gapStart, Date().timeIntervalSince(g.at) >= 3600 { stop(reason: SleepSoundsCore.StopReason.interrupted.rawValue); return }
+        // paused for 5 minutes and not back: say so now, once per pause
+        if let g = gapStart, !pausedNoticeSent, Date().timeIntervalSince(g.at) >= 300 {
+            pausedNoticeSent = true
+            SleepSoundsNotices.post(id: "pepito.sounds.paused", body: SleepSoundsCore.pausedNotice(sinceMs: ms(g.at)))
+        }
         if Date().timeIntervalSince(lastCheckpoint) >= SleepSoundsCore.checkpointEverySec { writeSession(open: true, reason: nil) }
     }
 
@@ -424,6 +501,10 @@ final class SleepSoundsEngine: NSObject, HMHomeManagerDelegate {
                   s.open, s.id != sessionId else { continue }
             let closed = SleepSoundsCore.recover(s)
             if let data = try? JSONEncoder().encode(closed) { try? data.write(to: url, options: .atomic) }
+            // found on this launch: say when it stopped and why, unless it is old news
+            if ms(Date()) - closed.end < 14 * 3600_000 {
+                SleepSoundsNotices.post(id: "pepito.sounds.stopped.\(closed.id)", body: SleepSoundsCore.stoppedNotice(reason: closed.stopReason, atMs: closed.end))
+            }
         }
     }
 
@@ -440,5 +521,55 @@ final class SleepSoundsEngine: NSObject, HMHomeManagerDelegate {
 
     func acknowledge(_ ids: [String]) {
         for id in ids { try? FileManager.default.removeItem(at: directory.appendingPathComponent("\(id).json")) }
+    }
+}
+
+/// The notifications Sleep sounds sends itself: it could not start, it stopped (when and why), it paused,
+/// and the bedtime check. Tapping any of them opens the app and starts listening in the foreground.
+enum SleepSoundsNotices {
+    static func post(id: String, body: String) {
+        let c = UNMutableNotificationContent()
+        c.title = "Sleep sounds"
+        c.body = body
+        c.sound = .default
+        c.userInfo = ["pepito.sounds": "start"]
+        UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: id, content: c, trigger: nil))
+    }
+
+    static func remove(ids: [String]) {
+        let n = UNUserNotificationCenter.current()
+        n.removePendingNotificationRequests(withIdentifiers: ids)
+        n.removeDeliveredNotifications(withIdentifiers: ids)
+    }
+
+    /// Tonight's bedtime check is cleared and any failed-start notice taken down.
+    static func listeningStarted(at: Date) {
+        let n = UNUserNotificationCenter.current()
+        remove(ids: ["pepito.sounds.startfailed", "pepito.sounds.stopped", "pepito.sounds.paused"])
+        n.getPendingNotificationRequests { reqs in
+            let pending: [(id: String, fire: Date)] = reqs.compactMap { r in
+                guard let t = r.trigger as? UNCalendarNotificationTrigger, let d = t.nextTriggerDate() else { return nil }
+                return (r.identifier, d)
+            }
+            remove(ids: SleepSoundsCore.checksToCancel(pending, startedAt: at))
+        }
+    }
+
+    /// One check a night for the next 7 nights, 10 minutes after bedtime. `nil` clears them.
+    static func scheduleChecks(bedtime: String?) {
+        let n = UNUserNotificationCenter.current()
+        n.getPendingNotificationRequests { reqs in
+            n.removePendingNotificationRequests(withIdentifiers: reqs.map(\.identifier).filter { $0.hasPrefix(SleepSoundsCore.checkPrefix) })
+            guard let bedtime else { return }
+            for t in SleepSoundsCore.checkTimes(bedtime: bedtime, now: Date()) {
+                let c = UNMutableNotificationContent()
+                c.title = "Sleep sounds"
+                c.body = SleepSoundsCore.bedtimeNotice
+                c.sound = .default
+                c.userInfo = ["pepito.sounds": "start"]
+                let parts = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: t.fire)
+                n.add(UNNotificationRequest(identifier: t.id, content: c, trigger: UNCalendarNotificationTrigger(dateMatching: parts, repeats: false)))
+            }
+        }
     }
 }

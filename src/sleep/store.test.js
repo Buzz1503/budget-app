@@ -148,6 +148,17 @@ describe('overnight data from the Watch and the iPhone', () => {
     expect(list[0]).toMatchObject({ recovered: true, stopReason: 'appClosed', end: 4000 })
   })
 
+  it('the start log keeps each attempt once and the newest 200', () => {
+    useStore.setState({ soundsLog: [] })
+    const e = { at: 1000, kind: 'start', by: 'shortcut', result: 'blockedLocked', error: 'x' }
+    useStore.getState().addSoundsLog([e, e])
+    useStore.getState().addSoundsLog([e])
+    expect(useStore.getState().soundsLog).toHaveLength(1)
+    useStore.getState().addSoundsLog(Array.from({ length: 250 }, (_, i) => ({ at: 2000 + i, kind: 'start', by: 'app', result: 'started' })))
+    expect(useStore.getState().soundsLog).toHaveLength(200)
+    expect(useStore.getState().soundsLog.at(-1).at).toBe(2249)
+  })
+
   it('Sleep sounds nights are kept once by id, under the morning they ended', () => {
     useStore.setState({ nightExtras: {} })
     const ss = { id: 'ss-1', start: 1000, end: 2000, events: [], levels: [], loudMinutes: 0, movingMinutes: 0, lowConfidence: false, room: [], startedBy: 'automation' }

@@ -980,4 +980,82 @@ final class LateUseTests: XCTestCase {
         XCTAssertEqual(SleepSoundsCore.StopReason.appClosed.rawValue, "appClosed")
         XCTAssertEqual(SleepSoundsCore.checkpointEverySec, 300)
     }
+
+    // MARK: starting, the log and the notices
+
+    private var utc: Calendar { var c = Calendar(identifier: .gregorian); c.timeZone = TimeZone(identifier: "UTC")!; return c }
+    private func ms(_ h: Int, _ m: Int, day: Int = 27) -> Double {
+        utc.date(from: DateComponents(year: 2026, month: 10, day: day, hour: h, minute: m))!.timeIntervalSince1970 * 1000
+    }
+
+    func testEveryStartOutcomeIsNamed() {
+        let c = SleepSoundsCore.classifyStart
+        XCTAssertEqual(c(true, nil, false, true), .started)
+        XCTAssertEqual(c(false, nil, false, true), .noPermission)
+        XCTAssertEqual(c(true, 561_145_187, true, false), .blockedLocked, "locked wins over the generic code")
+        XCTAssertEqual(c(true, 561_145_187, false, false), .blockedBackground)
+        XCTAssertEqual(c(true, 561_017_449, false, true), .blockedBackground)
+        XCTAssertEqual(c(true, 1234, false, false), .blockedBackground, "an unknown error from the background is still a background block")
+        XCTAssertEqual(c(true, 1234, false, true), .audioError)
+        XCTAssertEqual(SleepSoundsCore.startFailureWords(.blockedLocked), "The phone was locked, so iOS did not allow the microphone to start.")
+        XCTAssertEqual(SleepSoundsCore.startFailureWords(.noPermission), "Microphone access is off. Allow it in Settings.")
+    }
+
+    func testTheStartLogKeepsTheNewestEntries() {
+        var log: [SleepSoundsCore.LogEntry] = []
+        for i in 0..<70 { log = SleepSoundsCore.appended(log, .init(at: Double(i), kind: "start", by: "shortcut", result: "started")) }
+        XCTAssertEqual(log.count, 60)
+        XCTAssertEqual(log.first?.at, 10)
+        let e = SleepSoundsCore.LogEntry(at: 1, kind: "start", by: "shortcut", result: "audioError", error: "The operation couldn't be completed. (com.apple.coreaudio.avfaudio error 561145187.)")
+        XCTAssertEqual(try! JSONDecoder().decode(SleepSoundsCore.LogEntry.self, from: JSONEncoder().encode(e)), e)
+    }
+
+    func testTheStopNoticeSaysWhenAndWhy() {
+        XCTAssertEqual(SleepSoundsCore.timeWords(ms(3, 12), calendar: utc), "3:12 am")
+        XCTAssertEqual(SleepSoundsCore.timeWords(ms(0, 5), calendar: utc), "12:05 am")
+        XCTAssertEqual(SleepSoundsCore.timeWords(ms(22, 40), calendar: utc), "10:40 pm")
+        XCTAssertEqual(SleepSoundsCore.stoppedNotice(reason: "interrupted", atMs: ms(3, 12), calendar: utc),
+                       "Sleep sounds stopped recording at 3:12 am. Another app or a call kept the microphone. Tap to start it again.")
+        XCTAssertEqual(SleepSoundsCore.stoppedNotice(reason: "appClosed", atMs: ms(3, 12), calendar: utc),
+                       "Sleep sounds stopped recording at 3:12 am. The app was closed. Tap to start it again.")
+        XCTAssertTrue(SleepSoundsCore.isUnexpected("appClosed"))
+        XCTAssertTrue(SleepSoundsCore.isUnexpected("interrupted"))
+        XCTAssertFalse(SleepSoundsCore.isUnexpected("focusOff"))
+        XCTAssertFalse(SleepSoundsCore.isUnexpected("app"))
+        XCTAssertFalse(SleepSoundsCore.isUnexpected("unplugged"))
+        XCTAssertEqual(SleepSoundsCore.pausedNotice(sinceMs: ms(3, 12), calendar: utc), "Sleep sounds paused at 3:12 am. Another app or a call has the microphone. It listens again as soon as it can.")
+        XCTAssertFalse(SleepSoundsCore.stoppedNotice(reason: "interrupted", atMs: 0, calendar: utc).contains("\u{2014}"))
+    }
+
+    func testTheStopAutomationNeverJustSaysItWasNotRunning() {
+        let now = ms(7, 30)
+        let failed = SleepSoundsCore.LogEntry(at: ms(22, 41, day: 26), kind: "start", by: "shortcut", result: "blockedLocked", error: "!rec")
+        XCTAssertEqual(SleepSoundsCore.notRunningWords(lastStart: failed, lastEnd: nil, nowMs: now, calendar: utc),
+                       "Sleep sounds never started at 10:41 pm. The phone was locked, so iOS did not allow the microphone to start.")
+        XCTAssertEqual(SleepSoundsCore.notRunningWords(lastStart: nil, lastEnd: nil, nowMs: now, calendar: utc),
+                       "Sleep sounds did not start last night. Open Pepito+ and tap Start sleep sounds before bed.")
+        XCTAssertEqual(SleepSoundsCore.notRunningWords(lastStart: nil, lastEnd: (ms(3, 12), "appClosed"), nowMs: now, calendar: utc),
+                       "Sleep sounds stopped at 3:12 am. The app was closed.")
+        let ok = SleepSoundsCore.LogEntry(at: ms(22, 41, day: 26), kind: "start", by: "app", result: "started")
+        XCTAssertEqual(SleepSoundsCore.notRunningWords(lastStart: ok, lastEnd: (ms(6, 50), "focusOff"), nowMs: now, calendar: utc), "Sleep sounds was not running.")
+    }
+
+    func testTheBedtimeCheckIsOneANightAndGoesWhenListeningStarts() {
+        let now = utc.date(from: DateComponents(year: 2026, month: 10, day: 27, hour: 12, minute: 0))!
+        let times = SleepSoundsCore.checkTimes(bedtime: "22:30", now: now, calendar: utc)
+        XCTAssertEqual(times.count, 7)
+        XCTAssertEqual(times[0].id, "pepito.sounds.check.2026-10-27")
+        XCTAssertEqual(utc.component(.hour, from: times[0].fire), 22)
+        XCTAssertEqual(utc.component(.minute, from: times[0].fire), 40)
+        // after tonight's check has passed, the first one is tomorrow's
+        let late = utc.date(from: DateComponents(year: 2026, month: 10, day: 27, hour: 23, minute: 0))!
+        XCTAssertEqual(SleepSoundsCore.checkTimes(bedtime: "22:30", now: late, calendar: utc)[0].id, "pepito.sounds.check.2026-10-28")
+        XCTAssertEqual(SleepSoundsCore.checkTimes(bedtime: "nonsense", now: now, calendar: utc).count, 0)
+        // listening at 10:35 pm clears tonight's check and leaves the later nights
+        let started = utc.date(from: DateComponents(year: 2026, month: 10, day: 27, hour: 22, minute: 35))!
+        let gone = SleepSoundsCore.checksToCancel(times, startedAt: started)
+        XCTAssertEqual(gone, ["pepito.sounds.check.2026-10-27"])
+        XCTAssertEqual(SleepSoundsCore.bedtimeNotice, "Sleep sounds is not listening yet. Tap to start it.")
+        XCTAssertEqual(SleepSoundsCore.startFailedNotice(.blockedLocked), "Sleep sounds could not start. The phone was locked, so iOS did not allow the microphone to start. Tap to start it.")
+    }
 }

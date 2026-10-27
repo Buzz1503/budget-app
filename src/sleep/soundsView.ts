@@ -172,4 +172,47 @@ export function trendPoints(nights: Array<{ date: string; sounds: SoundsNight | 
 /** Nights the trend leaves out because they ran under 4 hours. */
 export const shortRuns = (nights: Array<{ sounds: SoundsNight | null }>) => nights.filter((n) => n.sounds && !n.sounds.eligible).length
 
+// -------------------------------------------------------------- start log
+
+export interface StartLogEntry { at: number; kind: 'start' | 'stop'; by: string; result: string; error?: string | null }
+
+const RESULT_WORDS: Record<string, string> = {
+  started: 'Started',
+  alreadyRunning: 'Already listening',
+  noPermission: 'Blocked: no microphone permission',
+  blockedLocked: 'Blocked: the phone was locked',
+  blockedBackground: 'Blocked: the app was in the background',
+  audioError: 'Audio session error',
+  skippedDaytime: 'Skipped: outside 8 pm to 4 am',
+  notRunning: 'Nothing was running to stop',
+}
+const BY_WORDS: Record<string, string> = { app: 'In the app', shortcut: 'Shortcuts automation', notification: 'From a notification', test: 'Test' }
+
+export const startResultWords = (r: string) => RESULT_WORDS[r] || 'Unknown result'
+
+/** What the Start button says after a tap. */
+export function startMessage(result: string, error?: string | null): string {
+  switch (result) {
+    case 'started': return 'Listening. It keeps going with the screen locked.'
+    case 'alreadyRunning': return 'Already listening.'
+    case 'noPermission': return 'Microphone access is off. Allow it in Settings, then tap Start again.'
+    case 'blockedLocked': return 'iOS did not allow it to start while the phone was locked. Unlock it and tap Start again.'
+    case 'blockedBackground': return 'iOS did not allow it to start from the background. Keep Pepito+ open and tap Start again.'
+    default: return `The audio session could not start.${error ? ` ${error}` : ''}`
+  }
+}
+
+export interface LogRow { key: string; at: number; title: string; detail: string; ok: boolean }
+
+/** The start log as rows for the session log, newest first: what was tried, by what, and the iOS error text. */
+export function logRows(entries: StartLogEntry[]): LogRow[] {
+  return [...entries].sort((a, b) => b.at - a.at).map((e) => ({
+    key: `${e.at}|${e.kind}|${e.by}`,
+    at: e.at,
+    title: `${e.kind === 'stop' ? 'Stop' : 'Start'}: ${startResultWords(e.result)}`,
+    detail: `${BY_WORDS[e.by] || e.by}${e.error ? `. ${e.error}` : ''}`,
+    ok: e.result === 'started' || e.result === 'alreadyRunning',
+  }))
+}
+
 export { SOUNDS, snoreRuns }

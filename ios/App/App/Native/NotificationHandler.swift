@@ -62,6 +62,10 @@ final class NotificationHandler: NSObject, UNUserNotificationCenterDelegate {
             RouteBox.open("supplies")
         case NotificationAction.openReaction:
             RouteBox.open("reactions")
+        case UNNotificationDefaultActionIdentifier where (content.userInfo["pepito.sounds"] as? String) == "start":
+            // "Tap to start Sleep sounds": the web layer starts it in the foreground, where iOS allows the microphone
+            SleepSoundsEngine.shared.pendingStart = true
+            RouteBox.open("sounds")
         case UNNotificationDefaultActionIdentifier:
             // a tap on the banner opens the app where it belongs
             RouteBox.open(payload?.route ?? "today")

@@ -168,6 +168,13 @@ an iOS app (bundle id com.buzz.pepito). State is one persisted Zustand store,
   (status line, session log, density, trend). Zero is not missing: ran and heard nothing is 0, did not run is `null`
   and a gap in the trend. Snoring feeds the analysis, apnea screen and report only from nights with 4 hours of audio.
   Screen `components/health/SoundsScreen.jsx` (row on the Sleep tab, Morning check line, "Test for 1 minute"); no audio is ever saved.
+  Starting: the Start button (Sleep tab and screen, `startSounds('app')`) is the reliable path, in the foreground; the Shortcuts
+  automation is the second. Every attempt is logged on the phone (`startWithResult`, `SleepSoundsCore.classifyStart`:
+  started, blockedLocked, blockedBackground, noPermission, audioError, with the iOS error text), mirrored into the store
+  (`soundsLog`) and listed under Sessions. A failed automatic start, an unexpected stop (`isUnexpected`) and a pause of 5
+  minutes each send a notification at that moment with when and why; `SleepSoundsNotices.scheduleChecks` plans a bedtime
+  check ("not listening yet") for 7 nights, cleared once listening starts. A tap sets `pendingStart`, the web layer starts
+  in the foreground (`startIfAsked`). The Stop shortcut never answers a bare "was not running" (`notRunningWords`).
 - Apnea (`src/sleep/apnea.ts`, "Screen, not a diagnosis"), nightmares (`nightmares.ts`, estimate,
   calibrated from 10 confirmed nights), overnight extras (`src/health/overnight.ts`, NIGHTS_SCHEMA 4).
 - Native: Watch restlessness (CMSensorRecorder, `RestlessRecorder`, backup start from complications via

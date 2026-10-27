@@ -20,12 +20,20 @@ struct StartSleepSoundsIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
+        let now = Date().timeIntervalSince1970 * 1000
         if eveningOnly && !SleepSoundsCore.inEveningWindow(Date()) {
+            SleepSoundsEngine.shared.record(.init(at: now, kind: "start", by: "shortcut", result: "skippedDaytime"))
             return .result(dialog: "Sleep sounds starts after 8 pm.")
         }
-        if SleepSoundsEngine.shared.isRunning { return .result(dialog: "Sleep sounds is already listening.") }
-        guard SleepSoundsEngine.shared.start(by: "shortcut") else {
-            return .result(dialog: "Sleep sounds needs microphone access. Open Pepito+ to allow it.")
+        if SleepSoundsEngine.shared.isRunning {
+            SleepSoundsEngine.shared.record(.init(at: now, kind: "start", by: "shortcut", result: SleepSoundsCore.StartResult.alreadyRunning.rawValue))
+            return .result(dialog: "Sleep sounds is already listening.")
+        }
+        let entry = SleepSoundsEngine.shared.startWithResult(by: "shortcut")
+        guard entry.result == SleepSoundsCore.StartResult.started.rawValue else {
+            let words = SleepSoundsCore.StartResult(rawValue: entry.result).map(SleepSoundsCore.startFailureWords) ?? ""
+            let text = "Sleep sounds could not start. \(words) A notification will let you start it."
+            return .result(dialog: IntentDialog(stringLiteral: text))
         }
         PepitoBridgePlugin.emit("sleepSoundsChanged", ["running": true])
         return .result(dialog: "Sleep sounds is listening.")
@@ -41,7 +49,11 @@ struct StopSleepSoundsIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        guard SleepSoundsEngine.shared.isRunning else { return .result(dialog: "Sleep sounds was not running.") }
+        guard SleepSoundsEngine.shared.isRunning else {
+            // never a bare "was not running": say when it stopped or why it never started
+            SleepSoundsEngine.shared.record(.init(at: Date().timeIntervalSince1970 * 1000, kind: "stop", by: "shortcut", result: "notRunning"))
+            return .result(dialog: IntentDialog(stringLiteral: SleepSoundsEngine.shared.notRunningWords()))
+        }
         SleepSoundsEngine.shared.stop(reason: SleepSoundsCore.StopReason.focusOff.rawValue)
         return .result(dialog: "Sleep sounds stopped.")
     }

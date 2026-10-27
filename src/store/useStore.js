@@ -189,6 +189,7 @@ function initialState() {
     //   restless: the Watch's movement summary; sounds: Sleep sounds sessions;
     //   lateUseMin: Screen Time minutes after bedtime (by the evening's date, see lateUse)
     nightExtras: {},
+    soundsLog: [],                      // every Sleep sounds start and stop attempt, with the result and iOS error text
     lateUse: {},                         // { eveningDate: minutes } from the Screen Time monitor
     apneaOverrides: {},                  // STOP-BANG answers set by hand: { snoring: true, ... }
     sleepSettings: {
@@ -2511,6 +2512,21 @@ const useStore = create(
       setRestless(wakeDate, summary) {
         if (!wakeDate || !summary) return
         set((s) => ({ nightExtras: { ...s.nightExtras, [wakeDate]: { ...(s.nightExtras[wakeDate] || {}), restless: summary } } }))
+      },
+      /** The iPhone's start log, each attempt kept once; the newest 200. */
+      addSoundsLog(entries = []) {
+        if (!entries.length) return
+        set((s) => {
+          const key = (e) => `${e.at}|${e.kind}|${e.by}|${e.result}`
+          const have = new Set((s.soundsLog || []).map(key))
+          const fresh = entries.filter((e) => {
+            if (!e || typeof e.at !== 'number' || have.has(key(e))) return false
+            have.add(key(e))
+            return true
+          })
+          if (!fresh.length) return {}
+          return { soundsLog: [...(s.soundsLog || []), ...fresh].sort((a, b) => a.at - b.at).slice(-200) }
+        })
       },
       /** Finished Sleep sounds nights from the iPhone, each kept once by id. */
       addSoundSessions(sessions = [], nightOf) {

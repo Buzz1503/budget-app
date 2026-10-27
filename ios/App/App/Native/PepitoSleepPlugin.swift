@@ -1,5 +1,6 @@
 import Foundation
 import AVFoundation
+import UserNotifications
 import Capacitor
 import PepitoCore
 
@@ -20,6 +21,9 @@ public class PepitoSleepPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "startSounds", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "stopSounds", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "testSounds", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "soundsStartLog", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "takePendingStart", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "scheduleSoundsCheck", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "finishedSounds", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "acknowledgeSounds", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "screenTimeStatus", returnType: CAPPluginReturnPromise),
@@ -43,28 +47,70 @@ public class PepitoSleepPlugin: CAPPlugin, CAPBridgedPlugin {
         DispatchQueue.main.async {
             let e = SleepSoundsEngine.shared
             let d = UserDefaults.standard
-            call.resolve([
-                "running": e.isRunning,
-                "startedAt": orNull(e.startedAt.map { $0.timeIntervalSince1970 * 1000 }),
-                "microphone": AVAudioApplication.shared.recordPermission == .granted ? "granted"
-                    : AVAudioApplication.shared.recordPermission == .denied ? "denied" : "undetermined",
-                "lastStart": orNull((d.object(forKey: "pepito.sleepsounds.lastStart") as? Date).map { $0.timeIntervalSince1970 * 1000 }),
-                "lastStartedBy": orNull(d.string(forKey: "pepito.sleepsounds.lastStartedBy")),
-                "roomSensor": e.hasRoomSensor,
-                "gapOpen": e.hasOpenGap,
-                "lastCheckpoint": orNull(e.lastCheckpointMs)
-            ])
+            let modes = Bundle.main.object(forInfoDictionaryKey: "UIBackgroundModes") as? [String] ?? []
+            UNUserNotificationCenter.current().getNotificationSettings { settings in
+                let allowed = settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional
+                DispatchQueue.main.async {
+                    call.resolve([
+                        "running": e.isRunning,
+                        "startedAt": orNull(e.startedAt.map { $0.timeIntervalSince1970 * 1000 }),
+                        "microphone": AVAudioApplication.shared.recordPermission == .granted ? "granted"
+                            : AVAudioApplication.shared.recordPermission == .denied ? "denied" : "undetermined",
+                        "backgroundAudio": modes.contains("audio"),
+                        "notifications": allowed,
+                        "lastStart": orNull((d.object(forKey: "pepito.sleepsounds.lastStart") as? Date).map { $0.timeIntervalSince1970 * 1000 }),
+                        "lastStartedBy": orNull(d.string(forKey: "pepito.sleepsounds.lastStartedBy")),
+                        "roomSensor": e.hasRoomSensor,
+                        "gapOpen": e.hasOpenGap,
+                        "lastCheckpoint": orNull(e.lastCheckpointMs)
+                    ])
+                }
+            }
         }
     }
 
+    /// Starts in the foreground (the reliable path) and says exactly what happened.
     @objc func startSounds(_ call: CAPPluginCall) {
+        let by = call.getString("by") ?? "app"
         let begin = {
-            DispatchQueue.main.async { call.resolve(["running": SleepSoundsEngine.shared.start(by: call.getString("by") ?? "app")]) }
+            DispatchQueue.main.async {
+                let r = SleepSoundsEngine.shared.startWithResult(by: by)
+                let ok = r.result == SleepSoundsCore.StartResult.started.rawValue || r.result == SleepSoundsCore.StartResult.alreadyRunning.rawValue
+                call.resolve(["running": ok, "result": r.result, "error": orNull(r.error)])
+            }
         }
         if AVAudioApplication.shared.recordPermission == .granted { begin(); return }
         AVAudioApplication.requestRecordPermission { granted in
-            if granted { begin() } else { call.resolve(["running": false, "microphone": "denied"]) }
+            if granted { begin() } else {
+                DispatchQueue.main.async {
+                    let e = SleepSoundsCore.LogEntry(at: Date().timeIntervalSince1970 * 1000, kind: "start", by: by, result: SleepSoundsCore.StartResult.noPermission.rawValue)
+                    SleepSoundsEngine.shared.record(e)
+                    call.resolve(["running": false, "result": e.result, "error": NSNull(), "microphone": "denied"])
+                }
+            }
         }
+    }
+
+    @objc func soundsStartLog(_ call: CAPPluginCall) {
+        let rows: [[String: Any]] = SleepSoundsEngine.shared.startLog().map {
+            ["at": $0.at, "kind": $0.kind, "by": $0.by, "result": $0.result, "error": orNull($0.error)]
+        }
+        call.resolve(["entries": rows])
+    }
+
+    /// Whether a tap on a "start it" notification is waiting for the web layer; read once.
+    @objc func takePendingStart(_ call: CAPPluginCall) {
+        let e = SleepSoundsEngine.shared
+        let pending = e.pendingStart
+        e.pendingStart = false
+        call.resolve(["pending": pending])
+    }
+
+    /// The bedtime safety net: a notification 10 minutes after bedtime on the next 7 nights, unless listening has started.
+    @objc func scheduleSoundsCheck(_ call: CAPPluginCall) {
+        let on = call.getBool("enabled") ?? false
+        SleepSoundsNotices.scheduleChecks(bedtime: on ? call.getString("bedtime") : nil)
+        call.resolve()
     }
 
     @objc func stopSounds(_ call: CAPPluginCall) {

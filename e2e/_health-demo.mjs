@@ -549,6 +549,7 @@ await step('Sleep sounds: row, last night, timeline, trend, session log, setting
     const session = { id: 'ss-demo', start, end, events, levels, loudMinutes: 6, movingMinutes: 0, lowConfidence: false, room: [], startedBy: 'shortcut', stopReason: 'focusOff', gaps, checkpoints: 300, open: false, recovered: false }
     raw.state.nightExtras = { ...(raw.state.nightExtras || {}), [t]: { ...((raw.state.nightExtras || {})[t] || {}), sounds: [session] } }
     raw.state.sleepSettings = { ...(raw.state.sleepSettings || {}), sleepSounds: true }
+    raw.state.soundsLog = [{ at: end - 9 * 3600000, kind: 'start', by: 'shortcut', result: 'blockedLocked', error: 'error 561145187' }]
     localStorage.setItem('peptide-command-center', JSON.stringify(raw))
   })
   await page.reload({ waitUntil: 'domcontentloaded' })
@@ -572,6 +573,8 @@ await step('Sleep sounds: row, last night, timeline, trend, session log, setting
   await seen('[data-testid="session-detail"]')
   if (!/Interrupted|call/.test(await page.textContent('[data-testid="detail-gaps"]'))) throw new Error('gap not listed')
   await closeSheet()
+  const attempt = await page.locator('[data-testid="attempt-row"]').first().innerText()
+  if (!/Blocked: the phone was locked/.test(attempt) || !/error 561145187/.test(attempt)) throw new Error(`start attempt reads "${attempt}"`)
   if (!/No audio is ever saved/.test(await page.textContent('[data-testid="sounds-no-audio"]'))) throw new Error('no audio statement')
   await noOverflow('Sleep sounds')
   // back, then the Morning check summary opens the same screen

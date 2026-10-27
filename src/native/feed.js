@@ -16,5 +16,7 @@ export const useNativeFeed = create((set) => ({
   openCount: false,
   // the evening prompt's Log: the Sleep tab opens the evening sheet and clears this
   openEvening: false,
+  // a "start Sleep sounds" notification was tapped: the Sleep tab opens the Sleep sounds screen
+  openSounds: false,
   setHealth: (patch) => set(patch),
 }))

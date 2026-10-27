@@ -170,6 +170,136 @@ public enum SleepSoundsCore {
         return out
     }
 
+    // MARK: starting, and saying what happened
+
+    /// What a start attempt came to. Logged every time, with the iOS error text when there was one.
+    public enum StartResult: String, Codable, Sendable {
+        case started, alreadyRunning, noPermission
+        /// the phone was locked, so iOS would not let the microphone start
+        case blockedLocked
+        /// the app was not in the foreground, and iOS would not let the microphone start
+        case blockedBackground
+        case audioError
+    }
+
+    /// AVAudioSession error codes iOS returns when recording may not start from here.
+    public static let blockedCodes: Set<Int> = [561_145_187 /* cannotStartRecording */, 561_017_449 /* insufficientPriority */, 560_557_684 /* cannotInterruptOthers */]
+
+    public static func classifyStart(permission: Bool, errorCode: Int?, locked: Bool, appActive: Bool) -> StartResult {
+        if !permission { return .noPermission }
+        guard let code = errorCode else { return .started }
+        if locked { return .blockedLocked }
+        if blockedCodes.contains(code) || !appActive { return .blockedBackground }
+        return .audioError
+    }
+
+    /// One line in the start log: a start or a stop attempt.
+    public struct LogEntry: Codable, Equatable, Sendable {
+        public var at: Double        // epoch ms
+        public var kind: String      // "start" or "stop"
+        public var by: String        // app, shortcut, notification, test
+        public var result: String    // a StartResult raw value, or "notRunning" for a stop with nothing to stop
+        public var error: String?
+        public init(at: Double, kind: String, by: String, result: String, error: String? = nil) {
+            self.at = at; self.kind = kind; self.by = by; self.result = result; self.error = error
+        }
+    }
+
+    public static let logKeep = 60
+    /// The newest `keep` entries, oldest first.
+    public static func appended(_ log: [LogEntry], _ entry: LogEntry, keep: Int = logKeep) -> [LogEntry] {
+        Array((log + [entry]).suffix(keep))
+    }
+
+    /// "3:12 am".
+    public static func timeWords(_ ms: Double, calendar: Calendar = .current) -> String {
+        let c = calendar.dateComponents([.hour, .minute], from: Date(timeIntervalSince1970: ms / 1000))
+        let h = c.hour ?? 0, m = c.minute ?? 0
+        let h12 = h % 12 == 0 ? 12 : h % 12
+        return "\(h12):\(m < 10 ? "0" : "")\(m) \(h < 12 ? "am" : "pm")"
+    }
+
+    /// Why a start did not happen, in plain words.
+    public static func startFailureWords(_ r: StartResult) -> String {
+        switch r {
+        case .started, .alreadyRunning: return ""
+        case .noPermission: return "Microphone access is off. Allow it in Settings."
+        case .blockedLocked: return "The phone was locked, so iOS did not allow the microphone to start."
+        case .blockedBackground: return "The app was in the background, so iOS did not allow the microphone to start."
+        case .audioError: return "The audio session could not start."
+        }
+    }
+
+    /// Why a session ended, as a short clause.
+    public static func stopReasonWords(_ reason: String?) -> String {
+        switch reason {
+        case StopReason.interrupted.rawValue: return "Another app or a call kept the microphone."
+        case StopReason.appClosed.rawValue: return "The app was closed."
+        case StopReason.unplugged.rawValue: return "The phone was unplugged."
+        case StopReason.tooLong.rawValue: return "It reached the 11 hour limit."
+        case StopReason.focusOff.rawValue: return "Sleep Focus ended."
+        default: return "It was stopped."
+        }
+    }
+
+    /// A stop nobody asked for: worth a notification the moment it happens.
+    public static func isUnexpected(_ reason: String?) -> Bool {
+        reason == StopReason.interrupted.rawValue || reason == StopReason.appClosed.rawValue
+    }
+
+    /// The notification sent when capture stops on its own: when, and why.
+    public static func stoppedNotice(reason: String?, atMs: Double, calendar: Calendar = .current) -> String {
+        "Sleep sounds stopped recording at \(timeWords(atMs, calendar: calendar)). \(stopReasonWords(reason)) Tap to start it again."
+    }
+
+    /// Sent when listening has been paused for a while and has not come back.
+    public static func pausedNotice(sinceMs: Double, calendar: Calendar = .current) -> String {
+        "Sleep sounds paused at \(timeWords(sinceMs, calendar: calendar)). Another app or a call has the microphone. It listens again as soon as it can."
+    }
+
+    /// Sent when an automatic start could not begin capture.
+    public static func startFailedNotice(_ r: StartResult) -> String { "Sleep sounds could not start. \(startFailureWords(r)) Tap to start it." }
+
+    /// The bedtime safety net: nothing is listening yet.
+    public static let bedtimeNotice = "Sleep sounds is not listening yet. Tap to start it."
+
+    /// What the Stop automation says when nothing is running, so it is never a bare "was not running".
+    public static func notRunningWords(lastStart: LogEntry?, lastEnd: (ms: Double, reason: String?)?, nowMs: Double, calendar: Calendar = .current) -> String {
+        let recent = 14.0 * 3600_000
+        if let end = lastEnd, nowMs - end.ms < recent, end.reason != StopReason.focusOff.rawValue, end.reason != StopReason.app.rawValue {
+            return "Sleep sounds stopped at \(timeWords(end.ms, calendar: calendar)). \(stopReasonWords(end.reason))"
+        }
+        if let s = lastStart, s.kind == "start", nowMs - s.at < recent, let r = StartResult(rawValue: s.result), r != .started, r != .alreadyRunning {
+            return "Sleep sounds never started at \(timeWords(s.at, calendar: calendar)). \(startFailureWords(r))"
+        }
+        if lastStart == nil || nowMs - (lastStart?.at ?? 0) >= recent {
+            return "Sleep sounds did not start last night. Open Pepito+ and tap Start sleep sounds before bed."
+        }
+        return "Sleep sounds was not running."
+    }
+
+    /// Where the bedtime check notifications go: one a night for the next `days` nights, `offsetMin` after bedtime.
+    public static let checkPrefix = "pepito.sounds.check."
+    public static func checkTimes(bedtime: String, now: Date, offsetMin: Int = 10, days: Int = 7, calendar: Calendar = .current) -> [(id: String, fire: Date)] {
+        let parts = bedtime.split(separator: ":").compactMap { Int($0) }
+        guard parts.count == 2 else { return [] }
+        var out: [(id: String, fire: Date)] = []
+        for d in 0..<(days + 1) {
+            guard let day = calendar.date(byAdding: .day, value: d, to: calendar.startOfDay(for: now)),
+                  let bed = calendar.date(bySettingHour: parts[0], minute: parts[1], second: 0, of: day) else { continue }
+            let fire = bed.addingTimeInterval(Double(offsetMin) * 60)
+            guard fire > now else { continue }
+            let c = calendar.dateComponents([.year, .month, .day], from: fire)
+            out.append((checkPrefix + "\(c.year ?? 0)-\(c.month ?? 0)-\(c.day ?? 0)", fire))
+        }
+        return Array(out.prefix(days))
+    }
+
+    /// Listening has started: the checks due in the next 12 hours are not needed.
+    public static func checksToCancel(_ pending: [(id: String, fire: Date)], startedAt: Date) -> [String] {
+        pending.filter { $0.id.hasPrefix(checkPrefix) && $0.fire >= startedAt.addingTimeInterval(-3600) && $0.fire <= startedAt.addingTimeInterval(12 * 3600) }.map(\.id)
+    }
+
     // MARK: the phone moving
 
     /// A minute with the phone moving: device motion above 0.05 g for 5 seconds or more of it.

@@ -26,6 +26,10 @@ export async function collectSleepData() {
     }
   } catch { /* no plugin */ }
   try {
+    const { entries = [] } = await PepitoSleep.soundsStartLog()
+    useStore.getState().addSoundsLog(entries.map((e) => ({ ...e, error: e.error ?? null })))
+  } catch { /* no plugin */ }
+  try {
     const { nights = {} } = await PepitoSleep.lateUse()
     if (Object.keys(nights).length) useStore.getState().setLateUse(nights)
   } catch { /* no plugin */ }
@@ -46,8 +50,13 @@ export async function refreshSleepStatus() {
 export async function soundsStatus() {
   try { return await PepitoSleep.soundsStatus() } catch { return { running: false, unavailable: true } }
 }
-export async function startSounds() {
-  try { return await PepitoSleep.startSounds({ by: 'app' }) } catch { return { running: false } }
+/** Start in the foreground, the reliable way. Resolves with the exact result and the iOS error text. */
+export async function startSounds(by = 'app') {
+  try {
+    const r = await PepitoSleep.startSounds({ by })
+    await collectSleepData()
+    return r
+  } catch (e) { return { running: false, result: 'audioError', error: String(e?.message || e || '') } }
 }
 export async function stopSounds() {
   try { const r = await PepitoSleep.stopSounds({ reason: 'app' }); await collectSleepData(); return r } catch { return { running: false } }
@@ -70,12 +79,36 @@ export async function scheduleLateUse(bedtime, wake) {
   try { return await PepitoSleep.scheduleLateUse({ bedtime, wake }) } catch { return { scheduled: false } }
 }
 
+/**
+ * The bedtime safety net: a notification 10 minutes after planned bedtime on the next
+ * 7 nights ("Sleep sounds is not listening yet"), cleared by the phone once listening starts.
+ */
+export async function syncSoundsCheck() {
+  const ss = useStore.getState().sleepSettings || {}
+  try { await PepitoSleep.scheduleSoundsCheck({ enabled: !!ss.sleepSounds && !!ss.lastBedtime, bedtime: ss.lastBedtime || '22:30' }) } catch { /* no plugin */ }
+}
+
+/** A tap on a "start it" notification: start now, in the foreground. */
+export async function startIfAsked() {
+  try {
+    const { pending } = await PepitoSleep.takePendingStart()
+    if (pending) await startSounds('notification')
+  } catch { /* no plugin */ }
+}
+
 let started = false
 export function startSleepRuntime(addListener) {
   if (started) return
   started = true
   void collectSleepData()
   void refreshSleepStatus()
-  addListener?.('appActive', () => { void collectSleepData(); void refreshSleepStatus() })
+  void startIfAsked()
+  void syncSoundsCheck()
+  let last = ''
+  useStore.subscribe((s) => {
+    const key = `${s.sleepSettings?.sleepSounds}|${s.sleepSettings?.lastBedtime}`
+    if (key !== last) { last = key; void syncSoundsCheck() }
+  })
+  addListener?.('appActive', () => { void startIfAsked(); void collectSleepData(); void refreshSleepStatus(); void syncSoundsCheck() })
   void import('./runtime').then(({ listen }) => listen(PepitoSleep, 'PepitoSleep', 'sleepSoundsChanged', () => { void collectSleepData() }))
 }
