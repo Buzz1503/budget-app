@@ -117,7 +117,7 @@ export default function SaunaTab() {
         </StaggerItem>
         {HEALTH_BUILD && (
           <StaggerItem className="space-y-2">
-            <SectionTitle sub="Watch sessions at a similar temperature">Heat adaptation</SectionTitle>
+            <SectionTitle sub="Heart rate at minute 10, at the temperature you use most">Is your body getting used to the heat?</SectionTitle>
             <HeatAdaptationCard />
           </StaggerItem>
         )}
@@ -128,12 +128,12 @@ export default function SaunaTab() {
           </StaggerItem>
         )}
         <StaggerItem className="space-y-2">
-          <SectionTitle sub="Last 12 weeks; darker is more heat minutes">Consistency</SectionTitle>
+          <SectionTitle sub="From your first week on; darker is more heat minutes">Consistency</SectionTitle>
           <Consistency />
         </StaggerItem>
         {HEALTH_BUILD && (
           <StaggerItem className="space-y-2">
-            <SectionTitle sub="That night and the next morning, from your first session on">Patterns</SectionTitle>
+            <SectionTitle sub="Since you started, inside sauna days, then sauna days against days off">Patterns</SectionTitle>
             <PatternsCard />
           </StaggerItem>
         )}

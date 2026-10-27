@@ -5,16 +5,21 @@ import { ChevronRight } from 'lucide-react'
 import useStore, { todayStr } from '../../store/useStore'
 import { heatmap, totals } from '../../sauna/sauna'
 import { targetWeeks } from '../../sauna/analytics'
+import { gridWeeks, weekHeader } from '../../sauna/insights'
 
 const SHADE = [0, 0.3, 0.55, 0.8, 1]
 const DOW = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 
-/** Twelve weeks as columns, Monday at the top; one hue, darker for more heat minutes. */
+/**
+ * Weeks as columns from the week of the first session, Monday at the top; one hue, darker
+ * for more heat minutes. Under 12 weeks of history only those weeks, with wider cells.
+ */
 function Heatmap({ sessions, today }) {
-  const weeks = heatmap(sessions, today)
-  const cell = 18
+  const n = gridWeeks(sessions, today)
+  const weeks = heatmap(sessions, today, n)
   const gap = 4
   const L = 14
+  const cell = Math.min(34, Math.floor((300 - L) / n - gap))
   const W = L + weeks.length * (cell + gap)
   const H = 7 * (cell + gap)
   return (
@@ -52,12 +57,18 @@ export function Consistency() {
   const target = useStore((s) => s.saunaSettings.weeklyTarget)
   const t = todayStr()
   const weeks = useMemo(() => targetWeeks(sessions, t, target), [sessions, t, target])
+  const header = useMemo(() => weekHeader(sessions, t, target), [sessions, t, target])
   const months = useMemo(() => totals(sessions, 'month').slice(0, 6), [sessions])
   const years = useMemo(() => totals(sessions, 'year'), [sessions])
   return (
     <section className="card space-y-4 p-4" data-testid="sauna-consistency">
-      {weeks.text && <p className="text-sm font-bold tabular-nums" data-testid="sauna-target-weeks">{weeks.text}</p>}
-      <Heatmap sessions={sessions} today={t} />
+      <div>
+        <p className="text-sm font-bold tabular-nums" data-testid="sauna-week-header">{header}</p>
+        {weeks.text && <p className="text-xs font-medium tabular-nums" style={{ color: 'var(--text-2)' }} data-testid="sauna-target-weeks">{weeks.text}</p>}
+      </div>
+      {sessions.length > 0
+        ? <Heatmap sessions={sessions} today={t} />
+        : <p className="text-sm font-medium" style={{ color: 'var(--text-2)' }} data-testid="sauna-heatmap-empty">Needs 1 session. You have 0.</p>}
       {sessions.length > 0 && (
         <div data-testid="sauna-totals">
           <div className="grid grid-cols-2 gap-4">

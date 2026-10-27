@@ -196,7 +196,7 @@ describe('cool-down recovery', () => {
 
   it('trend after 5 sessions with a cool-down', () => {
     const four = [10, 12, 14, 16].map((d, i) => ({ date: `2026-10-0${i + 1}`, drop2: d }))
-    expect(coolDownTrend(four)).toMatchObject({ locked: true, have: 4, text: 'The trend appears after 5 sessions with a cool-down (you have 4)' })
+    expect(coolDownTrend(four)).toMatchObject({ locked: true, have: 4, text: 'The trend needs 5 sessions with a cool-down. You have 4.' })
     const five = coolDownTrend([...four, { date: '2026-10-05', drop2: 18 }, { date: '2026-10-06', drop2: null }])
     expect(five).toMatchObject({ locked: false, change: 8, text: 'Your 2 minute drop is up 8 bpm over 5 sessions.' })
   })
@@ -206,7 +206,7 @@ describe('consistency', () => {
   it('counts weeks from the first session only, and this week once it is hit', () => {
     // first session two weeks ago: only 3 weeks exist, not 8
     const list = [s('2026-10-06'), s('2026-10-07'), s('2026-10-08'), s('2026-10-13'), s('2026-10-20')]
-    expect(targetWeeks(list, T, 3)).toMatchObject({ hit: 1, of: 2, text: 'Target hit in 1 of the last 2 weeks' })
+    expect(targetWeeks(list, T, 3)).toMatchObject({ hit: 1, of: 2, text: 'Target hit 1 of 2 weeks' })
     expect(targetWeeks([...list, s('2026-10-21'), s('2026-10-22')], T, 3)).toMatchObject({ hit: 2, of: 3 })
     expect(targetWeeks([], T, 3).text).toBeNull()
   })
@@ -227,7 +227,7 @@ describe('patterns', () => {
 
   it('one progress line while locked, no rows', () => {
     const r = patterns(input([s('2026-10-20')]))
-    expect(r).toMatchObject({ nights: [], timing: [], saunaDays: 1, progress: 'Patterns unlock after 7 sauna days (you have 1)' })
+    expect(r).toMatchObject({ nights: [], timing: [], saunaDays: 1, progress: 'Needs 7 sauna days to compare. You have 1.' })
   })
 
   it('a row unlocks at 7 days in each group, with n per group and a plain sentence', () => {
@@ -259,7 +259,7 @@ describe('patterns', () => {
 describe('longer term', () => {
   it('locked under 8 weeks from the first session, and never counts weeks before it', () => {
     const r = longerTerm({ sessions: [s('2026-10-20')], morning: health().morning }, T)
-    expect(r).toMatchObject({ locked: true, weeks: 1, text: 'Unlocks after 8 weeks of sauna (you have 1)' })
+    expect(r).toMatchObject({ locked: true, weeks: 1, text: 'Needs 8 weeks of sauna. You have 1.' })
   })
 
   it('weeks start at the first session and a sentence needs 4 weeks with and 4 without', () => {
@@ -369,7 +369,7 @@ describe('M7: the Sauna tab around health data', () => {
     ]
     const four = ratingRows(list, () => null)
     expect(four.rows).toEqual([])
-    expect(four.progress).toBe('Rating rows unlock after 5 rated sessions (you have 4)')
+    expect(four.progress).toBe('Needs 5 rated sessions. You have 4.')
     expect(ratingRows([...list, s('2026-10-09')], () => null).rated).toBe(4) // an unrated session does not count
     const five = ratingRows([...list, s('2026-10-09', { lengthMin: 22, tempC: 70, rating: rate(4) })], (x) => (x.lengthMin >= 20 ? 0.6 : 0.3))
     expect(five.progress).toBeNull()

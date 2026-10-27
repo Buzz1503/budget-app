@@ -3,9 +3,11 @@ import { format, parseISO } from 'date-fns'
 import { ChevronRight } from 'lucide-react'
 import useStore, { todayStr } from '../../store/useStore'
 import {
-  heatAdaptation, coolDownDrop, coolDownTrend, patterns, longerTerm, fit, ratingRows, fluidEstimate,
+  coolDownDrop, coolDownTrend, patterns, longerTerm, fit, ratingRows, fluidEstimate,
 } from '../../sauna/analytics'
 import { SAUNA_CAVEAT } from '../../sauna/saunaEffects'
+import { beforeVsSince, compoundCaveat, withinSauna, heatAdaptation10, hrAtMinute10 } from '../../sauna/insights'
+import useChartEvents from '../charts/useChartEvents'
 import { useSaunaHealth } from './saunaHealthContext'
 import SessionDetail from './SessionDetail'
 
@@ -67,27 +69,26 @@ export function LastSessionCard({ onOpen }) {
   )
 }
 
-/** 3. Heat adaptation: Watch sessions in the band used most. */
+/**
+ * 3. Is your body getting used to the heat? Heart rate at minute 10 of each Watch session at
+ * the temperature used most, oldest on the left, with one verdict. Average heart rate rises
+ * with longer sessions, so minute 10 compares like with like. Average and peak stay in the
+ * session detail.
+ */
 export function HeatAdaptationCard() {
   const sessions = useStore((s) => s.saunaSessions)
   const ctx = useSaunaHealth()
-  const r = useMemo(() => {
-    const list = []
-    for (const s of sessions) {
-      const series = ctx.seriesFor(s)
-      if (!series) continue
-      const avg = series.reduce((t, p) => t + p[1], 0) / series.length
-      list.push({ id: s.id, date: s.date, tempC: s.tempC, avgHR: Math.round(avg) })
-    }
-    return heatAdaptation(list)
-  }, [sessions, ctx])
+  const r = useMemo(() => heatAdaptation10(sessions.map((s) => ({
+    id: s.id, date: s.date, start: s.start, tempC: s.tempC, lengthMin: s.lengthMin, hr10: hrAtMinute10(ctx?.seriesFor(s)),
+  }))), [sessions, ctx])
   return (
-    <section className="card p-4" data-testid="sauna-adaptation">
-      {r.locked ? <Locked text={r.text} testid="sauna-adaptation-locked" /> : (
+    <section className="card p-4" data-testid="sauna-adaptation" data-status={r.status}>
+      {r.status === 'early' ? <Locked text={r.verdict} testid="sauna-adaptation-locked" /> : (
         <>
-          <p className="text-sm font-bold" data-testid="sauna-adaptation-text">{r.text}</p>
-          <p className="mb-2 text-xs font-medium" style={muted}>Average heart rate per session at {r.band.label}, with its trend.</p>
-          <DotTrend points={r.points} unit="bpm" label={`Average heart rate per session at ${r.band.label}`} testid="sauna-adaptation-chart" />
+          <p className="text-sm font-bold" data-testid="sauna-adaptation-text">{r.verdict}</p>
+          <p className="mb-2 text-xs font-medium" style={muted}>Heart rate at minute 10 of each session at {r.band.label}, oldest on the left. Lower means your body is coping with the heat more easily.</p>
+          <DotTrend points={r.points} unit="bpm" label={`Heart rate at minute 10 of each session at ${r.band.label}`} testid="sauna-adaptation-chart" />
+          {r.context && <p className="mt-2 text-xs font-medium" style={soft} data-testid="sauna-adaptation-context">{r.context}</p>}
         </>
       )}
     </section>
@@ -190,13 +191,81 @@ function RatingRows() {
   )
 }
 
-/** 6. Patterns, from Health, then how it felt. */
+/** Since you started sauna against the 4 weeks before, with the compound caveat when one changed then. */
+function BeforeSinceCard({ input }) {
+  const sessions = useStore((s) => s.saunaSessions)
+  const events = useChartEvents()
+  const t = todayStr()
+  const r = useMemo(() => beforeVsSince({ sessions, night: input.night, morning: input.morning, today: t, wobble: input.wobble }), [sessions, input, t])
+  const caveat = useMemo(() => compoundCaveat(sessions, events), [sessions, events])
+  return (
+    <section className="card px-4 pb-3 pt-4" data-testid="sauna-before-since">
+      <div className="flex items-baseline gap-2">
+        <p className="t-label flex-1">Since you started sauna, against the 4 weeks before</p>
+        {r.early && <span className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold tabular-nums" style={{ background: 'var(--surface-sunk)', color: 'var(--text-2)' }} data-testid="sauna-before-early">{r.early}</span>}
+      </div>
+      {r.status !== 'ok' ? <Locked text={r.text} testid="sauna-before-locked" /> : (
+        <div className="rows">
+          {r.rows.map((x) => (
+            <div key={x.key} className="py-2.5" data-testid="sauna-before-row" data-metric={x.key}>
+              <div className="flex items-start gap-2">
+                <p className="min-w-0 flex-1 text-sm font-medium tabular-nums" style={soft}>{x.text}</p>
+                <span className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold" style={{ background: 'var(--surface-sunk)', color: LABEL_TONE[x.label] }} data-label={x.label}>{x.label}</span>
+              </div>
+              <p className="mt-0.5 text-[11px] font-bold tabular-nums" style={muted}>{x.nSince} days since, {x.nBefore} before</p>
+            </div>
+          ))}
+        </div>
+      )}
+      {caveat && <p className="mt-1 text-xs font-bold" style={{ color: 'var(--text)' }} data-testid="sauna-before-caveat">{caveat}</p>}
+      <p className="mt-1 text-[11px] font-medium" style={muted}>What went with starting sauna, not what it did. Anything else that changed since then is in both.</p>
+    </section>
+  )
+}
+
+/** Inside sauna days: evening against earlier, longer against shorter, hotter against cooler. */
+function WithinSaunaCard({ input }) {
+  const sessions = useStore((s) => s.saunaSessions)
+  const splits = useMemo(() => withinSauna(sessions, input), [sessions, input])
+  return (
+    <section className="card px-4 pb-3 pt-4" data-testid="sauna-within">
+      <p className="t-label">Inside sauna days</p>
+      <p className="text-xs font-medium" style={muted}>No days off needed: your sessions compared with each other, against that night's sleep and the next morning.</p>
+      {splits.map((sp) => (
+        <div key={sp.key} className="mt-3" data-testid={`sauna-within-${sp.key}`}>
+          <p className="t-caption" style={muted}>{sp.title}</p>
+          {sp.locked ? <Locked text={sp.locked} testid={`sauna-within-${sp.key}-locked`} /> : sp.rows.map((x) => (
+            <div key={x.key} className="py-1.5" data-testid="sauna-within-row">
+              <div className="flex items-start gap-2">
+                <p className="min-w-0 flex-1 text-sm font-medium" style={soft}>{x.text}</p>
+                <span className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold" style={{ background: 'var(--surface-sunk)', color: LABEL_TONE[x.label] }} data-label={x.label}>{x.label}</span>
+              </div>
+              <p className="mt-0.5 text-[11px] font-bold tabular-nums" style={muted}>n {x.nA} and {x.nB}</p>
+            </div>
+          ))}
+        </div>
+      ))}
+    </section>
+  )
+}
+
+/** 6. Patterns, from Health: since you started, inside sauna days, then sauna days against days off; then how it felt. */
 export function PatternsCard() {
   const ctx = useSaunaHealth()
+  if (!ctx?.patternInput) {
+    return (
+      <div className="space-y-2">
+        <p className="px-1 text-sm font-medium" style={soft} data-testid="sauna-patterns-connect">Connect Apple Health in More › Health to compare your nights and mornings.</p>
+        <RatingRows />
+      </div>
+    )
+  }
   return (
     <div className="space-y-2">
-      {ctx.patternInput ? <PatternsView input={ctx.patternInput} />
-        : <p className="px-1 text-sm font-medium" style={soft} data-testid="sauna-patterns-connect">Connect Apple Health in More › Health to compare sauna nights with nights without.</p>}
+      <BeforeSinceCard input={ctx.patternInput} />
+      <WithinSaunaCard input={ctx.patternInput} />
+      <p className="px-1 pt-2 text-xs font-bold" style={muted}>Sauna days against days without</p>
+      <PatternsView input={ctx.patternInput} />
       <RatingRows />
     </div>
   )

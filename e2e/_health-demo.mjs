@@ -496,7 +496,9 @@ await step('Sauna: Apple Watch "Was this a sauna?" asks only the temperature', a
 
 await step('Sauna history, session detail with heart rate, effects and the info sheet', async () => {
   await seen('[data-testid="sauna-heatmap"]')
-  if ((await page.locator('[data-testid="heat-cell"]').count()) !== 84) throw new Error('heatmap is not 12 weeks')
+  // the grid starts at the week of the first session: whole weeks, never more than 12
+  const cells = await page.locator('[data-testid="heat-cell"]').count()
+  if (cells % 7 !== 0 || cells < 7 || cells > 84) throw new Error(`heatmap has ${cells} cells`)
   await seen('[data-testid="sauna-totals"]')
   // the Watch-confirmed session is the one with heart rate
   const rows = page.locator('[data-testid="sauna-list-row"]')
@@ -513,14 +515,20 @@ await step('Sauna history, session detail with heart rate, effects and the info 
   // the length and temperature charts are gone; every early section is one locked line
   if (await page.locator('[data-testid="trend-chart-saunaLength"], [data-testid="trend-chart-saunaTemp"]').count()) throw new Error('session length or temperature chart is back')
   await seen('[data-testid="sauna-adaptation-locked"]')
-  if (!/^Unlocks after 5 Watch sessions at a similar temperature \(you have 1\)$/.test((await page.textContent('[data-testid="sauna-adaptation-locked"]')).trim())) throw new Error('adaptation lock line')
+  if (!/^Too early: needs 6 sessions (at \d+ to \d+ C|with Watch heart rate) \(you have \d\)$/.test((await page.textContent('[data-testid="sauna-adaptation-locked"]')).trim())) throw new Error('adaptation lock line')
   await seen('[data-testid="sauna-patterns-locked"]')
-  if (!/^Patterns unlock after 7 sauna days \(you have \d\)$/.test((await page.textContent('[data-testid="sauna-patterns-locked"]')).trim())) throw new Error('patterns lock line')
+  if (!/^Needs 7 sauna days to compare\. You have \d\.$/.test((await page.textContent('[data-testid="sauna-patterns-locked"]')).trim())) throw new Error('patterns lock line')
+  // since you started and inside sauna days lead the patterns; each locked line says what it needs and has
+  await seen('[data-testid="sauna-before-since"]')
+  await seen('[data-testid="sauna-within"]')
+  if (!/^Needs 5 evening sessions/.test((await page.textContent('[data-testid="sauna-within-evening-locked"]')).trim())) throw new Error('within lock line')
+  if (!/^\d+ sessions? this week · target \d+$/.test(await page.textContent('[data-testid="sauna-week-header"]'))) throw new Error('week header')
   if (await page.locator('[data-testid="sauna-pattern-row"]').count()) throw new Error('pattern rows before they unlock')
   await seen('[data-testid="sauna-longer-locked"]')
   if (await page.locator('[data-testid="sauna-weekly-rhr"], [data-testid="sauna-weekly-hrv"]').count()) throw new Error('the weekly scatter is back')
   const tabText = await page.textContent('[data-testid="sauna-tab"]')
-  if (/caused|improved|worked|Too early|\u2014/i.test(tabText)) throw new Error('causal wording, too-early rows or an em dash')
+  // "Too early: needs 6 sessions" is the heat adaptation verdict by design; causal words and em dashes never
+  if (/caused|improved|worked|\u2014/i.test(tabText)) throw new Error('causal wording or an em dash')
   await page.click('[data-testid="sauna-info-open"]')
   await seen('[data-testid="sauna-info"]')
   await closeSheet()

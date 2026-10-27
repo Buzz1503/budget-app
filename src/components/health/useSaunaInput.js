@@ -20,7 +20,7 @@ export default function useSaunaInput() {
       const n = model.nightBy.get(wake)
       if (!n) return null
       return {
-        start: n.start, score: model.sleepScore(wake)?.score ?? null, deepMin: n.hasStages ? n.deepMin : null, sleepingHR: n.sleepingHR?.avg ?? null,
+        start: n.start, asleepMin: n.asleepMin ?? null, score: model.sleepScore(wake)?.score ?? null, deepMin: n.hasStages ? n.deepMin : null, sleepingHR: n.sleepingHR?.avg ?? null,
         wristTemp: model.series.temp?.get(wake) ?? null, restless: nightExtras?.[wake]?.restless?.indexPerHour ?? null,
       }
     }

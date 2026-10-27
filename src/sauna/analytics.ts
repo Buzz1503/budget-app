@@ -379,7 +379,7 @@ export function coolDownDrop(cd: CoolDown | null | undefined): { exitHR: number;
 /** The 2-minute drop over sessions with cool-down data; the trend appears after 5. */
 export function coolDownTrend(list: Array<{ date: string; drop2: number | null }>, min = ANALYTICS.coolDownMin) {
   const pts = list.filter((x) => x.drop2 != null).sort((a, b) => a.date.localeCompare(b.date)) as Array<{ date: string; drop2: number }>
-  if (pts.length < min) return { locked: true as const, have: pts.length, text: `The trend appears after ${min} sessions with a cool-down (you have ${pts.length})` }
+  if (pts.length < min) return { locked: true as const, have: pts.length, text: `The trend needs ${min} sessions with a cool-down. You have ${pts.length}.` }
   const f = fit(pts.map((_, i) => i), pts.map((p) => p.drop2))
   const change = f ? Math.round(f.slope * (pts.length - 1)) : 0
   return {
@@ -415,7 +415,7 @@ export function targetWeeks(sessions: SaunaSession[], today: string, target: num
     of++
     if (done) hit++
   }
-  return { hit, of, text: of ? `Target hit in ${hit} of the last ${of} week${of === 1 ? '' : 's'}` : null }
+  return { hit, of, text: of ? `Target hit ${hit} of ${of} ${of === 1 ? 'week' : 'weeks'}` : null }
 }
 
 // ---------------------------------------------------------------- patterns
@@ -496,8 +496,8 @@ export function patterns(input: PatternInput, min = ANALYTICS.patternsMin) {
   const unlocked = nights.rows.length + timing.rows.length > 0
   const withoutDays = days.length - saunaDays
   const progress = unlocked ? null
-    : saunaDays < min ? `Patterns unlock after ${min} sauna days (you have ${saunaDays})`
-      : `Patterns unlock after ${min} days without sauna (you have ${withoutDays})`
+    : saunaDays < min ? `Needs ${min} sauna days to compare. You have ${saunaDays}.`
+      : `Needs ${min} days without sauna to compare. You have ${withoutDays}.`
   return { nights: nights.rows, timing: timing.rows, saunaDays, progress }
 }
 
@@ -513,13 +513,13 @@ export const weeklyAxisMax = (counts: number[], target = 0) => Math.max(ANALYTIC
  */
 export function longerTerm(input: Pick<PatternInput, 'sessions' | 'morning'>, today: string, target = 0) {
   const first = firstSessionDate(input.sessions)
-  if (!first) return { locked: true as const, weeks: 0, text: `Unlocks after ${ANALYTICS.longerTermWeeks} weeks of sauna (you have 0)` }
+  if (!first) return { locked: true as const, weeks: 0, text: `Needs ${ANALYTICS.longerTermWeeks} weeks of sauna. You have 0.` }
   const from = weekOf(first).from
   const to = weekOf(today).from
   const weekStarts: string[] = []
   for (let w = from; w <= to; w = addDays(w, 7)) weekStarts.push(w)
   if (weekStarts.length < ANALYTICS.longerTermWeeks) {
-    return { locked: true as const, weeks: weekStarts.length, text: `Unlocks after ${ANALYTICS.longerTermWeeks} weeks of sauna (you have ${weekStarts.length})` }
+    return { locked: true as const, weeks: weekStarts.length, text: `Needs ${ANALYTICS.longerTermWeeks} weeks of sauna. You have ${weekStarts.length}.` }
   }
   const avg = (xs: number[]) => (xs.length >= ANALYTICS.weekDaysMin ? r1(mean(xs)!) : null)
   const weeks = weekStarts.map((w) => {
@@ -574,7 +574,7 @@ export interface RatingRow { group: 'length' | 'temp' | 'fluid'; band: string; n
  */
 export function ratingRows(sessions: Array<SaunaSession & { rating?: SaunaRating | null }>, fluidOf: (s: SaunaSession) => number | null, min = ANALYTICS.ratingMin) {
   const rated = sessions.filter((s) => s.rating && (s.rating.feel != null || s.rating.lightheaded || s.rating.headache || s.rating.cramps))
-  if (rated.length < min) return { rows: [] as RatingRow[], rated: rated.length, progress: `Rating rows unlock after ${min} rated sessions (you have ${rated.length})` }
+  if (rated.length < min) return { rows: [] as RatingRow[], rated: rated.length, progress: `Needs ${min} rated sessions. You have ${rated.length}.` }
   const rows: RatingRow[] = []
   const add = (group: RatingRow['group'], band: string, list: typeof rated) => {
     if (!list.length) return

@@ -5,6 +5,7 @@ import {
 } from '../../sauna/analytics'
 import { ratingWords } from './SaunaRatingSheet'
 import { addDays } from '../../health/tz'
+import { todayStr } from '../../store/useStore'
 import { useSaunaHealth } from './saunaHealthContext'
 
 const ZONE_SHADE = [0.2, 0.4, 0.6, 0.8, 1]
@@ -54,6 +55,16 @@ function Block({ title, children, testid }) {
       {children}
     </div>
   )
+}
+
+/**
+ * Waiting for that night or the next morning: "Available tomorrow" only before the morning
+ * after; on the morning itself it fills in once the Watch's data has synced.
+ */
+function pendingWords(sessionDate, what) {
+  const wake = addDays(sessionDate, 1)
+  if (wake > todayStr()) return 'Available tomorrow'
+  return what === 'night' ? "Fills in once last night's sleep has synced from your Watch." : 'Fills in once this morning has synced from your Watch.'
 }
 
 function CompareRows({ result, pendingText, testid }) {
@@ -150,12 +161,12 @@ export default function SessionDetail({ session, full = false, onRate = null }) 
 
       {d.night && (
         <Block title="That night, against your usual" testid="sauna-that-night">
-          <CompareRows result={d.night} pendingText="Available tomorrow" testid="sauna-night-rows" />
+          <CompareRows result={d.night} pendingText={pendingWords(session.date, 'night')} testid="sauna-night-rows" />
         </Block>
       )}
       {d.morning && (
         <Block title="Next morning, against your usual" testid="sauna-next-morning">
-          <CompareRows result={d.morning} pendingText="Available tomorrow" testid="sauna-morning-rows" />
+          <CompareRows result={d.morning} pendingText={pendingWords(session.date, 'morning')} testid="sauna-morning-rows" />
         </Block>
       )}
       {d.toBed != null && (
