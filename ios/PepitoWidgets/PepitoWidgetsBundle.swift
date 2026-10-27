@@ -10,5 +10,6 @@ struct PepitoWidgetsBundle: WidgetBundle {
         ReadinessWidget()
         NextDoseInlineWidget()
         SaunaLiveActivity()
+        SleepSoundsLiveActivity()
     }
 }

@@ -15,11 +15,13 @@ public struct WidgetActions {
     public var tick: (_ rowId: String, _ label: AnyView) -> AnyView
     public var startSauna: (_ label: AnyView) -> AnyView
     public var stopSauna: (_ label: AnyView) -> AnyView
+    public var stopSleepSounds: (_ label: AnyView) -> AnyView
 
     public init(tick: @escaping (String, AnyView) -> AnyView,
                 startSauna: @escaping (AnyView) -> AnyView,
-                stopSauna: @escaping (AnyView) -> AnyView) {
-        self.tick = tick; self.startSauna = startSauna; self.stopSauna = stopSauna
+                stopSauna: @escaping (AnyView) -> AnyView,
+                stopSleepSounds: @escaping (AnyView) -> AnyView = { $0 }) {
+        self.tick = tick; self.startSauna = startSauna; self.stopSauna = stopSauna; self.stopSleepSounds = stopSleepSounds
     }
 
     public static let inert = WidgetActions(tick: { _, l in l }, startSauna: { $0 }, stopSauna: { $0 })

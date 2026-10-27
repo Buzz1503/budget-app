@@ -27,7 +27,8 @@ import AnalysisScreen from './SleepAnalysis'
 import RestlessnessScreen from './RestlessnessScreen'
 import ApneaScreen from './ApneaScreen'
 import NightmaresScreen from './NightmaresScreen'
-import SoundsScreen, { SoundsRow, useNightSounds, useSoundsLive, useSoundsControl } from './SoundsScreen'
+import SoundsScreen, { SoundsRow, useNightSounds, useSoundsLive, useSoundsControl, useSchedule } from './SoundsScreen'
+import { scheduleWords } from '../../sleep/soundsView'
 import useSleepLab from './useSleepLab'
 import SleepSetupCard from './SleepSetup'
 import { useNativeFeed } from '../../native/feed'
@@ -76,6 +77,7 @@ function SleepScreen({ model }) {
   const soundsOn = useStore((s) => !!s.sleepSettings.sleepSounds)
   const live = useSoundsLive(soundsOn)
   const control = useSoundsControl(live, null)
+  const schedule = useSchedule()
   const openSounds = useNativeFeed((s) => s.openSounds)
   useEffect(() => {
     if (!openSounds) return
@@ -119,6 +121,7 @@ function SleepScreen({ model }) {
           <NightFactorsLine feature={lab.featureBy.get(date)} />
         </section>
         <SoundsRow line={lineFor(shown.n, dayWords(date, t), date === t, isLatest)} onOpen={() => setView('sounds')}
+          schedule={soundsOn ? scheduleWords(schedule) : null}
           running={!!live?.running} onToggle={typeof __NATIVE__ !== 'undefined' && __NATIVE__ ? control.toggle : null} busy={control.busy} message={control.message} />
       </StaggerItem>
       <StaggerItem className="space-y-2">

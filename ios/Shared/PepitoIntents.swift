@@ -194,6 +194,29 @@ struct StopSaunaIntent: LiveActivityIntent {
     }
 }
 
+// MARK: - sleep sounds
+
+/// What the Stop button on the Sleep sounds Live Activity does. The intent runs in the
+/// app, where the engine lives; the app sets this at launch.
+enum SleepSoundsHooks {
+    static var stop: (() -> Void)?
+}
+
+/// The Stop button on the Sleep sounds Live Activity (the widget draws it, the app runs it).
+struct StopSleepSoundsLiveIntent: LiveActivityIntent {
+    static var title: LocalizedStringResource = "Stop sleep sounds now"
+    static var description = IntentDescription("Stop listening and keep what was heard.")
+    static var openAppWhenRun = false
+    static var isDiscoverable = false
+
+    init() {}
+
+    func perform() async throws -> some IntentResult {
+        await MainActor.run { SleepSoundsHooks.stop?() }
+        return .result()
+    }
+}
+
 // MARK: - readiness
 
 struct ShowReadinessIntent: AppIntent {

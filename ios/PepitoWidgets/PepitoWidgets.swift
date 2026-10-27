@@ -14,7 +14,8 @@ extension WidgetActions {
     static let live = WidgetActions(
         tick: { id, label in AnyView(Button(intent: TickDoseIntent(rowId: id)) { label }.buttonStyle(.plain)) },
         startSauna: { label in AnyView(Button(intent: StartSaunaIntent()) { label }.buttonStyle(.plain)) },
-        stopSauna: { label in AnyView(Button(intent: StopSaunaIntent()) { label }.buttonStyle(.plain)) }
+        stopSauna: { label in AnyView(Button(intent: StopSaunaIntent()) { label }.buttonStyle(.plain)) },
+        stopSleepSounds: { label in AnyView(Button(intent: StopSleepSoundsLiveIntent()) { label }.buttonStyle(.plain)) }
     )
 }
 
@@ -173,5 +174,37 @@ extension SaunaLive {
     init(_ s: SaunaActivityAttributes.ContentState) {
         self.init(startedAt: s.startedAt, targetAt: s.targetAt, tempC: s.tempC, rounds: s.rounds,
                   heartRate: s.heartRate, pausedAt: s.pausedAt)
+    }
+}
+
+/// Sleep sounds listening: on the Lock Screen and in the Dynamic Island while it runs, with Stop.
+struct SleepSoundsLiveActivity: Widget {
+    var body: some WidgetConfiguration {
+        ActivityConfiguration(for: SleepSoundsActivityAttributes.self) { context in
+            SleepSoundsLockScreenView(live: SleepSoundsLive(context.state))
+                .environment(\.widgetActions, .live)
+                .activityBackgroundTint(PepitoTheme.Palette.bg)
+                .activitySystemActionForegroundColor(PepitoTheme.Palette.text)
+        } dynamicIsland: { context in
+            let live = SleepSoundsLive(context.state)
+            return DynamicIsland {
+                DynamicIslandExpandedRegion(.leading) { SleepSoundsIsland.leading() }
+                DynamicIslandExpandedRegion(.trailing) { SleepSoundsIsland.trailing().environment(\.widgetActions, .live) }
+                DynamicIslandExpandedRegion(.center) { SleepSoundsIsland.center(live) }
+                DynamicIslandExpandedRegion(.bottom) { SleepSoundsIsland.bottom(live) }
+            } compactLeading: {
+                SleepSoundsIsland.compactLeading()
+            } compactTrailing: {
+                SleepSoundsIsland.compactTrailing(live)
+            } minimal: {
+                SleepSoundsIsland.minimal()
+            }
+        }
+    }
+}
+
+extension SleepSoundsLive {
+    init(_ s: SleepSoundsActivityAttributes.ContentState) {
+        self.init(startedAt: s.startedAt, until: s.until, paused: s.paused)
     }
 }

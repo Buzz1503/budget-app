@@ -1,6 +1,7 @@
 import Foundation
 import AVFoundation
 import UserNotifications
+import UIKit
 import Capacitor
 import PepitoCore
 
@@ -24,6 +25,7 @@ public class PepitoSleepPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "soundsStartLog", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "takePendingStart", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "scheduleSoundsCheck", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setSoundsSchedule", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "finishedSounds", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "acknowledgeSounds", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "screenTimeStatus", returnType: CAPPluginReturnPromise),
@@ -48,6 +50,7 @@ public class PepitoSleepPlugin: CAPPlugin, CAPBridgedPlugin {
             let e = SleepSoundsEngine.shared
             let d = UserDefaults.standard
             let modes = Bundle.main.object(forInfoDictionaryKey: "UIBackgroundModes") as? [String] ?? []
+            let bg = self.backgroundStartAvailable
             UNUserNotificationCenter.current().getNotificationSettings { settings in
                 let allowed = settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional
                 DispatchQueue.main.async {
@@ -62,7 +65,12 @@ public class PepitoSleepPlugin: CAPPlugin, CAPBridgedPlugin {
                         "lastStartedBy": orNull(d.string(forKey: "pepito.sleepsounds.lastStartedBy")),
                         "roomSensor": e.hasRoomSensor,
                         "gapOpen": e.hasOpenGap,
-                        "lastCheckpoint": orNull(e.lastCheckpointMs)
+                        "lastCheckpoint": orNull(e.lastCheckpointMs),
+                        "until": orNull(e.until.map { $0.timeIntervalSince1970 * 1000 }),
+                        "iosVersion": UIDevice.current.systemVersion,
+                        // iOS 18 and later: the scheduled start can begin listening with the phone locked
+                        "backgroundStart": bg,
+                        "lowPower": ProcessInfo.processInfo.isLowPowerModeEnabled
                     ])
                 }
             }
@@ -106,11 +114,28 @@ public class PepitoSleepPlugin: CAPPlugin, CAPBridgedPlugin {
         call.resolve(["pending": pending])
     }
 
-    /// The bedtime safety net: a notification 10 minutes after bedtime on the next 7 nights, unless listening has started.
+    /// The safety net: a notification on the next 7 nights, `offsetMin` after bedtime (or the schedule's
+    /// start), unless listening has started by then. With the schedule it is "Tap to start Sleep sounds".
     @objc func scheduleSoundsCheck(_ call: CAPPluginCall) {
         let on = call.getBool("enabled") ?? false
-        SleepSoundsNotices.scheduleChecks(bedtime: on ? call.getString("bedtime") : nil)
+        SleepSoundsNotices.scheduleChecks(bedtime: on ? call.getString("bedtime") : nil,
+                                          offsetMin: call.getInt("offsetMin") ?? 10,
+                                          scheduled: call.getBool("scheduled") ?? false)
         call.resolve()
+    }
+
+    /// Sleep sounds › Schedule: the nightly window the engine stops at (and the scheduled start uses).
+    @objc func setSoundsSchedule(_ call: CAPPluginCall) {
+        let s = SleepSoundsSchedule(on: call.getBool("on") ?? true, start: call.getString("start") ?? "21:00", stop: call.getString("stop") ?? "05:00")
+        DispatchQueue.main.async {
+            SleepSoundsEngine.shared.schedule = s
+            call.resolve(["until": s.untilWords])
+        }
+    }
+
+    private var backgroundStartAvailable: Bool {
+        if #available(iOS 18.0, *) { return true }
+        return false
     }
 
     @objc func stopSounds(_ call: CAPPluginCall) {

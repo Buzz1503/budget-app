@@ -59,6 +59,7 @@ const STOP_REASONS: Record<string, string> = {
   interrupted: 'Interrupted',
   appClosed: 'App closed',
   app: 'Stopped in the app',
+  scheduled: 'Schedule ended',
 }
 
 const GAP_REASONS: Record<string, string> = {
@@ -90,7 +91,7 @@ export interface SessionRow {
   checkpoints: number
 }
 
-const STARTED_BY: Record<string, string> = { app: 'Started in the app', shortcut: 'Started by a Shortcuts automation', automation: 'Started by a Shortcuts automation' }
+const STARTED_BY: Record<string, string> = { app: 'Started in the app', shortcut: 'Started by a Shortcuts automation', automation: 'Started by a Shortcuts automation', schedule: 'Started by the schedule', notification: 'Started from a notification' }
 export const startedByText = (by: string) => STARTED_BY[by] || 'Started in the app'
 
 /** One row per session, newest first: when, why it stopped, how much audio, how many events, how many gaps. */
@@ -186,7 +187,7 @@ const RESULT_WORDS: Record<string, string> = {
   skippedDaytime: 'Skipped: outside 8 pm to 4 am',
   notRunning: 'Nothing was running to stop',
 }
-const BY_WORDS: Record<string, string> = { app: 'In the app', shortcut: 'Shortcuts automation', notification: 'From a notification', test: 'Test' }
+const BY_WORDS: Record<string, string> = { app: 'In the app', shortcut: 'Shortcuts automation', schedule: 'Scheduled start', notification: 'From a notification', test: 'Test' }
 
 export const startResultWords = (r: string) => RESULT_WORDS[r] || 'Unknown result'
 
@@ -213,6 +214,80 @@ export function logRows(entries: StartLogEntry[]): LogRow[] {
     detail: `${BY_WORDS[e.by] || e.by}${e.error ? `. ${e.error}` : ''}`,
     ok: e.result === 'started' || e.result === 'alreadyRunning',
   }))
+}
+
+// --------------------------------------------------------------- schedule
+
+export interface Schedule { on: boolean; start: string; stop: string }
+export const DEFAULT_SCHEDULE: Schedule = { on: true, start: '21:00', stop: '05:00' }
+
+const hm = (s: string): number | null => {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(s || '')
+  if (!m || Number(m[1]) > 23 || Number(m[2]) > 59) return null
+  return Number(m[1]) * 60 + Number(m[2])
+}
+
+/** "9 pm", "5 am", "9:30 pm" */
+export function twelveHour(s: string): string {
+  const v = hm(s)
+  if (v == null) return s
+  const h = Math.floor(v / 60)
+  const m = v % 60
+  const h12 = h % 12 === 0 ? 12 : h % 12
+  return `${h12}${m ? `:${String(m).padStart(2, '0')}` : ''} ${h < 12 ? 'am' : 'pm'}`
+}
+
+/** "Scheduled 9 pm to 5 am", or null when the schedule is off. */
+export const scheduleWords = (s: Schedule | null | undefined): string | null => (s?.on ? `Scheduled ${twelveHour(s.start)} to ${twelveHour(s.stop)}` : null)
+
+/** Whether a clock time ("HH:MM" now) is inside the nightly window; a stop at or before the start runs across midnight. */
+export function inWindow(now: string, s: Pick<Schedule, 'start' | 'stop'>): boolean {
+  const a = hm(s.start)
+  const b = hm(s.stop)
+  const m = hm(now)
+  if (a == null || b == null || m == null) return false
+  return a < b ? m >= a && m < b : m >= a || m < b
+}
+
+export interface SetupNight { date: string; state: 'started' | 'failed' | 'none'; reason?: string }
+export interface SetupVerdict { ok: boolean; text: string; nights: SetupNight[] }
+
+const listWords = (xs: string[]) => (xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`)
+
+/**
+ * "Check my setup": did the scheduled start fire on each of the last 3 evenings, from the
+ * start log (and the sessions it started)? "Working", or the nights it did not start.
+ */
+export function checkSetup(input: {
+  log: StartLogEntry[]
+  sessions: Array<{ start: number; startedBy: string }>
+  today: string
+  dateOf: (ms: number) => string
+  dayName: (date: string) => string
+  nights?: number
+}): SetupVerdict {
+  const n = input.nights ?? 3
+  const evenings: string[] = []
+  for (let i = n; i >= 1; i--) {
+    const d = new Date(`${input.today}T12:00:00Z`)
+    d.setUTCDate(d.getUTCDate() - i)
+    evenings.push(d.toISOString().slice(0, 10))
+  }
+  const nights: SetupNight[] = evenings.map((date) => {
+    const tries = input.log.filter((e) => e.kind === 'start' && e.by === 'schedule' && input.dateOf(e.at) === date)
+    const ran = tries.some((e) => e.result === 'started' || e.result === 'alreadyRunning')
+      || input.sessions.some((s) => s.startedBy === 'schedule' && input.dateOf(s.start) === date)
+    if (ran) return { date, state: 'started' }
+    if (tries.length) return { date, state: 'failed', reason: tries[tries.length - 1].result }
+    return { date, state: 'none' }
+  })
+  const missed = nights.filter((x) => x.state === 'none').map((x) => input.dayName(x.date))
+  const failed = nights.filter((x) => x.state === 'failed')
+  if (!missed.length && !failed.length) return { ok: true, text: `Working. It started by itself on ${listWords(nights.map((x) => input.dayName(x.date)))}.`, nights }
+  const parts: string[] = []
+  if (missed.length) parts.push(`Didn't start on ${listWords(missed)}. Check the automation.`)
+  for (const f of failed) parts.push(`Tried on ${input.dayName(f.date)} but could not start: ${startResultWords(f.reason || '').replace(/^Blocked: /, '').toLowerCase()}.`)
+  return { ok: false, text: parts.join(' '), nights }
 }
 
 export { SOUNDS, snoreRuns }

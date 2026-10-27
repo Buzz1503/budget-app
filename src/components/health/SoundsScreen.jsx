@@ -9,7 +9,7 @@ import { clockOf } from '../../health/engine/sleepView'
 import { soundsNight } from '../../sleep/sounds'
 import {
   soundsLine, sessionRows, snoreDensity, burstAt, trendPoints, shortRuns, minutesWords, levelWords,
-  gapReasonText, startedByText, startMessage, logRows,
+  gapReasonText, startedByText, startMessage, logRows, checkSetup, DEFAULT_SCHEDULE, twelveHour,
 } from '../../sleep/soundsView'
 import { tz } from './useHealthModel'
 import { Hypnogram, W } from './SleepCharts'
@@ -81,13 +81,20 @@ export function useNightSounds(model, date) {
 }
 
 /** The Sleep tab's row: one live line, tap for the screen, and the Start button (the reliable way to start). */
-export function SoundsRow({ line, onOpen, running = false, onToggle = null, busy = false, message = null }) {
+/** The schedule as stored, with the defaults (9 pm to 5 am, on) for saves from before it existed. */
+export function useSchedule() {
+  const sc = useStore((s) => s.sleepSettings.schedule)
+  return useMemo(() => ({ ...DEFAULT_SCHEDULE, ...(sc || {}) }), [sc])
+}
+
+export function SoundsRow({ line, onOpen, running = false, onToggle = null, busy = false, message = null, schedule = null }) {
   return (
     <section className="card p-0" data-testid="sounds-card">
       <button type="button" onClick={onOpen} className="flex w-full items-center gap-2 px-4 py-3 text-left" data-testid="sounds-row">
         <span className="min-w-0 flex-1">
           <span className="block text-sm font-black">Sleep sounds</span>
           <span className="block text-xs font-medium tabular-nums" style={soft} data-testid="sounds-line">{line}</span>
+          {schedule && <span className="block text-[11px] font-medium tabular-nums" style={muted} data-testid="sounds-schedule-line">{schedule}</span>}
         </span>
         <ChevronRight size={16} style={muted} />
       </button>
@@ -369,6 +376,78 @@ function TestResult({ test }) {
   )
 }
 
+const localDate = (ms) => {
+  const d = new Date(ms)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+const dayName = (date) => new Date(`${date}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'short' })
+
+/**
+ * Sleep sounds › Schedule: every night from 9 pm to 5 am, without touching anything. An app
+ * cannot wake itself at a set time, so a Shortcuts Time of Day automation starts it; on iOS 18
+ * and later that start works with the phone locked. The phone stops at the stop time by itself
+ * too, and if the start did not happen, a notification asks for one tap.
+ */
+function ScheduleSection({ live, byNight }) {
+  const ss = useStore((s) => s.sleepSettings)
+  const set = useStore((s) => s.setSleepSettings)
+  const log = useStore((s) => s.soundsLog)
+  const sched = useSchedule()
+  const [verdict, setVerdict] = useState(null)
+  const setSched = (patch) => set({ schedule: { ...sched, ...patch } })
+  const bg = live?.backgroundStart
+  const action = bg === false ? 'Start sleep sounds' : 'Start sleep sounds on schedule'
+  const check = () => {
+    const sessions = Object.values(byNight).flat()
+    const today = localDate(Date.now())
+    setVerdict(checkSetup({ log: log || [], sessions, today, dateOf: localDate, dayName }))
+  }
+  return (
+    <section className="card space-y-2 p-4" data-testid="sounds-schedule">
+      <p className="t-label">Schedule</p>
+      <Switch on={!!sched.on} onChange={(v) => setSched({ on: v })} testId="sounds-schedule-on"
+        label={`Every night, ${twelveHour(sched.start)} to ${twelveHour(sched.stop)}`} hint="On by default once Sleep sounds is on. Already listening when it fires? Nothing changes." />
+      {sched.on && (
+        <>
+          <div className="grid grid-cols-2 gap-2">
+            {[['Start', 'start'], ['Stop', 'stop']].map(([label, key]) => (
+              <label key={key} className="block">
+                <span className="mb-1 block text-[11px] font-bold" style={soft}>{label}</span>
+                <input type="time" value={sched[key]} onChange={(e) => e.target.value && setSched({ [key]: e.target.value })} data-testid={`sounds-schedule-${key}`}
+                  className="w-full rounded-[10px] px-3 py-2 text-sm font-bold tabular-nums" style={{ background: 'var(--surface-sunk)', color: 'var(--text)' }} />
+              </label>
+            ))}
+          </div>
+          {!ss.sleepSounds && <p className="text-xs font-medium" style={muted}>Turn Sleep sounds on below for the schedule to run.</p>}
+          <div data-testid="sounds-schedule-steps">
+            <p className="t-caption mt-2" style={muted}>Set it up once</p>
+            <ol className="mt-1 list-decimal space-y-1 pl-5 text-sm font-medium" style={soft}>
+              <li>Open the Shortcuts app, then Automation.</li>
+              <li>Tap New Automation (or +), then Time of Day.</li>
+              <li>Choose {twelveHour(sched.start)}, Daily, and Run Immediately. Turn off Notify When Run.</li>
+              <li>Add the Pepito+ action "{action}", then Done.</li>
+              <li>Make a second automation at {twelveHour(sched.stop)} with "Stop sleep sounds". Pepito+ also stops at {twelveHour(sched.stop)} by itself.</li>
+            </ol>
+            <p className="mt-2 text-xs font-medium" style={muted} data-testid="sounds-schedule-ios">
+              {bg === false
+                ? `This iPhone is on iOS ${live?.iosVersion || 'below 18'}, which cannot start the microphone with the phone locked. At ${twelveHour(sched.start)} you get a notification: one tap starts it.`
+                : bg === true
+                  ? 'iOS 18 or later: it starts with the phone locked and shows "Sleep sounds listening" on the Lock Screen, with Stop. If it cannot start, a notification asks for one tap.'
+                  : 'On iOS 18 or later it starts with the phone locked. On older iOS a notification asks for one tap.'}
+              {live?.lowPower ? ' Low Power Mode is on, which can stop it from starting.' : ''}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <button type="button" onClick={check} data-testid="sounds-check-setup"
+              className="min-h-[36px] rounded-full px-3 text-xs font-black" style={{ background: 'var(--surface-sunk)', color: 'var(--text)' }}>Check my setup</button>
+          </div>
+          {verdict && <p className="text-sm font-bold" style={verdict.ok ? { color: 'var(--accent)' } : { color: 'var(--text)' }} data-testid="sounds-setup-verdict" data-ok={String(verdict.ok)}>{verdict.text}</p>}
+        </>
+      )}
+    </section>
+  )
+}
+
 /** Sleep › Sleep sounds: last night, the timeline, the trend, every session, and the settings. */
 export default function SoundsScreen({ lab, date, label, isLast, onBack }) {
   const model = lab.model
@@ -411,6 +490,7 @@ export default function SoundsScreen({ lab, date, label, isLast, onBack }) {
         </p>
       </section>
       <SessionLog byNight={byNight} />
+      <ScheduleSection live={live} byNight={byNight} />
       <SoundsSettings live={live} refresh={refresh} />
     </div>
   )

@@ -11,6 +11,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // natively, even when the app is launched in the background just for them.
         NotificationHandler.shared.install()
         WatchLink.shared.activate()
+        // the Live Activity's Stop runs here, even when the app was launched just for it
+        SleepSoundsHooks.stop = { SleepSoundsEngine.shared.stop(reason: "app") }
         return true
     }
 

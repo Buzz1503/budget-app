@@ -1058,4 +1058,56 @@ final class LateUseTests: XCTestCase {
         XCTAssertEqual(SleepSoundsCore.bedtimeNotice, "Sleep sounds is not listening yet. Tap to start it.")
         XCTAssertEqual(SleepSoundsCore.startFailedNotice(.blockedLocked), "Sleep sounds could not start. The phone was locked, so iOS did not allow the microphone to start. Tap to start it.")
     }
+
+    // MARK: the schedule
+
+    func testTheScheduleWindowRunsAcrossMidnight() {
+        let s = SleepSoundsSchedule.standard
+        let at = { (d: Int, h: Int, m: Int) in self.utc.date(from: DateComponents(year: 2026, month: 10, day: d, hour: h, minute: m))! }
+        XCTAssertTrue(s.contains(at(27, 21, 0), calendar: utc))
+        XCTAssertTrue(s.contains(at(27, 23, 59), calendar: utc))
+        XCTAssertTrue(s.contains(at(28, 4, 59), calendar: utc))
+        XCTAssertFalse(s.contains(at(28, 5, 0), calendar: utc))
+        XCTAssertFalse(s.contains(at(27, 20, 59), calendar: utc))
+        // a window inside one day
+        XCTAssertTrue(SleepSoundsSchedule(on: true, start: "01:00", stop: "06:00").contains(at(27, 3, 0), calendar: utc))
+        XCTAssertFalse(SleepSoundsSchedule(on: true, start: "01:00", stop: "06:00").contains(at(27, 23, 0), calendar: utc))
+        XCTAssertNil(SleepSoundsSchedule.minutes("25:00"))
+        XCTAssertEqual(s.untilWords, "until 5:00")
+    }
+
+    func testItStopsAtTheScheduledTimeNeverPastElevenHours() {
+        let s = SleepSoundsSchedule.standard
+        let start = utc.date(from: DateComponents(year: 2026, month: 10, day: 27, hour: 21, minute: 0))!
+        let stop = s.stopAfter(start, calendar: utc)!
+        XCTAssertEqual(utc.dateComponents([.day, .hour, .minute], from: stop), DateComponents(day: 28, hour: 5, minute: 0))
+        XCTAssertEqual(SleepSoundsCore.until(startedAt: start, schedule: s, calendar: utc), stop)
+        // started by hand at 1 pm: the next 5 am is 16 h away, so the 11 hour limit wins
+        let early = utc.date(from: DateComponents(year: 2026, month: 10, day: 27, hour: 13, minute: 0))!
+        XCTAssertEqual(SleepSoundsCore.until(startedAt: early, schedule: s, calendar: utc), early.addingTimeInterval(11 * 3600))
+        // schedule off: only the limit
+        XCTAssertEqual(SleepSoundsCore.until(startedAt: start, schedule: SleepSoundsSchedule(on: false, start: "21:00", stop: "05:00"), calendar: utc), start.addingTimeInterval(11 * 3600))
+        XCTAssertFalse(SleepSoundsCore.isUnexpected("scheduled"))
+        XCTAssertEqual(SleepSoundsCore.stopReasonWords("scheduled"), "The schedule ended.")
+    }
+
+    func testTheScheduleNeverDoublesUpAndStopsOnTime() {
+        XCTAssertFalse(SleepSoundsCore.shouldStartOnSchedule(isRunning: true))
+        XCTAssertTrue(SleepSoundsCore.shouldStartOnSchedule(isRunning: false))
+        let u = Date(timeIntervalSince1970: 1_000)
+        XCTAssertTrue(SleepSoundsCore.reachedScheduledStop(now: u, until: u))
+        XCTAssertFalse(SleepSoundsCore.reachedScheduledStop(now: u.addingTimeInterval(-60), until: u))
+        XCTAssertFalse(SleepSoundsCore.reachedScheduledStop(now: u, until: nil))
+    }
+
+    func testAFailedScheduledStartFallsBackToATimeSensitiveTap() {
+        let f = SleepSoundsCore.startFailedFallback(by: "schedule", result: .blockedBackground)
+        XCTAssertEqual(f?.body, "Tap to start Sleep sounds. The app was in the background, so iOS did not allow the microphone to start.")
+        XCTAssertEqual(f?.timeSensitive, true)
+        XCTAssertEqual(SleepSoundsCore.startFailedFallback(by: "shortcut", result: .noPermission)?.body,
+                       "Sleep sounds could not start. Microphone access is off. Allow it in Settings. Tap to start it.")
+        XCTAssertNil(SleepSoundsCore.startFailedFallback(by: "app", result: .audioError))
+        XCTAssertNil(SleepSoundsCore.startFailedFallback(by: "schedule", result: .started))
+        XCTAssertNil(SleepSoundsCore.startFailedFallback(by: "schedule", result: .alreadyRunning))
+    }
 }

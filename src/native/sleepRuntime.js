@@ -5,6 +5,7 @@
 import { registerPlugin } from '@capacitor/core'
 import useStore from '../store/useStore'
 import { sessionNight } from '../sleep/sounds'
+import { DEFAULT_SCHEDULE } from '../sleep/soundsView'
 
 export const PepitoSleep = registerPlugin('PepitoSleep')
 
@@ -80,12 +81,21 @@ export async function scheduleLateUse(bedtime, wake) {
 }
 
 /**
- * The bedtime safety net: a notification 10 minutes after planned bedtime on the next
- * 7 nights ("Sleep sounds is not listening yet"), cleared by the phone once listening starts.
+ * The safety net, cleared by the phone once listening starts. With the schedule on: a
+ * time-sensitive "Tap to start Sleep sounds" 5 minutes after the scheduled start, on the next
+ * 7 nights, for when the automation did not run or could not start. Without it: "Sleep sounds
+ * is not listening yet" 10 minutes after planned bedtime. The phone also gets the schedule, so
+ * it stops at the scheduled time by itself.
  */
 export async function syncSoundsCheck() {
   const ss = useStore.getState().sleepSettings || {}
-  try { await PepitoSleep.scheduleSoundsCheck({ enabled: !!ss.sleepSounds && !!ss.lastBedtime, bedtime: ss.lastBedtime || '22:30' }) } catch { /* no plugin */ }
+  const sched = { ...DEFAULT_SCHEDULE, ...(ss.schedule || {}) }
+  const scheduled = !!ss.sleepSounds && sched.on
+  try {
+    await PepitoSleep.setSoundsSchedule({ on: scheduled, start: sched.start, stop: sched.stop })
+    if (scheduled) await PepitoSleep.scheduleSoundsCheck({ enabled: true, bedtime: sched.start, offsetMin: 5, scheduled: true })
+    else await PepitoSleep.scheduleSoundsCheck({ enabled: !!ss.sleepSounds && !!ss.lastBedtime, bedtime: ss.lastBedtime || '22:30' })
+  } catch { /* no plugin */ }
 }
 
 /** A tap on a "start it" notification: start now, in the foreground. */
@@ -106,7 +116,8 @@ export function startSleepRuntime(addListener) {
   void syncSoundsCheck()
   let last = ''
   useStore.subscribe((s) => {
-    const key = `${s.sleepSettings?.sleepSounds}|${s.sleepSettings?.lastBedtime}`
+    const sc = s.sleepSettings?.schedule
+    const key = `${s.sleepSettings?.sleepSounds}|${s.sleepSettings?.lastBedtime}|${sc?.on}|${sc?.start}|${sc?.stop}`
     if (key !== last) { last = key; void syncSoundsCheck() }
   })
   addListener?.('appActive', () => { void startIfAsked(); void collectSleepData(); void refreshSleepStatus(); void syncSoundsCheck() })

@@ -196,6 +196,7 @@ function initialState() {
     sleepSettings: {
       restlessness: true,                // the Watch's overnight movement recording
       sleepSounds: false,                // snoring and sound detection on the iPhone
+      schedule: { on: true, start: '21:00', stop: '05:00' }, // Sleep sounds every night, once it is on
       sleepAudioApps: ['YouTube'],       // left out of late phone use
       eveningPrompt: true,               // 30 min before planned bedtime
       morningPrompt: true,               // usual wake time + 30 min

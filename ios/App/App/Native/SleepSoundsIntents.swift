@@ -58,3 +58,34 @@ struct StopSleepSoundsIntent: AppIntent {
         return .result(dialog: "Sleep sounds stopped.")
     }
 }
+
+/// The scheduled start, for a Time of Day automation at 9 pm. On iOS 18 and later it is an
+/// AudioRecordingIntent: it starts the microphone with the phone locked, without opening the
+/// app, and keeps the Sleep sounds Live Activity on screen while it listens. If iOS will not
+/// let it start (permission, Low Power Mode, an audio error), the start is logged with its
+/// reason and a time-sensitive notification asks for a tap.
+@available(iOS 18.0, *)
+struct StartSleepSoundsScheduledIntent: AudioRecordingIntent {
+    static var title: LocalizedStringResource = "Start sleep sounds on schedule"
+    static var description = IntentDescription("For a 9 pm Time of Day automation. Starts listening with the phone locked and shows a Live Activity until the scheduled stop. No audio is saved.")
+    static var openAppWhenRun = false
+
+    init() {}
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        let e = SleepSoundsEngine.shared
+        if !SleepSoundsCore.shouldStartOnSchedule(isRunning: e.isRunning) {
+            // already listening (started by hand or by Sleep Focus): nothing to do
+            e.record(.init(at: Date().timeIntervalSince1970 * 1000, kind: "start", by: "schedule", result: SleepSoundsCore.StartResult.alreadyRunning.rawValue))
+            return .result(dialog: "Sleep sounds is already listening.")
+        }
+        let entry = e.startWithResult(by: "schedule")
+        guard entry.result == SleepSoundsCore.StartResult.started.rawValue else {
+            return .result(dialog: "Sleep sounds could not start. A notification will let you start it.")
+        }
+        PepitoBridgePlugin.emit("sleepSoundsChanged", ["running": true])
+        let text = "Sleep sounds is listening \(e.schedule.untilWords)."
+        return .result(dialog: IntentDialog(stringLiteral: text))
+    }
+}

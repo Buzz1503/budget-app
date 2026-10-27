@@ -603,6 +603,7 @@ await step('Sleep sounds: row, last night, timeline, trend, session log, setting
   if (!/^Last night: .* snoring/.test(line)) throw new Error(`row reads "${line}"`)
   if (!/^Snoring /.test((await page.textContent('[data-testid="hero-snoring"]')).trim())) throw new Error('no snoring line in the night header')
   await seen('[data-testid="strip-snore"]')
+  if ((await page.textContent('[data-testid="sounds-schedule-line"]')) !== 'Scheduled 9 pm to 5 am') throw new Error('the row does not show the schedule')
   await page.click('[data-testid="sounds-row"]')
   await seen('[data-testid="lab-sounds"]')
   for (const k of ['snoring', 'share', 'longest', 'loudest', 'coughs', 'talking', 'avg', 'loud']) await seen(`[data-testid="stat-${k}"]`)
@@ -618,6 +619,12 @@ await step('Sleep sounds: row, last night, timeline, trend, session log, setting
   const attempt = await page.locator('[data-testid="attempt-row"]').first().innerText()
   if (!/Blocked: the phone was locked/.test(attempt) || !/error 561145187/.test(attempt)) throw new Error(`start attempt reads "${attempt}"`)
   if (!/No audio is ever saved/.test(await page.textContent('[data-testid="sounds-no-audio"]'))) throw new Error('no audio statement')
+  // the schedule: on by default, 9 pm to 5 am, the guided steps, and Check my setup
+  await seen('[data-testid="sounds-schedule"] [data-testid="sounds-schedule-steps"]')
+  if ((await page.getAttribute('[data-testid="sounds-schedule-on"]', 'data-on')) !== 'true') throw new Error('the schedule should be on by default')
+  await page.click('[data-testid="sounds-check-setup"]')
+  const verdict = await page.textContent('[data-testid="sounds-setup-verdict"]')
+  if (!/^Didn't start on \w+, \w+ and \w+\. Check the automation\.$/.test(verdict)) throw new Error(`setup verdict reads "${verdict}"`)
   await noOverflow('Sleep sounds')
   // back, then the Morning check summary opens the same screen
   await page.click('[data-testid="lab-back"]')

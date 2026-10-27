@@ -99,7 +99,7 @@ public enum SleepSoundsCore {
     /// Why a session ended. The first three come from `shouldStop`; `app` is a hand stop,
     /// `interrupted` an interruption that never ended, `appClosed` a session found open
     /// on the next launch (iOS or the user closed the app, or it crashed).
-    public enum StopReason: String, Sendable { case focusOff, unplugged, tooLong, app, interrupted, appClosed }
+    public enum StopReason: String, Sendable { case focusOff, unplugged, tooLong, app, interrupted, appClosed, scheduled }
     public static let maxHours = 11.0
 
     /// Whether a running session should stop: unplugged after 4 am, or past 11 hours.
@@ -238,6 +238,7 @@ public enum SleepSoundsCore {
         case StopReason.unplugged.rawValue: return "The phone was unplugged."
         case StopReason.tooLong.rawValue: return "It reached the 11 hour limit."
         case StopReason.focusOff.rawValue: return "Sleep Focus ended."
+        case StopReason.scheduled.rawValue: return "The schedule ended."
         default: return "It was stopped."
         }
     }
@@ -262,11 +263,34 @@ public enum SleepSoundsCore {
 
     /// The bedtime safety net: nothing is listening yet.
     public static let bedtimeNotice = "Sleep sounds is not listening yet. Tap to start it."
+    /// The scheduled start could not begin capture by itself.
+    public static let scheduleFallbackNotice = "Tap to start Sleep sounds."
+
+    /// What the scheduled start does: nothing when already listening (started by hand or by Sleep Focus).
+    public static func shouldStartOnSchedule(isRunning: Bool) -> Bool { !isRunning }
+
+    /// The app's own stop at the scheduled time, the backup to the stop automation.
+    public static func reachedScheduledStop(now: Date, until: Date?) -> Bool { until.map { now >= $0 } ?? false }
+
+    /// The notification after a start that did not begin capture: none for a start in the app (the
+    /// screen shows the result) or a test; time sensitive, so it shows through a Sleep Focus.
+    public static func startFailedFallback(by: String, result: StartResult) -> (body: String, timeSensitive: Bool)? {
+        guard by != "app", by != "test", result != .started, result != .alreadyRunning else { return nil }
+        let body = by == "schedule" ? "\(scheduleFallbackNotice) \(startFailureWords(result))" : startFailedNotice(result)
+        return (body, true)
+    }
+
+    /// A time-limited session's end: the schedule's stop, never past the 11 hour limit.
+    public static func until(startedAt: Date, schedule: SleepSoundsSchedule?, calendar: Calendar = .current) -> Date {
+        let cap = startedAt.addingTimeInterval(maxHours * 3600)
+        guard let s = schedule, s.on, let stop = s.stopAfter(startedAt, calendar: calendar) else { return cap }
+        return min(stop, cap)
+    }
 
     /// What the Stop automation says when nothing is running, so it is never a bare "was not running".
     public static func notRunningWords(lastStart: LogEntry?, lastEnd: (ms: Double, reason: String?)?, nowMs: Double, calendar: Calendar = .current) -> String {
         let recent = 14.0 * 3600_000
-        if let end = lastEnd, nowMs - end.ms < recent, end.reason != StopReason.focusOff.rawValue, end.reason != StopReason.app.rawValue {
+        if let end = lastEnd, nowMs - end.ms < recent, end.reason != StopReason.focusOff.rawValue, end.reason != StopReason.app.rawValue, end.reason != StopReason.scheduled.rawValue {
             return "Sleep sounds stopped at \(timeWords(end.ms, calendar: calendar)). \(stopReasonWords(end.reason))"
         }
         if let s = lastStart, s.kind == "start", nowMs - s.at < recent, let r = StartResult(rawValue: s.result), r != .started, r != .alreadyRunning {
