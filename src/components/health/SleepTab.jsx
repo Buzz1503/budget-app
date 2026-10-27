@@ -19,10 +19,10 @@ import {
 import useHealthModel, { tz } from './useHealthModel'
 import { NotConnected, EmptyState } from './BodyHealthView'
 import { HEALTH_BANDS } from './bands'
-import { Hypnogram, Chronogram, DebtBars, NightCalendar } from './SleepCharts'
+import { Chronogram, DebtBars, NightCalendar } from './SleepCharts'
 import EveningSheet from '../sleep/EveningSheet'
 import MorningCheck from '../sleep/MorningCheck'
-import NightStrips from './NightStrips'
+import NightCard from './NightCard'
 import AnalysisScreen from './SleepAnalysis'
 import RestlessnessScreen from './RestlessnessScreen'
 import ApneaScreen from './ApneaScreen'
@@ -110,13 +110,12 @@ function SleepScreen({ model }) {
         <Hero model={model} night={night} date={date} t={t} prev={prev} next={next} setDate={setDate} openCalendar={() => setCalendar(true)} sounds={shown.n} />
       </StaggerItem>
       <StaggerItem className="space-y-2">
-        <SectionTitle sub="Awake at the top, deep sleep at the bottom">Through the night</SectionTitle>
+        <SectionTitle sub="Stages, movement, sound, heart rate and blood oxygen on one clock">Through the night</SectionTitle>
         <section className="card p-4">
-          <Hypnogram night={night} tz={tz} />
-          <NightStrips night={night} overnight={night.overnight} restless={lab.extras.get(date)?.restless}
-            soundSessions={nightExtras[date]?.sounds}
+          <NightCard night={night} overnight={night.overnight} restless={lab.extras.get(date)?.restless} tz={tz}
+            soundSessions={nightExtras[date]?.sounds} soundsOn={soundsOn}
             noRecording={recordingMissing({ enabled: restlessOn, date, firstRecorded, hasSleep: true, hasRecording: !!lab.extras.get(date)?.restless })}
-            events={(lab.extras.get(date)?.events || []).map((e) => ({ t: e.t, level: lab.extras.get(date)?.rating === 'Likely' ? 'likely' : 'possible', label: `Heart rate +${e.surge} bpm` }))} />
+            events={lab.extras.get(date)?.events || []} />
           <NightFactorsLine feature={lab.featureBy.get(date)} />
         </section>
         <SoundsRow line={lineFor(shown.n, dayWords(date, t), date === t, isLatest)} onOpen={() => setView('sounds')}
