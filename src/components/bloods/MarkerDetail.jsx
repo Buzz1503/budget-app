@@ -105,7 +105,7 @@ export default function MarkerDetail({ name, open, onClose }) {
 
         {/* ------------------------------------------------- the graph */}
         {series.length >= 2 ? (
-          <MarkerChart name={marker.name} series={series} range={range} events={events} today={t}
+          <MarkerChart name={marker.name} unit={marker.unit} series={series} range={range} events={events} today={t}
             overlay={overlay} overlayable={overlayable}
             onToggleOverlay={(id) => setOverlay((prev) => {
               const next = new Set(prev)

@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { format, parseISO } from 'date-fns'
+import { ChartLegend } from '../charts/TrendChart'
 import useStore, { todayStr } from '../../store/useStore'
 import { addDays, dateRange } from '../../health/tz'
 import { metricLookups } from '../../health/engine/model'
@@ -7,7 +8,7 @@ import useHealthModel from './useHealthModel'
 
 const CHOICES = ['weight', 'rhr', 'hrv', 'readiness']
 const W = 320
-const H = 120
+const H = 210
 const PAD = { l: 30, r: 30, t: 10, b: 18 }
 
 /**
@@ -41,7 +42,8 @@ export default function MarkerHealthOverlay({ series, unit }) {
 
   return (
     <div className="card p-3" data-testid="marker-health-overlay">
-      <p className="t-caption" style={{ color: 'var(--text-2)' }}>Overlay › Health</p>
+      <p className="text-[17px] font-semibold">Does Apple Health move with this marker?</p>
+      <p className="text-sm font-medium" style={{ color: 'var(--text-2)' }}>Pick one to lay it under the results, each on its own scale.</p>
       <div className="mt-2 flex flex-wrap gap-1.5">
         {[{ key: null, label: 'None' }, ...metrics].map((m) => {
           const on = choice === m.key
@@ -63,12 +65,13 @@ export default function MarkerHealthOverlay({ series, unit }) {
               <polyline points={health.map((p) => `${x(p.d).toFixed(1)},${hy(p.v).toFixed(1)}`).join(' ')} fill="none" stroke="var(--text-3)" strokeWidth="1.2" />
               <polyline points={series.map((s) => `${x(s.date).toFixed(1)},${my(s.value).toFixed(1)}`).join(' ')} fill="none" stroke="var(--text)" strokeWidth="2" />
               {series.map((s) => <circle key={s.date} cx={x(s.date)} cy={my(s.value)} r="3" fill="var(--text)" />)}
-              <text x={PAD.l} y={H - 4} fontSize="9" fontWeight="700" fill="var(--text-3)">{format(parseISO(from), 'MMM yy')}</text>
-              <text x={W - PAD.r} y={H - 4} fontSize="9" fontWeight="700" textAnchor="end" fill="var(--text-3)">{format(parseISO(to), 'MMM yy')}</text>
+              <text x={PAD.l} y={H - 4} fontSize="12" fontWeight="700" fill="var(--text-3)">{format(parseISO(from), 'MMM yy')}</text>
+              <text x={W - PAD.r} y={H - 4} fontSize="12" fontWeight="700" textAnchor="end" fill="var(--text-3)">{format(parseISO(to), 'MMM yy')}</text>
             </svg>
-            <p className="text-xs font-medium" style={{ color: 'var(--text-3)' }}>
-              Bold with dots: this marker ({unit}). Thin: {metric.label.toLowerCase()}{metric.unit ? ` (${metric.unit})` : ''}, on its own scale.
-            </p>
+            <ChartLegend items={[
+              { key: 'm', label: `This marker${unit ? ` (${unit})` : ''}`, kind: 'line', color: 'var(--text)' },
+              { key: 'h', label: `${metric.label}${metric.unit ? ` (${metric.unit})` : ''}, own scale`, kind: 'line', color: 'var(--text-3)' },
+            ]} />
           </>
         )
       )}

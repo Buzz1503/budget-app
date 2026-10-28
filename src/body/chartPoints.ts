@@ -327,10 +327,11 @@ export function xTicks(from: string, to: string): Array<{ date: string; label: s
       if (d > to) break
       months.push(d)
     }
-    const k = Math.max(1, Math.ceil(months.length / 6))
+    const multiYear = from.slice(0, 4) !== to.slice(0, 4) && span > 400
+    // "Feb 25" is twice as wide as "Feb": fewer of them, so 12 pt labels never touch
+    const k = Math.max(1, Math.ceil(months.length / (multiYear ? 4 : 6)))
     const picked = months.filter((_, i) => i % k === 0)
-    if (picked.length >= 4) {
-      const multiYear = from.slice(0, 4) !== to.slice(0, 4) && span > 400
+    if (picked.length >= (multiYear ? 3 : 4)) {
       return picked.map((d) => ({ date: d, label: multiYear ? `${MONTHS[Number(d.slice(5, 7)) - 1]} ${d.slice(2, 4)}` : MONTHS[Number(d.slice(5, 7)) - 1] }))
     }
   }

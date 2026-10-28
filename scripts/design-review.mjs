@@ -21,7 +21,7 @@ const EXE = process.env.CHROMIUM_PATH || '/opt/pw-browsers/chromium-1194/chrome-
 // each screen: the preview name and what to tap once it is up
 const SCREENS = [
   ['home'], ['composition'], ['effects'], ['recovery'],
-  ['sleep'], ['sleep-full', '[data-testid="night-expand"]'], ['sleep-lab', '[data-testid="lab-open-analysis"]', '[data-testid="lab-helps"]'],
+  ['sleep'], ['sleep-full', '[data-testid="night-expand"]'], ['recovery-full', '[data-testid="chart-expand"]'], ['sleep-lab', '[data-testid="lab-open-analysis"]', '[data-testid="lab-helps"]'],
   ['sleep-sounds', '[data-testid="sounds-row"]'],
   ['sauna'], ['more'], ['stock'], ['bloods'], ['import'],
 ].filter(([n]) => !only.length || only.includes(n))
@@ -51,6 +51,16 @@ try {
     if (tap) {
       try { await page.locator(tap).first().click({ timeout: 8000 }); await page.waitForTimeout(1200) } catch { problems.push(`${name}: could not tap ${tap}`) }
       if (ready) { try { await page.locator(ready).first().waitFor({ timeout: 60000 }) } catch { problems.push(`${name}: ${ready} never showed`) } }
+    }
+    // a full screen view is what the phone shows, portrait then landscape
+    if (name.endsWith('-full')) {
+      await page.screenshot({ path: `${OUT}/${name}.png` })
+      await page.setViewportSize({ width: 844, height: 390 })
+      await page.waitForTimeout(800)
+      await page.screenshot({ path: `${OUT}/${name}-landscape.png` })
+      await page.setViewportSize({ width: 390, height: 844 })
+      console.log(`shot ${OUT}/${name}.png and -landscape`)
+      continue
     }
     await page.screenshot({ path: `${OUT}/${name}.png`, fullPage: true })
     // and screen-height slices, for reading one screen at a time

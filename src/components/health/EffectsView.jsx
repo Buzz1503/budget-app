@@ -122,15 +122,17 @@ function DoseStrip({ compound, from, to }) {
   const lane = laneFor(compound.points, compound.runs, from, to)
   if (!lane.segments.length) return null
   const W = 320
-  const H = 40
+  const H = 64
   const d0 = Date.parse(`${from}T00:00:00Z`)
   const d1 = Date.parse(`${to}T00:00:00Z`)
   const x = (d) => 4 + ((Date.parse(`${d}T00:00:00Z`) - d0) / Math.max(1, d1 - d0)) * (W - 8)
-  const y = (v) => H - 6 - (lane.maxDose ? (v / lane.maxDose) * (H - 18) : 0)
+  const y = (v) => H - 22 - (lane.maxDose ? (v / lane.maxDose) * (H - 40) : 0)
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="mt-3 w-full" aria-label="Dose over time" data-testid="dose-strip">
       {lane.segments.map((s, i) => <line key={i} x1={x(s.from)} x2={x(s.to)} y1={y(s.dose)} y2={y(s.dose)} stroke="var(--text)" strokeWidth="2" />)}
-      {lane.changes.map((c) => <text key={c.date} x={Math.min(W - 30, x(c.date))} y="9" fontSize="8" fontWeight="700" fill="var(--text-2)">{c.label}</text>)}
+      {lane.changes.map((c) => <text key={c.date} x={Math.min(W - 40, x(c.date))} y="12" fontSize="12" fontWeight="700" fill="var(--text-2)">{c.label}</text>)}
+      <text x={4} y={H - 4} fontSize="12" fontWeight="600" fill="var(--text-3)">{short(from)}</text>
+      <text x={W - 4} y={H - 4} fontSize="12" fontWeight="600" textAnchor="end" fill="var(--text-3)">{short(to)}</text>
     </svg>
   )
 }

@@ -39,11 +39,16 @@ function DotPlot({ dots }) {
   if (!all.length) return null
   const lo = Math.min(...all)
   const hi = Math.max(...all)
-  const x = (v) => 8 + ((v - lo) / (hi - lo || 1)) * 284
+  const x = (v) => 70 + ((v - lo) / (hi - lo || 1)) * 222
+  const n = (v) => Number(v.toFixed(Math.abs(hi - lo) < 10 ? 1 : 0))
   return (
-    <svg viewBox="0 0 300 44" className="mt-2 w-full" aria-hidden="true" data-testid="compare-dots">
-      {dots.with.map(([d, v]) => <circle key={`w${d}`} cx={x(v)} cy="12" r="3" fill="var(--text)" opacity="0.7" />)}
-      {dots.without.map(([d, v]) => <circle key={`o${d}`} cx={x(v)} cy="32" r="3" fill="var(--text-3)" opacity="0.7" />)}
+    <svg viewBox="0 0 300 78" className="mt-2 w-full" aria-hidden="true" data-testid="compare-dots">
+      <text x={0} y={18} fontSize="12" fontWeight="700" fill="var(--text-2)">With</text>
+      <text x={0} y={44} fontSize="12" fontWeight="700" fill="var(--text-3)">Without</text>
+      {dots.with.map(([d, v]) => <circle key={`w${d}`} cx={x(v)} cy="14" r="3.5" fill="var(--text)" opacity="0.7" />)}
+      {dots.without.map(([d, v]) => <circle key={`o${d}`} cx={x(v)} cy="40" r="3.5" fill="var(--text-3)" opacity="0.7" />)}
+      <text x={70} y={72} fontSize="12" fontWeight="600" fill="var(--text-3)" className="tabular-nums">{n(lo)}</text>
+      <text x={292} y={72} fontSize="12" fontWeight="600" textAnchor="end" fill="var(--text-3)" className="tabular-nums">{n(hi)}</text>
     </svg>
   )
 }

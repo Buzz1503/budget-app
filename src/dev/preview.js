@@ -20,6 +20,7 @@ export const PREVIEW_SCREENS = {
   composition: { tab: 'body', seg: 'composition' },
   effects: { tab: 'body', seg: 'effects' },
   recovery: { tab: 'body', seg: 'recovery' },
+  'recovery-full': { tab: 'body', seg: 'recovery' },
   sleep: { tab: 'sleep' },
   'sleep-full': { tab: 'sleep' },
   'sleep-lab': { tab: 'sleep' },

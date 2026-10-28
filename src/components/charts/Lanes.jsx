@@ -8,7 +8,7 @@ import { saunaLaneDots } from '../../sauna/sauna'
 
 export const SAUNA_LANE = 'sauna'
 
-export const LANE_H = 24
+export const LANE_H = 28
 
 /**
  * Compound lanes for a chart: which compounds are chosen for this chart type
@@ -68,7 +68,7 @@ export function LaneRows({ lanes, top, xFor, left, right, onPick, picked }) {
     if (l.kind === 'dots') {
       return (
         <g key={l.id} data-testid={`lane-${l.id}`}>
-          <text x={left - 4} y={y0 + LANE_H / 2 + 3} fontSize="7" fontWeight="800" textAnchor="end" fill="var(--text-3)">Sauna</text>
+          <text x={left - 4} y={y0 + LANE_H / 2 + 4} fontSize="11" fontWeight="800" textAnchor="end" fill="var(--text-3)">Sauna</text>
           <line x1={left} x2={right} y1={y0 + LANE_H / 2} y2={y0 + LANE_H / 2} stroke="var(--border)" />
           {l.dots.map((d) => (
             <circle key={d.date} cx={xFor(d.date)} cy={y0 + LANE_H / 2} r={d.r} fill="var(--series-sauna)" opacity={picked && picked.id === l.id && picked.date === d.date ? 1 : 0.75}
@@ -85,7 +85,7 @@ export function LaneRows({ lanes, top, xFor, left, right, onPick, picked }) {
         {l.spans.map((s, j) => (
           <rect key={j} x={xFor(s.from)} y={y0 + 2} width={Math.max(1, xFor(s.to) - xFor(s.from))} height={LANE_H - 4} rx="3" fill="var(--text)" opacity="0.06" />
         ))}
-        <text x={left - 4} y={y0 + LANE_H / 2 + 3} fontSize="7" fontWeight="800" textAnchor="end" fill="var(--text-3)">{l.name.slice(0, 5)}</text>
+        <text x={left - 4} y={y0 + LANE_H / 2 + 4} fontSize="11" fontWeight="800" textAnchor="end" fill="var(--text-3)">{l.name.slice(0, 5)}</text>
         <path d={path} fill="none" stroke="var(--text-2)" strokeWidth="1.6" />
         {l.changes.map((c) => {
           const on = picked && picked.id === l.id && picked.date === c.date
@@ -94,7 +94,7 @@ export function LaneRows({ lanes, top, xFor, left, right, onPick, picked }) {
           return (
             <g key={c.date} onClick={() => onPick({ id: l.id, name: l.name, ...c })} style={{ cursor: 'pointer' }} data-testid="lane-change">
               <line x1={xFor(c.date)} x2={xFor(c.date)} y1={y0 + 2} y2={y0 + LANE_H - 2} stroke="var(--text-3)" strokeWidth="1" />
-              <text x={tx} y={y0 + 8} fontSize="7" fontWeight="700" fill={on ? 'var(--text)' : 'var(--text-2)'} textAnchor={atEnd ? 'end' : 'start'}>{c.label}</text>
+              <text x={tx} y={y0 + 10} fontSize="10.5" fontWeight="700" fill={on ? 'var(--text)' : 'var(--text-2)'} textAnchor={atEnd ? 'end' : 'start'}>{c.label}</text>
               {/* the tap target: the whole label area, not just its glyphs */}
               <rect x={atEnd ? tx - 40 : xFor(c.date) - 4} y={y0} width="44" height={LANE_H} fill="transparent" />
             </g>

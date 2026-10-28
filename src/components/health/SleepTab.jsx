@@ -5,7 +5,7 @@ import { motion, useReducedMotion } from 'framer-motion'
 import useStore, { todayStr } from '../../store/useStore'
 import Modal from '../ui/Modal'
 import { CountIn, FillRing, Stagger, StaggerItem } from '../ui/Motion'
-import TrendChart from '../charts/TrendChart'
+import TrendChart, { ChartLegend } from '../charts/TrendChart'
 import useChartEvents from '../charts/useChartEvents'
 import { addDays, dateRange } from '../../health/tz'
 import { planBedtime } from '../../health/engine/planner'
@@ -412,7 +412,12 @@ function Timing({ model, t }) {
         Timing
       </SectionTitle>
       <section className="card p-4" data-testid="sleep-timing">
+        <p className="text-[17px] font-semibold">Is my bedtime steady?</p>
+        <p className="mb-2 text-[15px] font-semibold tabular-nums" data-testid="timing-answer">
+          {sd != null ? `Bed and wake vary by about ${Math.round(sd)} min.` : 'Needs 3 nights to say.'}
+        </p>
         <Chronogram rows={rows} target={plan.bedtime} bandMin={SLEEP_VIEW.bedtimeBandMin} />
+        <ChartLegend items={[{ key: 'bar', label: 'Bed to wake', kind: 'bar', color: 'var(--series-sleep)' }, ...(plan.bedtime ? [{ key: 'tgt', label: 'Target bedtime', kind: 'band', color: 'var(--text)' }] : [])]} />
         <div className="mt-4 grid grid-cols-2 gap-3">
           <div data-testid="sleep-consistency">
             <p className="t-caption" style={{ color: 'var(--text-3)' }}>Consistency</p>
@@ -443,8 +448,10 @@ function DebtAndPlan({ model, t }) {
     <>
       <SectionTitle icon={BedDouble} info={<p>Hours short of your {model.needH} h over the last 7 nights. A night with no record is left out, not counted as short.</p>}>Debt and tonight</SectionTitle>
       <section className="card p-4" data-testid="sleep-debt">
-        <p className="text-2xl font-black tabular-nums">{round(debt, 1)} h<span className="ml-2 text-sm font-bold" style={{ color: 'var(--text-3)' }}>7-night debt</span></p>
+        <p className="text-[17px] font-semibold">Am I short on sleep this week?</p>
+        <p className="text-[26px] font-extrabold tabular-nums">{round(debt, 1)}<span className="ml-0.5 text-[13px] font-medium" style={{ color: 'var(--text-3)' }}>h</span><span className="ml-2 text-sm font-medium" style={{ color: 'var(--text-2)' }}>short over 7 nights</span></p>
         <div className="mt-2"><DebtBars nights={bars} needH={model.needH} /></div>
+        <ChartLegend items={[{ key: 'bar', label: 'Asleep', kind: 'bar', color: 'var(--series-sleep)' }, { key: 'need', label: `Your ${model.needH} h need`, kind: 'dashed', color: 'var(--text-2)' }]} />
       </section>
       <button onClick={() => setOpen((v) => !v)} className="card w-full p-4 text-left" data-testid="sleep-planner" aria-expanded={open}>
         <p className="text-base font-black tabular-nums">Aim to be in bed by {plan.bedtime}</p>

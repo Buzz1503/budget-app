@@ -228,3 +228,28 @@ export function zoomNight(win: { from: number; to: number }, factor: number, at:
   if (to > night.end) { from -= to - night.end; to = night.end }
   return { from: Math.max(night.start, from), to }
 }
+
+// ------------------------------------------------------------------ layout
+
+/**
+ * The night chart's sizes, in points. On the card the lanes are compact; in
+ * full screen the stages take at least 210 and every other lane 52, so each
+ * reads at a glance in either orientation.
+ */
+export const NIGHT_LAYOUT = {
+  cardRowH: 24,
+  cardLaneH: { move: 32, sound: 28, hr: 44, spo2: 24 } as Record<string, number>,
+  fullLaneH: 52,
+  fullStagesMin: 210,
+}
+
+/** The legend under the night chart: one item per kind of mark it drew. */
+export function nightLegend(o: { restless?: boolean; snoring?: boolean; other?: boolean; gaps?: boolean; spo2Low?: boolean }) {
+  const out: Array<{ key: string; label: string; kind: 'band' | 'bar' | 'ring' | 'dot'; color?: string }> = []
+  if (o.restless) out.push({ key: 'restless', label: 'Restless', kind: 'band', color: 'var(--amber)' })
+  if (o.snoring) out.push({ key: 'snore', label: 'Snoring', kind: 'bar', color: 'var(--text-2)' })
+  if (o.other) out.push({ key: 'other', label: 'Cough or talking', kind: 'ring', color: 'var(--text-2)' })
+  if (o.gaps) out.push({ key: 'gap', label: 'No audio', kind: 'band', color: 'var(--text-3)' })
+  if (o.spo2Low) out.push({ key: 'spo2', label: 'SpO2 under 90%', kind: 'dot', color: 'var(--warn)' })
+  return out
+}

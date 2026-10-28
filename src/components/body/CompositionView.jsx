@@ -387,15 +387,23 @@ function GoalCard() {
 
 // ------------------------------------------------------------------ charts
 
-const STEP_GW = 42 // one scan's group, px
-const STEP_H = 168
-const STEP_PAD = { t: 18, b: 30 }
+const STEP_GW = 78 // one scan's group, px
+const STEP_H = 236
+const STEP_PAD = { t: 26, b: 36 }
 
 /**
  * Scan to scan: for every Evolt scan, the change in fat mass and lean mass since
  * the scan before, as two thin bars from a zero line, the value on each bar and
  * the scan date under it. Newest on the right, the last 8 in view, scroll for more.
  */
+/** "Last scan: fat down 0.9 kg, lean up 0.3 kg." */
+export function stepAnswer(step) {
+  if (!step) return null
+  const part = (word, v) => (v == null ? null : Math.abs(v) < 0.05 ? `${word} the same` : `${word} ${v < 0 ? 'down' : 'up'} ${Math.abs(v).toFixed(1)} kg`)
+  const parts = [part('fat', step.fat), part('lean', step.lean)].filter(Boolean)
+  return parts.length ? `Last scan: ${parts.join(', ')}.` : null
+}
+
 function ScanSteps() {
   const measurements = useStore((s) => s.measurements)
   const steps = useMemo(() => scanToScan(measurements), [measurements])
@@ -407,39 +415,40 @@ function ScanSteps() {
   const half = (STEP_H - STEP_PAD.t - STEP_PAD.b) / 2 - 10
   const width = Math.max(8 * STEP_GW, steps.length * STEP_GW) + 8
   const bar = (v, x, fill, kind, date) => {
-    if (v == null) return <text x={x} y={mid + 3} fontSize="9" textAnchor="middle" fill="var(--text-3)">–</text>
+    if (v == null) return <text x={x} y={mid + 4} fontSize="12" textAnchor="middle" fill="var(--text-3)">–</text>
     const h = Math.max(1.5, (Math.abs(v) / max) * half)
     const down = v < 0
     const text = `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(1)}`
     return (
       <g data-testid={`step-${kind}`} data-value={v} data-date={date}>
-        <rect x={x - 4} width="8" y={down ? mid : mid - h} height={h} rx="2" fill={fill} />
-        <text x={x} y={down ? mid + h + 9 : mid - h - 3} fontSize="8" fontWeight="700" textAnchor="middle" fill="var(--text-2)" className="tabular-nums">{text}</text>
+        <rect x={x - 6} width="12" y={down ? mid : mid - h} height={h} rx="2" fill={fill} />
+        <text x={x} y={down ? mid + h + 13 : mid - h - 4} fontSize="11.5" fontWeight="700" textAnchor="middle" fill="var(--text-2)" className="tabular-nums">{text}</text>
       </g>
     )
   }
   return (
     <div className="card p-3" data-testid="scan-steps">
-      <p className="t-caption" style={{ color: 'var(--text-2)' }}>Scan to scan</p>
-      <p className="text-xs font-medium" style={{ color: 'var(--text-2)' }}>What each scan changed: fat and lean mass since the scan before.</p>
+      <p className="text-[17px] font-semibold">What did each scan change?</p>
+      <p className="text-[15px] font-semibold tabular-nums" data-testid="scan-steps-answer">{stepAnswer(steps.at(-1))}</p>
       <div ref={box} className="mt-2 overflow-x-auto" data-testid="scan-steps-scroll">
         <svg width={width} height={STEP_H} role="img" aria-label="Fat mass and lean mass change from each Evolt scan to the one before">
+          <text x={4} y={14} fontSize="11.5" fontWeight="700" fill="var(--text-3)" data-testid="axis-unit">kg change</text>
           <line x1="0" x2={width} y1={mid} y2={mid} stroke="var(--text-3)" strokeWidth="1" />
           {steps.map((x, i) => {
             const left = width - (steps.length - i) * STEP_GW
             const cx = left + STEP_GW / 2
             return (
               <g key={x.date} data-testid="step-group" data-date={x.date}>
-                {bar(x.fat, cx - 6, x.fat != null && x.fat > 0 ? BAD : GOOD, 'fat', x.date)}
-                {bar(x.lean, cx + 6, 'var(--series-muscle)', 'lean', x.date)}
-                <text x={cx} y={STEP_H - 10} fontSize="8" fontWeight="600" textAnchor="middle" fill="var(--text-3)" className="tabular-nums">{format(parseISO(x.date), 'd MMM')}</text>
-                <text x={cx} y={STEP_H - 1} fontSize="7" fontWeight="600" textAnchor="middle" fill="var(--text-3)" className="tabular-nums">{format(parseISO(x.date), 'yyyy')}</text>
+                {bar(x.fat, cx - 16, x.fat != null && x.fat > 0 ? BAD : GOOD, 'fat', x.date)}
+                {bar(x.lean, cx + 16, 'var(--series-muscle)', 'lean', x.date)}
+                <text x={cx} y={STEP_H - 15} fontSize="12" fontWeight="600" textAnchor="middle" fill="var(--text-3)" className="tabular-nums">{format(parseISO(x.date), 'd MMM')}</text>
+                <text x={cx} y={STEP_H - 2} fontSize="11" fontWeight="600" textAnchor="middle" fill="var(--text-3)" className="tabular-nums">{format(parseISO(x.date), 'yyyy')}</text>
               </g>
             )
           })}
         </svg>
       </div>
-      <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[11px] font-medium" style={{ color: 'var(--text-3)' }}>
+      <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[13px] font-medium" style={{ color: 'var(--text-2)' }} data-testid="chart-legend">
         <span><span className="mr-1 inline-block h-2 w-2 rounded-sm" style={{ background: GOOD }} />Fat mass down</span>
         <span><span className="mr-1 inline-block h-2 w-2 rounded-sm" style={{ background: BAD }} />Fat mass up</span>
         <span><span className="mr-1 inline-block h-2 w-2 rounded-sm" style={{ background: 'var(--series-muscle)' }} />Lean mass (up is good)</span>

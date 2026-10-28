@@ -10,7 +10,7 @@ import {
 } from '../../lib/chartRange'
 import { isCompatMouse } from '../../lib/mapGeometry'
 
-const CH = { w: 320, h: 170, padL: 34, padR: 10, padT: 16, padB: 30 }
+const CH = { w: 320, h: 228, padL: 44, padR: 10, padT: 28, padB: 30 }
 const PLOT = { left: CH.padL, right: CH.w - CH.padR, top: CH.padT, bottom: CH.h - CH.padB }
 const TAP_SLOP = 12
 const DOUBLE_TAP_MS = 350
@@ -33,7 +33,7 @@ function tickText(v, span) {
  * A range with fewer than two results does not get a line. It gets the values,
  * and a sentence saying why there is no trend to show.
  */
-export default function MarkerChart({ name, series, range, events, overlay, overlayable, onToggleOverlay, today }) {
+export default function MarkerChart({ name, unit = '', series, range, events, overlay, overlayable, onToggleOverlay, today }) {
   const clipId = useId().replace(/:/g, '')
   const [sel, setSel] = useState(DEFAULT_RANGE)
   const [yearsOpen, setYearsOpen] = useState(false)
@@ -236,7 +236,16 @@ export default function MarkerChart({ name, series, range, events, overlay, over
       data-view-x0={view.x0.toFixed(4)} data-view-x1={view.x1.toFixed(4)}
       data-axis-lo={axis.lo.toFixed(3)} data-axis-hi={axis.hi.toFixed(3)}
       data-zoomed={userView ? 'true' : 'false'} data-sparse="false">
-      <p className="t-caption" style={{ color: 'var(--text-2)' }}>Over time</p>
+      <p className="text-[17px] font-semibold">How has {name} moved?</p>
+      {shown.length >= 2 && (
+        <p className="text-[15px] font-semibold tabular-nums" data-testid="marker-answer">
+          {(() => {
+            const d = shown[shown.length - 1].value - shown[0].value
+            const r = Math.round(d * 100) / 100
+            return r === 0 ? 'About the same across these results.' : `${r > 0 ? 'Up' : 'Down'} ${Math.abs(r)}${unit ? ` ${unit}` : ''} across ${shown.length} results.`
+          })()}
+        </p>
+      )}
       <div className="mt-2">{chips}</div>
 
       <svg ref={svgRef} viewBox={`0 0 ${CH.w} ${CH.h}`} className="mt-2 w-full select-none" role="img"
@@ -252,6 +261,7 @@ export default function MarkerChart({ name, series, range, events, overlay, over
           </clipPath>
         </defs>
 
+        {unit && <text x={0} y={12} fontSize="11.5" fontWeight="700" fill="var(--text-3)" data-testid="axis-unit">{unit}</text>}
         {/* faint guides, labelled in the axis' own numbers */}
         {yTicks.map((v, i) => {
           const y = yFor(v, axis, PLOT)
@@ -260,7 +270,7 @@ export default function MarkerChart({ name, series, range, events, overlay, over
             <g key={i}>
               <line x1={PLOT.left} y1={y} x2={PLOT.right} y2={y} stroke="var(--border)" strokeWidth="1" opacity="0.6" />
               {!clash && (
-                <text x={PLOT.left - 4} y={y + 3} fontSize="9" fontWeight="700" textAnchor="end"
+                <text x={PLOT.left - 4} y={y + 4} fontSize="12" fontWeight="700" textAnchor="end"
                   fill="var(--text-3)" className="tabular-nums">{tickText(v, yAxisSpan)}</text>
               )}
             </g>
@@ -276,7 +286,7 @@ export default function MarkerChart({ name, series, range, events, overlay, over
           <g key={v}>
             <line x1={PLOT.left} y1={yFor(v, axis, PLOT)} x2={PLOT.right} y2={yFor(v, axis, PLOT)}
               stroke="var(--good)" strokeWidth="1" strokeDasharray="3 3" opacity="0.5" />
-            <text x={PLOT.left - 4} y={yFor(v, axis, PLOT) + 3} fontSize="9" fontWeight="700" textAnchor="end"
+            <text x={PLOT.left - 4} y={yFor(v, axis, PLOT) + 3} fontSize="12" fontWeight="700" textAnchor="end"
               fill="var(--text-3)" className="tabular-nums">{v}</text>
           </g>
         ))}
@@ -288,7 +298,7 @@ export default function MarkerChart({ name, series, range, events, overlay, over
               data-compound={e.peptideId} data-kind={e.kind} data-date={e.date} data-x={e.x.toFixed(2)}>
               <line x1={e.x} y1={PLOT.top} x2={e.x} y2={PLOT.bottom}
                 stroke="var(--info)" strokeWidth="1" strokeDasharray="2 3" opacity="0.8" />
-              <text x={e.x + 2} y={PLOT.top + 8} fontSize="8" fontWeight="700"
+              <text x={e.x + 2} y={PLOT.top + 8} fontSize="11" fontWeight="700"
                 fill="var(--info)">{e.kind === 'start' ? '▲' : e.kind === 'stop' ? '■' : '◆'}</text>
             </g>
           ))}
@@ -306,7 +316,7 @@ export default function MarkerChart({ name, series, range, events, overlay, over
               <circle cx={p.x} cy={p.y} r="3.5" fill={st === 'in' ? 'var(--text)' : 'var(--warn)'}
                 stroke="var(--surface-solid)" strokeWidth="1.5" />
               {keep.has(i) && (
-                <text x={p.x} y={p.y - 7} fontSize="9" fontWeight="800" data-testid="point-label"
+                <text x={p.x} y={p.y - 8} fontSize="12" fontWeight="800" data-testid="point-label"
                   textAnchor={p.x < PLOT.left + 14 ? 'start' : p.x > PLOT.right - 14 ? 'end' : 'middle'}
                   fill={st === 'in' ? 'var(--text-2)' : 'var(--warn)'} className="tabular-nums">
                   {p.value}
@@ -317,7 +327,7 @@ export default function MarkerChart({ name, series, range, events, overlay, over
         })}
 
         {[0, 0.5, 1].map((f) => (
-          <text key={f} x={PLOT.left + f * (PLOT.right - PLOT.left)} y={CH.h - 8} fontSize="9" fontWeight="700"
+          <text key={f} x={PLOT.left + f * (PLOT.right - PLOT.left)} y={CH.h - 9} fontSize="12" fontWeight="700"
             textAnchor={f === 0 ? 'start' : f === 1 ? 'end' : 'middle'} fill="var(--text-3)" className="tabular-nums"
             data-testid={f === 0 ? 'x-from' : f === 1 ? 'x-to' : undefined}>
             {xText(view.x0 + f * spanDays)}
@@ -325,7 +335,13 @@ export default function MarkerChart({ name, series, range, events, overlay, over
         ))}
       </svg>
 
-      <p className="mt-1 text-xs font-medium leading-snug" style={{ color: 'var(--text-3)' }}>
+      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[13px] font-medium" style={{ color: 'var(--text-2)' }} data-testid="chart-legend">
+        <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ background: 'var(--text)' }} />In range</span>
+        <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ background: 'var(--warn)' }} />Outside</span>
+        {ref && <span className="flex items-center gap-1.5"><span className="h-2.5 w-3.5 rounded-sm" style={{ background: 'color-mix(in srgb, var(--good) 25%, transparent)' }} />Lab interval</span>}
+        {placed.length > 0 && <span className="flex items-center gap-1.5" style={{ color: 'var(--info)' }}>▲ start ■ stop ◆ dose change</span>}
+      </div>
+      <p className="mt-1 text-[13px] font-medium leading-snug" style={{ color: 'var(--text-3)' }}>
         Pinch to zoom · drag to pan · double-tap to reset
         {shown.length < pts.length ? ` · ${shown.length} of ${pts.length} results in view` : ''}
       </p>

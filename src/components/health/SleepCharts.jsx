@@ -38,11 +38,11 @@ export function Hypnogram({ night, tz }) {
   if (!steps.length) {
     return <p className="text-xs font-medium" style={{ color: 'var(--text-3)' }} data-testid="hypnogram-empty">Stage detail arrives with the next sync.</p>
   }
-  const L = 44
+  const L = 54
   const R = 8
-  const rowH = 26
+  const rowH = 30
   const top = 4
-  const H = top + rows.length * rowH + 18
+  const H = top + rows.length * rowH + 22
   const x = (t) => L + ((t - night.start) / (night.end - night.start || 1)) * (W - L - R)
   const y = (row) => top + rows.indexOf(row) * rowH + rowH / 2
   let path = ''
@@ -57,7 +57,7 @@ export function Hypnogram({ night, tz }) {
         {rows.map((r) => (
           <g key={r}>
             <line x1={L} x2={W - R} y1={y(r)} y2={y(r)} stroke="var(--border)" strokeWidth="1" />
-            <text x={L - 6} y={y(r) + 3} fontSize="9" fontWeight="700" textAnchor="end" fill="var(--text-3)">{STAGE_LABEL[r]}</text>
+            <text x={L - 6} y={y(r) + 3} fontSize="12.5" fontWeight="700" textAnchor="end" fill="var(--text-3)">{STAGE_LABEL[r]}</text>
           </g>
         ))}
         {steps.map((s, i) => (
@@ -68,7 +68,7 @@ export function Hypnogram({ night, tz }) {
         <motion.path d={path} fill="none" stroke="var(--text-2)" strokeWidth="1.2" strokeLinejoin="round" pointerEvents="none"
           initial={reduce ? false : { pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: reduce ? 0 : 0.6, ease: 'easeOut' }} />
         {hourTicks(night.start, night.end, tz).map((tk) => (
-          <text key={tk.t} x={x(tk.t)} y={H - 4} fontSize="9" fontWeight="600" textAnchor="middle" fill="var(--text-3)" className="tabular-nums">{tk.label}</text>
+          <text key={tk.t} x={x(tk.t)} y={H - 4} fontSize="12.5" fontWeight="600" textAnchor="middle" fill="var(--text-3)" className="tabular-nums">{tk.label}</text>
         ))}
       </svg>
       <p className="mt-1 min-h-[18px] text-xs font-medium tabular-nums" style={{ color: 'var(--text-2)' }} data-testid="hypno-detail">
@@ -84,11 +84,11 @@ export function Hypnogram({ night, tz }) {
  */
 export function Chronogram({ rows, target, bandMin }) {
   if (!rows.length) return <p className="text-xs font-medium" style={{ color: 'var(--text-3)' }}>No nights in this range yet.</p>
-  const L = 38
+  const L = 50
   const R = 6
-  const H = 170
-  const top = 6
-  const bottom = 18
+  const H = 236
+  const top = 22
+  const bottom = 22
   const tgt = target != null ? ((parseHhmm(target) ?? 0) - 720 + 1440) % 1440 : null
   const lo = Math.floor((Math.min(...rows.map((r) => r.bed), tgt != null ? tgt - bandMin : Infinity)) / 60) * 60
   const hi = Math.ceil(Math.max(...rows.map((r) => r.wake)) / 60) * 60
@@ -101,44 +101,49 @@ export function Chronogram({ rows, target, bandMin }) {
       {ticks.map((m) => (
         <g key={m}>
           <line x1={L} x2={W - R} y1={y(m)} y2={y(m)} stroke="var(--border)" strokeWidth="1" />
-          <text x={L - 5} y={y(m) + 3} fontSize="9" fontWeight="600" textAnchor="end" fill="var(--text-3)" className="tabular-nums">{clockOf(m)}</text>
+          <text x={L - 5} y={y(m) + 3} fontSize="12.5" fontWeight="600" textAnchor="end" fill="var(--text-3)" className="tabular-nums">{clockOf(m)}</text>
         </g>
       ))}
       {tgt != null && (
         <g data-testid="chrono-target">
           <rect x={L} width={W - L - R} y={y(tgt - bandMin)} height={Math.max(1, y(tgt + bandMin) - y(tgt - bandMin))} fill="var(--text)" opacity="0.07" />
-          <text x={W - R - 2} y={y(tgt - bandMin) - 2} fontSize="8" fontWeight="700" textAnchor="end" fill="var(--text-3)">Target bedtime</text>
+          <text x={W - R - 2} y={y(tgt - bandMin) - 3} fontSize="11.5" fontWeight="700" textAnchor="end" fill="var(--text-3)">Target bedtime</text>
         </g>
       )}
+      <text x={2} y={12} fontSize="11.5" fontWeight="700" fill="var(--text-3)" data-testid="axis-unit">time</text>
       {rows.map((r, i) => (
         <rect key={r.date} x={L + i * bw + bw * 0.2} width={Math.max(2, bw * 0.6)} y={y(r.bed)} height={Math.max(2, y(r.wake) - y(r.bed))} rx={Math.min(3, bw * 0.3)}
           fill={SLEEP} opacity="0.75" data-testid="chrono-bar" />
       ))}
-      <text x={L} y={H - 4} fontSize="9" fontWeight="600" fill="var(--text-3)">{format(parseISO(rows[0].date), 'd MMM')}</text>
-      <text x={W - R} y={H - 4} fontSize="9" fontWeight="600" textAnchor="end" fill="var(--text-3)">{format(parseISO(rows[rows.length - 1].date), 'd MMM')}</text>
+      <text x={L} y={H - 4} fontSize="12.5" fontWeight="600" fill="var(--text-3)">{format(parseISO(rows[0].date), 'd MMM')}</text>
+      <text x={W - R} y={H - 4} fontSize="12.5" fontWeight="600" textAnchor="end" fill="var(--text-3)">{format(parseISO(rows[rows.length - 1].date), 'd MMM')}</text>
     </svg>
   )
 }
 
 /** Seven nights against need: the dashed line is need, a missing night has no bar. */
 export function DebtBars({ nights, needH }) {
-  const H = 96
-  const L = 26
+  const H = 180
+  const L = 34
   const maxH = Math.max(needH, ...nights.map((n) => n.asleepH || 0)) + 0.5
   const bw = (W - L) / nights.length
-  const y = (h) => H - 16 - (h / maxH) * (H - 24)
+  const y = (h) => H - 20 - (h / maxH) * (H - 34)
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="Hours asleep over the last 7 nights against your need" data-testid="debt-bars">
       {nights.map((n, i) => (
         <g key={n.date}>
           {n.asleepH != null && (
-            <rect x={L + i * bw + bw * 0.22} width={bw * 0.56} y={y(n.asleepH)} height={H - 16 - y(n.asleepH)} rx="3" fill={SLEEP} opacity={n.shortH > 0 ? 0.45 : 0.8} data-testid="debt-bar" />
+            <rect x={L + i * bw + bw * 0.22} width={bw * 0.56} y={y(n.asleepH)} height={H - 20 - y(n.asleepH)} rx="3" fill={SLEEP} opacity={n.shortH > 0 ? 0.45 : 0.8} data-testid="debt-bar" />
           )}
-          <text x={L + i * bw + bw / 2} y={H - 3} fontSize="9" fontWeight="600" textAnchor="middle" fill="var(--text-3)">{format(parseISO(n.date), 'EEEEE')}</text>
+          <text x={L + i * bw + bw / 2} y={H - 3} fontSize="12.5" fontWeight="600" textAnchor="middle" fill="var(--text-3)">{format(parseISO(n.date), 'EEEEE')}</text>
         </g>
       ))}
+      <text x={2} y={12} fontSize="11.5" fontWeight="700" fill="var(--text-3)" data-testid="axis-unit">hours</text>
+      {nights.map((n, i) => n.asleepH != null && (
+        <text key={`v${n.date}`} x={L + i * bw + bw / 2} y={y(n.asleepH) - 4} fontSize="11.5" fontWeight="700" textAnchor="middle" fill="var(--text-2)" className="tabular-nums">{n.asleepH.toFixed(1)}</text>
+      ))}
       <line x1={L} x2={W} y1={y(needH)} y2={y(needH)} stroke="var(--text-2)" strokeDasharray="3 3" />
-      <text x={L - 4} y={y(needH) + 3} fontSize="9" fontWeight="700" textAnchor="end" fill="var(--text-2)">{needH} h</text>
+      <text x={L - 4} y={y(needH) + 3} fontSize="12.5" fontWeight="700" textAnchor="end" fill="var(--text-2)">{needH} h</text>
     </svg>
   )
 }

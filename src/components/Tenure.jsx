@@ -173,7 +173,7 @@ export function TenureBlock({ peptide, onEdit }) {
 
 // Taller and wider-padded than it was: the dose labels sit on the steps and the
 // dates sit under them, and both need room to be read rather than squinted at.
-const CH = { w: 320, h: 168, padL: 8, padR: 8, padT: 26, padB: 30 }
+const CH = { w: 320, h: 226, padL: 8, padR: 8, padT: 30, padB: 36 }
 
 /**
  * The dose, over the whole time you have been on it.
@@ -273,7 +273,12 @@ export function DoseTimelineChart({ peptide }) {
 
   return (
     <div className="card p-3" data-testid="dose-timeline">
-      <p className="t-caption" style={{ color: 'var(--text-2)' }}>Dose over time</p>
+      <p className="text-[17px] font-semibold">How has my dose changed?</p>
+      <p className="text-[15px] font-semibold tabular-nums" data-testid="dose-answer">
+        {tl.segments.length > 1
+          ? `${tl.segments.length - 1} ${tl.segments.length === 2 ? 'change' : 'changes'}, now ${formatDose(tl.segments.at(-1).dose, tl.segments.at(-1).unit || unit)}.`
+          : `${formatDose(tl.segments[0].dose, tl.segments[0].unit || unit)} throughout.`}
+      </p>
 
       <svg viewBox={`0 0 ${CH.w} ${CH.h}`} className="mt-2 w-full" role="img"
         aria-label={`Dose history for ${peptide.name}: ${tl.segments.map((sg) => `${sg.dose} ${sg.unit || unit || ''} from ${sg.from}`).join(', ')}`}
@@ -298,7 +303,7 @@ export function DoseTimelineChart({ peptide }) {
           <g key={`pause-${b.from}-${b.to}`} data-testid="timeline-pause" data-reason={b.reason}>
             <rect x={x(b.from)} y={CH.padT} width={Math.max(2, x(b.to) - x(b.from))}
               height={base - CH.padT} fill="url(#pause-hatch)" />
-            <text x={x(b.from) + 2} y={CH.padT + 9} fontSize="8" fontWeight="800" fill="var(--warn)">
+            <text x={x(b.from) + 2} y={CH.padT + 12} fontSize="11" fontWeight="800" fill="var(--warn)">
               {b.reason}
             </text>
           </g>
@@ -311,7 +316,7 @@ export function DoseTimelineChart({ peptide }) {
           <g key={mg}>
             <line x1={CH.padL} y1={y(mg)} x2={CH.w - CH.padR} y2={y(mg)}
               stroke="var(--border)" strokeWidth="1" strokeDasharray="2 4" />
-            <text x={CH.padL} y={y(mg) - 5} fontSize="10" fontWeight="800"
+            <text x={CH.padL} y={y(mg) - 5} fontSize="12" fontWeight="800"
               fill="var(--text-3)" className="tabular-nums">
               {formatDose(fromMg(mg, unit === 'spray' ? 'mg' : unit), unit === 'spray' ? 'mg' : unit)}
             </text>
@@ -343,7 +348,7 @@ export function DoseTimelineChart({ peptide }) {
           const px = x(sg.from)
           const anchor = px < 30 ? 'start' : px > CH.w - 34 ? 'end' : 'middle'
           return (
-            <text key={`d-${sg.from}-${i}`} x={px} y={CH.h - 14} fontSize="9" fontWeight="700"
+            <text key={`d-${sg.from}-${i}`} x={px} y={CH.h - 18} fontSize="12" fontWeight="700"
               textAnchor={anchor} fill="var(--text-3)" className="tabular-nums">
               {format(parseISO(sg.from), 'd MMM')}
             </text>
@@ -365,11 +370,18 @@ export function DoseTimelineChart({ peptide }) {
           )
         })}
 
-        <text x={CH.w - CH.padR} y={CH.h - 2} fontSize="9" fontWeight="700"
+        <text x={CH.w - CH.padR} y={CH.h - 2} fontSize="12" fontWeight="700"
           fill="var(--text-3)" textAnchor="end" className="tabular-nums">
           today
         </text>
       </svg>
+      {(tl.bands.some((b) => !b.on) || tl.pauses.length > 0) && (
+        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[13px] font-medium" style={{ color: 'var(--text-2)' }} data-testid="chart-legend">
+          <span className="flex items-center gap-1.5"><span className="inline-block h-0.5 w-4" style={{ background: 'var(--text)' }} />Dose</span>
+          {tl.bands.some((b) => !b.on) && <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-3.5 rounded-sm" style={{ background: 'var(--text-3)', opacity: 0.35 }} />Off cycle</span>}
+          {tl.pauses.length > 0 && <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-3.5 rounded-sm" style={{ background: 'color-mix(in srgb, var(--warn) 30%, transparent)' }} />Paused</span>}
+        </div>
+      )}
 
       <AnimatePresence initial={false}>
         {picked && (

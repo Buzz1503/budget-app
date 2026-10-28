@@ -5,8 +5,9 @@ import { OUTCOME_BY_KEY, factorName } from '../../sleep/analysis/dataset'
 import { ANALYSIS } from '../../sleep/analysis/engine'
 import { clockOf } from '../../health/engine/sleepView'
 import useSleepAnalysis from './useSleepAnalysis'
-import { DeltaChip, StatusDot, StatusLegend, ProgressRow } from '../ui/Glance'
+import { DeltaChip, InfoButton, StatusDot, StatusLegend, ProgressRow } from '../ui/Glance'
 import { deltaText } from '../../lib/glance'
+import { ChartLegend } from '../charts/TrendChart'
 
 const muted = { color: 'var(--text-3)' }
 const soft = { color: 'var(--text-2)' }
@@ -98,6 +99,12 @@ function Ranked({ title, items, empty, testid, names }) {
   )
 }
 
+/** "Sauna, Late meal and 3 more" */
+const lockedNames = (locked, names) => {
+  const list = locked.map((l) => factorName(l.factor, names))
+  return list.length <= 2 ? list.join(' and ') : `${list.slice(0, 2).join(', ')} and ${list.length - 2} more`
+}
+
 const TABS = [['factors', 'Factors'], ['dose', 'Dose-response'], ['carry', 'Carry-over'], ['bestworst', 'Best vs worst'], ['week', 'Weekday vs weekend']]
 
 /** One outcome at a time: every factor with enough nights, clear ones first; adjusted beside raw when unlocked. */
@@ -140,44 +147,70 @@ function FactorsTab({ r, names }) {
       {r.factors.locked.length > 0 && (
         <div className="px-1" data-testid="lab-locked">
           <ProgressRow have={Math.max(...r.factors.locked.map((l) => l.have))} need={ANALYSIS.minPerGroup}
-            text={`${r.factors.locked.length} ${r.factors.locked.length === 1 ? 'factor unlocks' : 'factors unlock'} at ${ANALYSIS.minPerGroup} nights with and without · closest ${Math.min(ANALYSIS.minPerGroup, Math.max(...r.factors.locked.map((l) => l.have)))} of ${ANALYSIS.minPerGroup}`} />
+            text={`${lockedNames(r.factors.locked, names)} ${r.factors.locked.length === 1 ? 'unlocks' : 'unlock'} at ${ANALYSIS.minPerGroup} nights with and without · closest ${Math.min(ANALYSIS.minPerGroup, Math.max(...r.factors.locked.map((l) => l.have)))} of ${ANALYSIS.minPerGroup}`} />
         </div>
       )}
-      {r.rankedBy === 'adjusted' && <p className="px-1 text-[11px] font-medium" style={muted}>{r.adjustedNote}</p>}
-      {r.factors.chanceNote && <p className="px-1 text-[11px] font-medium" style={muted} data-testid="lab-chance">{r.factors.chanceNote}</p>}
+      {(r.rankedBy === 'adjusted' || r.factors.chanceNote) && (
+        <div className="flex items-center gap-1 px-1">
+          <span className="text-[13px] font-medium" style={muted}>About these comparisons</span>
+          <InfoButton title="About these comparisons">
+            {r.rankedBy === 'adjusted' && <p>{r.adjustedNote}</p>}
+            {r.factors.chanceNote && <p data-testid="lab-chance">{r.factors.chanceNote}</p>}
+            <StatusLegend />
+          </InfoButton>
+        </div>
+      )}
     </div>
   )
 }
 
-/** Small dot-and-whisker chart: the outcome's mean in each bin with its interval and n. */
+/** Dot-and-whisker chart: the outcome's mean in each bin with its interval and n. */
 function DoseChart({ d }) {
   const o = OUTCOME_BY_KEY[d.outcome]
   const vals = d.bins.flatMap((b) => (b.ci ? [b.ci.lo, b.ci.hi] : []))
   const lo = Math.min(...vals)
   const hi = Math.max(...vals)
   const pad = Math.max(1, (hi - lo) * 0.15)
-  const W = 300
-  const H = 110
-  const y = (v) => 10 + (1 - (v - (lo - pad)) / (hi - lo + 2 * pad)) * (H - 40)
-  const cw = (W - 40) / d.bins.length
+  const W = 340
+  const H = 230
+  const L = 44
+  const y = (v) => 28 + (1 - (v - (lo - pad)) / (hi - lo + 2 * pad)) * (H - 70)
+  const cw = (W - L - 6) / d.bins.length
+  const shown = d.bins.filter((b) => b.mean != null)
+  const first = shown[0]
+  const last = shown[shown.length - 1]
+  const diff = first && last && first !== last ? last.mean - first.mean : null
+  const answer = diff == null || Number(diff.toFixed(o.dp)) === 0
+    ? `${o.label} is about the same across the groups.`
+    : `${o.label} ${Math.abs(Number(diff.toFixed(o.dp)))}${o.unit ? ` ${o.unit}` : ''} ${diff > 0 ? 'higher' : 'lower'} at ${last.label} than ${first.label}.`
+  const ticks = [lo - pad, (lo + hi) / 2, hi + pad].map((v) => Number(v.toFixed(o.dp)))
   return (
     <section className="card p-4" data-testid="lab-dose">
-      <p className="text-[17px] font-semibold">{d.label}</p>
-      <p className="text-sm font-medium" style={soft}>{o.label}{o.unit ? `, ${o.unit}` : ''}</p>
-      <svg viewBox={`0 0 ${W} ${H}`} className="mt-1 w-full" role="img" aria-label={`${o.label} by ${d.label}`}>
+      <p className="text-[17px] font-semibold">Does more {d.label.toLowerCase()} go with a different {o.label.toLowerCase()}?</p>
+      <p className="text-[15px] font-semibold tabular-nums" data-testid="lab-dose-answer">{answer}</p>
+      <svg viewBox={`0 0 ${W} ${H}`} className="mt-2 w-full" role="img" aria-label={`${o.label} by ${d.label}`}>
+        <text x={2} y={12} fontSize="11.5" fontWeight="700" fill="var(--text-3)" data-testid="axis-unit">{o.unit || 'value'}</text>
+        {o.better && <text x={W - 4} y={12} fontSize="11.5" fontWeight="700" textAnchor="end" fill="var(--text-3)">{o.better === 'up' ? '↑ better' : '↓ better'}</text>}
+        {ticks.map((v) => (
+          <g key={v}>
+            <line x1={L} x2={W - 4} y1={y(v)} y2={y(v)} stroke="var(--border)" />
+            <text x={L - 5} y={y(v) + 4} fontSize="12" fontWeight="600" textAnchor="end" fill="var(--text-3)" className="tabular-nums">{v}</text>
+          </g>
+        ))}
         {d.bins.map((b, i) => {
-          const cx = 40 + cw * i + cw / 2
+          const cx = L + cw * i + cw / 2
           return (
             <g key={b.label}>
               {b.ci && <line x1={cx} x2={cx} y1={y(b.ci.lo)} y2={y(b.ci.hi)} stroke="var(--text-3)" strokeWidth="2" />}
-              {b.mean != null && <circle cx={cx} cy={y(b.mean)} r="4" fill="var(--series-sleep)" />}
-              {b.mean != null && <text x={cx + 7} y={y(b.mean) + 3} fontSize="9" fill="var(--text-2)" className="tabular-nums">{Number(b.mean.toFixed(o.dp))}</text>}
-              <text x={cx} y={H - 16} fontSize="9" textAnchor="middle" fill="var(--text-2)">{b.label}</text>
-              <text x={cx} y={H - 4} fontSize="9" textAnchor="middle" fill="var(--text-3)" className="tabular-nums">n {b.n}</text>
+              {b.mean != null && <circle cx={cx} cy={y(b.mean)} r="5" fill="var(--series-sleep)" />}
+              {b.mean != null && <text x={cx + 8} y={y(b.mean) + 4} fontSize="12" fontWeight="700" fill="var(--text-2)" className="tabular-nums">{Number(b.mean.toFixed(o.dp))}</text>}
+              <text x={cx} y={H - 22} fontSize="12" textAnchor="middle" fill="var(--text-2)">{b.label}</text>
+              <text x={cx} y={H - 5} fontSize="11.5" textAnchor="middle" fill="var(--text-3)" className="tabular-nums">n {b.n}</text>
             </g>
           )
         })}
       </svg>
+      <ChartLegend items={[{ key: 'mean', label: 'Average', kind: 'dot', color: 'var(--series-sleep)' }, { key: 'ci', label: '95% interval', kind: 'line', color: 'var(--text-3)' }]} />
     </section>
   )
 }

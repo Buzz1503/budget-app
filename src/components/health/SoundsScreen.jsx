@@ -3,7 +3,7 @@ import { ChevronRight } from 'lucide-react'
 import useStore from '../../store/useStore'
 import Modal from '../ui/Modal'
 import LongList from '../ui/LongList'
-import TrendChart from '../charts/TrendChart'
+import TrendChart, { ChartLegend } from '../charts/TrendChart'
 import { clockFromNoon } from '../../health/engine/sleep'
 import { clockOf } from '../../health/engine/sleepView'
 import { soundsNight } from '../../sleep/sounds'
@@ -19,7 +19,7 @@ import { AutomationGuide } from './SleepLabSettings'
 
 const muted = { color: 'var(--text-3)' }
 const soft = { color: 'var(--text-2)' }
-const L = 44
+const L = 54
 const R = 8
 const native = () => import('../../native/sleepRuntime')
 const CHANGED = 'pepito-sounds-changed'
@@ -164,7 +164,10 @@ function Timeline({ night, sessions }) {
   const bins = useMemo(() => snoreDensity(events, t0, t1), [events, t0, t1])
   const loud = useMemo(() => soundsNight(sessions, null)?.loudEvents.filter((e) => e.e > t0 && e.s < t1) || [], [sessions, t0, t1])
   const runs = useMemo(() => [...events.filter((e) => e.label === 'snoring' && e.e > t0 && e.s < t1)].sort((a, b) => (b.e - b.s) - (a.e - a.s)).slice(0, 5), [events, t0, t1])
-  const H = 72
+  const H = 118
+  const base = 82 // the snoring bars stand on this line; the loud marks sit under it
+  const total = bins.reduce((a, b) => a + b.min, 0)
+  const peak = bins.reduce((m, b) => (b.min > (m?.min || 0) ? b : m), null)
   const hours = []
   for (let t = Math.ceil(t0 / 3600000) * 3600000; t < t1; t += 3 * 3600000) hours.push(t)
   const tap = (ev) => {
@@ -175,23 +178,33 @@ function Timeline({ night, sessions }) {
   }
   return (
     <section className="card p-4" data-testid="sounds-timeline">
-      <p className="t-label">Through the night</p>
+      <p className="text-[17px] font-semibold">When did I snore?</p>
+      <p className="text-[15px] font-semibold tabular-nums" data-testid="sounds-timeline-answer">
+        {total > 0 ? `${minutesWords(Math.round(total))} in all, most around ${clock(peak.t)}.` : 'No snoring heard.'}
+      </p>
       {night && <Hypnogram night={night} tz={tz} />}
       <svg viewBox={`0 0 ${W} ${H}`} className="mt-1 w-full" role="img" aria-label="Snoring across the night, 10 minutes at a time, with loud moments marked" onClick={tap} data-testid="sounds-density">
-        <line x1={L} x2={W - R} y1={52} y2={52} stroke="var(--border)" strokeWidth="1" />
+        <text x={2} y={12} fontSize="11.5" fontWeight="700" fill="var(--text-3)" data-testid="axis-unit">min per 10 min</text>
+        <text x={W - R} y={12} fontSize="11.5" fontWeight="700" textAnchor="end" fill="var(--text-3)">↓ better</text>
+        <line x1={L} x2={W - R} y1={base} y2={base} stroke="var(--border)" strokeWidth="1" />
+        <line x1={L} x2={W - R} y1={base - 60} y2={base - 60} stroke="var(--border)" strokeWidth="1" opacity="0.5" />
+        <text x={L - 5} y={base - 56} fontSize="12" fontWeight="600" textAnchor="end" fill="var(--text-3)" className="tabular-nums">10</text>
+        <text x={L - 5} y={base + 4} fontSize="12" fontWeight="600" textAnchor="end" fill="var(--text-3)" className="tabular-nums">0</text>
         {gaps.filter((g) => g.e > t0 && g.s < t1).map((g, i) => (
-          <rect key={`g${i}`} x={x(Math.max(g.s, t0))} y={6} width={Math.max(1.5, x(Math.min(g.e, t1)) - x(Math.max(g.s, t0)))} height={46} fill="var(--text-3)" opacity="0.2" data-testid="density-gap"><title>No audio captured</title></rect>
+          <rect key={`g${i}`} x={x(Math.max(g.s, t0))} y={base - 60} width={Math.max(1.5, x(Math.min(g.e, t1)) - x(Math.max(g.s, t0)))} height={60} fill="var(--text-3)" opacity="0.2" data-testid="density-gap"><title>No audio captured</title></rect>
         ))}
         {bins.map((b) => (b.min > 0 ? (
-          <rect key={b.t} x={x(b.t)} y={52 - (b.min / 10) * 44} width={Math.max(1.5, x(b.t + 600000) - x(b.t) - 1)} height={(b.min / 10) * 44} rx="1.5" fill="var(--text-2)" data-testid="density-bin" />
+          <rect key={b.t} x={x(b.t)} y={base - (b.min / 10) * 60} width={Math.max(1.5, x(b.t + 600000) - x(b.t) - 1)} height={(b.min / 10) * 60} rx="1.5" fill="var(--text-2)" data-testid="density-bin" />
         ) : null))}
-        {loud.map((e, i) => <path key={i} d={`M${x(e.s)} 58 l4 8 h-8 z`} fill="var(--text)" data-testid="loud-mark"><title>{`Loud, ${clock(e.s)}`}</title></path>)}
-        {picked && <rect x={x(picked.s) - 1} y={4} width={Math.max(3, x(picked.e) - x(picked.s) + 2)} height={48} fill="none" stroke="var(--text)" strokeWidth="1.2" rx="2" />}
-        {hours.map((t) => <text key={t} x={x(t)} y={H - 1} fontSize="9" fontWeight="700" textAnchor="middle" fill="var(--text-3)" className="tabular-nums">{clock(t)}</text>)}
-        <text x={L - 6} y={32} fontSize="9" fontWeight="700" textAnchor="end" fill="var(--text-3)">Snoring</text>
-        <text x={L - 6} y={64} fontSize="9" fontWeight="700" textAnchor="end" fill="var(--text-3)">Loud</text>
+        {loud.map((e, i) => <path key={i} d={`M${x(e.s)} ${base + 4} l5 9 h-10 z`} fill="var(--text)" data-testid="loud-mark"><title>{`Loud, ${clock(e.s)}`}</title></path>)}
+        {picked && <rect x={x(picked.s) - 1} y={base - 62} width={Math.max(3, x(picked.e) - x(picked.s) + 2)} height={62} fill="none" stroke="var(--text)" strokeWidth="1.2" rx="2" />}
+        {hours.map((t) => <text key={t} x={x(t)} y={H - 2} fontSize="12" fontWeight="600" textAnchor={x(t) > W - R - 22 ? 'end' : x(t) < L + 22 ? 'start' : 'middle'} fill="var(--text-3)" className="tabular-nums">{clock(t)}</text>)}
       </svg>
-      <p className="mt-1 text-[11px] font-medium" style={muted}>Bar height is the minutes of snoring in each 10 minutes. Triangles are loud moments. Shaded stretches had no audio.</p>
+      <ChartLegend items={[
+        { key: 'bar', label: 'Snoring', kind: 'bar', color: 'var(--text-2)' },
+        ...(loud.length ? [{ key: 'loud', label: 'Loud moment', kind: 'triangle', color: 'var(--text)' }] : []),
+        ...(gaps.length ? [{ key: 'gap', label: 'No audio', kind: 'band', color: 'var(--text-3)' }] : []),
+      ]} />
       {picked ? (
         <p className="mt-2 text-sm font-bold tabular-nums" data-testid="burst-detail">
           Snoring {clock(picked.s)} to {clock(picked.e)}, {minutesWords(Math.max(1, Math.round((picked.e - picked.s) / 60000)))}. Confidence {Math.round(picked.c * 100)}%.

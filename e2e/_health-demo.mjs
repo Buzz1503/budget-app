@@ -245,7 +245,7 @@ await step('Effects: one row per tracked compound, each opening its own page', a
   const text = await page.locator('[data-testid="compound-effects"]').innerText()
   if (/caused|improved|worked/i.test(text)) throw new Error('causal wording in Effects')
   // the demo protocol starts every compound on the same day: the overlap is named
-  if (!/Changes in this section are shared with/.test(text)) throw new Error('no overlap warning for compounds started together')
+  if (!/so this mixes/.test(text)) throw new Error('no overlap warning for compounds started together')
   await noOverflow('Effects compound page')
   await page.click('[data-testid="effects-back"]')
   await seen('[data-testid="effects-view"]')
