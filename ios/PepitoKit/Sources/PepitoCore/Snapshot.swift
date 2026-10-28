@@ -37,11 +37,13 @@ public struct Snapshot: Codable, Equatable, Sendable {
         public var prompts: [Notice]?
         /// ISO 8601: the next evening prompt's time, when the Watch checks its battery
         public var nextEvening: String?
+        /// Last night as Health has it, for the Watch's sleep tile, complication and morning screen
+        public var lastNight: LastNight?
 
         public init(asNeeded: [AsNeeded] = [], restlessness: Bool = true, took: Took? = nil, toggles: [Toggle]? = nil,
-                    prompts: [Notice]? = nil, nextEvening: String? = nil) {
+                    prompts: [Notice]? = nil, nextEvening: String? = nil, lastNight: LastNight? = nil) {
             self.asNeeded = asNeeded; self.restlessness = restlessness; self.took = took
-            self.toggles = toggles; self.prompts = prompts; self.nextEvening = nextEvening
+            self.toggles = toggles; self.prompts = prompts; self.nextEvening = nextEvening; self.lastNight = lastNight
         }
 
         public var nextEveningDate: Date? {
@@ -49,6 +51,19 @@ public struct Snapshot: Codable, Equatable, Sendable {
             let f = ISO8601DateFormatter()
             f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
             return f.date(from: s) ?? ISO8601DateFormatter().date(from: s)
+        }
+    }
+
+    /// Last night: its wake date, minutes asleep, sleep score, readiness, restless periods and snoring minutes.
+    public struct LastNight: Codable, Hashable, Sendable {
+        public var date: String
+        public var asleepMin: Int?
+        public var score: Int?
+        public var readiness: Int?
+        public var restless: Int?
+        public var snoringMin: Int?
+        public init(date: String, asleepMin: Int? = nil, score: Int? = nil, readiness: Int? = nil, restless: Int? = nil, snoringMin: Int? = nil) {
+            self.date = date; self.asleepMin = asleepMin; self.score = score; self.readiness = readiness; self.restless = restless; self.snoringMin = snoringMin
         }
     }
 

@@ -28,4 +28,18 @@ enum RestlessStart {
         defaults.set(now, forKey: lastStartKey)
         return true
     }
+
+    /// Start sleep: make sure movement is recorded for the next 10 hours, starting a new
+    /// recording when tonight's would end too soon. Never from an extension without access.
+    @discardableResult
+    static func ensureCovers(now: Date = Date()) -> Bool {
+        guard CMSensorRecorder.isAccelerometerRecordingAvailable() else { return false }
+        let status = CMSensorRecorder.authorizationStatus()
+        if status == .denied || status == .restricted { return false }
+        let last = defaults.object(forKey: lastStartKey) as? Date
+        guard SleepMode.recordingNeeded(now: now, lastStart: last) else { return false }
+        CMSensorRecorder().recordAccelerometer(forDuration: RestlessRecording.durationH * 3600)
+        defaults.set(now, forKey: lastStartKey)
+        return true
+    }
 }

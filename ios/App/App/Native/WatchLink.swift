@@ -116,6 +116,19 @@ final class WatchLink: NSObject, WCSessionDelegate {
             DispatchQueue.main.async { SaunaActivityController.shared.live(live) }
             return
         }
+        // Watch sleep mode: Start sleep asks for Sleep sounds, I'm up stops it. The message wakes
+        // this app in the background, where iOS may refuse the microphone: then the start log says
+        // why and the time-sensitive "Tap to start Sleep sounds" goes out (by "watch").
+        if let c = SleepMode.command(from: info) {
+            DispatchQueue.main.async {
+                switch c.command {
+                case .start: _ = SleepSoundsEngine.shared.startWithResult(by: SleepMode.startedBy)
+                case .up: SleepSoundsEngine.shared.stop(reason: SleepSoundsCore.StopReason.watchUp.rawValue)
+                }
+                PepitoBridgePlugin.emit("sleepMode", ["kind": c.command.rawValue, "at": c.at.timeIntervalSince1970 * 1000])
+            }
+            return
+        }
         let decoder = JSONDecoder()
         var actions: [PendingAction] = []
         if let data = info["action"] as? Data, let a = try? decoder.decode(PendingAction.self, from: data) { actions.append(a) }

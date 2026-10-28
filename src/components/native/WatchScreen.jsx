@@ -77,6 +77,8 @@ export default function WatchScreen() {
         )}
       </section>
 
+      <BedtimeShortcut />
+
       <section>
         <h2 className="t-caption mb-2 px-1" style={{ color: 'var(--text-3)' }}>Sauna</h2>
         <div className="card rows px-4">
@@ -87,5 +89,51 @@ export default function WatchScreen() {
         </div>
       </section>
     </div>
+  )
+}
+
+const STEPS = [
+  'On your iPhone, open Shortcuts and tap + to make a new shortcut. Name it Pepito Sleep.',
+  'Add the action Set Focus, choose Sleep, turn it On.',
+  'Add the action Start sleep from Pepito+ (it runs on your Apple Watch).',
+  'In the Shortcuts app on your Apple Watch, the shortcut appears on its own. To put it on the face: touch and hold the face, Edit, Complications, Shortcuts, Pepito Sleep.',
+  'Optional, for the morning: Shortcuts, Automation, When Sleep Focus turns off, run I\'m up from Pepito+.',
+]
+
+/**
+ * The bedtime shortcut: one tap on the Watch face turns on Sleep Focus and starts sleep mode.
+ * Focus syncs to the iPhone, where the Sleep Focus automation starts Sleep sounds.
+ */
+function BedtimeShortcut() {
+  return (
+    <section data-testid="bedtime-shortcut">
+      <h2 className="t-caption mb-2 px-1" style={{ color: 'var(--text-3)' }}>Bedtime shortcut</h2>
+      <div className="card space-y-3 p-4">
+        <p className="text-[17px] font-semibold">One tap at bedtime</p>
+        <p className="text-sm font-medium" style={{ color: 'var(--text-2)' }}>
+          Pepito+ cannot turn on a Focus itself; a Shortcut can, then start sleep mode.
+        </p>
+        <ol className="space-y-2.5">
+          {STEPS.map((t, i) => (
+            <li key={i} className="flex gap-3 text-sm font-medium" data-testid="bedtime-step">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[13px] font-semibold tabular-nums" style={{ background: 'var(--surface-sunk)' }}>{i + 1}</span>
+              <span>{t}</span>
+            </li>
+          ))}
+        </ol>
+        <div className="rounded-[14px] p-3" style={{ background: 'var(--surface-sunk)' }}>
+          <p className="text-[15px] font-semibold">The simple way</p>
+          <p className="mt-1 text-sm font-medium" style={{ color: 'var(--text-2)' }}>
+            Turn on Sleep Focus in Control Centre, then tap the Pepito sleep complication on your face.
+          </p>
+        </div>
+        <p className="text-sm font-medium" style={{ color: 'var(--text-2)' }} data-testid="bedtime-battery">
+          Battery: Apple asks for 30% or more at bedtime for sleep tracking. Pepito+ adds almost nothing overnight: no workout, no live sensors, the screen redraws once a minute at most.
+        </p>
+        <p className="text-sm font-medium" style={{ color: 'var(--text-2)' }}>
+          Sleep sounds keeps using the iPhone's own microphone. AirPods, YouTube and other audio are never paused, lowered or moved.
+        </p>
+      </div>
+    </section>
   )
 }

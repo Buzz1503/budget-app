@@ -137,3 +137,17 @@ describe('a session timed on the iPhone and recorded on the Watch', () => {
     expect(sessions[0].hr.peak).toBe(141)
   })
 })
+
+describe('Watch sleep mode', () => {
+  it('lights out and I am up from the Watch land on one night, once each', () => {
+    const lightsOut = new Date('2026-10-28T22:40:00').getTime()
+    const up = new Date('2026-10-29T06:50:00').getTime()
+    useStore.getState().applyNativeActions([
+      { id: 'sm1', type: 'sleepMode', at: new Date(lightsOut).toISOString(), source: 'watch', payload: { kind: 'lightsOut', start: lightsOut } },
+      { id: 'sm2', type: 'sleepMode', at: new Date(up).toISOString(), source: 'watch', payload: { kind: 'up', start: up } },
+    ])
+    expect(useStore.getState().sleepModeLog['2026-10-29']).toEqual({ lightsOut, upAt: up })
+    const bad = useStore.getState().applyNativeActions([{ id: 'sm3', type: 'sleepMode', at: new Date().toISOString(), source: 'watch', payload: { kind: 'nap' } }])
+    expect(bad.applied || []).not.toContain('sm3')
+  })
+})

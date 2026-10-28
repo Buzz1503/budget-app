@@ -209,6 +209,13 @@ export function applyPendingActions(state, actions = [], { dueOn = null } = {}) 
         applied.push(a.id)
         break
       }
+      case 'sleepMode': {
+        const at = Number(p.start)
+        if (!['lightsOut', 'up'].includes(p.kind) || !Number.isFinite(at)) { set(a, 'invalid'); break }
+        ops.push({ op: 'sleepMode', kind: p.kind, at })
+        applied.push(a.id)
+        break
+      }
       case 'watchStatus': {
         const battery = Number(p.battery)
         ops.push({

@@ -7,6 +7,7 @@ import { useHealth } from '../../health/state'
 import { rowFor } from '../../health/engine/model'
 import { useNativeFeed } from '../../native/feed'
 import useHealthModel, { tz } from './useHealthModel'
+import { soundsNight } from '../../sleep/sounds'
 
 /**
  * Hands today's readiness, last night's sleep and the max heart rate to the
@@ -17,6 +18,7 @@ export default function NativeHealthFeed() {
   const lastSyncAt = useHealth((s) => s.data.meta?.lastSyncAt || null)
   const t = todayStr()
   const wakeTarget = useStore((s) => s.healthSettings.wakeTarget)
+  const extras = useStore((s) => s.nightExtras?.[todayStr()])
   useEffect(() => {
     const r = model.readiness(t)
     const night = model.nightBy.get(t)
@@ -44,12 +46,21 @@ export default function NativeHealthFeed() {
         hrvDelta: hrv.delta ?? null,
         sleepMin: night?.asleepMin ?? null,
       },
+      // last night for the Watch's sleep tile, complication and morning screen
+      lastNight: night ? {
+        date: t,
+        asleepMin: Math.round(night.asleepMin),
+        score: model.sleepScore(t)?.score ?? null,
+        readiness: r.status === 'ok' ? r.score : null,
+        restless: extras?.restless?.restlessPeriods ?? null,
+        snoringMin: extras?.sounds?.length ? Math.round(soundsNight(extras.sounds, null)?.snoringMin ?? 0) : null,
+      } : null,
     })
     // remembered, so the prompts are still planned before Health has loaded next launch
     const ss = useStore.getState().sleepSettings || {}
     if (plan && (ss.lastBedtime !== plan.bedtime || ss.lastWake !== plan.wake)) {
       useStore.getState().setSleepSettings({ lastBedtime: plan.bedtime, lastWake: plan.wake })
     }
-  }, [model, t, lastSyncAt, wakeTarget])
+  }, [model, t, lastSyncAt, wakeTarget, extras])
   return null
 }

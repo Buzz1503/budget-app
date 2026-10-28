@@ -23,6 +23,8 @@ public struct PendingAction: Codable, Equatable, Identifiable, Sendable {
         case watchStatus
         /// The rating step after a Watch session (payload.start, feel, lightheaded, headache, cramps, electrolytes, waterMl)
         case saunaRating
+        /// Watch sleep mode: lights out or "I'm up" (payload.kind lightsOut or up, payload.start epoch ms)
+        case sleepMode
     }
     public enum Source: String, Codable, Sendable {
         case widget, notification, siri, watch, liveActivity, app

@@ -62,6 +62,7 @@ describe('Swift snapshot fixture', () => {
       verdictOf,
       readiness: { score: 72, band: 'moderate', bandLabel: 'Moderate', status: 'ok', asOf: '2026-10-20T06:30:00.000Z', rhr: 54, rhrDelta: -1.5, hrv: 61, hrvDelta: 4, sleepMin: 431 },
       maxHR: 182,
+      lastNight: { date: '2026-10-20', asleepMin: 431, score: 80, readiness: 72, restless: 3, snoringMin: 17 },
     })
     // the generation time is the only thing that is not a function of the inputs
     snap.generatedAt = '2026-10-20T08:00:00.000Z'

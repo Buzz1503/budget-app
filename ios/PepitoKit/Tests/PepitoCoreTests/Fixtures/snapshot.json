@@ -1099,7 +1099,15 @@
         }
       }
     ],
-    "nextEvening": "2026-10-20T22:00:00.000Z"
+    "nextEvening": "2026-10-20T22:00:00.000Z",
+    "lastNight": {
+      "date": "2026-10-20",
+      "asleepMin": 431,
+      "score": 80,
+      "readiness": 72,
+      "restless": 3,
+      "snoringMin": 17
+    }
   },
   "notifications": {
     "timeSensitive": true,

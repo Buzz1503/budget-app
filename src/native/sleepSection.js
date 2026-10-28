@@ -35,7 +35,7 @@ export function eveningToggles(state) {
   return EVENING_FACTORS.filter((f) => f.id !== 'alcohol' && !automatic.has(f.id)).map((f) => ({ id: f.id, name: f.name }))
 }
 
-export function sleepSection(state, now = new Date(), { bedtime = null, wake = null, localDate } = {}) {
+export function sleepSection(state, now = new Date(), { bedtime = null, wake = null, localDate, lastNight = null } = {}) {
   const ss = state.sleepSettings || {}
   const today = localDate ? localDate(now) : null
   const prompts = today ? promptsFor(state, { today, now, bedtime, wake, localDate }) : []
@@ -52,5 +52,7 @@ export function sleepSection(state, now = new Date(), { bedtime = null, wake = n
     prompts: prompts.map(({ id, title, body, fireAt, category, threadId, payload }) => ({ id, title, body, fireAt, category, threadId, payload })),
     // the next evening prompt: the Watch checks its battery then
     nextEvening: evening ? evening.fireAt : null,
+    // last night for the Watch's sleep tile, complication and morning screen
+    lastNight: lastNight && lastNight.date ? lastNight : null,
   }
 }

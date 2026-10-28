@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { recordSleepMode } from '../sleep/sleepMode'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import { format } from 'date-fns'
 import {
@@ -190,6 +191,7 @@ function initialState() {
     //   restless: the Watch's movement summary; sounds: Sleep sounds sessions;
     //   lateUseMin: Screen Time minutes after bedtime (by the evening's date, see lateUse)
     nightExtras: {},
+    sleepModeLog: {},                   // Watch sleep mode: lights out and get-up per wake date (src/sleep/sleepMode.ts)
     soundsLog: [],                      // every Sleep sounds start and stop attempt, with the result and iOS error text
     lateUse: {},                         // { eveningDate: minutes } from the Screen Time monitor
     apneaOverrides: {},                  // STOP-BANG answers set by hand: { snoring: true, ... }
@@ -2682,6 +2684,9 @@ const useStore = create(
               break
             case 'restless':
               get().setRestless(o.date, o.summary)
+              break
+            case 'sleepMode':
+              set((st) => ({ sleepModeLog: recordSleepMode(st.sleepModeLog || {}, o.kind, o.at) }))
               break
             case 'saunaRating': {
               // the session the Watch just finished: matched by its start, else its workout

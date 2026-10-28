@@ -142,6 +142,21 @@ final class WatchSnapshotTests: XCTestCase {
         let groupId = Samples.partway.0.days[0].groups.first?.id ?? ""
         doses("logged-row", Samples.partway, loggedAt: [groupId: Samples.at(7, 42)], willSync: true)
         doses("all-logged", Samples.allLogged)
+
+        // Sleep mode: Start sleep, the night screen, the morning
+        let lastNight = Snapshot.LastNight(date: "2026-10-20", asleepMin: 408, score: 80, readiness: 72, restless: 3, snoringMin: 17)
+        shoot("sleep-start", BG.home, chrome: .child("Sleep"), aodToo: false) {
+            WatchSleepStartContent(lastNight: lastNight, battery: 0.64, start: {})
+        }
+        shoot("sleep-night", LinearGradient(colors: [.black], startPoint: .top, endPoint: .bottom), chrome: .running, fullScreen: true) {
+            WatchNightContent(since: typNow.addingTimeInterval(-80 * 60), lastHR: 54, lastHRAt: typNow.addingTimeInterval(-6 * 60), battery: 0.58, up: {})
+        }
+        shoot("sleep-morning", BG.home, chrome: .child("Last night"), aodToo: false) {
+            WatchMorningContent(morning: SleepMode.Morning(asleepMin: 408, score: 80, readiness: 72, restless: 3, snoringMin: 17), done: {})
+        }
+        shoot("sleep-morning-waiting", BG.home, chrome: .child("Last night"), aodToo: false) {
+            WatchMorningContent(morning: nil, done: {})
+        }
         shoot("doses-paused", BG.doses, chrome: .child("Doses"), aodToo: false) {
             WatchMessageContent(symbol: "pause.circle.fill", title: "Protocol paused", detail: "Until 27 Oct")
         }
@@ -289,6 +304,14 @@ final class WatchSnapshotTests: XCTestCase {
                                ("high", Samples.readiness(86, band: "high", label: "High")), ("empty", nil)] as [(String, Snapshot.Readiness?)] {
                 if let x = Snap.write("complication-readiness-circular-\(name)-\(m)", size: CGSize(width: 66, height: 66), scale: 2, {
                     face(circular, mode) { ReadinessComplication(readiness: rd) }
+                }) { out.append(x) }
+            }
+            for (name, st) in [("start", SleepMode.Complication.start), ("score", .score(80)), ("hours", .hours(408))] {
+                if let x = Snap.write("complication-sleep-circular-\(name)-\(m)", size: CGSize(width: 66, height: 66), scale: 2, {
+                    face(circular, mode) { SleepCircularComplication(state: st) }
+                }) { out.append(x) }
+                if let x = Snap.write("complication-sleep-corner-\(name)-\(m)", size: CGSize(width: 66, height: 66), scale: 2, {
+                    face(corner, mode) { SleepCornerComplication(state: st) }
                 }) { out.append(x) }
             }
             for (name, s) in [("idle", Samples.idle(Samples.fixture()).sauna), ("running", Samples.running().sauna)] {

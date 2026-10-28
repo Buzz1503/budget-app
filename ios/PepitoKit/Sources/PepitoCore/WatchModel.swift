@@ -2,12 +2,14 @@ import Foundation
 
 /// The Watch app's screens. Home is a menu of these; complications and the
 /// Smart Stack open one directly (pepito://doses, pepito://sauna,
-/// pepito://readiness). The app opens on Home, except while a sauna session
+/// pepito://readiness, pepito://sleep). The app opens on Home, except while a sauna session
 /// runs, when it opens straight to it.
 public enum WatchRoute: String, Hashable, Sendable, CaseIterable {
     case doses, sauna, readiness
     /// the evening sheet, from the evening prompt's Log
     case evening
+    /// sleep mode: Start sleep, the night screen, the morning (pepito://sleep, the sleep complication)
+    case sleep
 
     public static func from(url: URL) -> WatchRoute? {
         guard url.scheme == "pepito", let host = url.host else { return nil }
@@ -16,7 +18,9 @@ public enum WatchRoute: String, Hashable, Sendable, CaseIterable {
 
     public var url: URL { URL(string: "pepito://\(rawValue)")! }
 
-    public static func launchPath(saunaRunning: Bool) -> [WatchRoute] { saunaRunning ? [.sauna] : [] }
+    public static func launchPath(saunaRunning: Bool, sleeping: Bool = false) -> [WatchRoute] {
+        saunaRunning ? [.sauna] : sleeping ? [.sleep] : []
+    }
 }
 
 /// Readiness older than six hours shows its "as of" time.

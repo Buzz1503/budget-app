@@ -6,6 +6,8 @@ import { create } from 'zustand'
 
 export const useNativeFeed = create((set) => ({
   readiness: null,
+  // last night: { date, asleepMin, score, readiness, restless, snoringMin } for the Watch's sleep mode
+  lastNight: null,
   maxHR: null,
   // tonight's planned bedtime and the usual wake time ('HH:MM'), from the sleep planner
   plannedBedtime: null,

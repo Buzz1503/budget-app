@@ -1111,3 +1111,101 @@ final class LateUseTests: XCTestCase {
         XCTAssertNil(SleepSoundsCore.startFailedFallback(by: "schedule", result: .alreadyRunning))
     }
 }
+
+/// Watch sleep mode: the tile and complication by time of day, the movement
+/// recording window, the message to the iPhone and its fallback, the morning.
+final class SleepModeTests: XCTestCase {
+    private var cal: Calendar = {
+        var c = Calendar(identifier: .gregorian)
+        c.timeZone = TimeZone(identifier: "Australia/Sydney")!
+        return c
+    }()
+
+    private func at(_ s: String) -> Date {
+        let f = DateFormatter()
+        f.calendar = cal
+        f.timeZone = cal.timeZone
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy-MM-dd HH:mm"
+        return f.date(from: s)!
+    }
+
+    func testTheComplicationFollowsTheTimeOfDay() {
+        let last = Snapshot.LastNight(date: "2026-10-28", asleepMin: 408, score: 80)
+        XCTAssertEqual(SleepMode.complication(now: at("2026-10-28 21:00"), night: nil, lastNight: last, calendar: cal), .start)
+        XCTAssertEqual(SleepMode.complication(now: at("2026-10-29 02:00"), night: nil, lastNight: last, calendar: cal), .start)
+        XCTAssertEqual(SleepMode.complication(now: at("2026-10-28 07:30"), night: nil, lastNight: last, calendar: cal), .score(80))
+        XCTAssertEqual(SleepMode.complication(now: at("2026-10-28 14:00"), night: nil, lastNight: Snapshot.LastNight(date: "2026-10-28", asleepMin: 408), calendar: cal), .hours(408))
+        let lightsOut = at("2026-10-28 22:40")
+        let night = SleepMode.Night(lightsOut: lightsOut)
+        XCTAssertEqual(SleepMode.complication(now: at("2026-10-29 01:00"), night: night, lastNight: last, calendar: cal), .sleeping(since: lightsOut))
+        // a night never closed with "I'm up" stops counting as asleep after 14 hours
+        XCTAssertEqual(SleepMode.complication(now: at("2026-10-29 13:00"), night: night, lastNight: last, calendar: cal), .score(80))
+    }
+
+    func testTheHomeTileSaysStartSleepThenLastNight() {
+        XCTAssertEqual(SleepMode.tileLine(phase: .evening, lastNight: nil, now: Date()).text, "Start sleep")
+        let line = SleepMode.tileLine(phase: .morning, lastNight: Snapshot.LastNight(date: "2026-10-28", asleepMin: 408), now: Date())
+        XCTAssertEqual(line.text, "Last night 6 h 48 m")
+        XCTAssertEqual(line.short, "6 h 48 m")
+        let since = at("2026-10-28 22:40")
+        XCTAssertEqual(SleepMode.tileLine(phase: .sleeping(since: since), lastNight: nil, now: at("2026-10-29 00:00")).text, "Sleeping · 1 h 20 m")
+        XCTAssertEqual(SleepMode.sinceLightsOut(since, now: at("2026-10-29 00:00")), "1 h 20 m since lights out")
+    }
+
+    func testTheMovementRecordingCoversTheNextTenHours() {
+        let now = at("2026-10-28 22:40")
+        XCTAssertTrue(SleepMode.recordingNeeded(now: now, lastStart: nil))
+        // started at 6 pm for 12 hours: runs to 6 am, short of 8:40 am
+        XCTAssertTrue(SleepMode.recordingNeeded(now: now, lastStart: at("2026-10-28 18:00")))
+        // started at 9 pm: runs to 9 am, covers 10 hours from 10:40 pm
+        XCTAssertFalse(SleepMode.recordingNeeded(now: now, lastStart: at("2026-10-28 21:00")))
+    }
+
+    func testTheStartMessageRoundTripsAndQueuesTheLightsOut() {
+        let t = at("2026-10-28 22:40")
+        let msg = SleepMode.message(.start, at: t)
+        let back = SleepMode.command(from: msg)
+        XCTAssertEqual(back?.command, .start)
+        XCTAssertEqual(back?.at, t)
+        XCTAssertNil(SleepMode.command(from: ["test": 1.0]))
+        let a = SleepMode.action(.start, at: t)
+        XCTAssertEqual(a.type, .sleepMode)
+        XCTAssertEqual(a.payload.kind, "lightsOut")
+        XCTAssertEqual(a.payload.start, t.timeIntervalSince1970 * 1000)
+        XCTAssertEqual(SleepMode.action(.up, at: t).payload.kind, "up")
+    }
+
+    func testAStartFromTheWatchThatIOSBlocksFallsBackToATap() {
+        // the iPhone app is woken in the background by the message: iOS will not open the microphone there
+        let fallback = SleepSoundsCore.startFailedFallback(by: SleepMode.startedBy, result: .blockedBackground)
+        XCTAssertNotNil(fallback)
+        XCTAssertEqual(fallback?.timeSensitive, true)
+        XCTAssertNil(SleepSoundsCore.startFailedFallback(by: SleepMode.startedBy, result: .started))
+    }
+
+    func testTheMorningShowsOnceHealthHasThatNight() {
+        let night = SleepMode.Night(lightsOut: at("2026-10-28 22:40"), upAt: at("2026-10-29 06:50"))
+        let old = Snapshot.LastNight(date: "2026-10-28", asleepMin: 400, score: 70)
+        XCTAssertNil(SleepMode.morning(lastNight: old, night: night, calendar: cal), "the night before is not this one")
+        let new = Snapshot.LastNight(date: "2026-10-29", asleepMin: 408, score: 80, readiness: 64, restless: 3, snoringMin: 17)
+        let m = SleepMode.morning(lastNight: new, night: night, calendar: cal)
+        XCTAssertEqual(m?.asleepMin, 408)
+        XCTAssertEqual(m?.snoringMin, 17)
+        // after midnight lights out wakes the same day
+        let late = SleepMode.Night(lightsOut: at("2026-10-29 00:30"))
+        XCTAssertNotNil(SleepMode.morning(lastNight: new, night: late, calendar: cal))
+        // "I'm up" ends the night
+        XCTAssertFalse(SleepMode.isSleeping(night, now: at("2026-10-29 07:00")))
+        XCTAssertEqual(SleepMode.phase(now: at("2026-10-29 07:00"), night: night, calendar: cal), .morning)
+    }
+}
+
+final class SleepModeSnapshotTests: XCTestCase {
+    func testTheSnapshotCarriesLastNightForTheWatch() throws {
+        let s = try fixture()
+        XCTAssertEqual(s.sleep?.lastNight?.date, "2026-10-20")
+        XCTAssertEqual(s.sleep?.lastNight?.asleepMin, 431)
+        XCTAssertEqual(s.sleep?.lastNight?.snoringMin, 17)
+    }
+}

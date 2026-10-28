@@ -66,7 +66,7 @@ public extension Snapshot {
             dropPrompt(kind: "evening", date: p.date ?? Snapshot.eveningOf(now, calendar: calendar))
         case .morningCheck:
             dropPrompt(kind: "morning", date: date)
-        case .restlessness, .watchStatus, .saunaRating:
+        case .restlessness, .watchStatus, .saunaRating, .sleepMode:
             break
         case .snoozeDose, .vialChange, .snoozeOrder:
             // nothing on screen changes until the phone applies it and writes the snapshot again

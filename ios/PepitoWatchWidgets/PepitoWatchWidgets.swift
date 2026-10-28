@@ -141,11 +141,64 @@ struct SaunaFamilyView: View {
     }
 }
 
+/// The Pepito sleep complication: a moon that opens Start sleep in the evening, the time since
+/// lights out at night, last night's score by day. New entries at 4 am, noon and 6 pm.
+struct SleepEntry: TimelineEntry {
+    let date: Date
+    let state: SleepMode.Complication
+}
+
+struct SleepProvider: TimelineProvider {
+    func placeholder(in context: Context) -> SleepEntry { SleepEntry(date: Date(), state: .start) }
+
+    func getSnapshot(in context: Context, completion: @escaping (SleepEntry) -> Void) {
+        completion(entry(at: Date()))
+    }
+
+    func getTimeline(in context: Context, completion: @escaping (Timeline<SleepEntry>) -> Void) {
+        let now = Date()
+        var dates = [now]
+        var t = now
+        for _ in 0..<4 { t = SleepMode.nextChange(after: t); dates.append(t) }
+        completion(Timeline(entries: dates.map { entry(at: $0) }, policy: .after(dates.last ?? now.addingTimeInterval(6 * 3600))))
+    }
+
+    private func entry(at date: Date) -> SleepEntry {
+        let snap = SharedStore.shared().readSnapshot()
+        let night = SleepMode.load(RestlessStart.defaults)
+        return SleepEntry(date: date, state: SleepMode.complication(now: date, night: night, lastNight: snap?.sleep?.lastNight))
+    }
+}
+
+struct WatchSleepWidget: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: "PepitoWatchSleep", provider: SleepProvider()) { entry in
+            WatchWidgetRoot(.sleep) { SleepFamilyView(entry: entry) }
+        }
+        .configurationDisplayName("Pepito sleep")
+        .description("Start sleep with one tap; last night's score in the morning.")
+        .supportedFamilies([.accessoryCircular, .accessoryCorner])
+    }
+}
+
+struct SleepFamilyView: View {
+    let entry: SleepEntry
+    @Environment(\.widgetFamily) private var family
+    var body: some View {
+        if family == .accessoryCorner {
+            SleepCornerComplication(state: entry.state)
+        } else {
+            SleepCircularComplication(state: entry.state)
+        }
+    }
+}
+
 @main
 struct PepitoWatchWidgetsBundle: WidgetBundle {
     var body: some Widget {
         WatchReadinessWidget()
         WatchNextDoseWidget()
         WatchSaunaWidget()
+        WatchSleepWidget()
     }
 }

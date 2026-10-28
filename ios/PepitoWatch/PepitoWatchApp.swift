@@ -27,9 +27,9 @@ struct PepitoWatchApp: App {
     }
 }
 
-/// Home, a menu of Doses, Sauna and Readiness, one tap from each. The one
-/// exception: while a sauna session runs (or its summary waits), the app
-/// opens straight to it.
+/// Home, a menu of Doses, Sauna, Readiness and Sleep, one tap from each. The
+/// exceptions: while a sauna session runs (or its summary waits), the app
+/// opens straight to it; after Start sleep, straight to the night screen.
 struct RootView: View {
     @EnvironmentObject private var store: WatchStore
     @EnvironmentObject private var sauna: SaunaWorkoutManager
@@ -44,6 +44,7 @@ struct RootView: View {
                     case .sauna: SaunaScreen()
                     case .readiness: ReadinessScreen()
                     case .evening: EveningScreen()
+                    case .sleep: SleepScreen()
                     }
                 }
         }
@@ -65,7 +66,8 @@ struct RootView: View {
     }
 
     private func showSessionIfRunning() {
-        let path = WatchRoute.launchPath(saunaRunning: sauna.isRunning || sauna.phase == .coolDown || sauna.phase == .saving || sauna.phase == .summary)
+        let path = WatchRoute.launchPath(saunaRunning: sauna.isRunning || sauna.phase == .coolDown || sauna.phase == .saving || sauna.phase == .summary,
+                                         sleeping: SleepMode.isSleeping(store.sleepNight, now: Date()))
         if !path.isEmpty, store.path != path { store.path = path }
     }
 }

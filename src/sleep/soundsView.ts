@@ -54,6 +54,7 @@ export function soundsLine(i: StatusInput): string {
 
 const STOP_REASONS: Record<string, string> = {
   focusOff: 'Sleep Focus ended',
+  watchUp: "I'm up on Apple Watch",
   unplugged: 'Unplugged',
   tooLong: '11 hour limit',
   interrupted: 'Interrupted',
@@ -91,7 +92,7 @@ export interface SessionRow {
   checkpoints: number
 }
 
-const STARTED_BY: Record<string, string> = { app: 'Started in the app', shortcut: 'Started by a Shortcuts automation', automation: 'Started by a Shortcuts automation', schedule: 'Started by the schedule', notification: 'Started from a notification' }
+const STARTED_BY: Record<string, string> = { app: 'Started in the app', shortcut: 'Started by a Shortcuts automation', automation: 'Started by a Shortcuts automation', schedule: 'Started by the schedule', notification: 'Started from a notification', watch: 'Started from Apple Watch' }
 export const startedByText = (by: string) => STARTED_BY[by] || 'Started in the app'
 
 /** One row per session, newest first: when, why it stopped, how much audio, how many events, how many gaps. */
@@ -187,7 +188,7 @@ const RESULT_WORDS: Record<string, string> = {
   skippedDaytime: 'Skipped: outside 8 pm to 4 am',
   notRunning: 'Nothing was running to stop',
 }
-const BY_WORDS: Record<string, string> = { app: 'In the app', shortcut: 'Shortcuts automation', schedule: 'Scheduled start', notification: 'From a notification', test: 'Test' }
+const BY_WORDS: Record<string, string> = { app: 'In the app', shortcut: 'Shortcuts automation', schedule: 'Scheduled start', notification: 'From a notification', watch: 'Start sleep on Apple Watch', test: 'Test' }
 
 export const startResultWords = (r: string) => RESULT_WORDS[r] || 'Unknown result'
 

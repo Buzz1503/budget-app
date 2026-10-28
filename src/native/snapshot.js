@@ -271,9 +271,10 @@ function stockSection(state, now) {
  * @param opts.now  Date
  * @param opts.verdictOf  (compoundA, compoundB) => verdict, from the lazily loaded matrix; null leaves groups out
  * @param opts.readiness  { score, band, bandLabel, status, asOf, rhr, rhrDelta, hrv, hrvDelta, sleepMin } or null
+ * @param opts.lastNight  { date, asleepMin, score, readiness, restless, snoringMin } or null (Watch sleep mode)
  * @param opts.maxHR  from the Health model; falls back to the setting
  */
-export function buildSnapshot(state, { now = new Date(), verdictOf = null, readiness = null, maxHR = null, bedtime = null, wake = null } = {}) {
+export function buildSnapshot(state, { now = new Date(), verdictOf = null, readiness = null, maxHR = null, bedtime = null, wake = null, lastNight = null } = {}) {
   const today = localDate(now)
   const ns = state.notificationSettings || {}
   const slotTimes = { AM: ns.amTime || DEFAULT_SLOT_TIMES.AM, PM: ns.pmTime || DEFAULT_SLOT_TIMES.PM }
@@ -316,7 +317,7 @@ export function buildSnapshot(state, { now = new Date(), verdictOf = null, readi
     // Stock notices still ahead (the Watch plans them with the rest) and who is out.
     stock: stockSection(state, now),
     // As-needed items with their last amounts, and the overnight recording switch.
-    sleep: sleepSection(state, now, { bedtime, wake, localDate }),
+    sleep: sleepSection(state, now, { bedtime, wake, localDate, lastNight }),
     notifications: {
       timeSensitive: ns.timeSensitive !== false,
       restarts: ns.restarts !== false,

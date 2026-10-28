@@ -36,6 +36,7 @@ import { recordingMissing, soundsMissed, SOUNDS_MISSED_LINE } from '../../sleep/
 import { soundsStatus } from '../../native/sleepRuntime'
 import { soundsLine, minutesWords } from '../../sleep/soundsView'
 import { AnswerLine, DeltaChip, InfoButton } from '../ui/Glance'
+import { onsetMin, onsetWords } from '../../sleep/sleepMode'
 
 const clock = (ms) => clockOf(clockFromNoon(ms, tz))
 const dayWords = (d, t) => (d === t ? 'Last night' : d === addDays(t, -1) ? 'The night before' : `Night to ${format(parseISO(d), 'EEE d MMM')}`)
@@ -210,6 +211,9 @@ export function sleepAnswer(asleepMin, needH) {
 
 function Hero({ model, night, date, t, prev, next, setDate, openCalendar, sounds }) {
   const perf = model.sleepScore(date)
+  // from Start sleep on Apple Watch: how long from lights out to sleep
+  const lightsOut = useStore((st) => st.sleepModeLog?.[date]?.lightsOut)
+  const onset = onsetWords(onsetMin(lightsOut, night.start))
   const band = scoreBand(perf?.score)
   return (
     <section className="card p-5" data-testid="last-night">
@@ -239,6 +243,7 @@ function Hero({ model, night, date, t, prev, next, setDate, openCalendar, sounds
         </div>
       </div>
       <AnswerLine className="mt-4" testid="sleep-answer">{sleepAnswer(night.asleepMin, model.needH)}</AnswerLine>
+      {onset && <p className="mt-1 text-sm font-medium tabular-nums" style={{ color: 'var(--text-2)' }} data-testid="sleep-onset">{onset}</p>}
       {!night.hasStages && <p className="mt-1 text-sm font-medium" style={{ color: 'var(--text-2)' }}>No stages from {night.sourceName || 'this source'}, so the score leaves them out.</p>}
     </section>
   )

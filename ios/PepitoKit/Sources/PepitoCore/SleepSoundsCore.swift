@@ -99,7 +99,7 @@ public enum SleepSoundsCore {
     /// Why a session ended. The first three come from `shouldStop`; `app` is a hand stop,
     /// `interrupted` an interruption that never ended, `appClosed` a session found open
     /// on the next launch (iOS or the user closed the app, or it crashed).
-    public enum StopReason: String, Sendable { case focusOff, unplugged, tooLong, app, interrupted, appClosed, scheduled }
+    public enum StopReason: String, Sendable { case focusOff, unplugged, tooLong, app, interrupted, appClosed, scheduled, watchUp }
     public static let maxHours = 11.0
 
     /// Whether a running session should stop: unplugged after 4 am, or past 11 hours.
@@ -239,6 +239,7 @@ public enum SleepSoundsCore {
         case StopReason.tooLong.rawValue: return "It reached the 11 hour limit."
         case StopReason.focusOff.rawValue: return "Sleep Focus ended."
         case StopReason.scheduled.rawValue: return "The schedule ended."
+        case StopReason.watchUp.rawValue: return "You tapped I'm up on Apple Watch."
         default: return "It was stopped."
         }
     }
@@ -290,7 +291,7 @@ public enum SleepSoundsCore {
     /// What the Stop automation says when nothing is running, so it is never a bare "was not running".
     public static func notRunningWords(lastStart: LogEntry?, lastEnd: (ms: Double, reason: String?)?, nowMs: Double, calendar: Calendar = .current) -> String {
         let recent = 14.0 * 3600_000
-        if let end = lastEnd, nowMs - end.ms < recent, end.reason != StopReason.focusOff.rawValue, end.reason != StopReason.app.rawValue, end.reason != StopReason.scheduled.rawValue {
+        if let end = lastEnd, nowMs - end.ms < recent, end.reason != StopReason.focusOff.rawValue, end.reason != StopReason.app.rawValue, end.reason != StopReason.scheduled.rawValue, end.reason != StopReason.watchUp.rawValue {
             return "Sleep sounds stopped at \(timeWords(end.ms, calendar: calendar)). \(stopReasonWords(end.reason))"
         }
         if let s = lastStart, s.kind == "start", nowMs - s.at < recent, let r = StartResult(rawValue: s.result), r != .started, r != .alreadyRunning {

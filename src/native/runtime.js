@@ -54,6 +54,7 @@ export async function writeSnapshotNow() {
     now: new Date(),
     verdictOf: await verdictOf(),
     readiness: feed.readiness,
+    lastNight: feed.lastNight,
     maxHR: feed.maxHR,
     bedtime: feed.plannedBedtime,
     wake: feed.usualWake,

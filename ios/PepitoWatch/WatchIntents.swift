@@ -84,5 +84,40 @@ struct PepitoWatchShortcuts: AppShortcutsProvider {
                     shortTitle: "Stop sauna", systemImageName: "stop.circle")
         AppShortcut(intent: WatchLogDueDosesIntent(), phrases: ["Log my doses in \(.applicationName)"],
                     shortTitle: "Log my doses", systemImageName: "checkmark.circle")
+        AppShortcut(intent: WatchStartSleepIntent(), phrases: ["Start sleep in \(.applicationName)"],
+                    shortTitle: "Start sleep", systemImageName: "moon")
+        AppShortcut(intent: WatchImUpIntent(), phrases: ["I'm up in \(.applicationName)"],
+                    shortTitle: "I'm up", systemImageName: "sun.max")
+    }
+}
+
+/// "Start sleep": for the Pepito Sleep shortcut (turn on Sleep Focus, then this) and Siri.
+struct WatchStartSleepIntent: AppIntent {
+    static var title: LocalizedStringResource = "Start sleep"
+    static var description = IntentDescription("Lights out: records movement through the night and starts Sleep sounds on your iPhone.")
+    static var openAppWhenRun = true
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        if SleepMode.isSleeping(WatchStore.shared.sleepNight, now: Date()) {
+            WatchStore.shared.open(.sleep)
+            return .result(dialog: "Already in sleep mode.")
+        }
+        WatchStore.shared.startSleep()
+        return .result(dialog: "Good night. Sleep sounds is starting on your iPhone.")
+    }
+}
+
+/// "I'm up": the get-up time; stops Sleep sounds on the iPhone. For a Sleep Focus off automation and Siri.
+struct WatchImUpIntent: AppIntent {
+    static var title: LocalizedStringResource = "I'm up"
+    static var description = IntentDescription("Saves when you got up and stops Sleep sounds on your iPhone.")
+    static var openAppWhenRun = true
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        WatchStore.shared.wakeUp()
+        WatchStore.shared.open(.sleep)
+        return .result(dialog: "Morning. Last night shows once Health has it.")
     }
 }

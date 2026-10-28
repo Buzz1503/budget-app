@@ -1,5 +1,6 @@
 import SwiftUI
 import WatchKit
+import HealthKit
 import PepitoCore
 import PepitoTheme
 import PepitoWatchUI
@@ -16,7 +17,7 @@ struct HomeScreen: View {
     var body: some View {
         TimelineView(.everyMinute) { ctx in
             ScrollView {
-                WatchHomeContent(snap: store.snapshot, now: ctx.date) { store.open($0) }
+                WatchHomeContent(snap: store.snapshot, now: ctx.date, night: store.sleepNight) { store.open($0) }
             }
         }
         .navigationTitle("Pepito+")
@@ -383,5 +384,79 @@ struct ReadinessScreen: View {
         }
         .navigationTitle("Readiness")
         .containerBackground(WatchBG.readiness(s?.readiness?.band), for: .navigation)
+    }
+}
+
+// MARK: - Sleep
+
+/// Sleep mode: Start sleep in the evening, the dark night screen once the lights are out,
+/// and last night in the morning. No workout session and no live sensors: the heart rate
+/// shown is the latest sample Health already has, read when the screen appears and once a minute.
+struct SleepScreen: View {
+    @EnvironmentObject private var store: WatchStore
+    @State private var hr: (bpm: Int, at: Date)?
+    @State private var battery: Double = -1
+
+    var body: some View {
+        TimelineView(.everyMinute) { ctx in
+            content(now: ctx.date)
+                .task(id: ctx.date) { await refresh() }
+        }
+    }
+
+    @ViewBuilder
+    private func content(now: Date) -> some View {
+        switch SleepMode.phase(now: now, night: store.sleepNight) {
+        case .sleeping(let since):
+            WatchNightContent(since: since, lastHR: hr?.bpm, lastHRAt: hr?.at, battery: battery >= 0 ? battery : nil) {
+                WKInterfaceDevice.current().play(.click)
+                store.wakeUp()
+            }
+            .toolbar(.hidden, for: .navigationBar)
+            .containerBackground(Color.black, for: .navigation)
+        case .evening:
+            ScrollView {
+                WatchSleepStartContent(lastNight: store.snapshot?.sleep?.lastNight, battery: battery >= 0 ? battery : nil) {
+                    WKInterfaceDevice.current().play(.start)
+                    store.startSleep()
+                }
+            }
+            .navigationTitle("Sleep")
+            .containerBackground(WatchBG.home, for: .navigation)
+        case .morning, .day:
+            ScrollView {
+                WatchMorningContent(morning: SleepMode.morning(lastNight: store.snapshot?.sleep?.lastNight, night: store.sleepNight)) {
+                    store.path = []
+                }
+            }
+            .navigationTitle("Last night")
+            .containerBackground(WatchBG.home, for: .navigation)
+        }
+    }
+
+    private func refresh() async {
+        let device = WKInterfaceDevice.current()
+        device.isBatteryMonitoringEnabled = true
+        battery = Double(device.batteryLevel)
+        if SleepMode.isSleeping(store.sleepNight, now: Date()) { hr = await NightHeartRate.latest() }
+    }
+}
+
+/// The latest heart rate sample Health has from the last two hours: one query, no sensor of our own.
+enum NightHeartRate {
+    private static let health = HKHealthStore()
+
+    static func latest(now: Date = Date()) async -> (bpm: Int, at: Date)? {
+        guard HKHealthStore.isHealthDataAvailable(), let type = HKObjectType.quantityType(forIdentifier: .heartRate) else { return nil }
+        let predicate = HKQuery.predicateForSamples(withStart: now.addingTimeInterval(-2 * 3600), end: now, options: [])
+        let sort = [NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)]
+        return await withCheckedContinuation { cont in
+            let q = HKSampleQuery(sampleType: type, predicate: predicate, limit: 1, sortDescriptors: sort) { _, samples, _ in
+                guard let s = samples?.first as? HKQuantitySample else { cont.resume(returning: nil); return }
+                let bpm = s.quantity.doubleValue(for: HKUnit.count().unitDivided(by: .minute()))
+                cont.resume(returning: (Int(bpm.rounded()), s.endDate))
+            }
+            health.execute(q)
+        }
     }
 }
