@@ -120,7 +120,8 @@ function readingsFrom({ measurements = [], health = [], excludeWeight = [] }: Bo
   measurements.forEach((m, i) => {
     if (m.hiddenFromCharts) return
     const family = familyOfEntry(m)
-    const source: BodySource = family === 'scale' ? 'manual' : 'scan'
+    // a Withings export row keeps Withings as its source; anything else in Scale was typed in
+    const source: BodySource = family === 'scale' ? (m.source === 'withings' ? 'withings' : 'manual') : 'scan'
     const values: Reading['values'] = {}
     for (const [k, raw] of Object.entries(m)) {
       if (NOT_MEASURES.has(k) || typeof raw === 'object' || typeof raw === 'boolean') continue

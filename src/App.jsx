@@ -44,13 +44,13 @@ const BodyTab = screen(() => import('./components/BodyTab'))
 const HistoryTab = screen(() => import('./components/HistoryTab'))
 const SupplementsTab = screen(() => import('./components/SupplementsTab'))
 const BloodsTab = screen(() => import('./components/BloodsTab'))
-const ImportScans = screen(() => import('./components/ImportScans'))
+const ImportFiles = screen(() => import('./components/data/ImportFiles'))
 const DataReports = screen(() => import('./components/data/DataReports'))
 const ScheduleWizard = screen(() => import('./components/ScheduleWizard'))
 // every lazy screen, for the prefetch after Home. The dev server serves modules
 // one by one, so there they are all asked for straight away and a screen opened
 // early (as the e2e suites do) is not left waiting.
-const SCREEN_LOADERS = [ProtocolTab.load, CalendarTab.load, CalcTab.load, MixTab.load, SuppliesTab.load, SettingsTab.load, RightNowTab.load, ReactionsScreen.load, SaunaTab.load, BodyTab.load, HistoryTab.load, SupplementsTab.load, BloodsTab.load, ImportScans.load, DataReports.load, ScheduleWizard.load]
+const SCREEN_LOADERS = [ProtocolTab.load, CalendarTab.load, CalcTab.load, MixTab.load, SuppliesTab.load, SettingsTab.load, RightNowTab.load, ReactionsScreen.load, SaunaTab.load, BodyTab.load, HistoryTab.load, SupplementsTab.load, BloodsTab.load, ImportFiles.load, DataReports.load, ScheduleWizard.load]
 if (import.meta.env.DEV) for (const fn of SCREEN_LOADERS) void fn().catch(() => {})
 
 /** While a screen's code loads: a quiet placeholder rather than a blank page. */
@@ -76,7 +76,7 @@ const SCREENS = {
   settings: SettingsTab,
   history: HistoryTab,
   supplements: SupplementsTab,
-  scans: ImportScans,
+  scans: ImportFiles,
   reports: DataReports,
   // native app only: compiled out of the web build
   ...(HEALTH_BUILD ? { health: HealthSettings, sleep: SleepTab, shortcuts: ShortcutsScreen, notifications: NotificationsScreen, watch: WatchScreen, lock: LockSettingsScreen } : {}),
@@ -97,7 +97,7 @@ const PRIMARY_IDS = new Set(PRIMARY.map((t) => t.id))
 const SUB_TITLES = {
   now: 'Right Now', protocol: 'My protocol', supplies: 'Stock', calc: 'Calculator',
   mix: 'Mix', settings: 'Settings', history: 'History', supplements: 'Supplements',
-  health: 'Health', shortcuts: 'Shortcuts and widgets', notifications: 'Notifications', watch: 'Apple Watch', lock: 'Face ID lock', scans: 'Import scans', reports: 'Backups and reports', reactions: 'Reactions', bloods: 'Bloods', calendar: 'Calendar',
+  health: 'Health', shortcuts: 'Shortcuts and widgets', notifications: 'Notifications', watch: 'Apple Watch', lock: 'Face ID lock', scans: 'Import', reports: 'Backups and reports', reactions: 'Reactions', bloods: 'Bloods', calendar: 'Calendar',
 }
 
 // Screens that were their own destination in an earlier version. Old deep links

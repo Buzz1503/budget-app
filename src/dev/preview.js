@@ -30,6 +30,8 @@ export const PREVIEW_SCREENS = {
   stock: { tab: 'supplies' },
   bloods: { tab: 'bloods' },
   import: { tab: 'scans' },
+  'import-list': { tab: 'scans' },
+  'import-check': { tab: 'scans' },
 }
 
 export const previewScreen = () => {
@@ -139,5 +141,6 @@ export async function seedPreview() {
   const screen = previewScreen()
   const seg = PREVIEW_SCREENS[screen]?.seg
   if (seg) useHealthLink.getState().setBodySegment?.(seg)
+  if (screen === 'import-list' || screen === 'import-check') window.__previewImport = () => import('./importFixtures').then((m) => m.dropImportFixtures())
   window.__previewReady = true
 }

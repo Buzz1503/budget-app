@@ -66,7 +66,7 @@ const SECTIONS = [
       // native app only: Apple Health is read on the iPhone, never on the web
       ...(HEALTH_BUILD ? [{ id: 'health', label: 'Health', desc: 'Apple Health connection, sleep and training settings', icon: HeartPulse }] : []),
 
-      { id: 'scans', label: 'Import scans', desc: 'Evolt, DEXA or InBody results from a file', icon: Upload },
+      { id: 'scans', label: 'Import', desc: 'Evolt PDFs, Withings exports and reports', icon: Upload },
       { id: 'reports', label: 'Backups and reports', desc: HEALTH_BUILD ? 'Daily backups, PDFs for your doctor, error log' : 'PDFs for your doctor, error log', icon: FileText },
       { id: 'settings', label: 'Settings, backup & export', desc: 'Lead time, currency, backup and reset', icon: Settings },
     ],

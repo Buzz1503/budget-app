@@ -15,6 +15,12 @@ async function getPdfjs() {
   return pdfjsPromise
 }
 
+/** Positioned text items from every page (up to 8), for the importer's line rebuilding. */
+export async function extractPdfItems(file) {
+  const [pdfjs, { itemsFromPdf }] = await Promise.all([getPdfjs(), import('../body/import/pdfItems')])
+  return itemsFromPdf(pdfjs, new Uint8Array(await file.arrayBuffer()))
+}
+
 export async function extractPdfText(file) {
   const pdfjs = await getPdfjs()
   const buf = await file.arrayBuffer()

@@ -191,6 +191,7 @@ function initialState() {
     //   restless: the Watch's movement summary; sounds: Sleep sounds sessions;
     //   lateUseMin: Screen Time minutes after bedtime (by the evening's date, see lateUse)
     nightExtras: {},
+    withingsReports: [],                // Withings Medical Report summaries, one per period; never charted (src/body/import/withings.ts)
     sleepModeLog: {},                   // Watch sleep mode: lights out and get-up per wake date (src/sleep/sleepMode.ts)
     soundsLog: [],                      // every Sleep sounds start and stop attempt, with the result and iOS error text
     lateUse: {},                         // { eveningDate: minutes } from the Screen Time monitor
@@ -2935,6 +2936,38 @@ const useStore = create(
         const before = get().measurements
         set({ measurements: applyScanImport(before, plan) })
         return () => set({ measurements: before })
+      },
+      /**
+       * Write one import from More > Data > Import: new entries are added
+       * beside what is there (an id already in use gets a suffix), reports are
+       * added per period. Nothing on record is changed. Returns Undo, which
+       * takes out exactly what this import added.
+       */
+      importBody({ measurements: incoming = [], reports = [] } = {}) {
+        const s = get()
+        const ids = new Set(s.measurements.map((m) => m.id))
+        const added = incoming.map((m) => {
+          let id = m.id
+          for (let n = 2; ids.has(id); n++) id = `${m.id}-${n}`
+          ids.add(id)
+          return { ...m, id }
+        })
+        const have = new Set((s.withingsReports || []).map((r) => `${r.from}|${r.to}`))
+        const importedAt = new Date().toISOString()
+        const newReports = reports.filter((r) => !have.has(`${r.from}|${r.to}`)).map((r) => ({ ...r, importedAt }))
+        set({
+          measurements: [...s.measurements, ...added].sort((a, b) => a.date.localeCompare(b.date)),
+          withingsReports: [...(s.withingsReports || []), ...newReports].sort((a, b) => a.to.localeCompare(b.to)),
+        })
+        const addedIds = new Set(added.map((m) => m.id))
+        const reportIds = new Set(newReports.map((r) => r.id))
+        return {
+          added: added.length + newReports.length,
+          undo: () => set((st) => ({
+            measurements: st.measurements.filter((m) => !addedIds.has(m.id)),
+            withingsReports: (st.withingsReports || []).filter((r) => !reportIds.has(r.id)),
+          })),
+        }
       },
       /** Set where "since" deltas start from: a date, optional label and values, the entry it came from. */
       setBodyStart(start) {

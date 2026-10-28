@@ -12,13 +12,15 @@ import { dailySeries, familySeries, seriesByFamily, pickFamily, scaleWeeklyRate,
 import { compareSinceStart } from '../../body/startPoint'
 import { dexaScans, resolveSource } from '../../body/sources'
 import { SCAN_METRICS } from '../../body/scanFields'
+import { WITHINGS_METRICS } from '../../body/import/withings'
+import Modal from '../ui/Modal'
 import {
   evoltScans, ffmi, heightFor, projectGoal, latestScanMeta, seriesForMetric, lastScanStory, sinceStartStory, scanToScan,
 } from '../../body/composition'
 import SegmentMap from './SegmentMap'
 import ScanCompare from './ScanCompare'
 import MetricSheet from './MetricSheet'
-import { AnswerLine, DeltaChip, InfoButton } from '../ui/Glance'
+import { AnswerLine, DeltaChip, InfoButton, StatRow } from '../ui/Glance'
 import { deltaText } from '../../lib/glance'
 
 const GOOD = 'var(--accent)'
@@ -328,7 +330,102 @@ function AllMetrics({ onOpen }) {
             <p className="t-caption mb-1" style={{ color: 'var(--text-3)' }}>Index</p>
             <FfmiRow onOpen={onOpen} />
           </div>
+          <WithingsGroup onOpen={onOpen} />
           <p className="mt-2 text-[13px] font-medium" style={{ color: 'var(--text-3)' }}>Status words are Evolt's own, from your latest scan. Chips: change since your start.</p>
+        </div>
+      )}
+    </section>
+  )
+}
+
+/** Withings-only values from an account export, never mixed with a scan's, and the Withings reports. */
+function WithingsGroup({ onOpen }) {
+  const measurements = useStore((s) => s.measurements)
+  const reports = useStore((s) => s.withingsReports || [])
+  const has = useMemo(() => WITHINGS_METRICS.some((m) => measurements.some((x) => typeof x[m.key] === 'number')), [measurements])
+  if (!has && !reports.length) return null
+  return (
+    <div className="mt-2" data-testid="metric-group-Withings">
+      <p className="t-caption mb-1" style={{ color: 'var(--text-3)' }}>Withings</p>
+      <div className="rows">
+        {WITHINGS_METRICS.map((m) => <MetricRow key={m.key} m={m} onOpen={onOpen} />)}
+      </div>
+      {reports.length > 0 && <WithingsReports reports={reports} />}
+    </div>
+  )
+}
+
+const periodWords = (r) => `${format(parseISO(r.from), 'd MMM')} to ${format(parseISO(r.to), 'd MMM yyyy')}`
+const hm = (min) => (min == null ? null : `${Math.floor(min / 60)} h ${min % 60} m`)
+
+/** Withings Medical Report summaries: one row per period. Never charted, never the headline weight. */
+function WithingsReports({ reports }) {
+  const [open, setOpen] = useState(null)
+  const list = [...reports].sort((a, b) => b.to.localeCompare(a.to))
+  const r = open
+  const rows = r ? [
+    ['Weight', r.weight, 'kg', r.weightTrend != null ? `${r.weightTrend > 0 ? '+' : ''}${r.weightTrend} kg${r.weighIns ? `, ${r.weighIns} weigh-ins` : ''}` : null],
+    ['Body fat', r.bodyFat, '%'], ['Muscle mass', r.muscleMass, 'kg'], ['Bone mass', r.boneMass, 'kg'], ['Water mass', r.waterMass, 'kg'],
+    ['Lean mass', r.leanMass, 'kg'], ['Visceral fat', r.visceralFat, ''], ['BMI', r.bmi, ''], ['BMR', r.bmr, 'kcal'], ['Metabolic age', r.metabolicAge, ''],
+    ['Heart rate awake, average', r.hrAwake, 'bpm'], ['Heart rate asleep, average', r.hrAsleep, 'bpm'],
+    ['Sleep on weekdays', hm(r.sleepWeekdayMin), ''], ['Sleep on weekends', hm(r.sleepWeekendMin), ''], ['Sleep efficiency', r.sleepEfficiency, '%'],
+    ['Snoring', r.snoringMin != null ? `${r.snoringMin} min` : null, '', r.snoringNights ? `over ${r.snoringNights} nights` : null],
+  ].filter(([, v]) => v != null) : []
+  return (
+    <div className="mt-2" data-testid="withings-reports">
+      <p className="t-caption mb-1" style={{ color: 'var(--text-3)' }}>Withings reports</p>
+      <div className="rows">
+        {list.map((x) => (
+          <StatRow key={x.id} label={periodWords(x)} sub={[x.weight != null ? `${x.weight} kg` : null, x.bodyFat != null ? `${x.bodyFat}% fat` : null].filter(Boolean).join(' · ')} onClick={() => setOpen(x)} testid="withings-report-row" />
+        ))}
+      </div>
+      <Modal open={!!r} onClose={() => setOpen(null)} title="Withings report">
+        {r && (
+          <div className="pb-2" data-testid="withings-report">
+            <p className="text-[17px] font-semibold">{periodWords(r)}</p>
+            <p className="mt-1 text-sm font-medium" style={{ color: 'var(--text-2)' }}>Withings report, latest in period. The report does not say on which day each value was measured, so these are never charted.</p>
+            <div className="rows mt-2">
+              {rows.map(([label, v, unit, sub]) => <StatRow key={label} label={label} value={v} unit={unit} sub={sub} />)}
+            </div>
+          </div>
+        )}
+      </Modal>
+    </div>
+  )
+}
+
+/** Every Evolt scan, newest first, with "+" to import more. */
+function AllScans({ onImport }) {
+  const measurements = useStore((s) => s.measurements)
+  const [open, setOpen] = useState(false)
+  const list = useMemo(() => evoltScans(measurements).filter((m) => !m.estimated).slice().reverse(), [measurements])
+  const last = list[0]
+  return (
+    <section className="card px-4" data-testid="all-scans">
+      <div className="flex items-center gap-2 py-3">
+        <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="flex min-w-0 flex-1 items-center gap-2 text-left" data-testid="all-scans-toggle">
+          <span className="min-w-0 flex-1">
+            <span className="block text-[17px] font-semibold">All scans</span>
+            <span className="block truncate text-sm font-medium tabular-nums" style={{ color: 'var(--text-2)' }}>
+              {list.length ? `${list.length} Evolt scan${list.length === 1 ? '' : 's'} · latest ${format(parseISO(last.date), 'd MMM yyyy')}` : 'None yet'}
+            </span>
+          </span>
+          {open ? <ChevronDown size={16} style={{ color: 'var(--text-3)' }} /> : <ChevronRight size={16} style={{ color: 'var(--text-3)' }} />}
+        </button>
+        {onImport && (
+          <button type="button" onClick={onImport} aria-label="Import scans" className="flex shrink-0 items-center justify-center rounded-full" style={{ width: 36, height: 36, background: 'var(--surface-sunk)' }} data-testid="all-scans-import">
+            <Plus size={18} />
+          </button>
+        )}
+      </div>
+      {open && (
+        <div className="rows pb-2">
+          {list.map((m) => (
+            <div key={m.id} className="flex items-baseline gap-2 py-2.5 text-sm tabular-nums" data-testid="all-scans-row">
+              <span className="w-[104px] shrink-0 font-semibold">{format(parseISO(m.date), 'd MMM yyyy')}</span>
+              <span className="min-w-0 flex-1 truncate" style={{ color: 'var(--text-2)' }}>{m.weight} kg{m.bodyFat != null ? ` · ${m.bodyFat}%` : ''}{m.importNote ? ' · checked by hand' : ''}</span>
+            </div>
+          ))}
         </div>
       )}
     </section>
@@ -508,7 +605,7 @@ function DexaRow({ onOpen }) {
 // ------------------------------------------------------------------- view
 
 /** Body › Composition: one story, top to bottom. */
-export default function CompositionView({ onLog, onOpenStart, onOpenDexa }) {
+export default function CompositionView({ onLog, onOpenStart, onOpenDexa, onImport }) {
   const measurements = useStore((s) => s.measurements)
   const [metric, setMetric] = useState(null)
   const scans = useMemo(() => measurements.filter((m) => m.source === 'scan' && /evolt/i.test(m.device || '')), [measurements])
@@ -537,6 +634,7 @@ export default function CompositionView({ onLog, onOpenStart, onOpenDexa }) {
       ) : null}
       <AllMetrics onOpen={setMetric} />
       <SegmentMap measurements={measurements} />
+      <AllScans onImport={onImport} />
       <ScanCompare scans={scans} />
       <DexaRow onOpen={onOpenDexa} />
       <GoalCard />

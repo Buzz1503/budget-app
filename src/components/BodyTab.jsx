@@ -91,7 +91,7 @@ export default function BodyTab({ goTo }) {
     <div className="space-y-3">
       <h1 className="text-2xl font-black tracking-tight">Body</h1>
       {showHealth && <HealthSegments value="composition" onChange={setSegment} />}
-      <CompositionView onLog={() => setAdding(true)} onOpenStart={() => setStartOpen(true)} onOpenDexa={() => setDexa(true)} />
+      <CompositionView onLog={() => setAdding(true)} onOpenStart={() => setStartOpen(true)} onOpenDexa={() => setDexa(true)} onImport={() => goTo?.('scans')} />
 
       {/* the record itself: entries, tape trends, the model, photos, outcomes */}
       <div className="px-1 pt-6">

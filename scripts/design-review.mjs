@@ -23,7 +23,8 @@ const SCREENS = [
   ['home'], ['composition'], ['effects'], ['recovery'],
   ['sleep'], ['sleep-full', '[data-testid="night-expand"]'], ['recovery-full', '[data-testid="chart-expand"]'], ['sleep-lab', '[data-testid="lab-open-analysis"]', '[data-testid="lab-helps"]'],
   ['sleep-sounds', '[data-testid="sounds-row"]'],
-  ['sauna'], ['more'], ['stock'], ['bloods'], ['import'],
+  ['sauna'], ['more'], ['stock'], ['bloods'], ['import'], ['import-list', 'eval:__previewImport', '[data-testid="import-list"]'],
+  ['import-check', 'eval:__previewImport', '[data-testid="import-list"]', '[data-testid="import-row"]:has([data-status="check"])'],
 ].filter(([n]) => !only.length || only.includes(n))
 
 mkdirSync(OUT, { recursive: true })
@@ -43,17 +44,22 @@ const page = await ctx.newPage()
 const problems = []
 page.on('pageerror', (e) => problems.push(`${e.message}`))
 try {
-  for (const [name, tap, ready] of SCREENS) {
+  for (const [name, tap, ready, then] of SCREENS) {
     await page.goto(`${BASE}?preview=${name}`, { waitUntil: 'domcontentloaded' })
     await page.waitForFunction(() => window.__previewReady === true, null, { timeout: 90000 })
     await page.waitForTimeout(2600)
     for (const b of await page.locator('button:has-text("Got it")').all()) { try { await b.click({ timeout: 1000 }) } catch { /* gone */ } }
     if (tap) {
-      try { await page.locator(tap).first().click({ timeout: 8000 }); await page.waitForTimeout(1200) } catch { problems.push(`${name}: could not tap ${tap}`) }
+      try {
+        if (tap.startsWith('eval:')) await page.evaluate((fn) => window[fn](), tap.slice(5))
+        else await page.locator(tap).first().click({ timeout: 8000 })
+        await page.waitForTimeout(1200)
+      } catch { problems.push(`${name}: could not tap ${tap}`) }
       if (ready) { try { await page.locator(ready).first().waitFor({ timeout: 60000 }) } catch { problems.push(`${name}: ${ready} never showed`) } }
+      if (then) { try { await page.locator(then).first().click({ timeout: 8000 }); await page.waitForTimeout(1200) } catch { problems.push(`${name}: could not tap ${then}`) } }
     }
     // a full screen view is what the phone shows, portrait then landscape
-    if (name.endsWith('-full')) {
+    if (name.endsWith('-full') || name === 'import-check') {
       await page.screenshot({ path: `${OUT}/${name}.png` })
       await page.setViewportSize({ width: 844, height: 390 })
       await page.waitForTimeout(800)

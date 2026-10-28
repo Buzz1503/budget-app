@@ -108,14 +108,20 @@ export function onActionsApplied(fn) {
   return () => afterApply.delete(fn)
 }
 
+/**
+ * The parts of the store any surface shows; a toast or a sheet opening is not
+ * a reason to write. Body entries and reports are in, so an import refreshes
+ * the snapshot for widgets and the Watch straight away.
+ */
+export const snapshotWatched = (s) => [s.peptides, s.titration, s.doseLogs, s.pushes, s.pauses, s.skips, s.supplements, s.supplementLogs,
+  s.saunaSessions, s.saunaSettings, s.saunaTimer, s.notificationSettings, s.watchSettings, s.healthSettings, s.openVials, s.vials, s.sharedDraws, s.reactions,
+  s.asNeededItems, s.asNeededLogs, s.sleepSettings, s.habitLogs, s.eveningDetails, s.morningChecks, s.measurements, s.withingsReports, s.bodyStart]
+
 /** Start once, from startNative(). */
 export async function startNativeSync() {
   if (started) return
   started = true
-  // the parts of the store any surface shows; a toast or a sheet opening is not a reason to write
-  const watched = (s) => [s.peptides, s.titration, s.doseLogs, s.pushes, s.pauses, s.skips, s.supplements, s.supplementLogs,
-    s.saunaSessions, s.saunaSettings, s.saunaTimer, s.notificationSettings, s.watchSettings, s.healthSettings, s.openVials, s.vials, s.sharedDraws, s.reactions,
-    s.asNeededItems, s.asNeededLogs, s.sleepSettings, s.habitLogs, s.eveningDetails, s.morningChecks]
+  const watched = snapshotWatched
   let last = watched(useStore.getState())
   useStore.subscribe((s) => {
     const now = watched(s)
