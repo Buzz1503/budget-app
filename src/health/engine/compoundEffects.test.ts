@@ -22,10 +22,10 @@ describe('overlap', () => {
     const ev = trackedEvents(all)
     const o = overlapsWith(ev, 'reta', '2026-03-01')
     expect(o.map((x) => [x.name, x.offsetDays])).toEqual([['Testosterone E', 4], ['MOTS-c', 6]])
-    expect(overlapSentence(o)).toBe('Testosterone E started 4 days after this and MOTS-c 6 days after. Changes in this section are shared with them and cannot be split.')
+    expect(overlapSentence(o)).toBe('Testosterone E started 4 days after this and MOTS-c 6 days after, so this mixes them all.')
     expect(overlapsWith(ev, 'reta', '2026-08-01')).toEqual([])
     const same = [{ compoundId: 'a', name: 'MOTS-c', kind: 'start', date: 'x', offsetDays: 0 }, { compoundId: 'b', name: 'Tesamorelin', kind: 'start', date: 'x', offsetDays: 0 }] as const
-    expect(overlapSentence([...same])).toBe('MOTS-c and Tesamorelin started on the same day. Changes in this section are shared with them and cannot be split.')
+    expect(overlapSentence([...same])).toBe('MOTS-c and Tesamorelin started on the same day, so this mixes them all.')
     expect(overlapSentence([])).toBeNull()
   })
 

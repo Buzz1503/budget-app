@@ -4,7 +4,9 @@ import { useHealth } from '../../health/state'
 import { useHealthLink } from '../../lib/healthLink'
 import { rowFor } from '../../health/engine/model'
 import useHealthModel from './useHealthModel'
-import { ReadinessRing, Delta, minutesWords } from './atoms'
+import { ReadinessRing, minutesWords } from './atoms'
+import { DeltaChip } from '../ui/Glance'
+import { recoveryAnswer } from '../../lib/glance'
 import { HEALTH_BANDS } from './bands'
 import { saunaLastNight } from '../../sauna/sauna'
 
@@ -56,21 +58,28 @@ export default function HomeHealthCard({ goTo }) {
           {r.status === 'insufficient' && (
             <span className="block text-sm font-bold" data-testid="home-health-insufficient">Not enough data from last night</span>
           )}
-          <span className="mt-1 block text-xs font-medium tabular-nums" style={{ color: 'var(--text-2)' }}>
-            Sleep {night ? minutesWords(night.asleepMin) : '–'}
-          </span>
-          <span className="block text-xs font-medium tabular-nums" style={{ color: 'var(--text-2)' }}>
-            RHR {rhr.value != null ? Math.round(rhr.value) : '–'} · <Delta value={rhr.delta} dp={1} />
-          </span>
-          <span className="block text-xs font-medium tabular-nums" style={{ color: 'var(--text-2)' }}>
-            HRV {hrv.value != null ? Math.round(hrv.value) : '–'} ms · <Delta value={hrv.delta} />
-          </span>
+          {r.status === 'ok' && <span className="mt-0.5 block text-sm font-medium" style={{ color: 'var(--text-2)' }} data-testid="home-health-answer">{recoveryAnswer({ hrv, rhr, sleep: rowFor(model, 'sleep', t) })}</span>}
         </span>
         <ChevronRight size={18} className="shrink-0" style={{ color: 'var(--text-3)' }} />
       </button>
-      {chip && (
-        <p className="mt-3 inline-block rounded-full px-2.5 py-1 text-[11px] font-bold" style={{ background: 'var(--surface-sunk)', color: 'var(--text-3)' }} data-testid="home-context-chip">{chip}</p>
-      )}
+      <div className="mt-3 grid grid-cols-3 gap-2" data-testid="home-health-stats">
+        <MiniStat label="Sleep" value={night ? minutesWords(night.asleepMin) : '–'} />
+        <MiniStat label="Resting HR" value={rhr.value != null ? Math.round(rhr.value) : '–'} unit="bpm"
+          chip={rhr.delta != null ? <DeltaChip metric="rhr" delta={rhr.delta} /> : <span className="text-[13px]" style={{ color: 'var(--text-3)' }}>no usual yet</span>} />
+        <MiniStat label="HRV" value={hrv.value != null ? Math.round(hrv.value) : '–'} unit="ms"
+          chip={hrv.delta != null ? <DeltaChip metric="hrv" delta={hrv.delta} unit="ms" /> : <span className="text-[13px]" style={{ color: 'var(--text-3)' }}>no usual yet</span>} />
+      </div>
+      {chip && <p className="mt-2 truncate text-[13px] font-medium" style={{ color: 'var(--text-3)' }} data-testid="home-context-chip">{chip}</p>}
+    </div>
+  )
+}
+
+function MiniStat({ label, value, unit, chip }) {
+  return (
+    <div className="min-w-0 rounded-[10px] px-2.5 py-2" style={{ background: 'var(--surface-sunk)' }}>
+      <p className="truncate text-[13px] font-medium" style={{ color: 'var(--text-3)' }}>{label}</p>
+      <p className="whitespace-nowrap text-[17px] font-semibold tabular-nums">{value}{unit && <span className="ml-0.5 text-[12px] font-medium" style={{ color: 'var(--text-3)' }}>{unit}</span>}</p>
+      {chip && <div className="mt-0.5">{chip}</div>}
     </div>
   )
 }

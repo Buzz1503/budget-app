@@ -1,13 +1,13 @@
 import { useMemo, useState } from 'react'
 import { format, parseISO } from 'date-fns'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Activity, Layers, Scan } from 'lucide-react'
 import useStore, { todayStr } from '../../store/useStore'
 import Modal from '../ui/Modal'
 import { Stagger, StaggerItem } from '../ui/Motion'
 import { trackedForEffects, FAMILY_NAME } from '../../health/engine/compoundEffects'
 import useComputed from '../../lib/compute/useComputed'
 import { METRIC_INFO, BODY_METRICS } from '../../health/engine/phases'
-import { COMPARE } from '../../health/engine/config'
+import { COMPARE, PHASES } from '../../health/engine/config'
 import { dailySeries, seriesByFamily } from '../../body/bodySeries'
 import { evoltScans } from '../../body/composition'
 import { laneFor } from '../../body/lanes'
@@ -16,6 +16,8 @@ import { useCompounds } from '../../lib/useCompounds'
 import TrendChart from '../charts/TrendChart'
 import useHealthModel from './useHealthModel'
 import SaunaEffectsView from './SaunaEffectsView'
+import { AnswerLine, DeltaChip, InfoButton, ProgressRow, SectionTitle, StatusDot, StatusLegend } from '../ui/Glance'
+import { toneFor } from '../../lib/glance'
 
 const pretty = (d) => format(parseISO(d), 'd MMM yyyy')
 const short = (d) => format(parseISO(d), 'd MMM')
@@ -52,30 +54,68 @@ export function useEffectInput() {
   }, [input, connected, model])
 }
 
-function LabelChip({ label }) {
-  const clear = label === 'Clear change'
-  return (
-    <span className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold" data-testid="effect-label" data-label={label}
-      style={clear ? { background: 'var(--accent)', color: 'var(--accent-fg)' } : { background: 'var(--surface-sunk)', color: 'var(--text-2)' }}>
-      {label}
-    </span>
-  )
+const famWord = (r) => (r.family && FAMILY_NAME[r.family] ? `, ${FAMILY_NAME[r.family]}` : '')
+const sig = (v, dp) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(Number(v.toFixed(dp)))}`
+
+/** The answer a compound's page leads with: its clearest change, in words. */
+export function effectAnswer(row) {
+  if (!row || row.label === 'Too early' || !row.now?.ok) return 'Too early to say.'
+  const info = METRIC_INFO[row.metric]
+  if (row.kind === 'body') {
+    const v = row.now.value
+    if (Math.abs(v) < PHASES.steadyPerWeek) return `${info.label} is steady.`
+    return `${info.label} is ${v > 0 ? 'rising' : 'falling'} ${Math.abs(Number(v.toFixed(2)))} ${info.rateUnit} a week.`
+  }
+  if (!row.before?.ok) return `${info.label} averages ${Number(row.now.value.toFixed(info.dp))}${info.unit ? ` ${info.unit}` : ''}.`
+  const d = Number((row.now.value - row.before.value).toFixed(info.dp))
+  if (d === 0) return `${info.label} is about the same as before.`
+  return `${info.label} is ${d > 0 ? 'up' : 'down'} ${Math.abs(d)}${info.unit ? ` ${info.unit}` : ''} on before.`
 }
 
-function EffectRows({ rows, onOpen }) {
+/** One stat row per measure; everything too early collapses into one progress row. */
+function EffectRows({ rows, onOpen, daysOn }) {
+  const ready = rows.filter((r) => r.label !== 'Too early' && r.now?.ok)
+  const early = rows.length - ready.length
   return (
     <div className="rows">
-      {rows.map((r) => (
-        <button key={r.metric} onClick={() => onOpen?.(r)} className="flex w-full items-start gap-2 py-2.5 text-left" data-testid="effect-row" data-metric={r.metric}>
-          <span className="min-w-0 flex-1 text-xs font-medium leading-snug" style={{ color: 'var(--text-2)' }}>
-            {r.text}.{r.family ? <span style={{ color: 'var(--text-3)' }}> {FAMILY_NAME[r.family] ? `From ${FAMILY_NAME[r.family]}.` : ''}</span> : null}
-          </span>
-          <LabelChip label={r.label} />
-        </button>
-      ))}
+      {ready.map((r) => {
+        const info = METRIC_INFO[r.metric]
+        const body = r.kind === 'body'
+        const before = r.before?.ok ? r.before.value : null
+        const now = r.now.value
+        // body rows read as a weekly rate; daily rows as before → now
+        const value = body
+          ? <>{sig(now, 2)}<span className="ml-0.5 text-[13px] font-medium" style={{ color: 'var(--text-3)' }}>{info.rateUnit}/wk</span></>
+          : <>{before != null && <><span style={{ color: 'var(--text-2)' }}>{Number(before.toFixed(info.dp))}</span><span className="mx-1" style={{ color: 'var(--text-3)' }}>→</span></>}{Number(now.toFixed(info.dp))}{info.unit && <span className="ml-0.5 text-[13px] font-medium" style={{ color: 'var(--text-3)' }}>{info.unit}</span>}</>
+        const delta = body ? now : before != null ? now - before : null
+        return (
+          <button key={`${r.metric}-${r.family || ''}`} onClick={() => onOpen?.(r)} className="flex w-full items-center gap-3 py-3 text-left" data-testid="effect-row" data-metric={r.metric}>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[15px] font-medium">{info.label}<span style={{ color: 'var(--text-3)' }}>{famWord(r)}</span></span>
+              <span className="mt-0.5 block" data-testid="effect-label" data-label={r.label}><StatusDot label={r.label} /></span>
+            </span>
+            <span className="shrink-0 whitespace-nowrap text-[17px] font-semibold tabular-nums">{value}</span>
+            {delta != null && !body && <DeltaChip metric={r.metric} delta={delta} dp={info.dp} />}
+            {body && <span className="h-2 w-2 shrink-0 rounded-full" aria-hidden="true" style={{ background: toneFor(r.metric, now, PHASES.steadyPerWeek) === 'better' ? 'var(--good)' : toneFor(r.metric, now, PHASES.steadyPerWeek) === 'worse' ? 'var(--warn)' : 'var(--text-3)' }} />}
+          </button>
+        )
+      })}
+      {early > 0 && (
+        <ProgressRow testid="effects-early"
+          text={`${early} ${early === 1 ? 'measure unlocks' : 'measures unlock'} with more days on it${daysOn != null ? ` · ${Math.min(daysOn, PHASES.dailyMinDays)} of ${PHASES.dailyMinDays}` : ''}`}
+          have={daysOn ?? 0} need={daysOn != null ? PHASES.dailyMinDays : 0} />
+      )}
     </div>
   )
 }
+
+const LEGEND = (
+  <>
+    <p>For each compound, the weeks before it against the time on it. Each change is judged against how much that number usually moves.</p>
+    <StatusLegend />
+    <p>Green means the move is the better way for that measure, amber the other way. {COMPARE.caveat} Descriptive only, not medical advice.</p>
+  </>
+)
 
 /** A small step line of the dose across the time on the compound. */
 function DoseStrip({ compound, from, to }) {
@@ -100,25 +140,24 @@ function ScanDeltas({ start, end }) {
   const scans = evoltScans(measurements)
   const before = [...scans].reverse().find((s) => s.date < start)
   const during = scans.filter((s) => s.date >= start && s.date <= end)
-  if (!before && !during.length) return null
-  const d = (s, k) => (before && typeof s[k] === 'number' && typeof before[k] === 'number' ? s[k] - before[k] : null)
-  const sg = (v) => (v == null ? '' : ` (${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(1)})`)
+  const last = during.at(-1)
+  if (!before || !last) return null
+  const row = (label, k, metric) => (typeof last[k] === 'number' && typeof before[k] === 'number' ? (
+    <div className="flex items-center gap-3 py-3" data-testid="effects-scan">
+      <span className="min-w-0 flex-1 text-[15px] font-medium">{label}</span>
+      <span className="whitespace-nowrap text-[17px] font-semibold tabular-nums"><span style={{ color: 'var(--text-2)' }}>{before[k]}</span><span className="mx-1" style={{ color: 'var(--text-3)' }}>→</span>{last[k]}<span className="ml-0.5 text-[13px] font-medium" style={{ color: 'var(--text-3)' }}>kg</span></span>
+      <DeltaChip metric={metric} delta={last[k] - before[k]} unit="kg" dp={1} />
+    </div>
+  ) : null)
   return (
-    <section className="card p-4" data-testid="effects-scans">
-      <h3 className="text-sm font-black">Evolt scans</h3>
-      <div className="mt-2 rows">
-        {before && (
-          <p className="py-2 text-xs font-medium tabular-nums" style={{ color: 'var(--text-2)' }}>
-            <b style={{ color: 'var(--text)' }}>{pretty(before.date)}</b>, before starting · {before.weight} kg · fat {before.fatMass} kg · lean {before.leanMass} kg
-          </p>
-        )}
-        {during.map((s) => (
-          <p key={s.id} className="py-2 text-xs font-medium tabular-nums" style={{ color: 'var(--text-2)' }} data-testid="effects-scan">
-            <b style={{ color: 'var(--text)' }}>{pretty(s.date)}</b> · {s.weight} kg{sg(d(s, 'weight'))} · fat {s.fatMass} kg{sg(d(s, 'fatMass'))} · lean {s.leanMass} kg{sg(d(s, 'leanMass'))}
-          </p>
-        ))}
+    <section className="card px-4 pt-3" data-testid="effects-scans">
+      <SectionTitle icon={Scan} title="Evolt scans" />
+      <p className="mt-1 text-sm font-medium tabular-nums" style={{ color: 'var(--text-2)' }}>{short(before.date)}, before starting, to {short(last.date)}</p>
+      <div className="rows">
+        {row('Weight', 'weight', 'weight')}
+        {row('Fat mass', 'fatMass', 'fatMass')}
+        {row('Lean mass', 'leanMass', 'leanMass')}
       </div>
-      {before && during.length > 0 && <p className="text-[11px] font-medium" style={{ color: 'var(--text-3)' }}>Changes in brackets are against the last scan before starting.</p>}
     </section>
   )
 }
@@ -148,48 +187,40 @@ export function CompoundEffectsDetail({ compound, fx, input, onBack }) {
             {fx.run.ongoing ? 'Now' : 'Last'} {current.dose}{current.unit ? ` ${current.unit}` : ''}{atDose != null && fx.run.ongoing ? (atDose === 0 ? ', from today' : `, ${atDose} day${atDose === 1 ? '' : 's'} at this dose`) : ''}
           </p>
         )}
+        <AnswerLine className="mt-3" testid="effects-answer">{effectAnswer(fx.headline)}</AnswerLine>
+        {fx.overlapText && <p className="mt-1 text-sm font-medium leading-snug" style={{ color: 'var(--text-2)' }} data-testid="effects-overlap">{fx.overlapText}</p>}
         <DoseStrip compound={compound} from={fx.run.start} to={fx.run.end} />
       </section>
 
-      {fx.overlapText && (
-        <section className="rounded-[14px] p-4" style={{ background: 'var(--surface-sunk)' }} data-testid="effects-overlap">
-          <p className="text-sm font-bold leading-snug">{fx.overlapText}</p>
-          <div className="mt-2 space-y-0.5">
-            {fx.overlaps.map((o, i) => (
-              <p key={i} className="text-xs font-medium tabular-nums" style={{ color: 'var(--text-2)' }}>{o.name}: {o.cycle ? (o.kind === 'start' ? 'back on cycle' : 'off cycle') : o.kind === 'start' ? 'started' : o.kind === 'stop' ? 'stopped' : 'dose changed'} {pretty(o.date)}</p>
-            ))}
-          </div>
+      <section className="card px-4 pb-1 pt-3" data-testid="effects-since">
+        <SectionTitle icon={Activity} title="Since starting" infoTitle="Since starting" info={<>
+          <p>{pretty(fx.before.from)} to {pretty(fx.before.to)} against the time on it.</p>
+          {fx.overlaps.length > 0 && <div className="space-y-0.5">{fx.overlaps.map((o, i) => (
+            <p key={i} className="tabular-nums">{o.name}: {o.cycle ? (o.kind === 'start' ? 'back on cycle' : 'off cycle') : o.kind === 'start' ? 'started' : o.kind === 'stop' ? 'stopped' : 'dose changed'} {pretty(o.date)}</p>
+          ))}</div>}
+          {LEGEND}
+        </>} />
+        <EffectRows rows={fx.rows} onOpen={setOpen} daysOn={fx.on.days} />
+      </section>
+
+      {fx.clean.length > 0 ? (
+        <section className="card px-4 pb-1 pt-3" data-testid="effects-clean">
+          <SectionTitle icon={Layers} title="Clean windows" infoTitle="Clean windows"
+            info={<p>Dose changes with no other compound changing within 14 days either side: the only reads that belong to {compound.name} alone.</p>} />
+          {fx.clean.map((w) => (
+            <div key={w.date} className="mt-2" data-testid="clean-window">
+              <p className="text-[15px] font-semibold tabular-nums">{w.event.kind === 'stop' ? 'Stopped' : `To ${w.event.dose}`}, {short(w.date)}</p>
+              <EffectRows rows={w.rows} />
+            </div>
+          ))}
         </section>
+      ) : (
+        <div className="card px-4 py-1" data-testid="effects-clean">
+          <ProgressRow testid="effects-no-clean" text="Clean windows: none yet, every change overlapped another compound" have={0} need={0} />
+        </div>
       )}
 
-      <section className="card px-4 pb-2 pt-4" data-testid="effects-since">
-        <h3 className="text-base font-black">Since starting</h3>
-        <p className="text-xs font-medium" style={{ color: 'var(--text-3)' }}>
-          {pretty(fx.before.from)} to {pretty(fx.before.to)} against time on it. Each change is judged against how much that number usually moves.
-        </p>
-        <EffectRows rows={fx.rows} onOpen={setOpen} />
-      </section>
-
-      <section className="card px-4 pb-2 pt-4" data-testid="effects-clean">
-        <h3 className="text-base font-black">Clean windows</h3>
-        {fx.clean.length === 0 ? (
-          <p className="py-2 text-sm font-medium" style={{ color: 'var(--text-2)' }} data-testid="effects-no-clean">No clean windows yet. Every change so far overlapped with another compound.</p>
-        ) : (
-          <>
-            <p className="text-xs font-medium" style={{ color: 'var(--text-3)' }}>Dose changes with no other compound changing within 14 days either side: the only reads that belong to {compound.name} alone.</p>
-            {fx.clean.map((w) => (
-              <div key={w.date} className="mt-3" data-testid="clean-window">
-                <p className="text-sm font-bold tabular-nums">{w.event.kind === 'stop' ? 'Stopped' : `To ${w.event.dose}`}, {pretty(w.date)}</p>
-                <p className="text-[11px] font-medium tabular-nums" style={{ color: 'var(--text-3)' }}>{short(w.before.from)} to {short(w.before.to)} against {short(w.after.from)} to {short(w.after.to)}</p>
-                <EffectRows rows={w.rows} />
-              </div>
-            ))}
-          </>
-        )}
-      </section>
-
       <ScanDeltas start={fx.run.start} end={fx.run.end} />
-      <p className="px-1 text-xs font-medium leading-snug" style={{ color: 'var(--text-3)' }}>{COMPARE.caveat} Descriptive only, not medical advice.</p>
 
       <Modal open={!!open} onClose={() => setOpen(null)} title={info?.label || ''} wide>
         {open && (
@@ -247,16 +278,18 @@ export default function EffectsView() {
 
   return (
     <div className="space-y-3" data-testid="effects-view">
-      <p className="px-1 text-sm font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
-        For each compound, the time before it against the time on it. Shared changes are called out; descriptive only.
-        {updating && <span className="ml-1 text-xs font-bold" style={{ color: 'var(--text-3)' }} data-testid="effects-updating">Updating</span>}
-      </p>
+      <div className="flex items-center gap-2 px-1">
+        <p className="min-w-0 flex-1 text-sm font-medium" style={{ color: 'var(--text-2)' }}>
+          {updating ? <span data-testid="effects-updating">Updating</span> : 'Before against since starting'}
+        </p>
+        <InfoButton title="How Effects works" testid="effects-legend">{LEGEND}</InfoButton>
+      </div>
       <Stagger className="card rows overflow-hidden">
         {saunaCount > 0 && (
           <StaggerItem as="button" onClick={() => setOpenId('sauna')} className="flex w-full items-center gap-3 p-4 text-left" data-testid="effects-compound" data-compound="sauna">
             <span className="min-w-0 flex-1">
-              <span className="block text-base font-black">Sauna</span>
-              <span className="block text-xs font-medium tabular-nums" style={{ color: 'var(--text-3)' }}>{saunaCount} session{saunaCount === 1 ? '' : 's'} · sauna days against days without</span>
+              <span className="block text-[17px] font-semibold">Sauna</span>
+              <span className="block text-sm font-medium tabular-nums" style={{ color: 'var(--text-2)' }}>{saunaCount} session{saunaCount === 1 ? '' : 's'}</span>
             </span>
             <ChevronRight size={16} className="shrink-0" style={{ color: 'var(--text-3)' }} />
           </StaggerItem>
@@ -267,15 +300,12 @@ export default function EffectsView() {
             <StaggerItem key={c.id} as="button" onClick={() => fx && setOpenId(c.id)} disabled={!fx}
               className="flex w-full items-center gap-3 p-4 text-left" data-testid="effects-compound" data-compound={c.id}>
               <span className="min-w-0 flex-1">
-                <span className="block text-base font-black">{c.name}</span>
-                <span className="block text-xs font-medium tabular-nums" style={{ color: 'var(--text-3)' }}>
-                  {fx ? `${pretty(fx.run.start)} to ${fx.run.ongoing ? 'now' : pretty(fx.run.end)}${dose ? ` · ${dose.dose}${dose.unit ? ` ${dose.unit}` : ''}` : ''}` : 'Not started yet'}
+                <span className="block text-[17px] font-semibold">{c.name}</span>
+                <span className="block truncate text-sm font-medium tabular-nums" style={{ color: 'var(--text-2)' }} data-testid={fx?.headline ? 'effects-headline' : undefined}>
+                  {fx?.headline && fx.headline.label !== 'Too early' ? effectAnswer(fx.headline) : fx ? `Since ${short(fx.run.start)}${dose ? ` · ${dose.dose}${dose.unit ? ` ${dose.unit}` : ''}` : ''}` : 'Not started yet'}
                 </span>
-                {fx?.headline && (
-                  <span className="mt-1 block text-xs font-medium" style={{ color: 'var(--text-2)' }} data-testid="effects-headline">{METRIC_INFO[fx.headline.metric].label}</span>
-                )}
               </span>
-              {fx && <LabelChip label={fx.headline ? fx.headline.label : 'Too early'} />}
+              {fx && <span data-testid="effect-label" data-label={fx.headline ? fx.headline.label : 'Too early'}><StatusDot label={fx.headline ? fx.headline.label : 'Too early'} /></span>}
               {fx && <ChevronRight size={16} className="shrink-0" style={{ color: 'var(--text-3)' }} />}
             </StaggerItem>
           )

@@ -10,6 +10,7 @@ import { restockPlan, HORIZONS, DEFAULT_UNIT_COSTS_USD } from '../lib/restock'
 import { totalSpendUsd, vialsFor } from '../lib/inventory'
 import { useMoney } from '../lib/useMoney'
 import { useOpenVialsView } from '../lib/useStock'
+import { InfoButton } from './ui/Glance'
 import { loadMatrix, LIB_TO_COMPOUND } from '../lib/mixMatrix'
 import { formatDose, round } from '../lib/calc'
 import CoachTip from './ui/CoachTip'
@@ -74,14 +75,22 @@ export default function SuppliesTab({ goTo }) {
     <div className="space-y-3">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <h1 className="text-2xl font-black tracking-tight">Stock</h1>
-          <p className="text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
-            {view === 'stock'
-              ? 'Open vials, sealed vials and when to order'
-              : `What to order for ${plan.label.toLowerCase()}, through ${plan.until}`}
-          </p>
+          <div className="flex items-center gap-1">
+            <h1 className="text-2xl font-black tracking-tight">Stock</h1>
+            {view === 'stock' && (
+              <InfoButton title="Stock">
+                <p>Sorted by order date. The open vial counts down from your log, so there is nothing to update by hand.</p>
+                <p>Order by is the run-out date less your order lead time. Amber: order within 7 days. Red: out of stock.</p>
+              </InfoButton>
+            )}
+          </div>
+          {view !== 'stock' && (
+            <p className="text-sm font-medium" style={{ color: 'var(--text-2)' }}>
+              What to order for {plan.label.toLowerCase()}, through {plan.until}
+            </p>
+          )}
         </div>
-        <span className="chip shrink-0 !py-2" style={{ color: 'var(--warn)' }}>
+        <span className="chip shrink-0 !py-2 tabular-nums" style={{ color: 'var(--text-2)' }}>
           <DollarSign size={13} /> {round(spend, 0)} {settings.currency} spent
         </span>
       </div>

@@ -14,7 +14,7 @@ describe('Box 1: current weight and what changed since the last scan', () => {
     const s = lastScanStory([EVOLT_START_SCAN, jan13, oct16, oct26])!
     expect(s.latest).toEqual({ date: '2026-10-26', weight: 93.0, device: 'Evolt 360' })
     expect(s.change).toEqual({ key: 'weight', text: 'Down 1.2 kg since 16 Oct', tone: 'good' })
-    expect(s.lines).toEqual([
+    expect(s.lines.map(({ key, text, tone }) => ({ key, text, tone }))).toEqual([
       { key: 'fatMass', text: 'Fat mass down 0.9 kg (26.9 to 26.0)', tone: 'good' },
       { key: 'skeletalMuscleMass', text: 'Skeletal muscle up 0.3 kg (36.4 to 36.7)', tone: 'good' },
       { key: 'bodyFat', text: 'Body fat 28.1%, was 28.9%', tone: 'good' },

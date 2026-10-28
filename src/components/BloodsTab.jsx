@@ -11,6 +11,7 @@ import { MarkerRow } from './bloods/RangeBar'
 import MarkerDetail from './bloods/MarkerDetail'
 import AddTestSheet from './bloods/AddTestSheet'
 import ImportBloods from './bloods/ImportBloods'
+import { InfoButton } from './ui/Glance'
 
 /**
  * What the lab measured.
@@ -56,10 +57,14 @@ export default function BloodsTab() {
     <div className="space-y-3" data-testid="bloods-tab">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <h1 className="text-2xl font-black tracking-tight">Bloods</h1>
-          <p className="text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
-            What the lab measured, and how it has moved
-          </p>
+          <div className="flex items-center gap-1">
+            <h1 className="text-2xl font-black tracking-tight">Bloods</h1>
+            <InfoButton title="About Bloods" testid="bloods-info">
+              <p>Flags are against the interval printed on each report, nothing more. What any of it means is a question for your doctor.</p>
+              <p>Worth watching lists the markers your compounds name as worth keeping an eye on. Appearing there is not a claim that anything has affected them.</p>
+              <p>{SEED_DISCLAIMER || 'Reference intervals are the lab’s.'} This is a personal tracking tool, not medical advice.</p>
+            </InfoButton>
+          </div>
         </div>
         <span className="chip shrink-0 !py-2 tabular-nums" style={{ color: 'var(--text-2)' }}>
           {tests.length} test{tests.length === 1 ? '' : 's'}
@@ -92,8 +97,8 @@ export default function BloodsTab() {
       {/* ------------------------------------------------ out of range */}
       {flagged.length > 0 && (
         <div className="card p-3" data-testid="out-of-range">
-          <p className="flex items-center gap-1.5 t-caption" style={{ color: 'var(--warn)' }}>
-            <AlertTriangle size={12} /> Outside the lab's interval · {flagged.length}
+          <p className="flex items-center gap-2 text-[17px] font-semibold">
+            <AlertTriangle size={16} style={{ color: 'var(--warn)' }} /> {flagged.length} outside the lab's interval
           </p>
           <div className="mt-1.5 flex flex-wrap gap-1.5">
             {flagged.map((r) => (
@@ -106,10 +111,6 @@ export default function BloodsTab() {
               </button>
             ))}
           </div>
-          <p className="mt-2 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-3)' }}>
-            Flagged against the interval printed on the report, nothing more. What any of it means is a
-            question for your doctor.
-          </p>
         </div>
       )}
 
@@ -125,10 +126,6 @@ export default function BloodsTab() {
                 onOpen={() => setMarker(row.marker.name)} />
             ))}
           </div>
-          <p className="px-1 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-3)' }}>
-            These are the markers your compounds list as worth keeping an eye on. Appearing here is not a
-            claim that anything has affected them.
-          </p>
         </div>
       )}
 
@@ -163,11 +160,7 @@ export default function BloodsTab() {
         </div>
       )}
 
-      <p className="px-1 pb-1 text-xs font-medium leading-relaxed" style={{ color: 'var(--text-2)' }}>
-        {SEED_DISCLAIMER || 'Reference intervals are the lab’s.'} This is a personal tracking tool, not
-        medical advice, it records what was measured and shows how it has moved, and interpreting any of it
-        belongs to a doctor.
-      </p>
+      <p className="px-1 pb-1 text-[13px] font-medium" style={{ color: 'var(--text-3)' }}>A personal record, not medical advice.</p>
 
       <MarkerDetail name={marker} open={!!marker} onClose={() => setMarker(null)} />
       <AddTestSheet open={adding} onClose={() => setAdding(false)} />

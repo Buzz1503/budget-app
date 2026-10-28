@@ -11,6 +11,8 @@ import { useHealth } from '../health/state'
 import { useHealthLink } from '../lib/healthLink'
 import { isDue } from '../lib/due'
 import { addDays } from '../health/tz'
+import { applyScanHistory } from '../body/scanHistory'
+import evoltScans from '../data/evolt_scans.json'
 
 /** Where each screen lives: the tab, and for Body the segment. */
 export const PREVIEW_SCREENS = {
@@ -116,6 +118,10 @@ export async function seedPreview() {
         if (isDue(p, date, { pushes: s.pushes || [], pauses: s.pauses || [] }) && r() < 0.95) useStore.getState().backfillDose(p.id, date)
       }
     }
+    // the Evolt scans a real install has from the v22 migration
+    const st = useStore.getState()
+    const scans = applyScanHistory(st.measurements, st.bodyStart, evoltScans)
+    useStore.setState({ measurements: scans.measurements, bodyStart: scans.bodyStart })
     const nightExtras = { ...useStore.getState().nightExtras, ...soundsFixture(t, r) }
     useStore.setState({
       saunaSessions: saunaFixture(t, r),

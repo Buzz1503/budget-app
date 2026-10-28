@@ -99,9 +99,9 @@ export const overlapVerb = (o: { kind: ChangeEvent['kind']; cycle?: boolean }) =
 const joinNames = (xs: string[]) => (xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`)
 
 /**
- * "Testosterone E started 4 days after this and MOTS-c 6 days after. Changes
- * in this section are shared with them and cannot be split." Compounds that
- * changed the same way on the same day are named together.
+ * "Testosterone E started 4 days after this and MOTS-c 6 days after, so this
+ * mixes them all." Compounds that changed the same way on the same day are
+ * named together.
  */
 export function overlapSentence(overlaps: Overlap[]): string | null {
   if (!overlaps.length) return null
@@ -120,8 +120,7 @@ export function overlapSentence(overlaps: Overlap[]): string | null {
     const verb = i > 0 && groups[i - 1].kind === g.kind && !!groups[i - 1].cycle === !!g.cycle ? '' : `${overlapVerb(g)} `
     return `${joinNames(g.names)} ${verb}${dist}${i === 0 && n !== 0 ? ' this' : ''}`
   })
-  const them = firstPer.size === 1 ? 'it' : 'them'
-  return `${joinNames(parts)}. Changes in this section are shared with ${them} and cannot be split.`
+  return `${joinNames(parts)}, so this mixes ${firstPer.size === 1 ? 'both' : 'them all'}.`
 }
 
 export interface CleanWindow { date: string; event: ChangeEvent; before: Window; after: Window; rows: EffectRow[] }

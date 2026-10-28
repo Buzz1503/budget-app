@@ -242,7 +242,17 @@ export function latestScanMeta(measurements: ScanLike[], field: string): { statu
 // ------------------------------------------------- the two boxes at the top
 
 export type Tone = 'good' | 'bad' | 'flat'
-export interface StoryLine { key: string; text: string; tone: Tone }
+export interface StoryLine {
+  key: string
+  text: string
+  tone: Tone
+  /** for a stat row: the label, the two values, the change and its unit */
+  label?: string
+  from?: number
+  to?: number
+  delta?: number
+  unit?: string
+}
 
 const shortDay = (d: string) => `${Number(d.slice(8, 10))} ${MONTHS[Number(d.slice(5, 7)) - 1]}`
 const toneOf = (delta: number, better: 'down' | 'up'): Tone => (Math.abs(delta) < 0.05 ? 'flat' : (better === 'down' ? delta < 0 : delta > 0) ? 'good' : 'bad')
@@ -252,22 +262,24 @@ const f1 = (v: number) => v.toFixed(1)
 function changeSince(key: string, label: string, a: number | null, b: number | null, better: 'down' | 'up'): StoryLine | null {
   if (a == null || b == null) return null
   const d = r1(b - a)
-  if (Math.abs(d) < 0.05) return { key, text: `${label} unchanged at ${f1(b)} kg`, tone: 'flat' }
-  return { key, text: `${label} ${d < 0 ? 'down' : 'up'} ${f1(Math.abs(d))} kg (${f1(a)} to ${f1(b)})`, tone: toneOf(d, better) }
+  const row = { label, from: a, to: b, delta: d, unit: 'kg' }
+  if (Math.abs(d) < 0.05) return { key, text: `${label} unchanged at ${f1(b)} kg`, tone: 'flat', ...row }
+  return { key, text: `${label} ${d < 0 ? 'down' : 'up'} ${f1(Math.abs(d))} kg (${f1(a)} to ${f1(b)})`, tone: toneOf(d, better), ...row }
 }
 
 /** "Body fat mass down from 40.4 to 26.0 kg" */
 function changeFrom(key: string, label: string, a: number | null, b: number | null, better: 'down' | 'up'): StoryLine | null {
   if (a == null || b == null) return null
   const d = r1(b - a)
-  if (Math.abs(d) < 0.05) return { key, text: `${label} unchanged at ${f1(b)} kg`, tone: 'flat' }
-  return { key, text: `${label} ${d < 0 ? 'down' : 'up'} from ${f1(a)} to ${f1(b)} kg`, tone: toneOf(d, better) }
+  const row = { label, from: a, to: b, delta: d, unit: 'kg' }
+  if (Math.abs(d) < 0.05) return { key, text: `${label} unchanged at ${f1(b)} kg`, tone: 'flat', ...row }
+  return { key, text: `${label} ${d < 0 ? 'down' : 'up'} from ${f1(a)} to ${f1(b)} kg`, tone: toneOf(d, better), ...row }
 }
 
 /** "Body fat 28.1%, was 28.9%" */
 function bodyFatLine(a: number | null, b: number | null): StoryLine | null {
   if (a == null || b == null) return null
-  return { key: 'bodyFat', text: `Body fat ${f1(b)}%, was ${f1(a)}%`, tone: toneOf(b - a, 'down') }
+  return { key: 'bodyFat', text: `Body fat ${f1(b)}%, was ${f1(a)}%`, tone: toneOf(b - a, 'down'), label: 'Body fat', from: a, to: b, delta: r1(b - a), unit: '%' }
 }
 
 export interface ScanStory {

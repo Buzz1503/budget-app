@@ -5,6 +5,8 @@ import { OUTCOME_BY_KEY, factorName } from '../../sleep/analysis/dataset'
 import { ANALYSIS } from '../../sleep/analysis/engine'
 import { clockOf } from '../../health/engine/sleepView'
 import useSleepAnalysis from './useSleepAnalysis'
+import { DeltaChip, StatusDot, StatusLegend, ProgressRow } from '../ui/Glance'
+import { deltaText } from '../../lib/glance'
 
 const muted = { color: 'var(--text-3)' }
 const soft = { color: 'var(--text-2)' }
@@ -17,7 +19,7 @@ export function BackHeader({ title, onBack, sub, info }) {
         <h2 className="flex-1 text-2xl font-black tracking-tight">{title}</h2>
         {info && <button onClick={info} aria-label={`About ${title}`} className="p-1.5" style={muted} data-testid="lab-info"><Info size={18} /></button>}
       </div>
-      {sub && <p className="text-xs font-medium" style={muted}>{sub}</p>}
+      {sub && <p className="text-sm font-medium" style={soft}>{sub}</p>}
     </div>
   )
 }
@@ -27,30 +29,71 @@ export function Updating({ on }) {
 }
 
 function Chip({ label }) {
-  const clear = label === 'Clear'
-  return <span className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold" style={{ background: 'var(--surface-sunk)', color: clear ? 'var(--text)' : 'var(--text-3)' }} data-label={label}>{label}</span>
+  return <span data-label={label}><StatusDot label={label} /></span>
+}
+
+const UNIT_SHORT = { 'per hour': '/h', 'of 5': '' }
+// short outcome names so a row's second line never cuts a word
+const SHORT_OUTCOME = { rhrNext: 'Morning resting HR', hrLow: 'Lowest sleeping HR', hrAvg: 'Average sleeping HR', readinessNext: 'Morning readiness', breathing: 'Breathing', nightmare: 'Nightmare nights', spo2Dips: 'SpO2 dips' }
+const shortOutcome = (k) => SHORT_OUTCOME[k] || OUTCOME_BY_KEY[k]?.label || k
+
+/** The difference as a chip, green when it is the better way for that outcome. */
+export function OutcomeChip({ outcome, effect }) {
+  const o = OUTCOME_BY_KEY[outcome]
+  if (!o || effect == null) return null
+  const r = Number(effect.toFixed(o.dp))
+  const tone = r === 0 ? 'same' : (r > 0) === (o.better === 'up') ? 'better' : 'worse'
+  return <DeltaChip text={deltaText(effect, UNIT_SHORT[o.unit] ?? o.unit, o.dp)} tone={tone} />
+}
+
+/** One comparison: factor, status dot and nights, the difference as a chip. Tap for the sentence. */
+export function FactorRow({ c, names, showOutcome = false }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div data-testid="factor-row">
+      <button type="button" onClick={() => setOpen((v) => !v)} className="flex w-full items-center gap-3 py-3 text-left" aria-expanded={open}>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-[15px] font-semibold">{factorName(c.factor, names)}{showOutcome ? <span style={muted}>, {shortOutcome(c.outcome).toLowerCase()}</span> : null}</span>
+          <span className="mt-0.5 flex items-center gap-2">
+            <Chip label={c.label} />
+            <span className="truncate text-[13px] font-medium tabular-nums" style={muted}>{c.nWith} with, {c.nWithout} without</span>
+          </span>
+        </span>
+        <OutcomeChip outcome={c.outcome} effect={c.diff} />
+      </button>
+      {open && <p className="-mt-1 pb-3 text-sm font-medium" style={soft}>{c.text}</p>}
+    </div>
+  )
 }
 
 function Ranked({ title, items, empty, testid, names }) {
+  const [open, setOpen] = useState(null)
   return (
-    <section className="card p-4" data-testid={testid}>
-      <p className="t-label">{title}</p>
+    <section className="card px-4 pb-1 pt-4" data-testid={testid}>
+      <p className="text-[17px] font-semibold">{title}</p>
       {items.length ? (
-        <ol className="mt-2 space-y-2">
-          {items.map((it, i) => (
-            <li key={`${it.factor}-${it.outcome}`} className="flex gap-2" data-testid={`${testid}-row`}>
-              <span className="text-sm font-black tabular-nums" style={muted}>{i + 1}</span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm font-bold">{factorName(it.factor, names)}</span>
-                <span className="block text-xs font-medium" style={soft}>{OUTCOME_BY_KEY[it.outcome].label} {it.short}</span>
-                <span className="block text-[11px] font-bold tabular-nums" style={muted}>
-                  {it.adjusted ? `After accounting for everything else${it.rawShort ? `. Alone: ${it.rawShort}` : ''} · ${it.n} nights` : `${it.n} nights`}
-                </span>
-              </span>
-            </li>
-          ))}
+        <ol className="rows mt-1">
+          {items.map((it) => {
+            const key = `${it.factor}-${it.outcome}`
+            return (
+              <li key={key} data-testid={`${testid}-row`}>
+                <button type="button" onClick={() => setOpen(open === key ? null : key)} className="flex w-full items-center gap-3 py-3 text-left" aria-expanded={open === key}>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[15px] font-semibold">{factorName(it.factor, names)}</span>
+                    <span className="block truncate text-[13px] font-medium tabular-nums" style={muted}>{shortOutcome(it.outcome)} · {it.n} nights</span>
+                  </span>
+                  <OutcomeChip outcome={it.outcome} effect={it.effect} />
+                </button>
+                {open === key && (
+                  <p className="-mt-1 pb-3 text-sm font-medium" style={soft}>
+                    {OUTCOME_BY_KEY[it.outcome].label} {it.short}{it.adjusted ? `, after accounting for everything else${it.rawShort ? `. Alone: ${it.rawShort}` : ''}` : ''}.
+                  </p>
+                )}
+              </li>
+            )
+          })}
         </ol>
-      ) : <p className="mt-1 text-sm font-medium" style={soft}>{empty}</p>}
+      ) : <p className="py-2 text-sm font-medium" style={soft}>{empty}</p>}
     </section>
   )
 }
@@ -81,21 +124,24 @@ function FactorsTab({ r, names }) {
       </div>
       <section className="card rows p-0">
         {rows.map((c) => (
-          <div key={c.factor} className="flex items-start gap-2 px-4 py-3" data-testid="lab-factor" data-factor={c.factor}>
+          <div key={c.factor} className="flex items-center gap-3 px-4 py-3" data-testid="lab-factor" data-factor={c.factor}>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-bold">{factorName(c.factor, names)}</p>
-              <p className="text-xs font-medium" style={soft}>{c.shown}</p>
-              <p className="text-[11px] font-bold tabular-nums" style={muted}>{c.alone ? `Alone: ${c.alone} · ` : ''}{c.nWith} nights with, {c.nWithout} without</p>
+              <p className="truncate text-[15px] font-semibold">{factorName(c.factor, names)}</p>
+              <div className="mt-0.5 flex items-center gap-2">
+                <Chip label={c.shownLabel} />
+                <span className="truncate text-[13px] font-medium tabular-nums" style={muted}>{c.nWith} with, {c.nWithout} without</span>
+              </div>
             </div>
-            <Chip label={c.shownLabel} />
+            <OutcomeChip outcome={outcome} effect={c.diff} />
           </div>
         ))}
         {!rows.length && <p className="px-4 py-3 text-sm font-medium" style={soft}>Nothing for this outcome yet.</p>}
       </section>
       {r.factors.locked.length > 0 && (
-        <p className="px-1 text-xs font-medium" style={muted} data-testid="lab-locked">
-          Needs {ANALYSIS.minPerGroup} nights with and without: {r.factors.locked.map((l) => `${factorName(l.factor, names)} (${l.have})`).join(', ')}.
-        </p>
+        <div className="px-1" data-testid="lab-locked">
+          <ProgressRow have={Math.max(...r.factors.locked.map((l) => l.have))} need={ANALYSIS.minPerGroup}
+            text={`${r.factors.locked.length} ${r.factors.locked.length === 1 ? 'factor unlocks' : 'factors unlock'} at ${ANALYSIS.minPerGroup} nights with and without · closest ${Math.min(ANALYSIS.minPerGroup, Math.max(...r.factors.locked.map((l) => l.have)))} of ${ANALYSIS.minPerGroup}`} />
+        </div>
       )}
       {r.rankedBy === 'adjusted' && <p className="px-1 text-[11px] font-medium" style={muted}>{r.adjustedNote}</p>}
       {r.factors.chanceNote && <p className="px-1 text-[11px] font-medium" style={muted} data-testid="lab-chance">{r.factors.chanceNote}</p>}
@@ -116,8 +162,8 @@ function DoseChart({ d }) {
   const cw = (W - 40) / d.bins.length
   return (
     <section className="card p-4" data-testid="lab-dose">
-      <p className="text-sm font-black">{d.label}</p>
-      <p className="text-xs font-medium" style={muted}>{o.label}{o.unit ? `, ${o.unit}` : ''}</p>
+      <p className="text-[17px] font-semibold">{d.label}</p>
+      <p className="text-sm font-medium" style={soft}>{o.label}{o.unit ? `, ${o.unit}` : ''}</p>
       <svg viewBox={`0 0 ${W} ${H}`} className="mt-1 w-full" role="img" aria-label={`${o.label} by ${d.label}`}>
         {d.bins.map((b, i) => {
           const cx = 40 + cw * i + cw / 2
@@ -148,10 +194,12 @@ function CarryTab({ r }) {
       {r.carryOver.map((c) => (
         <div key={`${c.factor}-${c.outcome}`} className="flex items-start gap-2 px-4 py-3">
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium" style={soft}>{c.text}</p>
-            <p className="text-[11px] font-bold tabular-nums" style={muted}>{c.nWith} nights after, {c.nWithout} not</p>
+            <p className="text-[15px] font-medium">{c.text}</p>
+            <div className="mt-0.5 flex items-center gap-2">
+              <Chip label={c.label} />
+              <span className="text-[13px] font-medium tabular-nums" style={muted}>{c.nWith} after, {c.nWithout} not</span>
+            </div>
           </div>
-          <Chip label={c.label} />
         </div>
       ))}
     </section>
@@ -210,24 +258,34 @@ function WeekTab({ r }) {
   )
 }
 
-/** Sleep › Analysis: what helps and hurts, then the five ways of looking. */
+/** One answer line: the clearest thing that goes with better nights. */
+export function analysisAnswer(r, names) {
+  const top = r.helps[0]
+  if (!top) return 'Nothing clear yet in your nights.'
+  const o = OUTCOME_BY_KEY[top.outcome]
+  return `${factorName(top.factor, names)} goes with ${o.label.toLowerCase()} ${top.short.replace(/\s*\(.*\)$/, '')}.`
+}
+
+/** Sleep › Analysis: what goes with better and worse nights, then the five ways of looking. */
 export default function AnalysisScreen({ lab, onBack }) {
   const { result: r, updating } = useSleepAnalysis(lab)
   const [tab, setTab] = useState('factors')
   const [info, setInfo] = useState(false)
   return (
     <div className="space-y-4" data-testid="lab-analysis">
-      <BackHeader title="Analysis" onBack={onBack} info={() => setInfo(true)} sub="Associations in your own nights, not causes. Each result shows its 95% interval and how many nights it rests on." />
+      <BackHeader title="Analysis" onBack={onBack} info={() => setInfo(true)} />
       <Updating on={updating} />
       {!r ? <p className="text-sm font-medium" style={soft}>Working through your nights.</p> : (
         <>
+          <p className="px-1 text-[17px] font-semibold" data-testid="lab-answer">{analysisAnswer(r, lab.names)}</p>
           {r.rankedBy === 'simple' && (
-            <p className="px-1 text-xs font-medium" style={muted} data-testid="lab-ranked-simple">
-              Ranked by simple comparisons until {ANALYSIS.adjustedFrom} nights with logged factors (you have {r.nightsWithFactors}).
-            </p>
+            <div className="px-1" data-testid="lab-ranked-simple">
+              <ProgressRow have={r.nightsWithFactors} need={ANALYSIS.adjustedFrom}
+                text={`Adjusted ranking unlocks with more logged nights · ${Math.min(r.nightsWithFactors, ANALYSIS.adjustedFrom)} of ${ANALYSIS.adjustedFrom}`} />
+            </div>
           )}
-          <Ranked title="What helps" items={r.helps} names={lab.names} testid="lab-helps" empty="Nothing clear yet. Rows appear when a difference's interval stays clear of zero." />
-          <Ranked title="What hurts" items={r.hurts} names={lab.names} testid="lab-hurts" empty="Nothing clear yet." />
+          <Ranked title="Goes with better nights" items={r.helps} names={lab.names} testid="lab-helps" empty="Nothing clear yet." />
+          <Ranked title="Goes with worse nights" items={r.hurts} names={lab.names} testid="lab-hurts" empty="Nothing clear yet." />
           <div className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1" role="tablist" data-testid="lab-tabs">
             {TABS.map(([id, label]) => (
               <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)} data-testid={`lab-tab-${id}`}
@@ -247,7 +305,8 @@ export default function AnalysisScreen({ lab, onBack }) {
           <p>Each factor is compared on nights with it against nights without, once there are {ANALYSIS.minPerGroup} of each. The interval comes from resampling your own nights 1000 times.</p>
           <p>From {ANALYSIS.adjustedFrom} nights, a ridge regression looks at all factors together, with weekends, recent sleep debt and the long-term trend, so overlapping factors are separated as well as the data allows.</p>
           <p>A row is called Clear only when its interval stays on one side of zero. With many rows, some will still look real by chance.</p>
-          <p>These are associations in your own data, not causes, and not advice about any medicine.</p>
+          <p>These are associations in your own data, not causes, and not advice about any medicine. Tap a row for its 95% interval.</p>
+          <StatusLegend />
         </div>
       </Modal>
     </div>

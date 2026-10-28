@@ -6,7 +6,7 @@ import useStore, { todayStr } from '../../store/useStore'
 import { addDays } from '../../health/tz'
 import { useLatestMeasurement } from '../../lib/useBody'
 import { stopBang, likelihood, signals, APNEA_LABEL, AIRWAY_NOTE, TESTOSTERONE_NOTE, SPO2_NOTE, APNEA } from '../../sleep/apnea'
-import { BackHeader, Updating } from './SleepAnalysis'
+import { BackHeader, Updating, FactorRow } from './SleepAnalysis'
 import useSleepAnalysis from './useSleepAnalysis'
 import SleepReportButtons from './SleepReport'
 
@@ -126,14 +126,9 @@ export default function ApneaScreen({ lab, onBack }) {
       {sig.breathing.length >= 1 && <TrendChart metric="breathing" chartType="sleepBreathing" title="Breathing disturbances" dp={1} series={sig.breathing} defaultRange="30D" testid="apnea-breathing-chart" pinsDefault={false} />}
 
       <section className="card p-4" data-testid="apnea-goes">
-        <p className="t-label">What goes with worse breathing nights</p>
+        <p className="text-[17px] font-semibold">What goes with worse breathing nights</p>
         <Updating on={updating} />
-        {breathingRows.length ? breathingRows.slice(0, 8).map((c) => (
-          <div key={`${c.factor}-${c.outcome}`} className="mt-2">
-            <p className="text-sm font-medium" style={soft}>{c.text}</p>
-            <p className="text-[11px] font-bold tabular-nums" style={muted}>{c.label} · {c.nWith} nights with, {c.nWithout} without</p>
-          </div>
-        )) : <p className="mt-1 text-sm font-medium" style={soft}>Appears once breathing, SpO2 or snoring has 7 recorded nights with and without a factor.</p>}
+        {breathingRows.length ? <div className="rows">{breathingRows.slice(0, 8).map((c) => <FactorRow key={`${c.factor}-${c.outcome}`} c={c} names={lab.names} showOutcome={true} />)}</div> : <p className="mt-1 text-sm font-medium" style={soft}>Appears once breathing, SpO2 or snoring has 7 recorded nights with and without a factor.</p>}
       </section>
 
       <section className="card p-4" data-testid="apnea-bloods">

@@ -21,7 +21,7 @@ const EXE = process.env.CHROMIUM_PATH || '/opt/pw-browsers/chromium-1194/chrome-
 // each screen: the preview name and what to tap once it is up
 const SCREENS = [
   ['home'], ['composition'], ['effects'], ['recovery'],
-  ['sleep'], ['sleep-full', '[data-testid="night-expand"]'], ['sleep-lab', '[data-testid="lab-open-analysis"]'],
+  ['sleep'], ['sleep-full', '[data-testid="night-expand"]'], ['sleep-lab', '[data-testid="lab-open-analysis"]', '[data-testid="lab-helps"]'],
   ['sleep-sounds', '[data-testid="sounds-row"]'],
   ['sauna'], ['more'], ['stock'], ['bloods'], ['import'],
 ].filter(([n]) => !only.length || only.includes(n))
@@ -43,13 +43,14 @@ const page = await ctx.newPage()
 const problems = []
 page.on('pageerror', (e) => problems.push(`${e.message}`))
 try {
-  for (const [name, tap] of SCREENS) {
+  for (const [name, tap, ready] of SCREENS) {
     await page.goto(`${BASE}?preview=${name}`, { waitUntil: 'domcontentloaded' })
     await page.waitForFunction(() => window.__previewReady === true, null, { timeout: 90000 })
-    await page.waitForTimeout(1800)
+    await page.waitForTimeout(2600)
     for (const b of await page.locator('button:has-text("Got it")').all()) { try { await b.click({ timeout: 1000 }) } catch { /* gone */ } }
     if (tap) {
       try { await page.locator(tap).first().click({ timeout: 8000 }); await page.waitForTimeout(1200) } catch { problems.push(`${name}: could not tap ${tap}`) }
+      if (ready) { try { await page.locator(ready).first().waitFor({ timeout: 60000 }) } catch { problems.push(`${name}: ${ready} never showed`) } }
     }
     await page.screenshot({ path: `${OUT}/${name}.png`, fullPage: true })
     // and screen-height slices, for reading one screen at a time

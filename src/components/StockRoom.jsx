@@ -96,11 +96,8 @@ export default function StockRoom({ goTo }) {
         ))}
       </div>
 
-      <p className="px-1 text-xs leading-relaxed" style={{ color: 'var(--text-3)' }} data-testid="stock-waste">
+      <p className="px-1 text-sm font-medium" style={{ color: 'var(--text-3)' }} data-testid="stock-waste">
         Wasted this year: {round(waste.mg, 1)} mg{waste.vials ? ` (${waste.vials} vial${waste.vials === 1 ? '' : 's'})` : ''}
-      </p>
-      <p className="px-1 pb-1 text-xs leading-relaxed" style={{ color: 'var(--text-3)' }}>
-        Sorted by order date. The open vial counts down from your log, so there is nothing to update by hand.
       </p>
 
       <OrderArrivedSheet open={adding} onClose={() => setAdding(false)} />
@@ -112,40 +109,42 @@ export default function StockRoom({ goTo }) {
 
 function StockRow({ row: r, onOpen }) {
   const orderSoon = r.orderByDays != null && r.orderByDays <= ORDER_DOT_DAYS
-  const orderColor = r.out ? 'var(--danger)' : orderSoon ? 'var(--warn)' : 'var(--text-2)'
+  const orderColor = r.out ? 'var(--danger)' : orderSoon ? 'var(--warn)' : 'var(--text)'
+  // the key number large: doses left in the open vial
+  const big = r.open && r.dosesLeft != null ? r.dosesLeft : null
   return (
     <button onClick={onOpen} data-testid="stock-group" data-peptide={r.peptideId}
       className="card block w-full p-4 text-left">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-bold leading-tight">{r.name}</p>
-          <p className="mt-1 text-xs tabular-nums leading-tight"
-            style={{ color: r.out ? 'var(--danger)' : 'var(--text-2)' }} data-testid="stock-open-line">
-            {dosesLeftWords(r)}{r.untracked ? '' : ` · ${r.sealed} sealed`}
-          </p>
-        </div>
-        <ChevronRight size={16} className="mt-0.5 shrink-0" style={{ color: 'var(--text-3)' }} />
+      <div className="flex items-center gap-3">
+        <p className="min-w-0 flex-1 truncate text-[17px] font-semibold">{r.name}</p>
+        <ChevronRight size={16} className="shrink-0" style={{ color: 'var(--text-3)' }} />
+      </div>
+      <div className="mt-1 flex items-baseline gap-2" data-testid="stock-open-line" style={{ color: r.out ? 'var(--danger)' : 'var(--text)' }}>
+        {big != null
+          ? <><span className="text-[26px] font-extrabold tabular-nums leading-none">{big}</span><span className="text-sm font-medium" style={{ color: 'var(--text-2)' }}>{big === 1 ? 'dose' : 'doses'} left</span></>
+          : <span className="text-[15px] font-semibold">{dosesLeftWords(r)}</span>}
+        {!r.untracked && <span className="ml-auto text-sm font-medium tabular-nums" style={{ color: 'var(--text-2)' }}>{r.sealed} sealed</span>}
       </div>
       {!r.untracked && r.setUp && (
-        <p className="mt-2 text-xs tabular-nums leading-tight" style={{ color: orderColor }} data-testid="stock-order-line">
+        <p className="mt-2 text-sm font-medium tabular-nums" data-testid="stock-order-line">
           {r.out
-            ? 'Order now'
+            ? <span className="font-semibold" style={{ color: orderColor }}>Order now</span>
             : r.runOutDate
-              ? `Runs out ${shortDate(r.runOutDate)} · Order by ${shortDate(r.orderBy)}`
-              : 'No run-out date yet'}
+              ? <><span className="font-semibold" style={{ color: orderColor }}>Order by {shortDate(r.orderBy)}</span><span style={{ color: 'var(--text-2)' }}> · runs out {shortDate(r.runOutDate)}</span></>
+              : <span style={{ color: 'var(--text-2)' }}>No run-out date yet</span>}
         </p>
       )}
       {!r.untracked && !r.setUp && (
-        <p className="mt-2 text-xs leading-tight" style={{ color: 'var(--text-3)' }}>No dose set, so no run-out date.</p>
+        <p className="mt-2 text-sm font-medium" style={{ color: 'var(--text-3)' }}>No dose set, so no run-out date</p>
       )}
       {r.expiry?.showUseBy && (
-        <p className="mt-1 text-xs tabular-nums leading-tight"
+        <p className="mt-1 text-sm font-medium tabular-nums"
           style={{ color: r.expiry.expired ? 'var(--danger)' : 'var(--warn)' }} data-testid="stock-use-by">
           {r.expiry.expired ? `Past its fridge life, ${r.expiry.useBy.toLowerCase()}` : r.expiry.useBy}
         </p>
       )}
       {r.needsMixing && (
-        <p className="mt-1 text-xs leading-tight" style={{ color: 'var(--text-2)' }}>Not mixed yet</p>
+        <p className="mt-1 text-sm font-medium" style={{ color: 'var(--text-2)' }}>Not mixed yet</p>
       )}
     </button>
   )

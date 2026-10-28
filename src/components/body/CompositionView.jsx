@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { format, parseISO } from 'date-fns'
-import { ChevronDown, ChevronRight, Plus } from 'lucide-react'
+import { ChevronDown, ChevronRight, Plus, Scale, Flag } from 'lucide-react'
 import useStore, { todayStr } from '../../store/useStore'
 import NumberField from '../ui/NumberField'
 import { CountIn, Stagger, StaggerItem } from '../ui/Motion'
@@ -18,11 +18,14 @@ import {
 import SegmentMap from './SegmentMap'
 import ScanCompare from './ScanCompare'
 import MetricSheet from './MetricSheet'
+import { AnswerLine, DeltaChip, InfoButton } from '../ui/Glance'
+import { deltaText } from '../../lib/glance'
 
 const GOOD = 'var(--accent)'
 const BAD = 'var(--amber)'
 const shortD = (d) => format(parseISO(d), 'd MMM')
 const toneFor = (delta, better) => (delta == null || Math.abs(delta) < 0.05 || !better ? 'var(--text-2)' : (better === 'down' ? delta < 0 : delta > 0) ? GOOD : BAD)
+const toneWord = (delta, better) => (delta == null || Math.abs(delta) < 0.05 || !better ? 'same' : (better === 'down' ? delta < 0 : delta > 0) ? 'better' : 'worse')
 const signed = (v, dp) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(dp)}`
 
 function SectionTitle({ children, sub }) {
@@ -86,11 +89,24 @@ function Hero({ onLog, onOpenStart }) {
 
 const TONE = { good: GOOD, bad: BAD, flat: 'var(--text-2)' }
 
+const CHIP_TONE = { good: 'better', bad: 'worse', flat: 'same' }
+
+/** Each change as a stat row: label, before → now, a chip coloured by whether it moved the better way. */
 function StoryLines({ lines, testid }) {
   return (
-    <div className="mt-3 space-y-1" data-testid={testid}>
+    <div className="rows mt-2" data-testid={testid}>
       {lines.map((l) => (
-        <p key={l.key} className="text-sm font-semibold tabular-nums" style={{ color: TONE[l.tone] }} data-testid={`${testid}-${l.key}`} data-tone={l.tone}>{l.text}</p>
+        <div key={l.key} className="flex items-center gap-3 py-2.5" data-testid={`${testid}-${l.key}`} data-tone={l.tone} aria-label={l.text}>
+          <span className="min-w-0 flex-1 truncate text-[15px] font-medium">{l.label || l.text}</span>
+          {l.from != null && (
+            <span className="shrink-0 whitespace-nowrap text-[17px] font-semibold tabular-nums">
+              <span style={{ color: 'var(--text-2)' }}>{l.from.toFixed(1)}</span>
+              <span className="mx-1" style={{ color: 'var(--text-3)' }}>→</span>{l.to.toFixed(1)}
+              <span className="ml-0.5 text-[13px] font-medium" style={{ color: 'var(--text-3)' }}>{l.unit}</span>
+            </span>
+          )}
+          {l.delta != null && <DeltaChip text={deltaText(l.delta, l.unit === '%' ? 'pts' : l.unit, 1)} tone={CHIP_TONE[l.tone]} />}
+        </div>
       ))}
     </div>
   )
@@ -110,8 +126,9 @@ function ScanBox({ onLog, onShowScale }) {
   const newer = scale && scale.date > story.latest.date ? scale : null
   return (
     <section className="card p-5" data-testid="scan-box">
-      <div className="flex items-start gap-3">
-        <p className="t-caption min-w-0 flex-1" style={{ color: 'var(--text-3)' }}>Current weight and what changed since your last scan</p>
+      <div className="flex items-center gap-2">
+        <Scale size={18} style={{ color: 'var(--text-2)' }} aria-hidden="true" />
+        <p className="min-w-0 flex-1 text-[17px] font-semibold">Since your last scan</p>
         <button onClick={onLog} aria-label="Log a tape measurement" className="flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 text-xs font-bold" style={{ background: 'var(--surface-sunk)', color: 'var(--text-2)' }} data-testid="composition-log">
           <Plus size={13} /> Tape
         </button>
@@ -122,7 +139,7 @@ function ScanBox({ onLog, onShowScale }) {
       <p className="mt-2 text-xs font-medium tabular-nums" style={{ color: 'var(--text-3)' }} data-testid="hero-source">{format(parseISO(story.latest.date), 'd MMM yyyy')}, {story.latest.device}</p>
       {story.change ? (
         <>
-          <p className="mt-3 text-base font-black tabular-nums" style={{ color: TONE[story.change.tone] }} data-testid="scan-change">{story.change.text}</p>
+          <p className="mt-3 text-[17px] font-semibold tabular-nums" style={{ color: TONE[story.change.tone] }} data-testid="scan-change">{story.change.text}</p>
           <StoryLines lines={story.lines} testid="scan-lines" />
         </>
       ) : (
@@ -156,13 +173,21 @@ function StartBox({ onOpenStart }) {
   }
   return (
     <section className="card p-5" data-testid="start-box">
-      <p className="t-caption" style={{ color: 'var(--text-3)' }}>Since you started</p>
-      <button onClick={onOpenStart} className="mt-1 block text-left text-xl font-black leading-snug tabular-nums" style={{ color: TONE[story.lead.tone] }} data-testid="hero-since">
-        {story.lead.text}
+      <div className="flex items-center gap-2">
+        <Flag size={18} style={{ color: 'var(--text-2)' }} aria-hidden="true" />
+        <p className="min-w-0 flex-1 text-[17px] font-semibold">Since you started</p>
+        <InfoButton title="Starting point">
+          <p>The starting point is {format(parseISO(story.startDate), 'd MMM yyyy')}. Each change is the latest Evolt scan against it.</p>
+          {story.estimated && <p>The start is an estimate based on {story.startWeight.toFixed(1)} kg.</p>}
+          <p>Green means it moved the better way (fat down, muscle and lean up), amber the other way.</p>
+        </InfoButton>
+      </div>
+      <button onClick={onOpenStart} className="mt-2 block text-left text-[17px] font-semibold leading-snug tabular-nums" style={{ color: TONE[story.lead.tone] }} data-testid="hero-since">
+        {story.lead.text.replace(/\s*\(.*\)$/, '')}
       </button>
       <StoryLines lines={story.lines} testid="start-lines" />
-      <p className="mt-3 text-[11px] font-medium tabular-nums" style={{ color: 'var(--text-3)' }} data-testid="start-note">
-        {story.estimated ? `Start is an estimate based on ${story.startWeight.toFixed(1)} kg. ` : ''}
+      <p className="mt-2 text-[13px] font-medium tabular-nums" style={{ color: 'var(--text-3)' }} data-testid="start-note">
+        {story.estimated ? 'Estimated start. ' : ''}
         <button onClick={onOpenStart} className="underline decoration-dotted underline-offset-2" data-testid="edit-start">Change the starting point</button>
       </p>
     </section>
@@ -210,20 +235,20 @@ function KeyTile({ def, onOpen }) {
   const label = def.key === 'waist' && field === 'abdominalCircumference' ? 'Waist (abdominal)' : def.label
   return (
     <StaggerItem as="button" onClick={() => onOpen({ key: field, label, unit: def.unit, dp: def.dp })} className="card flex min-w-0 flex-col p-4 text-left" data-testid={`key-tile-${def.key}`}>
-      <span className="t-caption truncate" style={{ color: 'var(--text-3)' }}>{label}</span>
+      <span className="truncate text-[15px] font-medium" style={{ color: 'var(--text-2)' }}>{label}</span>
       <span className="mt-1 flex items-end justify-between gap-2">
-        <span className="text-2xl font-black tabular-nums leading-none">
+        <span className="text-[26px] font-extrabold tabular-nums leading-none">
           {latest ? <CountIn value={latest.value} decimals={def.dp} /> : '–'}
           {def.unit && <span className="ml-0.5 text-xs font-bold" style={{ color: 'var(--text-3)' }}>{def.unit}</span>}
         </span>
         <Sparkline values={series.slice(-12).map((p) => p.value)} width={52} height={18} />
       </span>
-      {latest && <span className="mt-2 truncate text-[11px] font-medium tabular-nums" style={{ color: 'var(--text-3)' }}>{shortD(latest.date)}, {latest.sourceLabel}</span>}
       {delta != null && (
-        <span className="text-xs font-bold leading-snug tabular-nums" style={{ color: toneFor(delta, def.better) }} data-testid={`key-tile-${def.key}-delta`}>
-          {signed(delta, def.dp)}{def.unit === '%' ? ' pts' : def.unit ? ` ${def.unit}` : ''} {sinceWords(start)}
+        <span className="mt-2 flex min-w-0 items-center gap-1.5" data-testid={`key-tile-${def.key}-delta`} aria-label={`${signed(delta, def.dp)}${def.unit === '%' ? ' pts' : def.unit ? ` ${def.unit}` : ''} ${sinceWords(start)}`}>
+          <DeltaChip text={deltaText(delta, def.unit === '%' ? 'pts' : def.unit, def.dp)} tone={toneWord(delta, def.better)} />
         </span>
       )}
+      {latest && <span className="mt-1 truncate text-[13px] font-medium tabular-nums" style={{ color: 'var(--text-3)' }}>{shortD(latest.date)}, {latest.sourceLabel}</span>}
     </StaggerItem>
   )
 }
@@ -241,7 +266,7 @@ function MetricRow({ m, onOpen }) {
     <button onClick={() => onOpen(m)} className="flex w-full items-center gap-2 py-2.5 text-left" data-testid={`metric-row-${m.key}`}>
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-semibold">{m.label}{m.unit ? <span style={{ color: 'var(--text-3)' }}> ({m.unit})</span> : null}</span>
-        {delta != null && <span className="block text-[11px] font-medium tabular-nums" style={{ color: toneFor(delta, m.better) }}>{signed(delta, m.dp)} {sinceWords(start)}</span>}
+        {delta != null && <span className="mt-0.5 block" aria-label={`${signed(delta, m.dp)} ${sinceWords(start)}`}><DeltaChip text={deltaText(delta, m.unit === '%' ? 'pts' : m.unit, m.dp)} tone={toneWord(delta, m.better)} /></span>}
       </span>
       {meta.status && STATUS_WORDS.has(meta.status) && (
         <span className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold" style={{ background: 'var(--surface-sunk)', color: 'var(--text-2)' }} data-testid="metric-status">{meta.status}</span>
@@ -269,8 +294,8 @@ function FfmiRow({ onOpen }) {
     <button onClick={() => onOpen(def)} className="flex w-full items-center gap-2 py-2.5 text-left" data-testid="metric-row-ffmi">
       <span className="min-w-0 flex-1">
         <span className="block text-sm font-semibold">FFMI</span>
-        <span className="block text-[11px] font-medium" style={{ color: 'var(--text-3)' }}>Lean mass for your height (lean kg ÷ height m²)</span>
-        {delta != null && <span className="block text-[11px] font-medium tabular-nums" style={{ color: toneFor(delta, 'up') }}>{signed(delta, 1)} {sinceWords(start)}</span>}
+        <span className="block truncate text-[13px] font-medium" style={{ color: 'var(--text-3)' }}>Lean mass for your height</span>
+        {delta != null && <span className="mt-0.5 block" aria-label={`${signed(delta, 1)} ${sinceWords(start)}`}><DeltaChip text={deltaText(delta, '', 1)} tone={toneWord(delta, 'up')} /></span>}
       </span>
       <Sparkline values={series.slice(-12).map((p) => p.value)} width={44} height={16} />
       <span className="w-[58px] shrink-0 text-right text-sm font-black tabular-nums">{latest.value.toFixed(1)}</span>
@@ -285,7 +310,7 @@ function AllMetrics({ onOpen }) {
   return (
     <section className="card px-4" data-testid="all-metrics">
       <button onClick={() => setOpen((v) => !v)} aria-expanded={open} className="flex w-full items-center gap-2 py-4 text-left" data-testid="all-metrics-toggle">
-        <span className="min-w-0 flex-1 text-base font-black">All metrics</span>
+        <span className="min-w-0 flex-1 text-[17px] font-semibold">All metrics</span>
         <span className="text-xs font-bold" style={{ color: 'var(--text-3)' }}>{open ? 'Hide' : 'Show'}</span>
         {open ? <ChevronDown size={16} style={{ color: 'var(--text-3)' }} /> : <ChevronRight size={16} style={{ color: 'var(--text-3)' }} />}
       </button>
@@ -303,7 +328,7 @@ function AllMetrics({ onOpen }) {
             <p className="t-caption mb-1" style={{ color: 'var(--text-3)' }}>Index</p>
             <FfmiRow onOpen={onOpen} />
           </div>
-          <p className="mt-2 text-[11px] font-medium" style={{ color: 'var(--text-3)' }}>Status chips are Evolt's own, as printed on your latest scan.</p>
+          <p className="mt-2 text-[13px] font-medium" style={{ color: 'var(--text-3)' }}>Status words are Evolt's own, from your latest scan. Chips: change since your start.</p>
         </div>
       )}
     </section>
@@ -327,7 +352,8 @@ function GoalCard() {
   return (
     <section className="card p-5" data-testid="goal-card">
       <div className="flex items-center gap-2">
-        <h2 className="min-w-0 flex-1 text-base font-black">Goal</h2>
+        <h2 className="min-w-0 flex-1 text-[17px] font-semibold">Goal</h2>
+        {(weight || bf) && <InfoButton title="Goal estimate"><p>An estimate from a straight line through the last 28 days. Not a prediction.</p></InfoButton>}
         <button onClick={() => setEdit((v) => !v)} className="text-xs font-bold" style={{ color: 'var(--text-2)' }} data-testid="goal-edit">{edit ? 'Done' : 'Set goals'}</button>
       </div>
       {edit && (
@@ -355,7 +381,6 @@ function GoalCard() {
           <p className="text-sm font-medium" style={{ color: 'var(--text-2)' }}>{bf.words}</p>
         </div>
       )}
-      {(weight || bf) && <p className="mt-2 text-[11px] font-medium" style={{ color: 'var(--text-3)' }}>Estimate from a straight line through the last 28 days. Not a prediction.</p>}
     </section>
   )
 }
@@ -461,9 +486,9 @@ function DexaRow({ onOpen }) {
   return (
     <button onClick={onOpen} className="card flex w-full items-center gap-3 p-4 text-left" data-testid="dexa-row">
       <span className="min-w-0 flex-1">
-        <span className="block text-base font-black">DEXA scans</span>
-        <span className="block text-xs font-medium tabular-nums" style={{ color: 'var(--text-3)' }}>
-          {scans.length ? `${scans.length} scan${scans.length === 1 ? '' : 's'} · latest ${format(parseISO(last.date), 'd MMM yyyy')}` : 'None yet. Add one, compared only with other DEXA scans.'}
+        <span className="block text-[17px] font-semibold">DEXA scans</span>
+        <span className="block text-sm font-medium tabular-nums" style={{ color: 'var(--text-2)' }}>
+          {scans.length ? `${scans.length} scan${scans.length === 1 ? '' : 's'} · latest ${format(parseISO(last.date), 'd MMM yyyy')}` : 'None yet'}
         </span>
       </span>
       <ChevronRight size={16} style={{ color: 'var(--text-3)' }} />
@@ -495,6 +520,7 @@ export default function CompositionView({ onLog, onOpenStart, onOpenDexa }) {
           <StartBox onOpenStart={onOpenStart} />
         </>
       ) : <Hero onLog={onLog} onOpenStart={onOpenStart} />}
+      {anyComposition ? <p className="-mb-1 px-1 text-[13px] font-medium" style={{ color: 'var(--text-3)' }}>Chips show the change since your start</p> : null}
       {anyComposition ? (
         <Stagger className="grid grid-cols-2 gap-3" data-testid="key-tiles">
           {KEY_TILES.map((d) => <KeyTile key={d.key} def={d} onOpen={setMetric} />)}

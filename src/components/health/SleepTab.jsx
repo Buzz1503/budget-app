@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { format, parseISO } from 'date-fns'
-import { ChevronLeft, ChevronRight, Info, ArrowDown, ArrowUp, Minus } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Info, FlaskConical, Wind, Ghost, Activity, Moon, HeartPulse, Clock, BedDouble, Sunset, TrendingUp, Gauge, Layers } from 'lucide-react'
 import { motion, useReducedMotion } from 'framer-motion'
 import useStore, { todayStr } from '../../store/useStore'
 import Modal from '../ui/Modal'
@@ -35,18 +35,19 @@ import { useNativeFeed } from '../../native/feed'
 import { recordingMissing, soundsMissed, SOUNDS_MISSED_LINE } from '../../sleep/prompts'
 import { soundsStatus } from '../../native/sleepRuntime'
 import { soundsLine, minutesWords } from '../../sleep/soundsView'
+import { AnswerLine, DeltaChip, InfoButton } from '../ui/Glance'
 
 const clock = (ms) => clockOf(clockFromNoon(ms, tz))
 const dayWords = (d, t) => (d === t ? 'Last night' : d === addDays(t, -1) ? 'The night before' : `Night to ${format(parseISO(d), 'EEE d MMM')}`)
 
-function SectionTitle({ children, sub, action }) {
+/** A section heading: icon, title, an optional (i) and an action on the right. */
+function SectionTitle({ children, icon: Icon, info, infoTitle, action }) {
   return (
-    <div className="flex items-end gap-2 px-1">
-      <div className="min-w-0 flex-1">
-        <h2 className="text-base font-black">{children}</h2>
-        {sub && <p className="text-xs font-medium" style={{ color: 'var(--text-3)' }}>{sub}</p>}
-      </div>
+    <div className="flex items-center gap-2 px-1">
+      {Icon && <Icon size={18} style={{ color: 'var(--text-2)' }} aria-hidden="true" />}
+      <h2 className="min-w-0 flex-1 truncate text-[17px] font-semibold">{children}</h2>
       {action}
+      {info && <InfoButton title={infoTitle || (typeof children === 'string' ? children : 'About this')}>{info}</InfoButton>}
     </div>
   )
 }
@@ -104,15 +105,15 @@ function SleepScreen({ model }) {
   return (
     <Stagger className="space-y-6" data-testid="sleep-view">
       <StaggerItem>
+        <Hero model={model} night={night} date={date} t={t} prev={prev} next={next} setDate={setDate} openCalendar={() => setCalendar(true)} sounds={shown.n} />
+      </StaggerItem>
+      <StaggerItem>
         <MorningCheck notice={soundsNotice}
           soundsSummary={soundsOn && !soundsNotice ? lineFor(today.n, 'Last night', true, true) : null} onOpenSounds={() => { setDate(t); setView('sounds') }} />
       </StaggerItem>
       <StaggerItem><SleepSetupCard model={model} /></StaggerItem>
-      <StaggerItem>
-        <Hero model={model} night={night} date={date} t={t} prev={prev} next={next} setDate={setDate} openCalendar={() => setCalendar(true)} sounds={shown.n} />
-      </StaggerItem>
       <StaggerItem className="space-y-2">
-        <SectionTitle sub="Stages, movement, sound, heart rate and blood oxygen on one clock">Through the night</SectionTitle>
+        <SectionTitle icon={Activity} info={<p>Stages, movement, sound, heart rate and blood oxygen on one clock. Press and drag to read every lane at one moment; tap the expand button for full screen.</p>}>Through the night</SectionTitle>
         <section className="card p-4">
           <NightCard night={night} overnight={night.overnight} restless={lab.extras.get(date)?.restless} tz={tz}
             soundSessions={nightExtras[date]?.sounds} soundsOn={soundsOn}
@@ -125,23 +126,23 @@ function SleepScreen({ model }) {
           running={!!live?.running} onToggle={typeof __NATIVE__ !== 'undefined' && __NATIVE__ ? control.toggle : null} busy={control.busy} message={control.message} />
       </StaggerItem>
       <StaggerItem className="space-y-2">
-        <SectionTitle sub="Your own nights, compared">Sleep Lab</SectionTitle>
+        <SectionTitle icon={FlaskConical}>Sleep Lab</SectionTitle>
         <LabLinks onOpen={setView} />
       </StaggerItem>
       <StaggerItem className="space-y-2">
-        <SectionTitle sub="Each part out of 100">Score breakdown</SectionTitle>
+        <SectionTitle icon={Gauge} info={<p>The sleep score is four parts, each out of 100. Tap a part for what went into it.</p>}>Score breakdown</SectionTitle>
         <Breakdown model={model} night={night} date={date} />
       </StaggerItem>
       <StaggerItem className="space-y-2"><Stages model={model} night={night} date={date} /></StaggerItem>
       <StaggerItem className="space-y-2">
-        <SectionTitle sub="This night against your usual, the 28 nights before">Overnight vitals</SectionTitle>
+        <SectionTitle icon={HeartPulse} info={<p>This night against your usual, the median of the 28 nights before. Green chips moved the better way for that measure, amber the other way, grey means about the same or no better side (respiratory rate, wrist temperature).</p>}>Overnight vitals</SectionTitle>
         <Vitals model={model} night={night} date={date} />
       </StaggerItem>
       <StaggerItem className="space-y-2"><Timing model={model} t={t} /></StaggerItem>
       <StaggerItem className="space-y-2"><DebtAndPlan model={model} t={t} /></StaggerItem>
       <StaggerItem className="space-y-2"><Factors /></StaggerItem>
       <StaggerItem className="space-y-2">
-        <SectionTitle sub="Tap Overlay to add compound lanes">Trends</SectionTitle>
+        <SectionTitle icon={TrendingUp} info={<p>Tap Overlay on a chart to add compound lanes under it.</p>}>Trends</SectionTitle>
         <Trends model={model} />
       </StaggerItem>
       <StaggerItem><Naps model={model} t={t} /></StaggerItem>
@@ -175,20 +176,21 @@ function NightFactorsLine({ feature }) {
 }
 
 const LAB_LINKS = [
-  ['analysis', 'Analysis', 'What helps and what hurts your sleep'],
-  ['apnea', 'Apnea screen', 'STOP-BANG and overnight breathing signals'],
-  ['nightmares', 'Nightmares', 'Estimated from heart rate surges, checked against your answers'],
-  ['restless', 'Restlessness', 'Movement through the night, from the Watch'],
+  ['analysis', 'Analysis', 'What goes with better nights', FlaskConical],
+  ['apnea', 'Apnea screen', 'Breathing signals overnight', Wind],
+  ['nightmares', 'Nightmares', 'Estimated from heart rate', Ghost],
+  ['restless', 'Restlessness', 'Movement from the Watch', Activity],
 ]
 
 function LabLinks({ onOpen }) {
   return (
     <section className="card rows p-0" data-testid="lab-links">
-      {LAB_LINKS.map(([id, title, sub]) => (
-        <button key={id} onClick={() => onOpen(id)} className="flex w-full items-center gap-2 px-4 py-3 text-left" data-testid={`lab-open-${id}`}>
+      {LAB_LINKS.map(([id, title, sub, Icon]) => (
+        <button key={id} onClick={() => onOpen(id)} className="flex w-full items-center gap-3 px-4 py-3 text-left" data-testid={`lab-open-${id}`}>
+          <Icon size={18} style={{ color: 'var(--text-2)' }} aria-hidden="true" />
           <span className="min-w-0 flex-1">
-            <span className="block text-sm font-black">{title}</span>
-            <span className="block text-xs font-medium" style={{ color: 'var(--text-3)' }}>{sub}</span>
+            <span className="block text-[15px] font-semibold">{title}</span>
+            <span className="block truncate text-sm font-medium" style={{ color: 'var(--text-2)' }}>{sub}</span>
           </span>
           <ChevronRight size={16} style={{ color: 'var(--text-3)' }} />
         </button>
@@ -198,6 +200,13 @@ function LabLinks({ onOpen }) {
 }
 
 // -------------------------------------------------------------------- hero
+
+/** "1 h 41 m short of your 8 h." / "Over your 8 h by 20 m." / "Right on your 8 h." */
+export function sleepAnswer(asleepMin, needH) {
+  const diff = Math.round(asleepMin - needH * 60)
+  if (Math.abs(diff) < 15) return `Right on your ${needH} h.`
+  return diff < 0 ? `${durationWords(-diff)} short of your ${needH} h.` : `${durationWords(diff)} over your ${needH} h.`
+}
 
 function Hero({ model, night, date, t, prev, next, setDate, openCalendar, sounds }) {
   const perf = model.sleepScore(date)
@@ -221,17 +230,16 @@ function Hero({ model, night, date, t, prev, next, setDate, openCalendar, sounds
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-3xl font-black tabular-nums leading-tight" data-testid="asleep-duration">{durationWords(night.asleepMin)}</p>
-          <p className="text-sm font-medium tabular-nums" style={{ color: 'var(--text-2)' }}>of your {model.needH} h</p>
-          <p className="mt-3 text-sm font-bold tabular-nums" data-testid="sleep-times">{clock(night.start)} to {clock(night.end)}</p>
-          <p className="text-xs font-medium" style={{ color: 'var(--text-3)' }}>{night.sourceName || 'Apple Health'}</p>
+          <p className="mt-2 text-sm font-medium tabular-nums" style={{ color: 'var(--text-2)' }} data-testid="sleep-times">{clock(night.start)} to {clock(night.end)}</p>
           {sounds && (
-            <p className="mt-1 text-xs font-bold tabular-nums" style={{ color: 'var(--text-2)' }} data-testid="hero-snoring">
+            <p className="text-sm font-medium tabular-nums" style={{ color: 'var(--text-2)' }} data-testid="hero-snoring">
               {sounds.snoringMin > 0 ? `Snoring ${minutesWords(sounds.snoringMin)}` : 'No snoring heard'}
             </p>
           )}
         </div>
       </div>
-      {!night.hasStages && <p className="mt-4 text-xs font-medium" style={{ color: 'var(--text-3)' }}>No sleep stages from this source; the score leaves that part out.</p>}
+      <AnswerLine className="mt-4" testid="sleep-answer">{sleepAnswer(night.asleepMin, model.needH)}</AnswerLine>
+      {!night.hasStages && <p className="mt-1 text-sm font-medium" style={{ color: 'var(--text-2)' }}>No stages from {night.sourceName || 'this source'}, so the score leaves them out.</p>}
     </section>
   )
 }
@@ -250,19 +258,20 @@ function Bar({ value, max = 100, testid }) {
 }
 
 function Breakdown({ model, night, date }) {
+  const [open, setOpen] = useState(null)
   const perf = model.sleepScore(date)
   if (!perf) return null
   return (
     <section className="card rows p-0" data-testid="score-breakdown">
       {scoreBreakdown(night, perf, model.needH).map((p) => (
-        <div key={p.key} className="px-4 py-3" data-testid={`part-${p.key}`}>
-          <div className="flex items-baseline gap-2">
-            <p className="flex-1 text-sm font-bold">{p.label}</p>
-            <p className="text-sm font-black tabular-nums">{p.value ?? '–'}</p>
+        <button key={p.key} onClick={() => setOpen(open === p.key ? null : p.key)} className="block w-full px-4 py-3 text-left" data-testid={`part-${p.key}`} aria-expanded={open === p.key}>
+          <div className="flex items-center gap-3">
+            <p className="w-[104px] shrink-0 text-[15px] font-medium">{p.label}</p>
+            <div className="min-w-0 flex-1"><Bar value={p.value} /></div>
+            <p className="w-9 text-right text-[17px] font-semibold tabular-nums">{p.value ?? '–'}</p>
           </div>
-          <div className="mt-2"><Bar value={p.value} /></div>
-          <p className="mt-2 text-xs font-medium" style={{ color: 'var(--text-2)' }}>{p.text}</p>
-        </div>
+          {open === p.key && <p className="mt-2 text-sm font-medium" style={{ color: 'var(--text-2)' }}>{p.text}</p>}
+        </button>
       ))}
     </section>
   )
@@ -279,7 +288,7 @@ function Stages({ model, night, date }) {
   const x = (p) => `${Math.min(100, (p / STAGE_SCALE) * 100)}%`
   return (
     <>
-      <SectionTitle sub="Share of time asleep; awake is share of time in bed"
+      <SectionTitle icon={Layers}
         action={<button onClick={() => setInfo(true)} aria-label="About sleep stages" className="p-1" style={{ color: 'var(--text-3)' }} data-testid="stages-info"><Info size={16} /></button>}>
         Stages
       </SectionTitle>
@@ -299,9 +308,9 @@ function Stages({ model, night, date }) {
               )}
               {s.avgPct != null && <span className="absolute -inset-y-1 w-0.5 rounded-full" style={{ left: x(s.avgPct), background: 'var(--text)' }} data-testid="stage-avg" />}
             </div>
-            <p className="mt-1 text-[11px] font-medium tabular-nums" style={{ color: 'var(--text-3)' }}>
-              {s.avgPct != null ? `30-night average ${s.avgPct}%` : ''}{s.typical ? `${s.avgPct != null ? ' · ' : ''}typical adult range ${s.typical[0]} to ${s.typical[1]}%` : ''}
-            </p>
+            {s.avgPct != null && (
+              <p className="mt-1 text-[13px] font-medium tabular-nums" style={{ color: 'var(--text-3)' }}>Your usual {s.avgPct}%</p>
+            )}
           </div>
         ))}
       </section>
@@ -310,6 +319,7 @@ function Stages({ model, night, date }) {
           <p>Apple Watch estimates stages from movement and heart rate. They are estimates, more useful as a trend over many nights than for any one night.</p>
           <p>The faint band on Deep and REM is a typical adult range as a share of time asleep. It is context, not a target, and ranges vary from person to person.</p>
           <p>The thin line is your own average over the last 30 nights with stages.</p>
+          <p>Each bar is the share of time asleep; awake is the share of time in bed.</p>
         </div>
       </Modal>
     </>
@@ -318,7 +328,7 @@ function Stages({ model, night, date }) {
 
 // ------------------------------------------------------------------ vitals
 
-const ARROW = { up: ArrowUp, down: ArrowDown, same: Minus }
+const VITAL_METRIC = { hrMin: 'lowestHR', hrAvg: 'avgHR', hrv: 'hrv', resp: 'respiratory', temp: 'wristTemp', spo2: 'spo2' }
 
 function Vitals({ model, night, date }) {
   const maps = useMemo(() => {
@@ -349,19 +359,19 @@ function Vitals({ model, night, date }) {
     <section className="card rows p-0" data-testid="sleep-vitals">
       {pending && <p className="px-4 py-3 text-xs font-medium" style={{ color: 'var(--text-3)' }}>Sleeping heart rate fills in after the next sync.</p>}
       {rows.map((r) => {
-        const Icon = r.direction ? ARROW[r.direction] : null
         // wrist temperature is shown as its difference from usual, the way the watch reports it
         const shown = r.key === 'temp'
           ? (r.delta != null ? `${r.delta > 0 ? '+' : r.delta < 0 ? '−' : ''}${Math.abs(r.delta).toFixed(1)}` : r.value != null ? r.value.toFixed(1) : '–')
           : r.value != null ? r.value.toFixed(r.dp) : '–'
+        const sub = r.value == null ? 'Not recorded' : r.usual == null ? r.words.replace(/\.$/, '') : r.key === 'temp' ? 'Against your usual' : `Usual ${r.usual.toFixed(r.dp)}`
         return (
           <div key={r.key} className="flex items-center gap-3 px-4 py-3" data-testid={`vital-${r.key}`}>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-bold">{r.label}</p>
-              <p className="text-xs font-medium" style={{ color: 'var(--text-2)' }} data-testid="vital-words">{r.words}</p>
+              <p className="truncate text-[15px] font-medium">{r.label}</p>
+              <p className="truncate text-[13px] font-medium tabular-nums" style={{ color: 'var(--text-3)' }} data-testid="vital-words">{sub}</p>
             </div>
-            {Icon && <Icon size={14} style={{ color: 'var(--text-3)' }} aria-hidden="true" />}
-            <p className="w-20 text-right text-base font-black tabular-nums">{shown}<span className="ml-1 text-[11px] font-bold" style={{ color: 'var(--text-3)' }}>{r.unit}</span></p>
+            <p className="shrink-0 text-right text-[17px] font-semibold tabular-nums">{shown}<span className="ml-0.5 text-[13px] font-medium" style={{ color: 'var(--text-3)' }}>{r.unit}</span></p>
+            {r.key !== 'temp' && r.delta != null && <DeltaChip metric={r.direction === 'same' ? null : VITAL_METRIC[r.key]} delta={r.direction === 'same' ? 0 : r.delta} dp={r.dp} />}
           </div>
         )
       })}
@@ -389,7 +399,7 @@ function Timing({ model, t }) {
   const split = weekdayWeekend(nights, tz)
   return (
     <>
-      <SectionTitle sub="Each bar runs from bedtime to waking"
+      <SectionTitle icon={Clock} info={<p>Each bar runs from bedtime to waking. Consistency is how much bed and wake times varied over the last 7 nights; the midpoint is halfway between bed and waking.</p>}
         action={(
           <div className="flex gap-1" data-testid="timing-range">
             {[14, 30].map((n) => (
@@ -407,12 +417,11 @@ function Timing({ model, t }) {
           <div data-testid="sleep-consistency">
             <p className="t-caption" style={{ color: 'var(--text-3)' }}>Consistency</p>
             <p className="text-lg font-black tabular-nums">{sd != null ? `±${Math.round(sd)} min` : '–'}</p>
-            <p className="text-xs font-medium" style={{ color: 'var(--text-3)' }}>{sd != null ? 'Bed and wake, last 7 nights' : 'Needs 3 nights'}</p>
+            <p className="text-[13px] font-medium" style={{ color: 'var(--text-3)' }}>{sd != null ? 'Last 7 nights' : 'Needs 3 nights'}</p>
           </div>
           <div data-testid="sleep-midpoint">
             <p className="t-caption" style={{ color: 'var(--text-3)' }}>Average midpoint</p>
             <p className="text-lg font-black tabular-nums">{mid != null ? clockOf(mid) : '–'}</p>
-            <p className="text-xs font-medium" style={{ color: 'var(--text-3)' }}>Halfway between bed and waking</p>
           </div>
         </div>
         <p className="mt-3 text-sm font-medium" style={{ color: 'var(--text-2)' }} data-testid="weekend-split">
@@ -432,16 +441,15 @@ function DebtAndPlan({ model, t }) {
   const bars = debtNights(model.nightBy, t, model.needH)
   return (
     <>
-      <SectionTitle sub={`Hours short of your ${model.needH} h over the last 7 nights`}>Debt and tonight</SectionTitle>
+      <SectionTitle icon={BedDouble} info={<p>Hours short of your {model.needH} h over the last 7 nights. A night with no record is left out, not counted as short.</p>}>Debt and tonight</SectionTitle>
       <section className="card p-4" data-testid="sleep-debt">
         <p className="text-2xl font-black tabular-nums">{round(debt, 1)} h<span className="ml-2 text-sm font-bold" style={{ color: 'var(--text-3)' }}>7-night debt</span></p>
         <div className="mt-2"><DebtBars nights={bars} needH={model.needH} /></div>
-        <p className="text-[11px] font-medium" style={{ color: 'var(--text-3)' }}>A night with no record is left out, not counted as short.</p>
       </section>
       <button onClick={() => setOpen((v) => !v)} className="card w-full p-4 text-left" data-testid="sleep-planner" aria-expanded={open}>
         <p className="text-base font-black tabular-nums">Aim to be in bed by {plan.bedtime}</p>
         <p className="mt-1 text-sm font-medium tabular-nums" style={{ color: 'var(--text-2)' }} data-testid="wind-down">Start winding down at {windDownAt(plan.bedtime)}</p>
-        <p className="mt-1 text-xs font-medium" style={{ color: 'var(--text-3)' }}>To wake at {plan.wake}. Tap to see how.</p>
+        <p className="mt-1 text-[13px] font-medium" style={{ color: 'var(--text-3)' }}>To wake at {plan.wake}. Tap to see how.</p>
         {open && (
           <div className="mt-3 space-y-0.5 text-xs font-medium tabular-nums" style={{ color: 'var(--text-2)' }} data-testid="planner-inputs">
             <p>Sleep need {durationWords(plan.inputs.needMin)}{plan.inputs.debtAddMin ? ` + ${plan.inputs.debtAddMin} min for this week’s debt` : ''}{plan.inputs.loadBumpMin ? ` + ${plan.inputs.loadBumpMin} min after a higher-load day` : ''}</p>
@@ -468,10 +476,13 @@ function Factors() {
   }, [openEvening])
   return (
     <>
-      <SectionTitle sub="Drinks, meals and the rest of the evening. All optional.">This evening</SectionTitle>
+      <SectionTitle icon={Sunset}>This evening</SectionTitle>
       <section className="card rows p-0" data-testid="sleep-factors">
         <button onClick={() => setOpen(true)} className="flex w-full items-center gap-2 px-4 py-3 text-left" data-testid="log-habits">
-          <span className="min-w-0 flex-1 text-sm font-black">Log this evening</span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[15px] font-semibold">Log this evening</span>
+            <span className="block truncate text-sm font-medium" style={{ color: 'var(--text-2)' }}>Drinks, meals and the rest, all optional</span>
+          </span>
           <ChevronRight size={16} style={{ color: 'var(--text-3)' }} />
         </button>
       </section>
@@ -517,11 +528,12 @@ function Naps({ model, t }) {
   const naps = dateRange(addDays(t, -13), t).flatMap((d) => (model.nightBy.get(d)?.naps || []).map((n) => ({ ...n, date: d })))
   return (
     <section className="card p-4" data-testid="naps">
-      <p className="text-base font-black">Naps</p>
-      <p className="text-xs font-medium" style={{ color: 'var(--text-3)' }}>Last 14 days. Shown, not scored.</p>
-      {naps.length === 0 ? (
-        <p className="mt-2 text-sm font-medium" style={{ color: 'var(--text-2)' }}>No naps recorded.</p>
-      ) : naps.map((n) => (
+      <div className="flex items-center gap-2">
+        <Moon size={18} style={{ color: 'var(--text-2)' }} aria-hidden="true" />
+        <p className="flex-1 text-[17px] font-semibold">Naps</p>
+        <p className="text-sm font-medium" style={{ color: 'var(--text-2)' }}>{naps.length ? `${naps.length} in 14 days` : 'None in 14 days'}</p>
+      </div>
+      {naps.map((n) => (
         <p key={`${n.date}-${n.start}`} className="mt-2 text-sm font-medium tabular-nums" style={{ color: 'var(--text-2)' }}>
           {format(parseISO(n.date), 'EEE d MMM')} · {clock(n.start)} · {durationWords(n.asleepMin)}
         </p>

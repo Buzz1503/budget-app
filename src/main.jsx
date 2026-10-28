@@ -13,7 +13,7 @@ const render = () => ReactDOM.createRoot(document.getElementById('root')).render
 )
 
 // The design review harness (?preview=<screen>): dev builds only, compiled out of every other build.
-if (import.meta.env.DEV && /[?&]preview=/.test(location.search)) {
+if (import.meta.env.DEV && import.meta.env.MODE === 'development' && /[?&]preview=/.test(location.search)) {
   import('./dev/preview').then(async (m) => {
     const screen = m.previewScreen()
     if (screen) {

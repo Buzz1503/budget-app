@@ -143,12 +143,19 @@ export function correlation(xs: number[], ys: number[]): number | null {
 }
 
 /** The one line on Recovery: "On mornings after sauna your HRV averages X ms higher (n = A vs B)." Null without 7 mornings a group. */
-export function recoveryLine(input: SaunaEffectInput): string | null {
+/** Next-morning HRV after sauna days against mornings without, since the first session. */
+export function recoveryStat(input: SaunaEffectInput): { diff: number; withN: number; withoutN: number } | null {
   const f = dayFlags(input.sessions, input.night, input.toMs)
   const s = groupSplit(sinceFirstSession(input.days, input.sessions), f.has, outcomeFor('hrv', input), SAUNA.minPerGroup)
   if (s.diff == null) return null
+  return { diff: s.diff, withN: s.with.n, withoutN: s.without.n }
+}
+
+export function recoveryLine(input: SaunaEffectInput): string | null {
+  const s = recoveryStat(input)
+  if (!s) return null
   const d = Math.round(s.diff)
   return d === 0
-    ? `On mornings after sauna your HRV averages about the same (n = ${s.with.n} vs ${s.without.n}).`
-    : `On mornings after sauna your HRV averages ${Math.abs(d)} ms ${d > 0 ? 'higher' : 'lower'} (n = ${s.with.n} vs ${s.without.n}).`
+    ? `On mornings after sauna your HRV averages about the same (n = ${s.withN} vs ${s.withoutN}).`
+    : `On mornings after sauna your HRV averages ${Math.abs(d)} ms ${d > 0 ? 'higher' : 'lower'} (n = ${s.withN} vs ${s.withoutN}).`
 }

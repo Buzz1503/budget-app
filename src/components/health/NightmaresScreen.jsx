@@ -4,7 +4,7 @@ import Modal from '../ui/Modal'
 import { todayStr } from '../../store/useStore'
 import { addDays } from '../../health/tz'
 import { agreement, NIGHTMARE_LABEL, HR_NOTE, NIGHTMARES } from '../../sleep/nightmares'
-import { BackHeader, Updating } from './SleepAnalysis'
+import { BackHeader, Updating, FactorRow } from './SleepAnalysis'
 import useSleepAnalysis from './useSleepAnalysis'
 
 const muted = { color: 'var(--text-3)' }
@@ -78,14 +78,9 @@ export default function NightmaresScreen({ lab, onBack }) {
         </section>
       )}
       <section className="card p-4" data-testid="nightmare-goes">
-        <p className="t-label">What goes with nightmare nights</p>
+        <p className="text-[17px] font-semibold">What goes with nightmare nights</p>
         <Updating on={updating} />
-        {rows.length ? rows.slice(0, 8).map((c) => (
-          <div key={`${c.factor}-${c.outcome}`} className="mt-2">
-            <p className="text-sm font-medium" style={soft}>{c.text}</p>
-            <p className="text-[11px] font-bold tabular-nums" style={muted}>{c.label} · {c.nWith} nights with, {c.nWithout} without</p>
-          </div>
-        )) : <p className="mt-1 text-sm font-medium" style={soft}>Appears once a factor has 7 nights with and 7 without, each with a nightmare answer or estimate.</p>}
+        {rows.length ? <div className="rows">{rows.slice(0, 8).map((c) => <FactorRow key={`${c.factor}-${c.outcome}`} c={c} names={lab.names} showOutcome={false} />)}</div> : <p className="mt-1 text-sm font-medium" style={soft}>Appears once a factor has 7 nights with and 7 without, each with a nightmare answer or estimate.</p>}
       </section>
       <p className="px-1 text-[11px] font-medium" style={muted}>{HR_NOTE}</p>
       <Modal open={info} onClose={() => setInfo(false)} title="How nightmares are estimated">

@@ -1,5 +1,5 @@
 import { useMemo, useState, Suspense, lazy } from 'react'
-import { Info } from 'lucide-react'
+import { Info, HeartPulse, Flame } from 'lucide-react'
 import useStore, { todayStr } from '../../store/useStore'
 import { useHealth } from '../../health/state'
 import Modal from '../ui/Modal'
@@ -9,10 +9,12 @@ import { glp1NoteDue, GLP1_RHR_NOTE } from '../../health/engine/protocol'
 import { round } from '../../health/engine/stats'
 import useHealthModel, { useCompounds } from './useHealthModel'
 import useSaunaInput from './useSaunaInput'
-import { recoveryLine } from '../../sauna/saunaEffects'
+import { recoveryStat } from '../../sauna/saunaEffects'
 import TrendChart from '../charts/TrendChart'
 import useChartEvents from '../charts/useChartEvents'
-import { ReadinessRing, Sparkline, Delta, Stat } from './atoms'
+import { ReadinessRing, Sparkline } from './atoms'
+import { AnswerLine, DeltaChip, SectionTitle, StatRow } from '../ui/Glance'
+import { recoveryAnswer } from '../../lib/glance'
 import { HEALTH_BANDS } from './bands'
 import { SyncLine } from './HealthSettings'
 
@@ -70,34 +72,37 @@ function HowCalculated({ open, onClose }) {
   )
 }
 
-function RecoveryRow({ label, unit, row, spark, dp = 0, note = null, testid }) {
+function RecoveryRow({ label, metric, unit, row, spark, dp = 0, testid }) {
   return (
-    <div className="py-2.5" data-testid={testid}>
-      <div className="flex items-center gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-bold">{label}</p>
-          <p className="text-xs font-medium tabular-nums" style={{ color: 'var(--text-3)' }}>
-            {row.baseline != null ? `Usual ${row.baseline} ${unit}` : 'Building baseline'}
-          </p>
-        </div>
-        <Sparkline values={spark} />
-        <div className="w-[96px] shrink-0 text-right">
-          <p className="text-base font-black tabular-nums">{row.value != null ? round(row.value, dp) : '–'}<span className="ml-1 text-xs font-bold" style={{ color: 'var(--text-3)' }}>{unit}</span></p>
-          <p className="text-xs font-medium"><Delta value={row.delta} dp={dp} /></p>
-        </div>
+    <div className="flex items-center gap-3 py-3" data-testid={testid}>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-[15px] font-medium">{label}</p>
+        <p className="text-[13px] font-medium tabular-nums" style={{ color: 'var(--text-3)' }}>
+          {row.baseline != null ? `Usual ${row.baseline} ${unit}` : 'Building your usual'}
+        </p>
       </div>
-      {note && <p className="mt-1 text-xs font-medium leading-snug" style={{ color: 'var(--text-3)' }} data-testid="glp1-note">{note}</p>}
+      <Sparkline values={spark} width={56} />
+      <div className="flex w-[118px] shrink-0 flex-col items-end gap-1">
+        <p className="text-[17px] font-semibold tabular-nums">{row.value != null ? round(row.value, dp) : '–'}<span className="ml-0.5 text-[13px] font-medium" style={{ color: 'var(--text-3)' }}>{unit}</span></p>
+        {row.delta != null && <DeltaChip metric={metric} delta={row.delta} unit={unit === '/min' ? '' : unit} dp={dp} />}
+      </div>
     </div>
   )
 }
 
-/** One line, once there are 7 mornings after sauna and 7 without. */
+/** Mornings after sauna against mornings without, once there are 7 of each. */
 function SaunaRecoveryLine() {
   const hasSauna = useStore((s) => s.saunaSessions.length > 0)
   const { input } = useSaunaInput()
-  const line = useMemo(() => (hasSauna ? recoveryLine(input) : null), [hasSauna, input])
-  if (!line) return null
-  return <p className="px-1 text-sm font-medium" style={{ color: 'var(--text-2)' }} data-testid="recovery-sauna-line">{line}</p>
+  const stat = useMemo(() => (hasSauna ? recoveryStat(input) : null), [hasSauna, input])
+  if (!stat) return null
+  return (
+    <div className="card px-4 pt-3" data-testid="recovery-sauna-line">
+      <SectionTitle icon={Flame} title="After sauna" />
+      <StatRow label="HRV, morning after" metric="hrv" value={Math.round(stat.diff) === 0 ? 'Same' : null} delta={Math.round(stat.diff) === 0 ? null : stat.diff} deltaUnit="ms"
+        sub={`${stat.withN} mornings after, ${stat.withoutN} without`} />
+    </div>
+  )
 }
 
 function RecoveryView({ model }) {
@@ -114,9 +119,10 @@ function RecoveryView({ model }) {
   const showResp = model.series.resp.size > 0
   const glp1 = glp1NoteDue(t, model.events, compounds)
   const events = useChartEvents()
+  const rows = { hrv: rowFor(model, 'hrv', t), rhr: rowFor(model, 'rhr', t), sleep: rowFor(model, 'sleep', t), resp: showResp ? rowFor(model, 'resp', t) : null }
 
   return (
-    <div className="space-y-3" data-testid="recovery-view">
+    <div className="space-y-4" data-testid="recovery-view">
       <div className="card p-4">
         <div className="flex items-center gap-4">
           <ReadinessRing score={r.score} band={r.band} size={104} stroke={9} />
@@ -130,20 +136,24 @@ function RecoveryView({ model }) {
             {r.status === 'ok' && <p className="text-2xl font-black" style={{ color: HEALTH_BANDS[r.band].tone }} data-testid="recovery-band">{r.bandLabel}</p>}
             {r.status === 'building' && <p className="text-sm font-bold" data-testid="recovery-building">Building baseline: day {r.buildingDay} of 14</p>}
             {r.status === 'insufficient' && <p className="text-sm font-bold" data-testid="recovery-insufficient">Not enough data from last night</p>}
-            {r.chip && (
-              <span className="mt-1 inline-block rounded-full px-2.5 py-1 text-xs font-bold" style={{ background: 'var(--surface-sunk)', color: 'var(--text-2)' }} data-testid="baseline-chip">
-                {r.chip}
-              </span>
-            )}
           </div>
         </div>
+        <AnswerLine className="mt-3" testid="recovery-answer">{recoveryAnswer(rows)}</AnswerLine>
+        {r.chip && <p className="mt-1 truncate text-sm font-medium" style={{ color: 'var(--text-2)' }} data-testid="baseline-chip">{r.chip}</p>}
       </div>
 
-      <div className="card rows px-4" data-testid="recovery-rows">
-        <RecoveryRow testid="row-hrv" label="Heart rate variability" unit="ms" row={rowFor(model, 'hrv', t)} spark={spark('hrv')} />
-        <RecoveryRow testid="row-rhr" label="Resting heart rate" unit="bpm" dp={1} row={rowFor(model, 'rhr', t)} spark={spark('rhr')} note={glp1 ? GLP1_RHR_NOTE : null} />
-        <RecoveryRow testid="row-sleep" label="Sleep" unit="h" dp={1} row={rowFor(model, 'sleep', t)} spark={spark('sleep')} />
-        {showResp && <RecoveryRow testid="row-resp" label="Respiratory rate" unit="/min" dp={1} row={rowFor(model, 'resp', t)} spark={spark('resp')} />}
+      <div className="card px-4 pt-3" data-testid="recovery-rows">
+        <SectionTitle icon={HeartPulse} title="This morning" infoTitle="This morning"
+          info={<>
+            <p>Each value against your usual, built from the last 28 days. The chip is green when the move is the better way for that measure, amber when it is the other way.</p>
+            {glp1 && <p data-testid="glp1-note">{GLP1_RHR_NOTE}</p>}
+          </>} />
+        <div className="rows">
+          <RecoveryRow testid="row-hrv" label="HRV" metric="hrv" unit="ms" row={rows.hrv} spark={spark('hrv')} />
+          <RecoveryRow testid="row-rhr" label="Resting heart rate" metric="rhr" unit="bpm" dp={1} row={rows.rhr} spark={spark('rhr')} />
+          <RecoveryRow testid="row-sleep" label="Sleep" metric="sleep" unit="h" dp={1} row={rows.sleep} spark={spark('sleep')} />
+          {showResp && <RecoveryRow testid="row-resp" label="Respiratory rate" metric="respiratory" unit="/min" dp={1} row={rows.resp} spark={spark('resp')} />}
+        </div>
       </div>
 
       <SaunaRecoveryLine />
@@ -156,7 +166,6 @@ function RecoveryView({ model }) {
       <button onClick={() => setCompare(true)} className="w-full rounded-full py-3 text-sm font-bold" style={{ background: 'var(--surface-sunk)', color: 'var(--text-2)' }} data-testid="open-compare">
         Compare
       </button>
-      <p className="px-1 text-xs font-medium" style={{ color: 'var(--text-3)' }}>A personal record, not medical advice.</p>
 
       <HowCalculated open={info} onClose={() => setInfo(false)} />
       {compare && <Suspense fallback={null}><CompareSheet model={model} onClose={() => setCompare(false)} /></Suspense>}
