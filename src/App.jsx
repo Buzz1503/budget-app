@@ -113,7 +113,8 @@ const ALIASES = {
 }
 
 export default function App() {
-  const [tab, setTab] = useState('today')
+  // the design review harness opens a screen directly (dev only, see src/dev/preview.js)
+  const [tab, setTab] = useState(() => (import.meta.env.DEV && typeof window !== 'undefined' && window.__previewTab) || 'today')
   const [wizard, setWizard] = useState(false)
   const peptides = useStore((s) => s.peptides)
   const coachMarks = useStore((s) => s.coachMarks)

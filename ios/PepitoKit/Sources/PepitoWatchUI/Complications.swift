@@ -81,6 +81,51 @@ public struct SaunaCornerComplication: View {
     }
 }
 
+/// accessoryRectangular (and the Smart Stack): readiness, its band, sleep and HRV.
+public struct ReadinessRectangular: View {
+    let readiness: Snapshot.Readiness?
+    public init(readiness: Snapshot.Readiness?) { self.readiness = readiness }
+
+    public var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Readiness").font(.subheadline).foregroundStyle(.secondary)
+            if let r = readiness, let score = r.score {
+                Text("\(score) · \(r.bandLabel ?? "")").font(.headline).monospacedDigit().lineLimit(1).pepitoAccentable()
+                Text([r.sleepMin.map { "Sleep \(Int($0) / 60) h \(Int($0) % 60) m" }, r.hrv.map { "HRV \(Int($0.rounded())) ms" }].compactMap { $0 }.joined(separator: " · "))
+                    .font(.subheadline).monospacedDigit().foregroundStyle(.secondary).lineLimit(1)
+            } else {
+                Text("Not yet today").font(.headline)
+                Text("Open Pepito+ on iPhone").font(.subheadline).foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// accessoryRectangular (and the Smart Stack): the sauna week, or the session running.
+public struct SaunaRectangular: View {
+    let sauna: Snapshot.Sauna?
+    public init(sauna: Snapshot.Sauna?) { self.sauna = sauna }
+
+    public var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Label("Sauna", systemImage: "flame.fill").font(.subheadline).foregroundStyle(.secondary)
+            if let a = sauna?.active {
+                Text(timerInterval: a.startDate...a.targetDate, countsDown: false).font(.headline).monospacedDigit().pepitoAccentable()
+                Text("\(a.tempC) C · round \(a.rounds)").font(.subheadline).foregroundStyle(.secondary)
+            } else if let w = sauna?.week {
+                Text("\(w.sessions) of \(w.target) this week").font(.headline).monospacedDigit().pepitoAccentable()
+                Text("\(w.heatMin) min of heat").font(.subheadline).monospacedDigit().foregroundStyle(.secondary)
+            } else {
+                Text("Start a session").font(.headline)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+    }
+}
+
 /// accessoryRectangular (and the Smart Stack): the next dose.
 public struct NextDoseComplication: View {
     let snap: Snapshot?

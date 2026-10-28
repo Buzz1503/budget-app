@@ -70,11 +70,11 @@ struct WatchWidgetRoot<Content: View>: View {
 struct WatchReadinessWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: "PepitoWatchReadiness", provider: WatchProvider(kind: .readiness)) { entry in
-            WatchWidgetRoot(.readiness) { ReadinessComplication(readiness: entry.snapshot?.readiness) }
+            WatchWidgetRoot(.readiness) { ReadinessFamilyView(entry: entry) }
         }
         .configurationDisplayName("Readiness")
         .description("Today's readiness score.")
-        .supportedFamilies([.accessoryCircular])
+        .supportedFamilies([.accessoryCircular, .accessoryRectangular])
     }
 }
 
@@ -110,7 +110,20 @@ struct WatchSaunaWidget: Widget {
         }
         .configurationDisplayName("Sauna")
         .description("This week's sessions; opens the sauna in one tap.")
-        .supportedFamilies([.accessoryCircular, .accessoryCorner])
+        .supportedFamilies([.accessoryCircular, .accessoryCorner, .accessoryRectangular])
+    }
+}
+
+/// Readiness: the gauge on the face, the score with sleep and HRV in the Smart Stack.
+struct ReadinessFamilyView: View {
+    let entry: WatchEntry
+    @Environment(\.widgetFamily) private var family
+    var body: some View {
+        if family == .accessoryRectangular {
+            ReadinessRectangular(readiness: entry.snapshot?.readiness)
+        } else {
+            ReadinessComplication(readiness: entry.snapshot?.readiness)
+        }
     }
 }
 
@@ -120,6 +133,8 @@ struct SaunaFamilyView: View {
     var body: some View {
         if family == .accessoryCorner {
             SaunaCornerComplication(sauna: entry.snapshot?.sauna)
+        } else if family == .accessoryRectangular {
+            SaunaRectangular(sauna: entry.snapshot?.sauna)
         } else {
             SaunaCircularComplication(sauna: entry.snapshot?.sauna)
         }

@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "e2e": "node e2e/run-all.mjs",
+    "design-review": "node scripts/design-review.mjs",
     "build:artifact": "VITE_NO_PWA=1 vite build --config vite.artifact.config.js && node scripts/build-artifact.mjs",
     "e2e:one": "node e2e/run-all.mjs",
     "pin-qa": "node scripts/pin-qa.mjs",

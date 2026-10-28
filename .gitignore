@@ -33,3 +33,9 @@ dist-native/
 ExportOptions.plist
 ios/**/xcuserdata/
 ios/**/DerivedData/
+
+# design review screenshots: only the final set is kept
+design-review/*
+!design-review/final/
+# real reports for the import tests, never committed
+test-fixtures/private/
