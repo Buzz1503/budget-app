@@ -57,8 +57,9 @@ an iOS app (bundle id com.buzz.pepito). State is one persisted Zustand store,
   (`seriesByFamily`, `familySeries`). Weight, body fat, fat/lean/muscle mass are not
   typed in; tape still is. Start entry: 1 Jan 2025, Evolt, estimated. Scan fields live in `src/body/scanFields.ts`; skeletal muscle is
   never muscle mass, visceral level never visceral fat.
-- Scans: `src/data/evolt_scans.json` imported by v22 (`scanHistory.ts`); More › Import
-  scans uses `scanImport.ts` (dedupe on date + time + device).
+- Scans: `src/data/evolt_scans.json` imported by v22 (`scanHistory.ts`). More › Import (`components/data/ImportFiles.jsx`,
+  also "+" on Composition › All scans) reads any mix of files: Evolt PDFs, Withings export (zip or CSV), Withings
+  Medical Report PDF, scan JSON. See "Imports" below.
 - Charts: `TrendChart.jsx`, maths in `src/body/chartPoints.ts`; body metrics via `BodyChart.jsx`
   (one source, Scale | Evolt, saved in `chartSources`). Lanes (`Lanes.jsx`, `src/body/lanes.ts`)
   under every chart. Series colours only from `--series-*` tokens. Ranges fit the data
@@ -219,3 +220,39 @@ an iOS app (bundle id com.buzz.pepito). State is one persisted Zustand store,
   console); every screen sits in an `ErrorBoundary`. Cold start is recorded on Home (`src/lib/coldStart.js`).
 - Screens other than Home are lazy (`App.jsx`); long lists use `components/ui/LongList.jsx`.
 - No em dashes in UI copy: write a comma, colon or full stop.
+
+## Easy to read (elite pass)
+
+- Shared pieces in `components/ui/Glance.jsx`, logic in `src/lib/glance.ts`: every card leads with one `AnswerLine`,
+  changes are `StatRow`s with a `DeltaChip` coloured by `betterOf(metric)` (accent better, amber worse, grey none or
+  no better side, weight has none), engine labels become `StatusDot` (Clear, Possible, Normal, Early), caveats sit
+  behind `InfoButton`, locked items collapse into one `ProgressRow`. Three text levels only.
+- Every chart passes `src/body/chartGlance.ts`: a question title (`CHART_QUESTION`), one answer line, y axis unit in
+  words (`axisUnit`), better hint, a legend whenever there is more than one kind of mark. Full screen views render
+  through a portal to `document.body` (a transformed ancestor traps `position: fixed`).
+- Design review harness (dev only): `node scripts/design-review.mjs [screens] [--out dir]` seeds data via
+  `?preview=<screen>` (`src/dev/preview.js`), shoots 390 x 844 and flags em dashes. Final shots in `design-review/final/`
+  (committed); everything else under `design-review/` is ignored.
+
+## Watch sleep mode
+
+- PepitoCore `SleepMode.swift` (phase, complication state, recording window, the `sleepMode` message), views in
+  `PepitoWatchUI/SleepModeViews.swift`. Start sleep: lights-out saved in App Group defaults, movement recording made
+  to cover 10 h, `sendMessage` (else `transferUserInfo`) asks the iPhone to start Sleep sounds by "watch"; a start iOS
+  blocks from the background falls back to the time-sensitive "Tap to start Sleep sounds". "I'm up" stops them
+  (`watchUp`). The web layer keeps times in `sleepModeLog` (`src/sleep/sleepMode.ts`); the snapshot carries
+  `sleep.lastNight` for the morning screen.
+
+## Imports
+
+- Pure code in `src/body/import`: `pdfLines.ts` (items grouped by y, sorted by x, positions kept), `evoltPdf.ts`
+  (page 1 and YOUR NUTRITION, values by label and position, `checkEvolt`: lean + fat vs weight 0.3, ICF + ECF vs TBW
+  0.3, body fat % 0.5, regions' fat vs fat mass 1.0, regions' lean between 0.75 x and LBM + 1.0, since head and neck
+  are in no region), `withings.ts` (CSV columns by header name, zip via DecompressionStream, Medical Report summary),
+  `plan.ts` (rows, statuses New / Already imported / Needs a check / Not recognised, duplicates: same device + date +
+  time, or same date and weight within 0.1 kg in the same family, Health weigh-ins included). IO in `src/lib/importFiles.js`.
+- Imports only add (`importBody`; an id clash gets a suffix); nothing is merged or replaced. Withings rows are Scale,
+  source `withings`; muscle, bone and hydration live on `withingsMuscleMass`, `withingsBoneMass`, `withingsHydration`.
+  Reports go in `withingsReports` (in the backup), shown under All metrics › Withings reports, never charted.
+- Real PDFs only in `test-fixtures/private/` (gitignored); `pdfReal.test.js` skips without them. Synthetic fixtures in
+  `fixtures.ts`. `snapshotWatched` (`native/runtime.js`) includes body data so an import refreshes the snapshot.

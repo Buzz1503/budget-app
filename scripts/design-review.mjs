@@ -58,6 +58,9 @@ try {
       if (ready) { try { await page.locator(ready).first().waitFor({ timeout: 60000 }) } catch { problems.push(`${name}: ${ready} never showed`) } }
       if (then) { try { await page.locator(then).first().click({ timeout: 8000 }); await page.waitForTimeout(1200) } catch { problems.push(`${name}: could not tap ${then}`) } }
     }
+    // text rules: no em dash anywhere on screen
+    const dash = await page.evaluate(() => document.body.innerText.split('\n').filter((l) => l.includes('\u2014')).slice(0, 3))
+    if (dash.length) problems.push(`${name}: em dash in ${JSON.stringify(dash)}`)
     // a full screen view is what the phone shows, portrait then landscape
     if (name.endsWith('-full') || name === 'import-check') {
       await page.screenshot({ path: `${OUT}/${name}.png` })

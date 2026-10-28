@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { chartQuestion, chartAnswer, axisUnit, betterHint, legendItems, needsLegend } from './chartGlance'
+import { CHART_QUESTION, chartQuestion, chartAnswer, axisUnit, betterHint, legendItems, needsLegend } from './chartGlance'
 import { rangeBounds } from './chartPoints'
 
 describe('chart checklist', () => {
@@ -41,5 +41,17 @@ describe('chart checklist', () => {
     expect(rangeBounds('All', '2026-10-28', series).from).toBe('2026-09-20')
     // a 1 year range on 5 weeks of data still starts at the first reading
     expect(rangeBounds('1Y', '2026-10-28', series).from).toBe('2026-09-20')
+  })
+})
+
+describe('chart checklist across every chart', () => {
+  it('every chart title is a question and every unit has words for the axis', () => {
+    for (const [metric, q] of Object.entries(CHART_QUESTION)) expect([metric, q.endsWith('?')]).toEqual([metric, true])
+    for (const unit of ['h', 'min', 'ms', 'bpm', 'kg', '%', 'cm', 'C', 'per h']) expect(axisUnit(unit)).toBeTruthy()
+  })
+
+  it('one kind of mark has no legend, the first point is the left edge', () => {
+    expect(needsLegend(legendItems({ daily: true }))).toBe(false)
+    expect(needsLegend(legendItems({ daily: true, refBand: 'Usual range' }))).toBe(true)
   })
 })
