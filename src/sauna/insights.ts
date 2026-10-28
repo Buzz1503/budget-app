@@ -8,7 +8,9 @@
 import { addDays, daysBetween } from '../health/tz'
 import { changeLabel } from '../health/engine/phases'
 import type { ChangeLabel } from '../health/engine/phases'
-import { minutesOf, weekOf } from './sauna'
+import { minutesOf, weekOf, SAUNA } from './sauna'
+import { toneFor, statusOf } from '../lib/glance'
+import type { Tone, Status } from '../lib/glance'
 import type { SaunaSession } from './sauna'
 import { firstSessionDate, tempBand } from './analytics'
 import type { NightRow, MorningRow, HRSeries } from './analytics'
@@ -51,7 +53,7 @@ const BEFORE_SINCE = [
   { key: 'readiness', label: 'Readiness', unit: '', dp: 0, wobble: 8, get: (l: Lookups, d: string) => l.morning(d).readiness },
 ] as const
 
-export interface BeforeSinceRow { key: string; text: string; before: number; since: number; nBefore: number; nSince: number; label: ChangeLabel }
+export interface BeforeSinceRow { key: string; name: string; unit: string; dp: number; text: string; before: number; since: number; nBefore: number; nSince: number; label: ChangeLabel }
 
 const fmt = (v: number, dp: number) => (dp ? v.toFixed(dp) : String(Math.round(v)))
 
@@ -81,7 +83,7 @@ export function beforeVsSince(input: Lookups & { sessions: SaunaSession[]; today
     const label = changeLabel(ms - mb, input.wobble?.[m.key] ?? m.wobble)
     const u = m.unit ? ` ${m.unit}` : ''
     rows.push({
-      key: m.key, before: mb, since: ms, nBefore: b.length, nSince: s.length, label,
+      key: m.key, name: m.label, unit: m.unit, dp: m.dp, before: mb, since: ms, nBefore: b.length, nSince: s.length, label,
       text: `${m.label} ${fmt(ms, m.dp)}${u} since you started sauna, ${fmt(mb, m.dp)}${u} in the 4 weeks before.`,
     })
   }
@@ -109,13 +111,13 @@ export function compoundCaveat(sessions: SaunaSession[], events: Array<{ date: s
 
 // ------------------------------------------------------- within sauna days
 
-export interface SplitRow { split: string; key: string; text: string; nA: number; nB: number; diff: number; label: ChangeLabel }
-export interface SplitResult { key: string; title: string; locked: string | null; rows: SplitRow[] }
+export interface SplitRow { split: string; key: string; name: string; unit: string; text: string; nA: number; nB: number; a: number; b: number; diff: number; label: ChangeLabel }
+export interface SplitResult { key: string; title: string; locked: string | null; rows: SplitRow[]; groups: [string, string]; have: number; need: number }
 
 const OUTCOMES = [
-  { key: 'sleepScore', label: 'Sleep score that night', unit: '', wobble: 8, get: (l: Lookups, d: string) => l.night(addDays(d, 1))?.score ?? null },
-  { key: 'hrv', label: 'HRV the next morning', unit: 'ms', wobble: 6, get: (l: Lookups, d: string) => l.morning(addDays(d, 1)).hrv },
-  { key: 'rhr', label: 'Resting heart rate the next morning', unit: 'bpm', wobble: 2, get: (l: Lookups, d: string) => l.morning(addDays(d, 1)).rhr },
+  { key: 'sleepScore', label: 'Sleep score that night', name: 'Sleep score', unit: '', wobble: 8, get: (l: Lookups, d: string) => l.night(addDays(d, 1))?.score ?? null },
+  { key: 'hrv', label: 'HRV the next morning', name: 'Morning HRV', unit: 'ms', wobble: 6, get: (l: Lookups, d: string) => l.morning(addDays(d, 1)).hrv },
+  { key: 'rhr', label: 'Resting heart rate the next morning', name: 'Morning resting HR', unit: 'bpm', wobble: 2, get: (l: Lookups, d: string) => l.morning(addDays(d, 1)).rhr },
 ] as const
 
 /** Split sessions into two groups by rank: the lower half and the upper half of a value, ties by date. */
@@ -137,7 +139,7 @@ function compareGroups(l: Lookups, split: string, a: SaunaSession[], b: SaunaSes
     const text = label === 'Within normal fluctuation' || d === 0
       ? `${o.label} was about the same ${words[0]} as ${words[1]}.`
       : `${o.label} was ${Math.abs(d)}${o.unit ? ` ${o.unit}` : ''} ${d > 0 ? 'higher' : 'lower'} ${words[0]} than ${words[1]}.`
-    rows.push({ split, key: o.key, text, nA: va.length, nB: vb.length, diff, label })
+    rows.push({ split, key: o.key, name: o.name, unit: o.unit, text, nA: va.length, nB: vb.length, a: mean(va) as number, b: mean(vb) as number, diff, label })
   }
   return rows
 }
@@ -161,15 +163,15 @@ export function withinSauna(sessions: SaunaSession[], l: Lookups): SplitResult[]
   const earlier = days.filter((s) => minutesOf(s.start) < INSIGHTS.eveningFrom)
   const len = splitAtMedian(days, (s) => s.lengthMin)
   const temp = splitAtMedian(days, (s) => s.tempC)
-  const res = (key: string, title: string, a: SaunaSession[], b: SaunaSession[], what: [string, string], words: [string, string]): SplitResult => {
+  const res = (key: string, title: string, a: SaunaSession[], b: SaunaSession[], what: [string, string], words: [string, string], groups: [string, string]): SplitResult => {
     const locked = lock(a.length, b.length, what)
     const rows = locked ? [] : compareGroups(l, key, a, b, words)
-    return { key, title, locked: locked ?? (rows.length ? null : `Needs Health data for ${INSIGHTS.withinMin} nights on each side.`), rows }
+    return { key, title, locked: locked ?? (rows.length ? null : `Needs Health data for ${INSIGHTS.withinMin} nights on each side.`), rows, groups, have: Math.min(a.length, b.length), need: INSIGHTS.withinMin }
   }
   return [
-    res('evening', 'Evening against earlier sessions', evening, earlier, ['evening sessions (6 pm or later)', 'earlier ones'], ['after evening sessions', 'after earlier ones']),
-    res('length', `Longer against shorter sessions${len.median != null ? ` (your median is ${Math.round(len.median)} min)` : ''}`, len.high, len.low, ['longer sessions', 'shorter ones'], ['after longer sessions', 'after shorter ones']),
-    res('temp', `Hotter against cooler sessions${temp.median != null ? ` (your median is ${Math.round(temp.median)} C)` : ''}`, temp.high, temp.low, ['hotter sessions', 'cooler ones'], ['after hotter sessions', 'after cooler ones']),
+    res('evening', 'Evening against earlier sessions', evening, earlier, ['evening sessions (6 pm or later)', 'earlier ones'], ['after evening sessions', 'after earlier ones'], ['Evening', 'Earlier']),
+    res('length', `Longer against shorter sessions${len.median != null ? ` (your median is ${Math.round(len.median)} min)` : ''}`, len.high, len.low, ['longer sessions', 'shorter ones'], ['after longer sessions', 'after shorter ones'], ['Longer', 'Shorter']),
+    res('temp', `Hotter against cooler sessions${temp.median != null ? ` (your median is ${Math.round(temp.median)} C)` : ''}`, temp.high, temp.low, ['hotter sessions', 'cooler ones'], ['after hotter sessions', 'after cooler ones'], ['Hotter', 'Cooler']),
   ]
 }
 
@@ -247,4 +249,113 @@ export function weekHeader(sessions: SaunaSession[], today: string, target: numb
   const w = weekOf(today)
   const n = sessions.filter((s) => s.date >= w.from && s.date <= w.to).length
   return `${n} ${n === 1 ? 'session' : 'sessions'} this week · target ${target}`
+}
+
+// ------------------------------------------------- the elite pass: visual first
+
+const BS_METRIC: Record<string, string> = { rhr: 'rhr', hrv: 'hrv', sleepingHR: 'sleepingHR', sleep: 'sleep', deepSleep: 'deepSleep', restlessness: 'restlessness', readiness: 'readiness' }
+
+export interface BeforeSinceDot {
+  key: string; name: string; unit: string; dp: number
+  before: number; since: number; delta: number; tone: Tone; status: Status
+  nBefore: number; nSince: number
+}
+
+/**
+ * One row per metric for the before-and-after dot plot: the grey dot is the 4 weeks
+ * before, the coloured dot since; green when it moved the better way, amber the other.
+ * Under 14 days every status reads Early.
+ */
+export function beforeSinceDots(rows: BeforeSinceRow[], early = false): BeforeSinceDot[] {
+  return rows.map((r) => {
+    const delta = r.since - r.before
+    const shown = Number(delta.toFixed(r.dp))
+    return {
+      key: r.key, name: r.name, unit: r.unit, dp: r.dp, before: r.before, since: r.since, delta,
+      tone: toneFor(BS_METRIC[r.key] ?? r.key, shown), status: early ? 'Early' : statusOf(r.label),
+      nBefore: r.nBefore, nSince: r.nSince,
+    }
+  })
+}
+
+const amountOf = (d: BeforeSinceDot) => `${Math.abs(Number(d.delta.toFixed(d.dp)))}${d.unit && d.unit !== 'per hour' ? ` ${d.unit}` : ''}`
+
+/** "HRV is up 26 ms since you started. Others are within your normal range." */
+export function beforeSinceAnswer(dots: BeforeSinceDot[]): string {
+  if (!dots.length) return 'Needs Health data from before and since your first session.'
+  const pick = (st: Status) => dots.filter((d) => d.status === st).sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))[0]
+  const lead = pick('Clear') || pick('Possible')
+  if (!lead) {
+    if (dots.every((d) => d.status === 'Early')) return 'Too early to say: fewer than 14 days since your first session.'
+    return 'Everything is within your normal range since you started.'
+  }
+  const others = dots.filter((d) => d !== lead && (d.status === 'Clear' || d.status === 'Possible')).length
+  const first = `${lead.name} is ${lead.delta > 0 ? 'up' : 'down'} ${amountOf(lead)} since you started.`
+  return others ? `${first} ${others} more ${others === 1 ? 'measure has' : 'measures have'} moved.` : `${first} Others are within your normal range.`
+}
+
+// --------------------------------------------------- compact consistency grid
+
+export interface GridDay { date: string; minutes: number; level: number; future: boolean; before: boolean }
+
+/**
+ * The compact grid: always 12 columns of weeks, Monday at the top. Under 12 weeks of
+ * history the first sauna week is the leftmost column and the weeks to come are empty
+ * cells to its right; after that the latest 12 weeks, with earlier pages to swipe back to.
+ */
+export function compactGrid(sessions: SaunaSession[], today: string, page = 0) {
+  const COLS = INSIGHTS.gridMaxWeeks
+  const first = firstSessionDate(sessions)
+  const thisWeek = weekOf(today).from
+  const firstWeek = first ? weekOf(first).from : thisWeek
+  const total = Math.round(daysBetween(firstWeek, thisWeek) / 7) + 1
+  const pages = Math.max(1, Math.ceil(total / COLS))
+  const p = Math.min(Math.max(0, page), pages - 1)
+  let start = total <= COLS ? firstWeek : addDays(thisWeek, -7 * (COLS - 1 + p * COLS))
+  if (start < firstWeek) start = firstWeek
+  const mins = new Map<string, number>()
+  for (const s of sessions) mins.set(s.date, (mins.get(s.date) || 0) + s.lengthMin)
+  const weeks: GridDay[][] = []
+  for (let w = 0; w < COLS; w++) {
+    const days: GridDay[] = []
+    for (let i = 0; i < 7; i++) {
+      const date = addDays(start, w * 7 + i)
+      const minutes = mins.get(date) || 0
+      days.push({ date, minutes, level: SAUNA.heatLevels.filter((l) => minutes >= l).length, future: date > today, before: !!first && date < first })
+    }
+    weeks.push(days)
+  }
+  return { weeks, page: p, pages, from: start, to: addDays(start, COLS * 7 - 1) }
+}
+
+// ------------------------------------------- recovery around sauna days
+
+export interface AroundPoint { date: string; value: number | null; sauna: boolean }
+
+/**
+ * The last 8 weeks of a morning measure, day by day, with the sauna days marked and the
+ * day sauna started (when it is in the window). Mornings belong to their own date; a
+ * flame marks the day of a session.
+ */
+export function recoveryAround(sessions: SaunaSession[], morning: Lookups['morning'], today: string, key: 'hrv' | 'rhr', weeks = 8) {
+  const from = addDays(today, -(weeks * 7 - 1))
+  const days = new Set(sessions.map((s) => s.date))
+  const points: AroundPoint[] = []
+  for (let d = from; d <= today; d = addDays(d, 1)) points.push({ date: d, value: morning(d)[key] ?? null, sauna: days.has(d) })
+  const first = firstSessionDate(sessions)
+  return { from, to: today, points, started: first && first >= from ? first : null }
+}
+
+// ------------------------------------------------- minute 10, one session
+
+/**
+ * "Heart rate at 10 min: 108 bpm, your usual at 70 C is 105": one session's minute 10
+ * against the median of your other sessions in the same temperature band (3 or more).
+ */
+export function minute10Row(list: AdaptSession[], id: string): { hr10: number; usual: number | null; centre: number } | null {
+  const me = list.find((s) => s.id === id)
+  if (!me || me.hr10 == null) return null
+  const centre = tempBand(me.tempC).centre
+  const others = list.filter((s) => s.id !== id && s.hr10 != null && tempBand(s.tempC).centre === centre).map((s) => s.hr10 as number)
+  return { hr10: me.hr10, usual: others.length >= 3 ? Math.round(median(others) as number) : null, centre }
 }

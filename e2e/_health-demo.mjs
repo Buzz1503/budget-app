@@ -514,14 +514,14 @@ await step('Sauna history, session detail with heart rate, effects and the info 
   if (!hr) throw new Error('no session showed Watch heart rate')
   // the length and temperature charts are gone; every early section is one locked line
   if (await page.locator('[data-testid="trend-chart-saunaLength"], [data-testid="trend-chart-saunaTemp"]').count()) throw new Error('session length or temperature chart is back')
-  await seen('[data-testid="sauna-adaptation-locked"]')
-  if (!/^Too early: needs 6 sessions (at \d+ to \d+ C|with Watch heart rate) \(you have \d\)$/.test((await page.textContent('[data-testid="sauna-adaptation-locked"]')).trim())) throw new Error('adaptation lock line')
+  // the heat adaptation chart is gone: minute 10 is a row in the session detail
+  if (await page.locator('[data-testid="sauna-adaptation"]').count()) throw new Error('the heat adaptation chart is back')
   await seen('[data-testid="sauna-patterns-locked"]')
   if (!/^Needs 7 sauna days to compare\. You have \d\.$/.test((await page.textContent('[data-testid="sauna-patterns-locked"]')).trim())) throw new Error('patterns lock line')
   // since you started and inside sauna days lead the patterns; each locked line says what it needs and has
   await seen('[data-testid="sauna-before-since"]')
   await seen('[data-testid="sauna-within"]')
-  if (!/^Needs 5 evening sessions/.test((await page.textContent('[data-testid="sauna-within-evening-locked"]')).trim())) throw new Error('within lock line')
+  if (!/unlocks? with more sessions · \d of 5$/.test((await page.textContent('[data-testid="sauna-within-progress"]')).trim())) throw new Error('within progress row')
   if (!/^\d+ sessions? this week · target \d+$/.test(await page.textContent('[data-testid="sauna-week-header"]'))) throw new Error('week header')
   if (await page.locator('[data-testid="sauna-pattern-row"]').count()) throw new Error('pattern rows before they unlock')
   await seen('[data-testid="sauna-longer-locked"]')

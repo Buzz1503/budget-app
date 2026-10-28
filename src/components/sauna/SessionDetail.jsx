@@ -5,8 +5,10 @@ import {
 } from '../../sauna/analytics'
 import { ratingWords } from './SaunaRatingSheet'
 import { addDays } from '../../health/tz'
-import { todayStr } from '../../store/useStore'
+import useStore, { todayStr } from '../../store/useStore'
 import { useSaunaHealth } from './saunaHealthContext'
+import { hrAtMinute10, minute10Row } from '../../sauna/insights'
+import { StatRow } from '../ui/Glance'
 
 const ZONE_SHADE = [0.2, 0.4, 0.6, 0.8, 1]
 
@@ -33,17 +35,28 @@ export function ZoneBar({ zones }) {
 
 /** Heart rate across the session, a plain line. */
 function HRLine({ series }) {
-  const W = 300
-  const H = 64
+  const W = 320
+  const H = 150
+  const L = 36
+  const T = 22
+  const B = 22
   const bpms = series.map((p) => p[1])
-  const lo = Math.min(...bpms) - 5
-  const hi = Math.max(...bpms) + 5
+  const lo = Math.floor(Math.min(...bpms) - 5)
+  const hi = Math.ceil(Math.max(...bpms) + 5)
   const t0 = series[0][0]
   const t1 = series.at(-1)[0] || 1
-  const pts = series.map(([s, b]) => `${(((s - t0) / Math.max(1, t1 - t0)) * W).toFixed(1)},${(H - ((b - lo) / (hi - lo)) * H).toFixed(1)}`).join(' ')
+  const x = (sec) => L + ((sec - t0) / Math.max(1, t1 - t0)) * (W - L - 6)
+  const y = (b) => T + (1 - (b - lo) / (hi - lo)) * (H - T - B)
+  const pts = series.map(([s, b]) => `${x(s).toFixed(1)},${y(b).toFixed(1)}`).join(' ')
+  const mins = Math.round((t1 - t0) / 60)
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="Heart rate across the session" data-testid="sauna-hr-line">
+      <text x={2} y={12} fontSize="11.5" fontWeight="700" fill="var(--text-3)" data-testid="axis-unit">bpm</text>
+      {[lo, hi].map((v) => <text key={v} x={L - 5} y={y(v) + 4} fontSize="12" textAnchor="end" fill="var(--text-3)" className="tabular-nums">{v}</text>)}
+      <line x1={L} x2={W - 6} y1={H - B} y2={H - B} stroke="var(--border)" />
       <polyline points={pts} fill="none" stroke="var(--series-sauna)" strokeWidth="2" strokeLinejoin="round" />
+      <text x={L} y={H - 5} fontSize="12" fill="var(--text-3)">0 min</text>
+      <text x={W - 6} y={H - 5} fontSize="12" textAnchor="end" fill="var(--text-3)" className="tabular-nums">{mins} min</text>
     </svg>
   )
 }
@@ -51,11 +64,13 @@ function HRLine({ series }) {
 function Block({ title, children, testid }) {
   return (
     <div data-testid={testid}>
-      <p className="t-caption mb-1" style={muted}>{title}</p>
+      <p className="mb-1 text-[15px] font-semibold">{title}</p>
       {children}
     </div>
   )
 }
+
+const COMPARE_METRIC = { sleepScore: 'sleepScore', deepSleep: 'deepSleep', sleepingHR: 'sleepingHR', wristTemp: 'wristTemp', restless: 'restless', hrv: 'hrv', rhr: 'rhr', readiness: 'readiness' }
 
 /**
  * Waiting for that night or the next morning: "Available tomorrow" only before the morning
@@ -71,12 +86,13 @@ function CompareRows({ result, pendingText, testid }) {
   if (result.status === 'pending') return <p className="text-sm font-medium" style={soft} data-testid={`${testid}-pending`}>{pendingText}</p>
   if (result.status === 'none') return <p className="text-sm font-medium" style={soft}>Nothing recorded</p>
   return (
-    <div className="space-y-1" data-testid={testid}>
+    <div className="rows" data-testid={testid}>
       {result.rows.map((r) => (
-        <p key={r.key} className="flex justify-between gap-3 text-sm font-medium tabular-nums" data-metric={r.key}>
-          <span style={soft}>{r.label}</span>
-          <span className="text-right" style={{ color: 'var(--text)' }}>{r.text}</span>
-        </p>
+        <div key={r.key} data-metric={r.key} aria-label={`${r.label}: ${r.text}`}>
+          <StatRow label={r.label} value={r.value == null ? 'No reading' : Math.round(r.value * (r.unit === 'C' ? 10 : 1)) / (r.unit === 'C' ? 10 : 1)} unit={r.value == null ? undefined : r.unit}
+            sub={r.base != null ? `Usual ${r.unit === 'C' ? Math.round(r.base * 10) / 10 : Math.round(r.base)}` : null}
+            metric={COMPARE_METRIC[r.key]} delta={r.diff} deltaDp={r.unit === 'C' ? 1 : 0} />
+        </div>
       ))}
     </div>
   )
@@ -90,6 +106,11 @@ function CompareRows({ result, pendingText, testid }) {
  */
 export default function SessionDetail({ session, full = false, onRate = null }) {
   const ctx = useSaunaHealth()
+  const sessions = useStore((s) => s.saunaSessions)
+  // minute 10 of this session against your usual at the same temperature
+  const m10 = useMemo(() => minute10Row(sessions.map((x) => ({
+    id: x.id, date: x.date, start: x.start, tempC: x.tempC, lengthMin: x.lengthMin, hr10: hrAtMinute10(ctx.seriesFor(x)),
+  })), session.id), [sessions, session.id, ctx])
   const d = useMemo(() => {
     const series = ctx.seriesFor(session)
     const hr = hrSummary(series, ctx.maxHR)
@@ -128,8 +149,13 @@ export default function SessionDetail({ session, full = false, onRate = null }) 
           <p className="text-sm font-bold tabular-nums">{d.hr.avg} bpm average, {d.hr.peak} peak</p>
           {full && <div className="mt-2"><HRLine series={d.series} /></div>}
           <div className="mt-2"><ZoneBar zones={d.hr.zones} /></div>
+          {m10 && (
+            <p className="mt-2 text-sm font-medium tabular-nums" style={soft} data-testid="sauna-minute10">
+              Heart rate at 10 min: <b style={{ color: 'var(--text)' }}>{m10.hr10}</b> bpm{m10.usual != null ? <>, your usual at {m10.centre} C is <b style={{ color: 'var(--text)' }}>{m10.usual}</b></> : ''}
+            </p>
+          )}
           {d.hr.climb != null && (
-            <p className="mt-2 text-sm font-medium tabular-nums" style={soft} data-testid="sauna-climb">
+            <p className="mt-1 text-sm font-medium tabular-nums" style={soft} data-testid="sauna-climb">
               Heart rate climb: {d.hr.climb} bpm per minute over the first 10 min
             </p>
           )}
@@ -152,10 +178,9 @@ export default function SessionDetail({ session, full = false, onRate = null }) 
 
       {d.cool && (
         <Block title="Cool down" testid="sauna-cool-down">
-          <p className="text-sm font-medium tabular-nums" style={soft}>
-            {d.cool.drop2 != null ? `${d.cool.drop2} bpm lower after 2 min` : 'No reading at 2 min'}
-            {d.cool.drop5 != null ? `, ${d.cool.drop5} bpm lower after 5 min` : ''}
-          </p>
+          {d.cool.drop2 != null
+            ? <p className="text-[15px] font-semibold tabular-nums">Heart rate dropped {d.cool.drop2} bpm in 2 min{d.cool.drop5 != null ? <span className="font-medium" style={soft}>, {d.cool.drop5} in 5</span> : ''}</p>
+            : <p className="text-sm font-medium" style={soft}>No reading at 2 min</p>}
         </Block>
       )}
 

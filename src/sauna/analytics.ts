@@ -448,7 +448,7 @@ const outcome = (key: string, input: PatternInput) => (d: string): number | null
   return key === 'sleepScore' ? n.score : key === 'deepSleep' ? n.deepMin : n.sleepingHR
 }
 
-export interface PatternRow { key: string; text: string; nWith: number; nWithout: number; label: ChangeLabel; diff: number }
+export interface PatternRow { key: string; name: string; unit: string; dp: number; text: string; nWith: number; nWithout: number; label: ChangeLabel; diff: number }
 
 function patternRows(input: PatternInput, days: string[], inGroup: (d: string) => boolean | null, words: [string, string], min: number) {
   const rows: PatternRow[] = []
@@ -467,7 +467,7 @@ function patternRows(input: PatternInput, days: string[], inGroup: (d: string) =
     const text = label === 'Within normal fluctuation' || d === 0
       ? `${m.label} was about the same ${words[0]} as ${words[1]}.`
       : `${m.label} was ${Math.abs(d)}${m.unit ? ` ${m.unit}` : ''} ${d > 0 ? 'higher' : 'lower'} ${words[0]} than ${words[1]}.`
-    rows.push({ key: m.key, text, nWith: s.with.n, nWithout: s.without.n, label, diff: s.diff })
+    rows.push({ key: m.key, name: m.label, unit: m.unit, dp: m.dp, text, nWith: s.with.n, nWithout: s.without.n, label, diff: s.diff })
   }
   return { rows, nWith, nWithout }
 }

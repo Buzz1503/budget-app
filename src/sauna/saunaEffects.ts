@@ -143,10 +143,10 @@ export function correlation(xs: number[], ys: number[]): number | null {
 }
 
 /** The one line on Recovery: "On mornings after sauna your HRV averages X ms higher (n = A vs B)." Null without 7 mornings a group. */
-/** Next-morning HRV after sauna days against mornings without, since the first session. */
-export function recoveryStat(input: SaunaEffectInput): { diff: number; withN: number; withoutN: number } | null {
+/** A next-morning measure after sauna days against mornings without, since the first session. */
+export function recoveryStat(input: SaunaEffectInput, key: 'hrv' | 'rhr' = 'hrv'): { diff: number; withN: number; withoutN: number } | null {
   const f = dayFlags(input.sessions, input.night, input.toMs)
-  const s = groupSplit(sinceFirstSession(input.days, input.sessions), f.has, outcomeFor('hrv', input), SAUNA.minPerGroup)
+  const s = groupSplit(sinceFirstSession(input.days, input.sessions), f.has, outcomeFor(key, input), SAUNA.minPerGroup)
   if (s.diff == null) return null
   return { diff: s.diff, withN: s.with.n, withoutN: s.without.n }
 }
@@ -158,4 +158,15 @@ export function recoveryLine(input: SaunaEffectInput): string | null {
   return d === 0
     ? `On mornings after sauna your HRV averages about the same (n = ${s.withN} vs ${s.withoutN}).`
     : `On mornings after sauna your HRV averages ${Math.abs(d)} ms ${d > 0 ? 'higher' : 'lower'} (n = ${s.withN} vs ${s.withoutN}).`
+}
+
+/** "HRV averages 3 ms higher on mornings after sauna (28 and 7 mornings)." */
+export function aroundAnswer(stat: { diff: number; withN: number; withoutN: number } | null, key: 'hrv' | 'rhr'): string {
+  const name = key === 'hrv' ? 'HRV' : 'Resting heart rate'
+  const unit = key === 'hrv' ? 'ms' : 'bpm'
+  if (!stat) return `Needs ${SAUNA.minPerGroup} mornings after sauna and ${SAUNA.minPerGroup} without.`
+  const d = Math.round(stat.diff)
+  return d === 0
+    ? `${name} is about the same on mornings after sauna.`
+    : `${name} averages ${Math.abs(d)} ${unit} ${d > 0 ? 'higher' : 'lower'} on mornings after sauna.`
 }

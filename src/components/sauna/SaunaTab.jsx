@@ -11,14 +11,15 @@ import { HEALTH_BUILD, SaunaWatchCards, SaunaHealthProvider } from '../../health
 import SaunaLogSheet, { Stepper } from './SaunaLogSheet'
 import { StartTimerSheet, RunningTimer } from './SaunaTimer'
 import { Consistency, HistoryList } from './SaunaHistory'
-import { LastSessionCard, HeatAdaptationCard, CoolDownCard, PatternsCard, LongerTermCard } from './SaunaSections'
+import { LastSessionCard, BeforeAfterHero, RecoveryAroundCard, CoolDownCard, PatternsCard, LongerTermCard } from './SaunaSections'
+import { InfoButton } from '../ui/Glance'
 import SaunaSessionSheet from './SaunaSessionSheet'
 
-function SectionTitle({ children, sub }) {
+function SectionTitle({ children, info }) {
   return (
-    <div className="px-1">
-      <h2 className="text-base font-black">{children}</h2>
-      {sub && <p className="text-xs font-medium" style={{ color: 'var(--text-3)' }}>{sub}</p>}
+    <div className="flex items-center gap-2 px-1">
+      <h2 className="min-w-0 flex-1 text-[17px] font-semibold">{children}</h2>
+      {info && <InfoButton title={typeof children === 'string' ? children : 'About this'}><p>{info}</p></InfoButton>}
     </div>
   )
 }
@@ -111,35 +112,31 @@ export default function SaunaTab() {
           {timer ? <RunningTimer onStop={(prefill) => setLog({ prefill })} /> : <Hero onLog={() => setLog({})} onTimer={() => setTimerOpen(true)} />}
         </StaggerItem>
         {HEALTH_BUILD && <StaggerItem><Suspense fallback={null}><SaunaWatchCards /></Suspense></StaggerItem>}
+        {HEALTH_BUILD && <StaggerItem><BeforeAfterHero /></StaggerItem>}
+        {HEALTH_BUILD && <StaggerItem><RecoveryAroundCard /></StaggerItem>}
         <StaggerItem className="space-y-2">
           <SectionTitle>Last session</SectionTitle>
           <LastSessionCard onOpen={setViewing} />
         </StaggerItem>
         {HEALTH_BUILD && (
           <StaggerItem className="space-y-2">
-            <SectionTitle sub="Heart rate at minute 10, at the temperature you use most">Is your body getting used to the heat?</SectionTitle>
-            <HeatAdaptationCard />
-          </StaggerItem>
-        )}
-        {HEALTH_BUILD && (
-          <StaggerItem className="space-y-2">
-            <SectionTitle sub="Heart rate after leaving the sauna">Cool-down recovery</SectionTitle>
+            <SectionTitle info="Heart rate after leaving the sauna, from Cool down on Apple Watch.">Cool-down recovery</SectionTitle>
             <CoolDownCard />
           </StaggerItem>
         )}
         <StaggerItem className="space-y-2">
-          <SectionTitle sub="From your first week on; darker is more heat minutes">Consistency</SectionTitle>
+          <SectionTitle info="Each column is a week from your first sauna week on; darker is more heat minutes. After 12 weeks it shows the latest 12: swipe for earlier weeks.">Consistency</SectionTitle>
           <Consistency />
         </StaggerItem>
         {HEALTH_BUILD && (
           <StaggerItem className="space-y-2">
-            <SectionTitle sub="Since you started, inside sauna days, then sauna days against days off">Patterns</SectionTitle>
+            <SectionTitle info="Inside sauna days compares your sessions with each other; then sauna days against days off.">Patterns</SectionTitle>
             <PatternsCard />
           </StaggerItem>
         )}
         {HEALTH_BUILD && (
           <StaggerItem className="space-y-2">
-            <SectionTitle sub="Week by week from your first session">Longer term</SectionTitle>
+            <SectionTitle info="Week by week from your first session.">Longer term</SectionTitle>
             <LongerTermCard />
           </StaggerItem>
         )}

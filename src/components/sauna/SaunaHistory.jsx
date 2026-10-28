@@ -1,40 +1,57 @@
 import LongList from '../ui/LongList'
-import { useMemo } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { format, parseISO } from 'date-fns'
 import { ChevronRight } from 'lucide-react'
 import useStore, { todayStr } from '../../store/useStore'
-import { heatmap, totals } from '../../sauna/sauna'
+import { totals } from '../../sauna/sauna'
 import { targetWeeks } from '../../sauna/analytics'
-import { gridWeeks, weekHeader } from '../../sauna/insights'
+import { compactGrid, weekHeader } from '../../sauna/insights'
 
 const SHADE = [0, 0.3, 0.55, 0.8, 1]
 const DOW = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 
 /**
- * Weeks as columns from the week of the first session, Monday at the top; one hue, darker
- * for more heat minutes. Under 12 weeks of history only those weeks, with wider cells.
+ * The compact grid: 12 week columns, Monday at the top, one hue, darker for more heat
+ * minutes. The first sauna week is the leftmost column until there are 12; weeks to come
+ * are empty cells. After 12 weeks it shows the latest 12, and a swipe goes back 12 at a time.
  */
 function Heatmap({ sessions, today }) {
-  const n = gridWeeks(sessions, today)
-  const weeks = heatmap(sessions, today, n)
-  const gap = 4
-  const L = 14
-  const cell = Math.min(34, Math.floor((300 - L) / n - gap))
-  const W = L + weeks.length * (cell + gap)
+  const [page, setPage] = useState(0)
+  const touch = useRef(null)
+  const g = useMemo(() => compactGrid(sessions, today, page), [sessions, today, page])
+  const cell = 20
+  const gap = 3
+  const L = 16
+  const W = L + 12 * (cell + gap)
   const H = 7 * (cell + gap)
+  const swipe = (dx) => {
+    if (dx > 40 && page < g.pages - 1) setPage(page + 1)
+    if (dx < -40 && page > 0) setPage(page - 1)
+  }
   return (
-    <svg viewBox={`0 0 ${W} ${H + 14}`} className="w-full" role="img" aria-label="Heat minutes by day over the last 12 weeks" data-testid="sauna-heatmap">
-      {DOW.map((d, i) => <text key={i} x={0} y={i * (cell + gap) + cell - 5} fontSize="8" fontWeight="700" fill="var(--text-3)">{d}</text>)}
-      {weeks.map((wk, w) => wk.map((day, i) => (
-        <rect key={day.date} x={L + w * (cell + gap)} y={i * (cell + gap)} width={cell} height={cell} rx="4"
-          fill={day.level ? 'var(--series-sauna)' : 'var(--surface-sunk)'} opacity={day.future ? 0.25 : day.level ? SHADE[day.level] : 1}
-          data-testid="heat-cell" data-level={day.level}>
-          <title>{`${format(parseISO(day.date), 'd MMM')}: ${day.minutes} min`}</title>
-        </rect>
-      )))}
-      <text x={L} y={H + 10} fontSize="8" fontWeight="600" fill="var(--text-3)">{format(parseISO(weeks[0][0].date), 'd MMM')}</text>
-      <text x={W} y={H + 10} fontSize="8" fontWeight="600" textAnchor="end" fill="var(--text-3)">This week</text>
-    </svg>
+    <div onTouchStart={(e) => { touch.current = e.touches[0].clientX }} onTouchEnd={(e) => { if (touch.current != null) swipe(e.changedTouches[0].clientX - touch.current); touch.current = null }}>
+      <svg viewBox={`0 0 ${W} ${H + 16}`} className="w-full" style={{ maxHeight: 180 }} role="img" aria-label="Heat minutes by day, 12 weeks from your first sauna week" data-testid="sauna-heatmap" data-page={g.page} data-pages={g.pages}>
+        {DOW.map((d, i) => (i % 2 === 0 ? <text key={i} x={0} y={i * (cell + gap) + cell - 5} fontSize="11" fontWeight="700" fill="var(--text-3)">{d}</text> : null))}
+        {g.weeks.map((wk, w) => wk.map((day, i) => (
+          <rect key={day.date} x={L + w * (cell + gap)} y={i * (cell + gap)} width={cell} height={cell} rx="4"
+            fill={day.level ? 'var(--series-sauna)' : 'var(--surface-sunk)'}
+            opacity={day.future ? 0.35 : day.before ? 0.45 : day.level ? SHADE[day.level] : 1}
+            stroke={day.future ? 'var(--border)' : 'none'}
+            data-testid="heat-cell" data-level={day.level} data-future={day.future ? 'true' : 'false'}>
+            <title>{`${format(parseISO(day.date), 'd MMM')}: ${day.minutes} min`}</title>
+          </rect>
+        )))}
+        <text x={L} y={H + 12} fontSize="11" fontWeight="600" fill="var(--text-3)">{format(parseISO(g.from), 'd MMM')}</text>
+        <text x={W} y={H + 12} fontSize="11" fontWeight="600" textAnchor="end" fill="var(--text-3)">{format(parseISO(g.weeks[11][0].date), 'd MMM')}</text>
+      </svg>
+      {g.pages > 1 && (
+        <div className="mt-1 flex items-center justify-between text-[13px] font-semibold" style={{ color: 'var(--text-2)' }}>
+          <button onClick={() => setPage(Math.min(g.pages - 1, page + 1))} disabled={page >= g.pages - 1} className="disabled:opacity-30" data-testid="heat-earlier">‹ Earlier</button>
+          <span style={{ color: 'var(--text-3)' }}>{page === 0 ? 'Latest 12 weeks' : `${page * 12} weeks back`}</span>
+          <button onClick={() => setPage(Math.max(0, page - 1))} disabled={page === 0} className="disabled:opacity-30" data-testid="heat-later">Later ›</button>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -63,8 +80,8 @@ export function Consistency() {
   return (
     <section className="card space-y-4 p-4" data-testid="sauna-consistency">
       <div>
-        <p className="text-sm font-bold tabular-nums" data-testid="sauna-week-header">{header}</p>
-        {weeks.text && <p className="text-xs font-medium tabular-nums" style={{ color: 'var(--text-2)' }} data-testid="sauna-target-weeks">{weeks.text}</p>}
+        <p className="text-[17px] font-semibold tabular-nums" data-testid="sauna-week-header">{header}</p>
+        {weeks.text && <p className="text-sm font-medium tabular-nums" style={{ color: 'var(--text-2)' }} data-testid="sauna-target-weeks">{weeks.text}</p>}
       </div>
       {sessions.length > 0
         ? <Heatmap sessions={sessions} today={t} />
