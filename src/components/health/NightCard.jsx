@@ -1,14 +1,15 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
-import { Maximize2, X, ZoomIn, ZoomOut, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Maximize2, X } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import useStore from '../../store/useStore'
 import Modal from '../ui/Modal'
 import { haptic } from '../../lib/feedback'
-import { hypnogramRows, durationWords } from '../../health/engine/sleepView'
+import { hypnogramRows } from '../../health/engine/sleepView'
 import { hhmm } from '../../health/engine/planner'
 import {
-  momentAt, restlessBands, hrRange, soundLane, SOUND_LANE_WORDS, whatHappened, nightSummary, zoomNight, NIGHT, STAGE_WORD,
+  momentAt, restlessBands, hrRange, soundLane, SOUND_LANE_WORDS, whatHappened, nightSummary, NIGHT, STAGE_WORD,
 } from '../../sleep/nightView'
+import { NightGesture, GESTURE, isZoomed, overviewBox, overviewDrag, nightTicks, tickPlace } from '../../sleep/nightGestures'
 import { W, STAGE_OPACITY, STAGE_LABEL } from './SleepCharts'
 import { NO_RECORDING_LINE } from '../../sleep/prompts'
 import { ChartLegend } from '../charts/TrendChart'
@@ -30,38 +31,41 @@ const LANE_INFO = {
   spo2: 'Blood oxygen readings from your Apple Watch. A reading under 90% is shown in colour.',
 }
 
-/** Hour ticks for a window: every hour, or every two over 6 hours. */
-function ticks(from, to, tz) {
-  const out = []
-  const first = from + (60 - ((tz.hourOf(from) * 60) % 60)) * MIN
-  const step = to - from > 6 * 3600000 ? 2 : 1
-  for (let t = first; t <= to; t += 3600000) {
-    const h = Math.round(tz.hourOf(t))
-    if (h % step === 0 || to - from <= 3 * 3600000) out.push({ t, label: hhmm(h * 60) })
-  }
-  return out
-}
+const TIP = 'night-gestures'
+const TICK_W = 36 // a "05:00" label at 12.5 pt
 
 /**
  * The night in one card: stages, then Move, Sound, heart rate and blood oxygen
- * on the same time axis. Press and drag anywhere for one line through every
- * lane and a panel with what each said at that minute (a light tap of haptics
- * on each change of stage). Tap for full screen, where pinching zooms to as
- * little as 30 minutes and dragging with two fingers pans. Under the chart, one
- * summary line and the night's notable moments; tapping one moves the line there.
+ * on the same time axis. Touch follows `NightGesture`: a vertical swipe scrolls
+ * the page, a sideways drag shows the crosshair (when zoomed it pans, and a
+ * press and hold first gives the crosshair), two fingers pinch the time axis
+ * from 30 minutes to the whole night, a double tap resets. Full screen opens
+ * only from the expand icon and is the same component, larger. Under the
+ * chart, an overview strip while zoomed, one summary line and the night's
+ * notable moments; tapping one moves the line there.
  */
 export default function NightCard({ night, overnight, restless, soundSessions, soundsOn, events = [], noRecording = false, tz, full = false, onClose = null }) {
-  const [win, setWin] = useState(null)
+  const [win, setWinNow] = useState(null)
   const [cursor, setCursor] = useState(null)
-  const [picked, setPicked] = useState(null)
   const [isFull, setFull] = useState(false)
   const [info, setInfo] = useState(null)
   const haptics = useStore((s) => s.settings?.haptics)
+  const tipSeen = useStore((s) => !!s.coachMarks?.[TIP])
+  const markCoachSeen = useStore((s) => s.markCoachSeen)
   const svgRef = useRef(null)
-  const drag = useRef(null)
-  const touches = useRef(new Map())
-  const pinch = useRef(null)
+  const gesture = useRef(new NightGesture())
+  const holdTimer = useRef(null)
   const lastStage = useRef(null)
+  const lastLimit = useRef(null)
+  const frame = useRef(0)
+  const nextWin = useRef(null)
+  // windows from a pinch or a pan land once a frame
+  const setWin = (w) => {
+    nextWin.current = w
+    if (frame.current) return
+    frame.current = window.requestAnimationFrame(() => { frame.current = 0; setWinNow(nextWin.current) })
+  }
+  useEffect(() => () => { window.cancelAnimationFrame(frame.current); clearTimeout(holdTimer.current) }, [])
   const clipId = `night-plot-${useId().replace(/:/g, '')}`
 
   const clock = (ms) => hhmm(tz.hourOf(ms) * 60)
@@ -87,7 +91,6 @@ export default function NightCard({ night, overnight, restless, soundSessions, s
   const from = win?.from ?? night.start
   const to = win?.to ?? night.end
   const x = (t) => L + ((t - from) / (to - from || 1)) * (Wn - L - R)
-  const tAt = (px) => from + ((px - L) / (Wn - L - R)) * (to - from)
 
   // the layout: stage rows, then each lane that has something to say
   const lanes = []
@@ -106,82 +109,89 @@ export default function NightCard({ night, overnight, restless, soundSessions, s
   for (const l of lanes) { laneTop[l.key] = y0; y0 += l.h }
   const H = y0 + 22
 
-  // ---- crosshair, pinch and pan
-  const svgPx = (e) => {
+  // ---- touch: see NightGesture
+  const ctx = () => {
     const r = svgRef.current.getBoundingClientRect()
-    return ((e.clientX - r.left) / (r.width || 1)) * Wn
+    const k = (r.width || 1) / Wn
+    return { win: { from, to }, night, left: r.left + L * k, width: (Wn - L - R) * k }
   }
+  const buzz = (kind) => { if (haptics) haptic(kind === 'limit' ? 8 : 4) }
   const moveTo = (t) => {
     const c = Math.min(to, Math.max(from, t))
     const st = momentAt(data, c).stage
-    if (haptics && lastStage.current && st !== lastStage.current) haptic(4)
+    if (lastStage.current && st !== lastStage.current) buzz('stage')
     lastStage.current = st
     setCursor(c)
   }
+  const apply = (effects, e) => {
+    for (const fx of effects) {
+      if (fx.kind === 'capture') { try { svgRef.current.setPointerCapture(e.pointerId) } catch { /* not capturable */ } }
+      else if (fx.kind === 'cross') moveTo(fx.t)
+      else if (fx.kind === 'endCross') { setCursor(null); lastStage.current = null }
+      else if (fx.kind === 'holding') buzz('stage')
+      else if (fx.kind === 'reset') setWinNow(null)
+      else if (fx.kind === 'win') {
+        if (fx.limit && fx.limit !== lastLimit.current) buzz('limit')
+        lastLimit.current = fx.limit
+        setWin(isZoomed(fx.win, night) ? fx.win : null)
+      }
+      if (fx.kind === 'cross' || fx.kind === 'win') { if (!tipSeen) markCoachSeen(TIP) }
+    }
+  }
   const onDown = (e) => {
-    touches.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
-    if (full && touches.current.size === 2) {
-      const [a, b] = [...touches.current.values()]
-      const r = svgRef.current.getBoundingClientRect()
-      pinch.current = { dist: Math.hypot(a.x - b.x, a.y - b.y) || 1, mid: (a.x + b.x) / 2, win: { from, to }, width: r.width || 1, left: r.left }
-      drag.current = null
-      return
-    }
-    drag.current = { x: e.clientX, id: e.pointerId, on: false }
-  }
-  const onMove = (e) => {
-    if (touches.current.has(e.pointerId)) touches.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
-    const p = pinch.current
-    if (full && p && touches.current.size === 2) {
-      const [a, b] = [...touches.current.values()]
-      const dist = Math.hypot(a.x - b.x, a.y - b.y) || 1
-      const mid = (a.x + b.x) / 2
-      const at = Math.min(1, Math.max(0, (((p.mid - p.left) / p.width) * Wn - L) / (Wn - L - R)))
-      const z = zoomNight(p.win, p.dist / dist, at, night)
-      const shift = -((mid - p.mid) / p.width) * (z.to - z.from)
-      const span = z.to - z.from
-      const f = Math.min(night.end - span, Math.max(night.start, z.from + shift))
-      setWin({ from: f, to: f + span })
-      return
-    }
-    const d = drag.current
-    if (!d) return
-    if (!d.on && Math.abs(e.clientX - d.x) > 4) {
-      d.on = true
-      try { svgRef.current.setPointerCapture(d.id) } catch { /* not capturable */ }
-      setPicked(null)
-    }
-    if (d.on) moveTo(tAt(svgPx(e)))
-  }
-  const onUp = (e) => {
-    touches.current.delete(e?.pointerId)
-    if (touches.current.size < 2) pinch.current = null
-    const d = drag.current
-    drag.current = null
-    if (d && !d.on) {
-      // a tap: full screen from the card; inside full screen, the line goes where you tapped
-      if (!full) setFull(true)
-      else moveTo(tAt(svgPx(e)))
+    const c = ctx()
+    apply(gesture.current.down(e.pointerId, e.clientX, e.clientY, e.timeStamp, c), e)
+    clearTimeout(holdTimer.current)
+    if (isZoomed(c.win, night)) {
+      const t0 = e.timeStamp
+      holdTimer.current = setTimeout(() => apply(gesture.current.hold(t0 + GESTURE.holdMs, ctx()), e), GESTURE.holdMs)
     }
   }
-  const zoomBy = (factor) => setWin(zoomNight({ from, to }, factor, cursor != null ? (cursor - from) / (to - from || 1) : 0.5, night))
-  const panBy = (sign) => {
-    const span = to - from
-    const f = Math.min(night.end - span, Math.max(night.start, from + sign * span / 3))
-    setWin({ from: f, to: f + span })
-  }
+  const onMove = (e) => apply(gesture.current.move(e.pointerId, e.clientX, e.clientY, e.timeStamp, ctx()), e)
+  const onUp = (e) => { clearTimeout(holdTimer.current); lastLimit.current = null; apply(gesture.current.up(e.pointerId, e.clientX, e.clientY, e.timeStamp), e) }
+  const onCancel = (e) => { clearTimeout(holdTimer.current); apply(gesture.current.cancel(e.pointerId), e) }
+
+  // the page must not scroll or zoom while the chart owns the touch, and never pinch-zoom here
+  useEffect(() => {
+    const el = svgRef.current
+    if (!el) return undefined
+    const stop = (ev) => { if (ev.cancelable) ev.preventDefault() }
+    const onTouchMove = (ev) => { if (gesture.current.owns || ev.touches.length > 1) stop(ev) }
+    el.addEventListener('touchmove', onTouchMove, { passive: false })
+    el.addEventListener('gesturestart', stop, { passive: false })
+    el.addEventListener('gesturechange', stop, { passive: false })
+    return () => {
+      el.removeEventListener('touchmove', onTouchMove)
+      el.removeEventListener('gesturestart', stop)
+      el.removeEventListener('gesturechange', stop)
+    }
+  }, [])
+
   const jump = (t) => {
     if (t < from || t > to) {
       const span = to - from
       const f = Math.min(night.end - span, Math.max(night.start, t - span / 2))
-      setWin({ from: f, to: f + span })
+      setWinNow({ from: f, to: f + span })
     }
-    setPicked(null)
     setCursor(t)
   }
 
+  // the overview strip: drag the highlighted window
+  const ovRef = useRef(null)
+  const ovDrag = useRef(null)
+  const zoomed = isZoomed(win, night)
+  const onOvDown = (e) => {
+    const r = ovRef.current.getBoundingClientRect()
+    ovDrag.current = { x: e.clientX, win: { from, to }, width: r.width }
+    try { ovRef.current.setPointerCapture(e.pointerId) } catch { /* not capturable */ }
+  }
+  const onOvMove = (e) => {
+    const d = ovDrag.current
+    if (d) setWin(overviewDrag(d.win, e.clientX - d.x, d.width, night))
+  }
+  const onOvUp = () => { ovDrag.current = null }
+
   const m = cursor != null ? momentAt(data, cursor) : null
-  const sel = picked != null ? steps[picked] : null
   const stageY = (row) => 4 + rows.indexOf(row) * rowH + rowH / 2
   let path = ''
   steps.forEach((s, i) => { path += `${i ? 'L' : 'M'}${x(s.start).toFixed(1)},${stageY(s.row).toFixed(1)} H${x(s.end).toFixed(1)} ` })
@@ -201,9 +211,7 @@ export default function NightCard({ night, overnight, restless, soundSessions, s
       {summary && <p className="mb-2 text-[15px] font-semibold tabular-nums" data-testid="night-summary">{summary}</p>}
       <div className="flex items-start gap-2">
         <div className="min-h-[40px] min-w-0 flex-1 text-sm font-medium tabular-nums" style={soft} data-testid="night-panel">
-          {sel ? (
-            <p data-testid="hypno-detail">{STAGE_LABEL[sel.row]} · {clock(sel.start)} to {clock(sel.end)} · {durationWords((sel.end - sel.start) / MIN)}</p>
-          ) : m ? (
+          {m ? (
             <>
               <p className="font-black" style={{ color: 'var(--text)' }} data-testid="cross-time">{clock(m.t)} · {m.stage ? STAGE_WORD[m.stage] : 'Not asleep'}</p>
               <p data-testid="cross-lanes">
@@ -211,7 +219,7 @@ export default function NightCard({ night, overnight, restless, soundSessions, s
               </p>
             </>
           ) : (
-            <p data-testid="hypno-detail">{full ? 'Tap or drag for any minute. Pinch to zoom.' : 'Drag to read any minute. Tap to open.'}</p>
+            !tipSeen && <p data-testid="night-tip">Pinch to zoom. Drag sideways for any minute.</p>
           )}
         </div>
         {full ? (
@@ -220,20 +228,12 @@ export default function NightCard({ night, overnight, restless, soundSessions, s
           <button onClick={() => setFull(true)} aria-label="Open the night full screen" className="shrink-0 rounded-full p-1.5" style={{ background: 'var(--surface-sunk)', color: 'var(--text-2)' }} data-testid="night-expand"><Maximize2 size={13} /></button>
         )}
       </div>
-      {full && (
-        <div className="mt-2 flex items-center gap-1.5" data-testid="night-zoom">
-          <button onClick={() => zoomBy(0.5)} aria-label="Zoom in" className="rounded-full p-2" style={{ background: 'var(--surface-sunk)' }} data-testid="night-zoom-in"><ZoomIn size={15} /></button>
-          <button onClick={() => zoomBy(2)} aria-label="Zoom out" className="rounded-full p-2" style={{ background: 'var(--surface-sunk)' }} data-testid="night-zoom-out"><ZoomOut size={15} /></button>
-          <button onClick={() => panBy(-1)} aria-label="Earlier" className="rounded-full p-2" style={{ background: 'var(--surface-sunk)' }}><ChevronLeft size={15} /></button>
-          <button onClick={() => panBy(1)} aria-label="Later" className="rounded-full p-2" style={{ background: 'var(--surface-sunk)' }}><ChevronRight size={15} /></button>
-          <span className="ml-1 text-sm font-medium tabular-nums" style={muted} data-testid="night-window">{clock(from)} to {clock(to)}</span>
-        </div>
-      )}
       {!steps.length && <p className="text-xs font-medium" style={muted} data-testid="hypnogram-empty">Stage detail arrives with the next sync.</p>}
       <div ref={full ? boxRef : undefined} className={full ? 'mt-1 shrink-0' : ''} style={full ? { height: 'max(420px, calc(100dvh - 230px))' } : undefined} data-testid="night-plot">
       <svg ref={svgRef} viewBox={`0 0 ${Wn} ${H}`} className="mt-1 w-full select-none" role="img" aria-label="The night: stages, movement, sounds, heart rate and blood oxygen on one time axis"
-        style={{ touchAction: full ? 'none' : 'pan-y' }} data-testid="hypnogram" data-stages-h={Math.round(stagesH)} data-lane-h={lanes.map((l) => l.h).join(',')}
-        onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
+        style={{ touchAction: 'pan-y' }} data-testid="hypnogram" data-stages-h={Math.round(stagesH)} data-lane-h={lanes.map((l) => l.h).join(',')}
+        data-from={Math.round(from)} data-to={Math.round(to)}
+        onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onCancel}>
         <defs><clipPath id={clipId}><rect x={L} y="0" width={Wn - L - R} height={H} /></clipPath></defs>
         {/* stages */}
         {rows.map((r) => (
@@ -244,11 +244,9 @@ export default function NightCard({ night, overnight, restless, soundSessions, s
         ))}
         {rows.length > 0 && <InfoDot k="stages" y={stageY(rows[0])} />}
         <g clipPath={`url(#${clipId})`}>
-          {steps.map((s, i) => inView(s.start, s.end) && (
+          {steps.map((s) => inView(s.start, s.end) && (
             <rect key={s.start} x={x(s.start)} y={stageY(s.row) - rowH / 2 + 3} width={Math.max(1, x(s.end) - x(s.start))} height={rowH - 6} rx="3"
-              fill={SLEEP} opacity={picked === i ? Math.min(1, STAGE_OPACITY[s.row] + 0.25) : STAGE_OPACITY[s.row]}
-              onPointerUp={(e) => { if (drag.current?.on) return; e.stopPropagation(); drag.current = null; touches.current.delete(e.pointerId); setCursor(null); setPicked(picked === i ? null : i) }}
-              style={{ cursor: 'pointer' }} data-testid={`hypno-seg-${s.row}`} />
+              fill={SLEEP} opacity={STAGE_OPACITY[s.row]} data-testid={`hypno-seg-${s.row}`} />
           ))}
           <path d={path} fill="none" stroke="var(--text-2)" strokeWidth="1.2" strokeLinejoin="round" pointerEvents="none" />
         </g>
@@ -308,14 +306,29 @@ export default function NightCard({ night, overnight, restless, soundSessions, s
           )
         })}
 
-        {ticks(from, to, tz).map((tk) => (
-          <text key={tk.t} x={x(tk.t)} y={H - 5} fontSize={FS} fontWeight="600" textAnchor="middle" fill="var(--text-3)" className="tabular-nums">{tk.label}</text>
-        ))}
+        {nightTicks({ from, to }, (t) => tz.hourOf(t) * 60).map((tk) => {
+          const p = tickPlace(x(tk.t), TICK_W, L, Wn - R)
+          return <text key={tk.t} x={p.x} y={H - 5} fontSize={FS} fontWeight="600" textAnchor={p.anchor} fill="var(--text-3)" className="tabular-nums" data-testid="night-tick">{tk.label}</text>
+        })}
         {cursor != null && (
           <line x1={x(cursor)} x2={x(cursor)} y1={2} y2={H - 18} stroke="var(--text)" strokeWidth="1" opacity="0.8" pointerEvents="none" data-testid="night-crosshair" />
         )}
       </svg>
       </div>
+      {zoomed && (() => {
+        const ow = Wn - L - R
+        const b = overviewBox({ from, to }, night, ow)
+        const ox = (t) => L + ((t - night.start) / (night.end - night.start || 1)) * ow
+        return (
+          <svg ref={ovRef} viewBox={`0 0 ${Wn} 24`} className="mt-1 w-full select-none" style={{ touchAction: 'none' }} data-testid="night-overview"
+            data-x={Math.round(b.x)} data-w={Math.round(b.w)} onPointerDown={onOvDown} onPointerMove={onOvMove} onPointerUp={onOvUp} onPointerCancel={onOvUp}
+            role="slider" aria-label="Where the zoomed window sits in the night" aria-valuetext={`${clock(from)} to ${clock(to)}`}>
+            {steps.map((s) => <rect key={s.start} x={ox(s.start)} y={6 + rows.indexOf(s.row) * (12 / Math.max(1, rows.length))} width={Math.max(0.5, ox(s.end) - ox(s.start))} height={12 / Math.max(1, rows.length)} fill={SLEEP} opacity={STAGE_OPACITY[s.row]} />)}
+            <rect x={L + b.x} y="1" width={b.w} height="22" rx="5" fill="var(--text)" fillOpacity="0.1" stroke="var(--text-2)" strokeWidth="1.2" data-testid="night-overview-window" />
+            <text x={L - 6} y="16" fontSize="11" fontWeight="600" textAnchor="end" fill="var(--text-3)" className="tabular-nums">{clock(from)}</text>
+          </svg>
+        )
+      })()}
       {range && (
         <p className="mt-1 text-sm font-medium tabular-nums" style={soft} data-testid="hr-range">Heart rate asleep: low {range.low}, high {range.high} bpm</p>
       )}
