@@ -222,6 +222,10 @@ export function applyPendingActions(state, actions = [], { dueOn = null } = {}) 
           op: 'watchStatus',
           complication: typeof p.complication === 'boolean' ? p.complication : null,
           battery: Number.isFinite(battery) && battery >= 0 && battery <= 1 ? battery : null,
+          // the movement recording: when a window was last asked for, by what, what the last read found
+          motionAt: Number.isFinite(Number(p.start)) && p.start != null ? Number(p.start) : null,
+          motionBy: typeof p.kind === 'string' ? p.kind : null,
+          motionResult: typeof p.answer === 'string' ? p.answer : null,
           at: a.at,
         })
         applied.push(a.id)

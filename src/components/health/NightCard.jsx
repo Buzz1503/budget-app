@@ -26,7 +26,7 @@ const soft = { color: 'var(--text-2)' }
 
 const LANE_INFO = {
   stages: 'Sleep stages, estimated by your Apple Watch from movement and heart rate. One row each: Awake at the top, then REM, Core and Deep.',
-  move: 'Movement from your Apple Watch: taller bars mean more movement in that minute. Shaded stretches are restless periods, 5 minutes with 30 seconds or more of movement.',
+  move: 'Movement from your Apple Watch: taller bars mean more movement in that minute. Shaded stretches are restless periods, 5 minutes with 30 seconds or more of movement. The Watch sends a night once it has read it, usually when the Pepito Watch app next runs.',
   sound: 'Snoring, coughs and talking heard by Sleep sounds on your iPhone. Only the time and kind of sound are kept, never audio.',
   hr: 'Heart rate from your Apple Watch while you slept. The dot marks the lowest reading of the night.',
   spo2: 'Blood oxygen readings from your Apple Watch. A reading under 90% is shown in amber.',
@@ -45,7 +45,9 @@ const INFO_TITLE = { stages: 'Stages', move: 'Move', sound: 'Sound', hr: 'Heart 
  * expand icon and is the same component, larger. Under the chart: an overview
  * strip while zoomed, the legend and the night's notable moments.
  */
-export default function NightCard({ night, overnight, restless, soundSessions, soundsOn, events = [], noRecording = false, tz, full = false, onClose = null }) {
+export default function NightCard({ night, overnight, restless, soundSessions, soundsOn, events = [], moveLane = 'none', tz, full = false, onClose = null }) {
+  const noRecording = moveLane === 'missing'
+  const moveWaiting = moveLane === 'waiting'
   const [win, setWinNow] = useState(null)
   const [cursor, setCursor] = useState(null)
   const [isFull, setFull] = useState(false)
@@ -98,7 +100,7 @@ export default function NightCard({ night, overnight, restless, soundSessions, s
   const lanes = []
   const tight = full && (box?.h || 999) < NIGHT_LAYOUT.tightBelow
   const laneDef = (key) => ({ key, h: full ? (tight ? NIGHT_LAYOUT.fullLaneTight : NIGHT_LAYOUT.fullLaneH) : NIGHT_LAYOUT.cardLaneH[key] })
-  if (restless?.series?.length || noRecording) lanes.push(laneDef('move'))
+  if (restless?.series?.length || noRecording || moveWaiting) lanes.push(laneDef('move'))
   if (soundsOn || soundSessions?.length) lanes.push(laneDef('sound'))
   if (overnight?.hr?.length > 2) lanes.push(laneDef('hr'))
   if (overnight?.spo2?.length) lanes.push(laneDef('spo2'))
@@ -310,6 +312,7 @@ export default function NightCard({ night, overnight, restless, soundSessions, s
                         return <rect key={i} x={x(t)} y={top + l.h - 3 - h} width={w} height={h} rx={Math.min(1.5, w / 2)} fill="var(--text-2)" opacity="0.8" data-testid="move-bar" />
                       })}
                       {!restless?.series?.length && noRecording && <text x={L + 6} y={mid + 4} fontSize={FS - 0.5} fontWeight="600" fill="var(--text-3)" data-testid="strip-no-move">Not recorded</text>}
+                      {!restless?.series?.length && moveWaiting && <text x={L + 6} y={mid + 4} fontSize={FS - 0.5} fontWeight="600" fill="var(--text-3)" data-testid="strip-move-waiting">Waiting for your Watch</text>}
                     </>
                   )}
                   {l.key === 'sound' && (
@@ -410,7 +413,7 @@ export default function NightCard({ night, overnight, restless, soundSessions, s
       {isFull && typeof document !== 'undefined' && createPortal(
         <div className="fixed inset-0 z-[70] flex flex-col p-4" style={{ background: 'var(--bg)', paddingTop: 'max(16px, env(safe-area-inset-top))', paddingBottom: 'max(16px, env(safe-area-inset-bottom))', paddingLeft: 'max(16px, env(safe-area-inset-left))', paddingRight: 'max(16px, env(safe-area-inset-right))' }}
           role="dialog" aria-modal="true" aria-label="The night, full screen" data-testid="night-fullscreen">
-          <NightCard night={night} overnight={overnight} restless={restless} soundSessions={soundSessions} soundsOn={soundsOn} events={events} noRecording={noRecording} tz={tz} full onClose={() => setFull(false)} />
+          <NightCard night={night} overnight={overnight} restless={restless} soundSessions={soundSessions} soundsOn={soundsOn} events={events} moveLane={moveLane} tz={tz} full onClose={() => setFull(false)} />
         </div>,
         document.body,
       )}

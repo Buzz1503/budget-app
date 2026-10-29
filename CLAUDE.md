@@ -191,9 +191,13 @@ an iOS app (bundle id com.buzz.pepito). State is one persisted Zustand store,
   minutes each send a notification at that moment with when and why; `SleepSoundsNotices.scheduleChecks` plans a bedtime
   check ("not listening yet") for 7 nights, cleared once listening starts. A tap sets `pendingStart`, the web layer starts
   in the foreground (`startIfAsked`). The Stop shortcut never answers a bare "was not running" (`notRunningWords`).
-- Night card (`components/health/NightCard.jsx`, maths in `src/sleep/nightView.ts`): stages and the
-  Move, Sound, HR, SpO2 lanes on one clock, one crosshair (`momentAt`), restless bands, What happened
-  (`whatHappened`), the summary line (`nightSummary`), full screen down to 30 minutes (`zoomNight`).
+- Night card (`components/health/NightCard.jsx`, maths in `src/sleep/nightView.ts`, touch in `src/sleep/nightGestures.ts`):
+  stages as coloured blocks, one row each (Awake, REM, Core, Deep; `--stage-*` tokens, totals under the names), then
+  Move, Sound, HR, SpO2 lanes on one clock. Touch: `touch-action: pan-y`, the first 9 px decide page or chart
+  (`lockDirection`); sideways drag is the crosshair, or pans when zoomed (hold 200 ms first for the crosshair); pinch
+  zooms the time axis on the card (30 minutes to the night, `pinchZoom`); double tap resets; a tap never opens full
+  screen (only the expand icon). Overview strip while zoomed; fixed-height panel above the chart while dragging
+  (`crosshairCells`); ticks by width (`tickStepMin`, `tickPlace` keeps the last label in). What happened (`whatHappened`).
 - Sleep sounds schedule (`sleepSettings.schedule`, default on, 21:00 to 05:00): the phone stops at the
   scheduled time itself (`SleepSoundsCore.until`, stop reason "scheduled"); on iOS 18+ the
   "Start sleep sounds on schedule" intent is an `AudioRecordingIntent` with the Sleep sounds Live
@@ -202,8 +206,10 @@ an iOS app (bundle id com.buzz.pepito). State is one persisted Zustand store,
   `checkSetup` over the start log.
 - Apnea (`src/sleep/apnea.ts`, "Screen, not a diagnosis"), nightmares (`nightmares.ts`, estimate,
   calibrated from 10 confirmed nights), overnight extras (`src/health/overnight.ts`, NIGHTS_SCHEMA 4).
-- Native: Watch restlessness (CMSensorRecorder, `RestlessRecorder`, backup start from complications via
-  `ios/WatchShared/RestlessStart.swift`), iPhone Sleep sounds (SoundAnalysis, `SleepSounds.swift`, Start and
+- Native: Watch restlessness (CMSensorRecorder records only the window asked for, so `RestlessStart.request` asks for a
+  fresh 12 h on every app run, snapshot, Sleep sounds start, 9 pm schedule and Start sleep, `RestlessRecording.Trigger`;
+  `RestlessRecorder` reads every unsent night of the last 3 days in 12 h pieces; the phone matches a summary to its
+  night by overlap, `restlessForNight`, and the Move lane waits for the Watch on the latest night, `moveLane`), iPhone Sleep sounds (SoundAnalysis, `SleepSounds.swift`, Start and
   Stop sleep sounds App Intents for a Shortcuts automation), Screen Time late use (`PepitoLateUse`).
 - Prompts (`src/sleep/prompts.ts`): evening factors 30 min before planned bedtime, morning check 30 min after
   wake, skipped once answered, following Remind me on; the Watch plans the same ids from `sleep.prompts`.

@@ -737,6 +737,15 @@ final class SleepLabTests: XCTestCase {
         let a = WatchStatusReport.action(complication: true, battery: 0.6789, now: now)
         XCTAssertEqual(a.type, .watchStatus)
         XCTAssertEqual(a.payload.battery, 0.68)
+        // the movement recording: a new request or a new read result is worth a report
+        XCTAssertTrue(WatchStatusReport.shouldSend(last: last, complication: true, battery: 0.8, now: now.addingTimeInterval(60), motionAt: now))
+        let withMotion = WatchStatusReport.Last(complication: true, battery: 0.8, at: now, motionAt: now, motionResult: "sent")
+        XCTAssertFalse(WatchStatusReport.shouldSend(last: withMotion, complication: true, battery: 0.8, now: now.addingTimeInterval(60), motionAt: now, motionResult: "sent"))
+        XCTAssertTrue(WatchStatusReport.shouldSend(last: withMotion, complication: true, battery: 0.8, now: now.addingTimeInterval(60), motionAt: now, motionResult: "noData"))
+        let m = WatchStatusReport.action(complication: true, battery: 0.8, now: now, motionAt: now, motionBy: .soundsStarted, motionResult: "sent")
+        XCTAssertEqual(m.payload.start, now.timeIntervalSince1970 * 1000)
+        XCTAssertEqual(m.payload.kind, "soundsStarted")
+        XCTAssertEqual(m.payload.answer, "sent")
     }
 }
 
@@ -812,6 +821,59 @@ final class RestlessnessTests: XCTestCase {
         XCTAssertEqual(main.end, d(7, 0))
         XCTAssertNil(RestlessRecording.mainSleep([]))
         XCTAssertEqual(RestlessRecording.wakeDate(d(7, 0), calendar: cal), "2026-10-23")
+    }
+
+    func testEveryTriggerAsksForAFreshWindow() {
+        let now = Date(timeIntervalSince1970: 1_792_000_000)
+        for t in RestlessRecording.Trigger.allCases {
+            XCTAssertTrue(RestlessRecording.shouldRequest(trigger: t, now: now, lastStart: nil, enabled: true), t.rawValue)
+            // asked for an hour ago: ask again, so the window runs 12 hours from now
+            XCTAssertTrue(RestlessRecording.shouldRequest(trigger: t, now: now, lastStart: now.addingTimeInterval(-3600), enabled: true), t.rawValue)
+            XCTAssertFalse(RestlessRecording.shouldRequest(trigger: t, now: now, lastStart: nil, enabled: false), t.rawValue)
+        }
+        // at any hour, not only after 6 pm
+        XCTAssertTrue(RestlessRecording.shouldRequest(trigger: .appRun, now: now, lastStart: now.addingTimeInterval(-11 * 60), enabled: true))
+        // not twice within 10 minutes, except Start sleep
+        XCTAssertFalse(RestlessRecording.shouldRequest(trigger: .snapshot, now: now, lastStart: now.addingTimeInterval(-120), enabled: true))
+        XCTAssertTrue(RestlessRecording.shouldRequest(trigger: .startSleep, now: now, lastStart: now.addingTimeInterval(-120), enabled: true))
+    }
+
+    func testTheIPhoneCueReachesTheWatch() {
+        let at = Date(timeIntervalSince1970: 1_792_000_000)
+        XCTAssertEqual(RestlessRecording.trigger(from: RestlessRecording.message(.soundsStarted, at: at)), .soundsStarted)
+        XCTAssertEqual(RestlessRecording.trigger(from: RestlessRecording.message(.schedule, at: at)), .schedule)
+        XCTAssertNil(RestlessRecording.trigger(from: ["test": 1.0]))
+        XCTAssertNil(RestlessRecording.trigger(from: [RestlessRecording.messageKey: "nonsense"]))
+    }
+
+    func testEveryUnsentNightOfTheLastThreeDaysIsRead() {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "UTC")!
+        let at = { (day: Int, h: Int) in cal.date(from: DateComponents(year: 2026, month: 10, day: day, hour: h))! }
+        let samples: [(start: Date, end: Date)] = [
+            (at(20, 23), at(21, 7)),                       // too old: the recorder no longer has it
+            (at(22, 23), at(23, 3)), (at(23, 3), at(23, 7)),  // one night, two samples
+            (at(23, 14), at(23, 15)),                      // a nap on the same wake date: the longer run wins
+            (at(23, 23), at(24, 6)),                       // last night
+        ]
+        let now = at(24, 12)
+        let all = RestlessRecording.nightsToSend(samples, sent: [], now: now, calendar: cal)
+        XCTAssertEqual(all.map(\.wake), ["2026-10-23", "2026-10-24"])
+        XCTAssertEqual(all[0].start, at(22, 23))
+        XCTAssertEqual(all[0].end, at(23, 7))
+        // a night already sent is not read again; one that failed to send is
+        XCTAssertEqual(RestlessRecording.nightsToSend(samples, sent: ["2026-10-23"], now: now, calendar: cal).map(\.wake), ["2026-10-24"])
+        // a night that has just ended waits a few minutes for the recorder
+        XCTAssertEqual(RestlessRecording.nightsToSend(samples, sent: ["2026-10-23"], now: at(24, 6).addingTimeInterval(120), calendar: cal).map(\.wake), [])
+    }
+
+    func testLongNightsAreReadInTwelveHourPieces() {
+        let a = Date(timeIntervalSince1970: 1_792_000_000)
+        let pieces = RestlessRecording.chunks(start: a, end: a.addingTimeInterval(14 * 3600))
+        XCTAssertEqual(pieces.count, 2)
+        XCTAssertEqual(pieces[0].end, a.addingTimeInterval(12 * 3600))
+        XCTAssertEqual(pieces[1].end, a.addingTimeInterval(14 * 3600))
+        XCTAssertEqual(RestlessRecording.chunks(start: a, end: a.addingTimeInterval(8 * 3600)).count, 1)
     }
 }
 

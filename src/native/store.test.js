@@ -150,4 +150,15 @@ describe('Watch sleep mode', () => {
     const bad = useStore.getState().applyNativeActions([{ id: 'sm3', type: 'sleepMode', at: new Date().toISOString(), source: 'watch', payload: { kind: 'nap' } }])
     expect(bad.applied || []).not.toContain('sm3')
   })
+
+  it('the Watch report carries when the movement recording was asked for and what the last read found', () => {
+    const asked = new Date('2026-10-28T21:02:00').getTime()
+    useStore.getState().applyNativeActions([
+      { id: 'ws1', type: 'watchStatus', at: new Date(asked).toISOString(), source: 'watch', payload: { complication: true, battery: 0.8, start: asked, kind: 'soundsStarted', answer: 'noData' } },
+    ])
+    expect(useStore.getState().nativeState.watch).toMatchObject({ complication: true, battery: 0.8, motionAt: asked, motionBy: 'soundsStarted', motionResult: 'noData' })
+    // a later report without them keeps what was known
+    useStore.getState().applyNativeActions([{ id: 'ws2', type: 'watchStatus', at: new Date().toISOString(), source: 'watch', payload: { complication: true, battery: 0.7 } }])
+    expect(useStore.getState().nativeState.watch).toMatchObject({ battery: 0.7, motionAt: asked, motionBy: 'soundsStarted' })
+  })
 })

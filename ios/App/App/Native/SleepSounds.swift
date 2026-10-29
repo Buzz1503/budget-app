@@ -126,6 +126,8 @@ final class SleepSoundsEngine: NSObject, HMHomeManagerDelegate {
             SleepSoundsNotices.listeningStarted(at: began)
             // the record exists from the first second, so a kill at any point leaves something
             writeSession(open: true, reason: nil)
+            // the Watch records movement only for the window it asked for: ask for a fresh one now
+            WatchLink.shared.sendCommand(RestlessRecording.message(by == "schedule" ? .schedule : .soundsStarted, at: began))
             // on screen while listening: iOS needs it for a start from the background, and it has Stop
             SleepSoundsActivity.start(startedAt: began, until: until ?? began.addingTimeInterval(SleepSoundsCore.maxHours * 3600))
         }

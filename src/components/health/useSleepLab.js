@@ -9,6 +9,7 @@ import { soundsNight } from '../../sleep/sounds'
 import { spo2Night } from '../../sleep/oxygen'
 import { buildRows } from '../../sleep/analysis/dataset'
 import { detectEvents, calibrate, truthOf } from '../../sleep/nightmares'
+import { restlessForNight } from '../../sleep/restlessMatch'
 import { useCompounds } from '../../lib/useCompounds'
 import useHealthModel, { tz } from './useHealthModel'
 
@@ -54,7 +55,7 @@ export default function useSleepLab() {
       if (!o?.hr?.length) return
       const prevResp = sorted.slice(Math.max(0, i - 28), i).map((x) => x.overnight?.respRate).filter((v) => v != null).sort((a, b) => a - b)
       const usualResp = prevResp.length >= 7 ? prevResp[Math.floor(prevResp.length / 2)] : null
-      const restless = s.nightExtras[n.date]?.restless
+      const restless = restlessForNight(s.nightExtras, n)
       eventsBy.set(n.date, detectEvents({
         start: n.start, hr: o.hr, segments: n.segments,
         movement: restless?.series || null, movementStart: restless?.start ?? null,
@@ -66,7 +67,7 @@ export default function useSleepLab() {
       const o = n.overnight || null
       const evening = addDays(n.date, -1)
       const dayBefore = daily.get(evening)
-      const ex = s.nightExtras[n.date] || {}
+      const ex = { ...(s.nightExtras[n.date] || {}), restless: restlessForNight(s.nightExtras, n) }
       const sounds = soundsNight(ex.sounds || [], { start: n.start, end: n.end, asleepMin: n.asleepMin })
       const spo2 = spo2Night(o?.spo2)
       const readiness = model.readiness(n.date)

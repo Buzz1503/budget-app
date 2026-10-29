@@ -180,6 +180,91 @@ public enum RestlessRecording {
         return at(6, 30, dayOffset: 1)
     }
 
+    // MARK: - asking for a fresh window
+
+    /// What asked for a fresh 12 hour recording. CMSensorRecorder records only for the
+    /// window requested, so every one of these asks again from now.
+    public enum Trigger: String, Codable, Sendable, CaseIterable {
+        /// the Watch app launched, came to the front or ran a background refresh
+        case appRun
+        /// a new snapshot arrived from the iPhone
+        case snapshot
+        /// Sleep sounds started on the iPhone
+        case soundsStarted
+        /// the 9 pm Sleep sounds schedule fired on the iPhone
+        case schedule
+        /// Start sleep on the Watch
+        case startSleep
+        /// a Pepito complication refreshing (backup, only with motion access already given)
+        case complication
+    }
+
+    /// A request within this many minutes of the last is skipped (the window it asked for
+    /// still has almost all of its 12 hours), except Start sleep, which always asks.
+    public static let minRequestGapMin = 10.0
+
+    public static func shouldRequest(trigger: Trigger, now: Date, lastStart: Date?, enabled: Bool) -> Bool {
+        guard enabled else { return false }
+        if trigger == .startSleep { return true }
+        guard let last = lastStart, last <= now else { return true }
+        return now.timeIntervalSince(last) >= minRequestGapMin * 60
+    }
+
+    /// The iPhone's message to the Watch: ask for a fresh window now.
+    public static let messageKey = "restlessStart"
+
+    public static func message(_ trigger: Trigger, at: Date) -> [String: Any] {
+        [messageKey: trigger.rawValue, "at": at.timeIntervalSince1970]
+    }
+
+    public static func trigger(from info: [String: Any]) -> Trigger? {
+        (info[messageKey] as? String).flatMap(Trigger.init(rawValue:))
+    }
+
+    // MARK: - which nights to read
+
+    /// CMSensorRecorder keeps three days; a night older than this cannot be read any more.
+    public static let keepDays = 3.0
+    /// The recorder needs a few minutes before the latest data can be read.
+    public static let settleMin = 5.0
+
+    /// Every main sleep of the last three days not yet sent, one per wake date (the
+    /// longest run that ends on that date), oldest first. A morning without the Watch
+    /// app running no longer loses its night: the next run reads it.
+    public static func nightsToSend(_ samples: [(start: Date, end: Date)], sent: Set<String>, now: Date, calendar: Calendar = .current) -> [(wake: String, start: Date, end: Date)] {
+        let sorted = samples.sorted { $0.start < $1.start }
+        var runs: [(Date, Date)] = []
+        for s in sorted {
+            if let last = runs.last, s.start.timeIntervalSince(last.1) < 3600 {
+                runs[runs.count - 1] = (last.0, max(last.1, s.end))
+            } else {
+                runs.append((s.start, s.end))
+            }
+        }
+        var best: [String: (Date, Date)] = [:]
+        for r in runs {
+            guard r.1 <= now.addingTimeInterval(-settleMin * 60), r.1 >= now.addingTimeInterval(-keepDays * 86400) else { continue }
+            let wake = wakeDate(r.1, calendar: calendar)
+            if let b = best[wake], b.1.timeIntervalSince(b.0) >= r.1.timeIntervalSince(r.0) { continue }
+            best[wake] = r
+        }
+        return best.filter { !sent.contains($0.key) }
+            .map { (wake: $0.key, start: $0.value.0, end: $0.value.1) }
+            .sorted { $0.start < $1.start }
+    }
+
+    /// CMSensorRecorder answers at most 12 hours per query: the window in pieces.
+    public static func chunks(start: Date, end: Date, maxH: Double = 12) -> [(start: Date, end: Date)] {
+        var out: [(start: Date, end: Date)] = []
+        var a = start
+        while a < end {
+            let b = min(end, a.addingTimeInterval(maxH * 3600))
+            out.append((a, b))
+            a = b
+        }
+        return out
+    }
+
     /// The wake-up date a summary is filed under (the morning it is made on).
     public static func wakeDate(_ end: Date, calendar: Calendar = .current) -> String {
         let c = calendar.dateComponents([.year, .month, .day], from: end)

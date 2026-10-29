@@ -22,6 +22,8 @@ export interface SetupInput {
   roomSensor: boolean | null
   /** the Watch battery last reported (0 to 1), null when never */
   watchBattery: number | null
+  /** the Watch's movement recording line (`motionWords`), null when never reported */
+  motionNote?: string | null
 }
 
 export interface SetupItem {
@@ -54,6 +56,7 @@ export function setupChecklist(x: SetupInput): { items: SetupItem[]; done: numbe
     {
       key: 'complication', label: 'A Pepito complication on your watch face', done: x.complication === true,
       how: 'Long-press the watch face, Edit, and add any Pepito+ complication. It keeps background updates reliable, including the overnight recording.',
+      note: x.motionNote || undefined,
     },
     {
       key: 'sounds', label: 'Sleep sounds starts by itself', done: x.soundsAuto,

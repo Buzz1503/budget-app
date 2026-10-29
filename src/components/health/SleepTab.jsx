@@ -32,7 +32,8 @@ import { scheduleWords } from '../../sleep/soundsView'
 import useSleepLab from './useSleepLab'
 import SleepSetupCard from './SleepSetup'
 import { useNativeFeed } from '../../native/feed'
-import { recordingMissing, soundsMissed, SOUNDS_MISSED_LINE } from '../../sleep/prompts'
+import { soundsMissed, SOUNDS_MISSED_LINE } from '../../sleep/prompts'
+import { moveLane } from '../../sleep/restlessMatch'
 import { soundsStatus } from '../../native/sleepRuntime'
 import { soundsLine, minutesWords } from '../../sleep/soundsView'
 import { AnswerLine, DeltaChip, InfoButton } from '../ui/Glance'
@@ -114,11 +115,11 @@ function SleepScreen({ model }) {
       </StaggerItem>
       <StaggerItem><SleepSetupCard model={model} /></StaggerItem>
       <StaggerItem className="space-y-2">
-        <SectionTitle icon={Activity} info={<p>Stages, movement, sound, heart rate and blood oxygen on one clock. Press and drag to read every lane at one moment; tap the expand button for full screen.</p>}>Through the night</SectionTitle>
+        <SectionTitle icon={Activity} info={<p>Stages, movement, sound, heart rate and blood oxygen on one clock. Drag sideways to read every lane at one moment, pinch to zoom, double tap to see the whole night. The expand button opens full screen.</p>}>Through the night</SectionTitle>
         <section className="card p-4">
           <NightCard night={night} overnight={night.overnight} restless={lab.extras.get(date)?.restless} tz={tz}
             soundSessions={nightExtras[date]?.sounds} soundsOn={soundsOn}
-            noRecording={recordingMissing({ enabled: restlessOn, date, firstRecorded, hasSleep: true, hasRecording: !!lab.extras.get(date)?.restless })}
+            moveLane={moveLane({ enabled: restlessOn, hasRecording: !!lab.extras.get(date)?.restless, date, firstRecorded, nightEnd: night.end, now: Date.now(), latest: isLatest })}
             events={lab.extras.get(date)?.events || []} />
           <NightFactorsLine feature={lab.featureBy.get(date)} />
         </section>

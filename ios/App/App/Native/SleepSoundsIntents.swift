@@ -75,6 +75,8 @@ struct StartSleepSoundsScheduledIntent: AudioRecordingIntent {
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
         let e = SleepSoundsEngine.shared
+        // the schedule firing is also the Watch's cue for a fresh movement window, whatever happens to the start
+        WatchLink.shared.sendCommand(RestlessRecording.message(.schedule, at: Date()))
         if !SleepSoundsCore.shouldStartOnSchedule(isRunning: e.isRunning) {
             // already listening (started by hand or by Sleep Focus): nothing to do
             e.record(.init(at: Date().timeIntervalSince1970 * 1000, kind: "start", by: "schedule", result: SleepSoundsCore.StartResult.alreadyRunning.rawValue))

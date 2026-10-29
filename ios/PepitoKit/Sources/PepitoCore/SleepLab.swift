@@ -62,24 +62,36 @@ public enum BedtimeNudge {
 }
 
 /// What the Watch tells the iPhone about itself for Sleep setup: a Pepito
-/// complication on the face, and the battery. Sent when either changes, or
-/// every six hours, so the queue does not fill with the same report.
+/// complication on the face, the battery, and the movement recording (when a
+/// window was last asked for, what asked, and what the last read found). Sent
+/// when any of these changes, or every six hours, so the queue does not fill
+/// with the same report.
 public enum WatchStatusReport {
     public struct Last: Codable, Equatable, Sendable {
         public var complication: Bool
         public var battery: Double
         public var at: Date
-        public init(complication: Bool, battery: Double, at: Date) { self.complication = complication; self.battery = battery; self.at = at }
+        public var motionAt: Date?
+        public var motionResult: String?
+        public init(complication: Bool, battery: Double, at: Date, motionAt: Date? = nil, motionResult: String? = nil) {
+            self.complication = complication; self.battery = battery; self.at = at; self.motionAt = motionAt; self.motionResult = motionResult
+        }
     }
 
-    public static func shouldSend(last: Last?, complication: Bool, battery: Double, now: Date) -> Bool {
+    public static func shouldSend(last: Last?, complication: Bool, battery: Double, now: Date, motionAt: Date? = nil, motionResult: String? = nil) -> Bool {
         guard let l = last else { return true }
         return l.complication != complication || abs(l.battery - battery) >= 0.1 || now.timeIntervalSince(l.at) >= 6 * 3600
+            || l.motionAt != motionAt || l.motionResult != motionResult
     }
 
-    public static func action(complication: Bool, battery: Double, now: Date = Date()) -> PendingAction {
+    /// The movement recording rides on fields the payload already has: `start` is when a
+    /// window was last asked for (epoch ms), `kind` what asked, `answer` what the last read found.
+    public static func action(complication: Bool, battery: Double, now: Date = Date(),
+                              motionAt: Date? = nil, motionBy: RestlessRecording.Trigger? = nil, motionResult: String? = nil) -> PendingAction {
         PendingAction(type: .watchStatus, at: now, source: .watch,
-                      payload: .init(complication: complication, battery: (battery * 100).rounded() / 100))
+                      payload: .init(kind: motionBy?.rawValue, answer: motionResult,
+                                     start: motionAt.map { ($0.timeIntervalSince1970 * 1000).rounded() },
+                                     complication: complication, battery: (battery * 100).rounded() / 100))
     }
 }
 

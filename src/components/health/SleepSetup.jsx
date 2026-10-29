@@ -3,7 +3,9 @@ import { Check, Circle, Minus } from 'lucide-react'
 import useStore, { todayStr } from '../../store/useStore'
 import { addDays } from '../../health/tz'
 import { setupChecklist } from '../../sleep/setup'
-import useHealthModel from './useHealthModel'
+import useHealthModel, { tz } from './useHealthModel'
+import { motionWords } from '../../sleep/restlessMatch'
+import { hhmm } from '../../health/engine/planner'
 
 const muted = { color: 'var(--text-3)' }
 const soft = { color: 'var(--text-2)' }
@@ -27,6 +29,7 @@ export function useSleepSetup(model) {
       screenTime: ss.screenTimeAvailable === false ? null : !!ss.screenTimeOn,
       roomSensor: ss.roomSensor ?? null,
       watchBattery: watch?.battery ?? null,
+      motionNote: motionWords({ at: watch?.motionAt, by: watch?.motionBy, result: watch?.motionResult }, (ms) => hhmm(tz.hourOf(ms) * 60), Date.now()),
     })
   }, [model, nightExtras, ss, watch, t])
 }

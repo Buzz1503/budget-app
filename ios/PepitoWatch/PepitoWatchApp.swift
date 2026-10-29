@@ -76,7 +76,7 @@ final class WatchAppDelegate: NSObject, WKApplicationDelegate, UNUserNotificatio
     func applicationDidFinishLaunching() {
         Task { @MainActor in
             WatchStore.shared.activate()
-            RestlessRecorder.shared.tick()
+            RestlessRecorder.shared.tick(.appRun)
             WatchSelfCheck.run()
         }
         UNUserNotificationCenter.current().delegate = self
@@ -85,17 +85,16 @@ final class WatchAppDelegate: NSObject, WKApplicationDelegate, UNUserNotificatio
     }
 
     func applicationDidBecomeActive() {
-        Task { @MainActor in RestlessRecorder.shared.tick(); WatchSelfCheck.run() }
+        Task { @MainActor in RestlessRecorder.shared.tick(.appRun); WatchSelfCheck.run() }
     }
 
-    /// Background refresh: start the evening's movement recording, summarise
-    /// the night, and at the evening prompt check the battery.
+    /// Background refresh: a fresh movement recording window, any unsent
+    /// night summarised, and at the evening prompt the battery check.
     func handle(_ backgroundTasks: Set<WKRefreshBackgroundTask>) {
         for task in backgroundTasks {
             if let refresh = task as? WKApplicationRefreshBackgroundTask {
                 Task { @MainActor in
-                    RestlessRecorder.shared.tick()
-                    await RestlessRecorder.shared.summariseLastNight()
+                    await RestlessRecorder.shared.refresh(.appRun)
                     WatchSelfCheck.run()
                     self.scheduleRefresh()
                     refresh.setTaskCompletedWithSnapshot(false)
@@ -207,9 +206,12 @@ enum WatchSelfCheck {
         guard battery >= 0 else { return }
         let d = UserDefaults.standard
         let last = d.data(forKey: lastReportKey).flatMap { try? JSONDecoder().decode(WatchStatusReport.Last.self, from: $0) }
-        guard WatchStatusReport.shouldSend(last: last, complication: complication, battery: battery, now: now) else { return }
-        WatchStore.shared.send(WatchStatusReport.action(complication: complication, battery: battery, now: now))
-        if let data = try? JSONEncoder().encode(WatchStatusReport.Last(complication: complication, battery: battery, at: now)) {
+        let motionAt = RestlessStart.lastStart
+        let motionResult = RestlessRecorder.shared.lastResult
+        guard WatchStatusReport.shouldSend(last: last, complication: complication, battery: battery, now: now, motionAt: motionAt, motionResult: motionResult) else { return }
+        WatchStore.shared.send(WatchStatusReport.action(complication: complication, battery: battery, now: now,
+                                                        motionAt: motionAt, motionBy: RestlessStart.lastTrigger, motionResult: motionResult))
+        if let data = try? JSONEncoder().encode(WatchStatusReport.Last(complication: complication, battery: battery, at: now, motionAt: motionAt, motionResult: motionResult)) {
             d.set(data, forKey: lastReportKey)
         }
     }

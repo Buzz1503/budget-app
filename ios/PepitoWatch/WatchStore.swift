@@ -72,8 +72,8 @@ final class WatchStore: NSObject, ObservableObject {
         WidgetCenter.shared.reloadAllTimelines()
         WatchReminderScheduler.reschedule(shown)
         refreshSyncState()
-        // a backup start for the evening's movement recording
-        RestlessRecorder.shared.tick()
+        // a fresh movement recording window on every snapshot
+        RestlessRecorder.shared.tick(.snapshot)
     }
 
     func refreshSyncState() {
@@ -243,9 +243,11 @@ extension WatchStore: WCSessionDelegate {
         Task { @MainActor in self.command(userInfo) }
     }
 
-    /// "Send test" from the phone, and Stop for a session the phone stopped.
+    /// "Send test" from the phone, Stop for a session the phone stopped, and a fresh
+    /// movement recording window when Sleep sounds starts or its schedule fires.
     @MainActor private func command(_ info: [String: Any]) {
         if info["test"] != nil { banner = "Test from your iPhone arrived." }
+        if let trigger = RestlessRecording.trigger(from: info) { RestlessRecorder.shared.tick(trigger) }
         if (info["command"] as? String) == "stopSauna" { SaunaWorkoutManager.shared.stop(fromPhone: true) }
     }
 }

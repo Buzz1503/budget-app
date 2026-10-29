@@ -2698,7 +2698,10 @@ const useStore = create(
             }
             case 'watchStatus': {
               const prev = get().nativeState.watch || {}
-              get().setNativeState({ watch: { complication: o.complication ?? prev.complication ?? null, battery: o.battery ?? prev.battery ?? null, at: o.at } })
+              get().setNativeState({ watch: {
+                complication: o.complication ?? prev.complication ?? null, battery: o.battery ?? prev.battery ?? null, at: o.at,
+                motionAt: o.motionAt ?? prev.motionAt ?? null, motionBy: o.motionBy ?? prev.motionBy ?? null, motionResult: o.motionResult ?? prev.motionResult ?? null,
+              } })
               break
             }
             case 'skipDose':
