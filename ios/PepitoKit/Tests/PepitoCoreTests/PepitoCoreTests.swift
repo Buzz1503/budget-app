@@ -864,7 +864,8 @@ final class RestlessnessTests: XCTestCase {
         // a night already sent is not read again; one that failed to send is
         XCTAssertEqual(RestlessRecording.nightsToSend(samples, sent: ["2026-10-23"], now: now, calendar: cal).map(\.wake), ["2026-10-24"])
         // a night that has just ended waits a few minutes for the recorder
-        XCTAssertEqual(RestlessRecording.nightsToSend(samples, sent: ["2026-10-23"], now: at(24, 6).addingTimeInterval(120), calendar: cal).map(\.wake), [])
+        // (the night ending 21 Oct 07:00 is still inside three days at 24 Oct 06:02, so it is marked sent here)
+        XCTAssertEqual(RestlessRecording.nightsToSend(samples, sent: ["2026-10-21", "2026-10-23"], now: at(24, 6).addingTimeInterval(120), calendar: cal).map(\.wake), [])
     }
 
     func testLongNightsAreReadInTwelveHourPieces() {
