@@ -103,34 +103,66 @@ await step('Sleep: hero, hypnogram, breakdown, stages, vitals, timing, plan, fac
   await seen('[data-testid="last-night"]')
   const score = Number(await page.textContent('[data-testid="sleep-score"]'))
   if (!(score >= 0 && score <= 100)) throw new Error(`score ${score}`)
-  // hypnogram: four rows, a tap names the stretch
+  // stages: one row each with its total; a tap does nothing, full screen has its own button
   await seen('[data-testid="hypnogram"]')
-  await page.locator('[data-testid="hypno-seg-deep"]').first().click()
-  const detail = await page.textContent('[data-testid="hypno-detail"]')
-  if (!/^Deep · \d\d:\d\d to \d\d:\d\d · /.test(detail)) throw new Error(`hypno detail: ${detail}`)
-  // press and drag: one line through every lane, the panel says what each lane says at that minute
-  const box = await page.locator('[data-testid="night-card"] [data-testid="hypnogram"]').boundingBox()
-  await page.mouse.move(box.x + box.width * 0.4, box.y + box.height * 0.5)
+  const deepLabel = await page.textContent('[data-testid="night-card"] [data-testid="stage-label-deep"]')
+  if (!/^Deep\s*\d/.test(deepLabel)) throw new Error(`deep label: ${deepLabel}`)
+  const plot = '[data-testid="night-card"] [data-testid="hypnogram"]'
+  await page.locator(plot).scrollIntoViewIfNeeded()
+  const box = await page.locator(plot).boundingBox()
+  await page.mouse.click(box.x + box.width * 0.6, box.y + box.height * 0.3)
+  await page.waitForTimeout(300)
+  if (await page.locator('[data-testid="night-fullscreen"]').count()) throw new Error('a tap opened full screen')
+  // a vertical move belongs to the page: no crosshair
+  await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.3)
   await page.mouse.down()
-  await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5, { steps: 6 })
+  await page.mouse.move(box.x + box.width * 0.5 + 2, box.y + box.height * 0.3 + 40, { steps: 6 })
+  if (await page.locator('[data-testid="night-crosshair"]').count()) throw new Error('a vertical move drew the crosshair')
   await page.mouse.up()
+  // a sideways drag: the crosshair and the panel of big numbers, gone on release
+  await page.locator(plot).scrollIntoViewIfNeeded()
+  const b2 = await page.locator(plot).boundingBox()
+  await page.mouse.move(b2.x + b2.width * 0.4, b2.y + b2.height * 0.3)
+  await page.mouse.down()
+  await page.mouse.move(b2.x + b2.width * 0.55, b2.y + b2.height * 0.3, { steps: 8 })
   await page.locator('[data-testid="night-crosshair"]').waitFor({ state: 'attached', timeout: 5000 })
-  if (!/^\d\d:\d\d · /.test(await page.textContent('[data-testid="cross-time"]'))) throw new Error('crosshair panel has no time')
+  if (!/^\d\d:\d\d$/.test((await page.textContent('[data-testid="cross-time"]')).trim())) throw new Error('crosshair panel has no time')
+  await seen('[data-testid="cross-stage"]')
+  await page.mouse.up()
+  await page.locator('[data-testid="night-crosshair"]').waitFor({ state: 'detached', timeout: 5000 })
   await seen('[data-testid="night-summary"]')
+  // pinch on the card: two pointers spreading zoom the time axis, the overview strip shows where
+  await page.evaluate(async () => {
+    const el = document.querySelector('[data-testid="night-card"] [data-testid="hypnogram"]')
+    const r = el.getBoundingClientRect()
+    const y = r.top + r.height * 0.3
+    const cx = r.left + r.width * 0.6
+    const fire = (type, id, x) => el.dispatchEvent(new PointerEvent(type, { bubbles: true, pointerId: id, pointerType: 'touch', clientX: x, clientY: y }))
+    fire('pointerdown', 11, cx - 10); fire('pointerdown', 12, cx + 10)
+    for (let i = 1; i <= 8; i++) { fire('pointermove', 11, cx - 10 - i * 8); fire('pointermove', 12, cx + 10 + i * 8); await new Promise((ok) => setTimeout(ok, 20)) }
+    fire('pointerup', 12, cx + 74); fire('pointerup', 11, cx - 74)
+  })
+  await seen('[data-testid="night-overview"]')
+  const zoomedFrom = Number(await page.getAttribute(plot, 'data-from'))
+  const zoomedTo = Number(await page.getAttribute(plot, 'data-to'))
+  if (!(zoomedTo - zoomedFrom >= 30 * 60000)) throw new Error('zoomed under 30 minutes')
+  // double tap: the whole night again
+  await page.locator(plot).scrollIntoViewIfNeeded()
+  const b3 = await page.locator(plot).boundingBox()
+  await page.mouse.dblclick(b3.x + b3.width * 0.6, b3.y + b3.height * 0.3)
+  await page.locator('[data-testid="night-overview"]').waitFor({ state: 'detached', timeout: 5000 })
   if (await page.locator('[data-testid="happened-row"]').count()) {
     await page.locator('[data-testid="happened-row"]').first().click()
     await page.locator('[data-testid="night-crosshair"]').waitFor({ state: 'attached', timeout: 5000 })
   }
-  // lane info, then full screen with zoom down to 30 minutes
+  // lane info, then full screen from the expand icon: the same chart, no zoom buttons
   await page.locator('[data-testid="night-card"] [data-testid="lane-info-stages"]').dispatchEvent('pointerup')
   await seen('[data-testid="lane-info"]')
   await closeSheet()
   await page.click('[data-testid="night-expand"]')
   await seen('[data-testid="night-fullscreen"]')
-  for (let i = 0; i < 6; i++) await page.click('[data-testid="night-zoom-in"]')
-  const win = await page.textContent('[data-testid="night-window"]')
-  const [a, b] = win.split(' to ').map((x) => Number(x.slice(0, 2)) * 60 + Number(x.slice(3, 5)))
-  if (((b - a + 1440) % 1440) !== 30) throw new Error(`zoomed window is ${win}, expected 30 minutes`)
+  await seen('[data-testid="night-fullscreen"] [data-testid="hypnogram"]')
+  if (await page.locator('[data-testid="night-zoom-in"]').count()) throw new Error('zoom buttons are back')
   await page.click('[data-testid="night-full-close"]')
   for (const k of ['duration', 'consistency', 'restorative', 'efficiency']) await seen(`[data-testid="part-${k}"]`)
   await seen('[data-testid="stage-deep"] [data-testid="stage-typical"]')

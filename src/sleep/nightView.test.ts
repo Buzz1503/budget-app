@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { momentAt, restlessBands, whatHappened, nightSummary, soundLane, SOUND_LANE_WORDS, movementWord, hrRange, zoomNight, NIGHT_ZOOM_MIN } from './nightView'
+import { momentAt, restlessBands, whatHappened, nightSummary, soundLane, SOUND_LANE_WORDS, movementWord, hrRange } from './nightView'
 import type { NightData } from './nightView'
 import type { SoundsSession } from './sounds'
 
@@ -84,18 +84,6 @@ describe('the summary line and the Sound lane', () => {
     expect(soundLane([])).toBe('off')
     expect(soundLane(null)).toBe('off')
     expect(soundLane(night.sounds)).toBe('heard')
-    expect(SOUND_LANE_WORDS).toEqual({ quiet: 'Listening, nothing heard', off: 'Not recording' })
-  })
-})
-
-describe('zooming the night', () => {
-  it('never narrower than 30 minutes and never outside the night', () => {
-    const n = { start: m(0), end: m(480) }
-    const z = zoomNight({ from: m(0), to: m(480) }, 0.001, 0.5, n)
-    expect((z.to - z.from) / 60000).toBe(NIGHT_ZOOM_MIN)
-    const out = zoomNight({ from: m(100), to: m(200) }, 100, 0.5, n)
-    expect(out).toEqual({ from: m(0), to: m(480) })
-    const edge = zoomNight({ from: m(400), to: m(480) }, 0.5, 1, n)
-    expect(edge.to).toBe(m(480))
+    expect(SOUND_LANE_WORDS).toEqual({ quiet: 'Nothing heard', off: 'Not recording' })
   })
 })

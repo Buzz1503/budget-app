@@ -31,6 +31,8 @@ export const PREVIEW_SCREENS = {
   bloods: { tab: 'bloods' },
   import: { tab: 'scans' },
   'import-list': { tab: 'scans' },
+  'sleep-zoom': { tab: 'sleep' },
+  'sleep-cross': { tab: 'sleep' },
   'import-check': { tab: 'scans' },
 }
 
@@ -142,5 +144,37 @@ export async function seedPreview() {
   const seg = PREVIEW_SCREENS[screen]?.seg
   if (seg) useHealthLink.getState().setBodySegment?.(seg)
   if (screen === 'import-list' || screen === 'import-check') window.__previewImport = () => import('./importFixtures').then((m) => m.dropImportFixtures())
+  if (screen === 'sleep-zoom' || screen === 'sleep-cross') {
+    // pointer events on the night chart, as a finger would send them
+    const fire = (type, id, x, y) => {
+      const el = document.querySelector('[data-testid="night-card"] [data-testid="hypnogram"]')
+      el.dispatchEvent(new PointerEvent(type, { bubbles: true, pointerId: id, pointerType: 'touch', clientX: x, clientY: y, isPrimary: id === 1 }))
+    }
+    const at = () => {
+      const el = document.querySelector('[data-testid="night-card"] [data-testid="hypnogram"]')
+      el.scrollIntoView({ block: 'center' })
+      const r = el.getBoundingClientRect()
+      return { r, y: r.top + r.height * 0.3 }
+    }
+    window.__previewNightZoom = async () => {
+      const { r, y } = at()
+      const cx = r.left + r.width * 0.55
+      fire('pointerdown', 1, cx - 15, y); fire('pointerdown', 2, cx + 15, y)
+      for (let i = 1; i <= 10; i++) { fire('pointermove', 1, cx - 15 - i * 6, y); fire('pointermove', 2, cx + 15 + i * 6, y); await new Promise((ok) => setTimeout(ok, 20)) }
+      fire('pointerup', 2, cx + 75, y); fire('pointerup', 1, cx - 75, y)
+      await new Promise((ok) => setTimeout(ok, 300))
+      // then press, hold and drag for the crosshair
+      const { r: r2, y: y2 } = at()
+      fire('pointerdown', 1, r2.left + r2.width * 0.5, y2)
+      await new Promise((ok) => setTimeout(ok, 300))
+      fire('pointermove', 1, r2.left + r2.width * 0.62, y2)
+    }
+    window.__previewNightCross = async () => {
+      const { r, y } = at()
+      fire('pointerdown', 1, r.left + r.width * 0.5, y)
+      fire('pointermove', 1, r.left + r.width * 0.5 + 14, y + 1)
+      fire('pointermove', 1, r.left + r.width * 0.58, y + 1)
+    }
+  }
   window.__previewReady = true
 }

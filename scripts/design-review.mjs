@@ -23,6 +23,7 @@ const SCREENS = [
   ['home'], ['composition'], ['effects'], ['recovery'],
   ['sleep'], ['sleep-full', '[data-testid="night-expand"]'], ['recovery-full', '[data-testid="chart-expand"]'], ['sleep-lab', '[data-testid="lab-open-analysis"]', '[data-testid="lab-helps"]'],
   ['sleep-sounds', '[data-testid="sounds-row"]'],
+  ['sleep-zoom', 'eval:__previewNightZoom', '[data-testid="night-overview"]'], ['sleep-cross', 'eval:__previewNightCross', '[data-testid="cross-panel"]'],
   ['sauna'], ['more'], ['stock'], ['bloods'], ['import'], ['import-list', 'eval:__previewImport', '[data-testid="import-list"]'],
   ['import-check', 'eval:__previewImport', '[data-testid="import-list"]', '[data-testid="import-row"]:has([data-status="check"])'],
 ].filter(([n]) => !only.length || only.includes(n))
@@ -62,7 +63,7 @@ try {
     const dash = await page.evaluate(() => document.body.innerText.split('\n').filter((l) => l.includes('\u2014')).slice(0, 3))
     if (dash.length) problems.push(`${name}: em dash in ${JSON.stringify(dash)}`)
     // a full screen view is what the phone shows, portrait then landscape
-    if (name.endsWith('-full') || name === 'import-check') {
+    if (name.endsWith('-full') || name === 'import-check' || name === 'sleep-zoom' || name === 'sleep-cross') {
       await page.screenshot({ path: `${OUT}/${name}.png` })
       await page.setViewportSize({ width: 844, height: 390 })
       await page.waitForTimeout(800)

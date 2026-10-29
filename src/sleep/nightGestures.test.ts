@@ -161,6 +161,9 @@ describe('time axis', () => {
     expect(tickStepMin(2 * H)).toBe(30)
     expect(tickStepMin(60 * MIN)).toBe(15)
     expect(tickStepMin(30 * MIN)).toBe(5)
+    expect(tickStepMin(99 * MIN)).toBe(30)
+    // full screen is wider, so the same window gets finer ticks
+    expect(tickStepMin(99 * MIN, 700)).toBe(15)
   })
 
   it('ticks fall on whole local times', () => {

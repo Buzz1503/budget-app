@@ -225,14 +225,15 @@ export function overviewDrag(start: Win, dxPx: number, width: number, night: Spa
 
 // ------------------------------------------------------------ the time axis
 
-/** Minutes between ticks for a window: 2 h over 6 h, 1 h, 30 min, 15 min, then 5 min under 45 minutes. */
-export function tickStepMin(spanMs: number): number {
-  const m = spanMs / MIN
-  if (m > 6 * 60) return 120
-  if (m > 3 * 60) return 60
-  if (m > 100) return 30
-  if (m > 45) return 15
-  return 5
+/**
+ * Minutes between ticks: the finest of 5, 15, 30 minutes, 1, 2 or 3 hours that
+ * keeps labels `minGap` apart across a plot `plotW` wide (both in chart units),
+ * so a long night shows hours and a 30 minute window shows 5 minute ticks.
+ */
+export const TICK_STEPS = [5, 15, 30, 60, 120, 180]
+export function tickStepMin(spanMs: number, plotW = 246, minGap = 40): number {
+  const m = Math.max(1, spanMs / MIN)
+  return TICK_STEPS.find((s) => (s / m) * plotW >= minGap) ?? TICK_STEPS[TICK_STEPS.length - 1]
 }
 
 const pad = (n: number) => String(n).padStart(2, '0')
@@ -245,8 +246,8 @@ export const clockLabel = (minuteOfDay: number) => {
  * Ticks on whole local steps inside the window. `minuteOfDay` is the local
  * clock at an instant, in minutes (fractional).
  */
-export function nightTicks(win: Win, minuteOfDay: (ms: number) => number): Array<{ t: number; label: string }> {
-  const step = tickStepMin(win.to - win.from)
+export function nightTicks(win: Win, minuteOfDay: (ms: number) => number, plotW?: number): Array<{ t: number; label: string }> {
+  const step = tickStepMin(win.to - win.from, plotW)
   const m0 = minuteOfDay(win.from)
   const into = ((m0 % step) + step) % step
   const first = win.from + (into === 0 ? 0 : (step - into) * MIN)
@@ -260,7 +261,7 @@ export function nightTicks(win: Win, minuteOfDay: (ms: number) => number): Array
  * against the edge it would cross (`labelW` is its width).
  */
 export function tickPlace(x: number, labelW: number, left: number, right: number): { x: number; anchor: 'start' | 'middle' | 'end' } {
-  if (x + labelW / 2 > right) return { x: Math.min(x, right), anchor: 'end' }
-  if (x - labelW / 2 < left) return { x: Math.max(x, left), anchor: 'start' }
+  if (x + labelW / 2 > right) return { x: right, anchor: 'end' }
+  if (x - labelW / 2 < left) return { x: left, anchor: 'start' }
   return { x, anchor: 'middle' }
 }

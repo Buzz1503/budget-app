@@ -61,6 +61,11 @@
   --series-muscle: #8db7ff;
   --series-sleep: var(--indigo);
   --series-sauna: #f2a65a;
+  /* sleep stages: one colour each, so blocks read like Apple Health and Whoop */
+  --stage-awake: #ff8a73;
+  --stage-rem: #8fd2ff;
+  --stage-core: #4d8dff;
+  --stage-deep: #5b4fe0;
   --tint: 16%;
 
   --r-sm: 10px;

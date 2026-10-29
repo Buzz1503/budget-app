@@ -136,7 +136,7 @@ export function soundLane(sessions: SoundsSession[] | null | undefined): 'heard'
   return sessions.some((s) => s.events.length) ? 'heard' : 'quiet'
 }
 
-export const SOUND_LANE_WORDS = { quiet: 'Listening, nothing heard', off: 'Not recording' } as const
+export const SOUND_LANE_WORDS = { quiet: 'Nothing heard', off: 'Not recording' } as const
 
 export interface Happening { t: number; kind: 'wake' | 'restless' | 'surge' | 'spo2' | 'snoring'; text: string }
 
@@ -232,15 +232,71 @@ export function zoomNight(win: { from: number; to: number }, factor: number, at:
 // ------------------------------------------------------------------ layout
 
 /**
- * The night chart's sizes, in points. On the card the lanes are compact; in
- * full screen the stages take at least 210 and every other lane 52, so each
- * reads at a glance in either orientation.
+ * The night chart's sizes, in points. On the card the stages take 160 (one
+ * row each for Awake, REM, Core and Deep) and each lane 36 to 44; in full
+ * screen the stages take at least 240 and every lane 52.
  */
 export const NIGHT_LAYOUT = {
-  cardRowH: 24,
-  cardLaneH: { move: 32, sound: 28, hr: 44, spo2: 24 } as Record<string, number>,
+  cardStagesH: 160,
+  cardLaneH: { move: 40, sound: 36, hr: 44, spo2: 36 } as Record<string, number>,
   fullLaneH: 52,
-  fullStagesMin: 210,
+  fullStagesMin: 240,
+  /** a short screen (landscape): lanes and stages give way so it all fits */
+  fullLaneTight: 36,
+  fullStagesTight: 120,
+  tightBelow: 480,
+}
+
+/** One colour per stage: Awake coral, REM light blue, Core mid blue, Deep deep indigo. */
+export const STAGE_COLOR: Record<Stage, string> = {
+  awake: 'var(--stage-awake)', rem: 'var(--stage-rem)', core: 'var(--stage-core)', deep: 'var(--stage-deep)', asleep: 'var(--stage-core)',
+}
+
+/** Minutes in each stage row over the whole night. */
+export function stageTotals(steps: Array<{ start: number; end: number; row: Stage }>): Partial<Record<Stage, number>> {
+  const out: Partial<Record<Stage, number>> = {}
+  for (const s of steps) out[s.row] = (out[s.row] || 0) + (s.end - s.start) / MIN
+  for (const k of Object.keys(out) as Stage[]) out[k] = Math.round(out[k] as number)
+  return out
+}
+
+/** A smooth line through points (Catmull-Rom as cubic Béziers), for the heart rate lane. */
+export function smoothPath(pts: Array<[number, number]>): string {
+  if (!pts.length) return ''
+  const f = (v: number) => v.toFixed(1)
+  if (pts.length < 3) return pts.map(([x, y], i) => `${i ? 'L' : 'M'}${f(x)},${f(y)}`).join(' ')
+  let d = `M${f(pts[0][0])},${f(pts[0][1])}`
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[Math.max(0, i - 1)]
+    const p1 = pts[i]
+    const p2 = pts[i + 1]
+    const p3 = pts[Math.min(pts.length - 1, i + 2)]
+    const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6]
+    const c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6]
+    d += ` C${f(c1[0])},${f(c1[1])} ${f(c2[0])},${f(c2[1])} ${f(p2[0])},${f(p2[1])}`
+  }
+  return d
+}
+
+/** The night's lowest heart rate reading: where and what. */
+export function hrLow(hr: Array<[number, number]> | undefined, start: number): { t: number; bpm: number } | null {
+  if (!hr?.length) return null
+  let best = hr[0]
+  for (const p of hr) if (p[1] < best[1]) best = p
+  return { t: start + best[0] * MIN, bpm: Math.round(best[1]) }
+}
+
+export interface Cell { key: string; label: string; value: string; unit?: string }
+
+/** The crosshair panel: big values, no sentence. Stage and time are the headline; the rest are cells. */
+export function crosshairCells(m: Moment): Cell[] {
+  const out: Cell[] = []
+  if (m.hr != null) out.push({ key: 'hr', label: 'Heart rate', value: String(Math.round(m.hr)), unit: 'bpm' })
+  if (m.movement) out.push({ key: 'move', label: 'Movement', value: m.movement })
+  if (m.spo2 != null) out.push({ key: 'spo2', label: 'SpO2', value: String(m.spo2), unit: '%' })
+  if (m.sound) out.push({ key: 'sound', label: 'Sound', value: m.sound })
+  if (m.event) out.push({ key: 'event', label: 'Note', value: m.event })
+  return out
 }
 
 /** The legend under the night chart: one item per kind of mark it drew. */
