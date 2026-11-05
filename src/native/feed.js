@@ -6,7 +6,7 @@ import { create } from 'zustand'
 
 export const useNativeFeed = create((set) => ({
   readiness: null,
-  // last night: { date, asleepMin, score, readiness, restless, snoringMin } for the Watch's sleep mode
+  // last night: { date, asleepMin, score, readiness, wakeUps, awakeMin } for the Watch's sleep tile and summary
   lastNight: null,
   maxHR: null,
   // tonight's planned bedtime and the usual wake time ('HH:MM'), from the sleep planner
@@ -18,7 +18,5 @@ export const useNativeFeed = create((set) => ({
   openCount: false,
   // the evening prompt's Log: the Sleep tab opens the evening sheet and clears this
   openEvening: false,
-  // a "start Sleep sounds" notification was tapped: the Sleep tab opens the Sleep sounds screen
-  openSounds: false,
   setHealth: (patch) => set(patch),
 }))

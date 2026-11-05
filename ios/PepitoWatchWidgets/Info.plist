@@ -25,14 +25,12 @@
 		<key>NSExtensionPointIdentifier</key>
 		<string>com.apple.widgetkit-extension</string>
 	</dict>
-	<key>NSMotionUsageDescription</key>
-	<string>Pepito+ records wrist movement overnight to show how restless your sleep was. Only a summary goes to your iPhone.</string>
 	<key>PepitoFeatures</key>
 	<dict>
 		<key>appGroup</key>
 		<true/>
 		<key>homeKit</key>
-		<true/>
+		<false/>
 		<key>liveActivities</key>
 		<true/>
 		<key>screenTime</key>

@@ -18,8 +18,8 @@ public enum WatchRoute: String, Hashable, Sendable, CaseIterable {
 
     public var url: URL { URL(string: "pepito://\(rawValue)")! }
 
-    public static func launchPath(saunaRunning: Bool, sleeping: Bool = false) -> [WatchRoute] {
-        saunaRunning ? [.sauna] : sleeping ? [.sleep] : []
+    public static func launchPath(saunaRunning: Bool) -> [WatchRoute] {
+        saunaRunning ? [.sauna] : []
     }
 }
 

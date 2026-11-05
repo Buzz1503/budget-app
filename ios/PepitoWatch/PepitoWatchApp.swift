@@ -66,8 +66,7 @@ struct RootView: View {
     }
 
     private func showSessionIfRunning() {
-        let path = WatchRoute.launchPath(saunaRunning: sauna.isRunning || sauna.phase == .coolDown || sauna.phase == .saving || sauna.phase == .summary,
-                                         sleeping: SleepMode.isSleeping(store.sleepNight, now: Date()))
+        let path = WatchRoute.launchPath(saunaRunning: sauna.isRunning || sauna.phase == .coolDown || sauna.phase == .saving || sauna.phase == .summary)
         if !path.isEmpty, store.path != path { store.path = path }
     }
 }
@@ -76,7 +75,6 @@ final class WatchAppDelegate: NSObject, WKApplicationDelegate, UNUserNotificatio
     func applicationDidFinishLaunching() {
         Task { @MainActor in
             WatchStore.shared.activate()
-            RestlessRecorder.shared.tick(.appRun)
             WatchSelfCheck.run()
         }
         UNUserNotificationCenter.current().delegate = self
@@ -85,16 +83,14 @@ final class WatchAppDelegate: NSObject, WKApplicationDelegate, UNUserNotificatio
     }
 
     func applicationDidBecomeActive() {
-        Task { @MainActor in RestlessRecorder.shared.tick(.appRun); WatchSelfCheck.run() }
+        Task { @MainActor in WatchSelfCheck.run() }
     }
 
-    /// Background refresh: a fresh movement recording window, any unsent
-    /// night summarised, and at the evening prompt the battery check.
+    /// Background refresh: at the evening prompt, the battery check.
     func handle(_ backgroundTasks: Set<WKRefreshBackgroundTask>) {
         for task in backgroundTasks {
             if let refresh = task as? WKApplicationRefreshBackgroundTask {
                 Task { @MainActor in
-                    await RestlessRecorder.shared.refresh(.appRun)
                     WatchSelfCheck.run()
                     self.scheduleRefresh()
                     refresh.setTaskCompletedWithSnapshot(false)
@@ -105,10 +101,10 @@ final class WatchAppDelegate: NSObject, WKApplicationDelegate, UNUserNotificatio
         }
     }
 
-    /// The recording's own schedule, or the next evening prompt if that comes first.
+    /// The next evening prompt, else six hours from now.
     private func scheduleRefresh() {
         let now = Date()
-        var next = RestlessRecording.nextRefresh(after: now)
+        var next = now.addingTimeInterval(6 * 3600)
         if let evening = WatchStore.shared.snapshot?.sleep?.nextEveningDate, evening > now, evening < next { next = evening.addingTimeInterval(60) }
         WKApplication.shared().scheduleBackgroundRefresh(withPreferredDate: next, userInfo: nil) { _ in }
     }
@@ -206,12 +202,9 @@ enum WatchSelfCheck {
         guard battery >= 0 else { return }
         let d = UserDefaults.standard
         let last = d.data(forKey: lastReportKey).flatMap { try? JSONDecoder().decode(WatchStatusReport.Last.self, from: $0) }
-        let motionAt = RestlessStart.lastStart
-        let motionResult = RestlessRecorder.shared.lastResult
-        guard WatchStatusReport.shouldSend(last: last, complication: complication, battery: battery, now: now, motionAt: motionAt, motionResult: motionResult) else { return }
-        WatchStore.shared.send(WatchStatusReport.action(complication: complication, battery: battery, now: now,
-                                                        motionAt: motionAt, motionBy: RestlessStart.lastTrigger, motionResult: motionResult))
-        if let data = try? JSONEncoder().encode(WatchStatusReport.Last(complication: complication, battery: battery, at: now, motionAt: motionAt, motionResult: motionResult)) {
+        guard WatchStatusReport.shouldSend(last: last, complication: complication, battery: battery, now: now) else { return }
+        WatchStore.shared.send(WatchStatusReport.action(complication: complication, battery: battery, now: now))
+        if let data = try? JSONEncoder().encode(WatchStatusReport.Last(complication: complication, battery: battery, at: now)) {
             d.set(data, forKey: lastReportKey)
         }
     }

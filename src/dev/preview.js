@@ -1,6 +1,6 @@
 // The design review harness, dev builds only (`?preview=<screen>`). It seeds a
-// realistic dataset once (two months of doses, five weeks of sauna, Sleep sounds
-// nights, the Evolt scans the app already imports, the demo Health data), skips
+// realistic dataset once (two months of doses, five weeks of sauna,
+// the Evolt scans the app already imports, the demo Health data), skips
 // the Health connect screen, and opens the screen asked for. The screenshot
 // script (scripts/design-review.mjs) walks every screen at 390 x 844.
 //
@@ -24,7 +24,6 @@ export const PREVIEW_SCREENS = {
   sleep: { tab: 'sleep' },
   'sleep-full': { tab: 'sleep' },
   'sleep-lab': { tab: 'sleep' },
-  'sleep-sounds': { tab: 'sleep' },
   sauna: { tab: 'sauna' },
   more: { tab: 'more' },
   stock: { tab: 'supplies' },
@@ -79,34 +78,6 @@ function saunaFixture(t, r) {
   return out
 }
 
-function soundsFixture(t, r) {
-  const nights = {}
-  for (let i = 0; i < 12; i++) {
-    const wake = addDays(t, -i)
-    if (i === 3) continue // a night it did not run
-    const start = new Date(`${addDays(wake, -1)}T22:40:00`).getTime()
-    const end = new Date(`${wake}T06:50:00`).getTime()
-    const events = []
-    if (i % 4 !== 1) {
-      for (let k = 0; k < 6 + Math.floor(r() * 10); k++) {
-        const s = start + (60 + r() * 380) * 60000
-        events.push({ s, e: s + (1 + r() * 4) * 60000, label: 'snoring', c: 0.6 + r() * 0.35 })
-      }
-    }
-    if (r() < 0.5) { const s = start + r() * 400 * 60000; events.push({ s, e: s + 2000, label: 'cough', c: 0.8 }) }
-    events.sort((a, b) => a.s - b.s)
-    const levels = []
-    for (let m = start; m < end; m += 60000) levels.push([m, Math.round(-58 + (r() < 0.02 ? 25 : 0) + (r() - 0.5) * 4)])
-    nights[wake] = {
-      sounds: [{
-        id: `preview-ss-${wake}`, start, end, events, levels, loudMinutes: 3, movingMinutes: 2, lowConfidence: false, room: [],
-        startedBy: i % 2 ? 'schedule' : 'shortcut', stopReason: 'scheduled', gaps: [], checkpoints: 98, open: false, recovered: false,
-      }],
-    }
-  }
-  return nights
-}
-
 /** Seed the store once per browser profile, then connect the demo Health data. */
 export async function seedPreview() {
   const t = todayStr()
@@ -127,11 +98,9 @@ export async function seedPreview() {
     const st = useStore.getState()
     const scans = applyScanHistory(st.measurements, st.bodyStart, evoltScans)
     useStore.setState({ measurements: scans.measurements, bodyStart: scans.bodyStart })
-    const nightExtras = { ...useStore.getState().nightExtras, ...soundsFixture(t, r) }
     useStore.setState({
       saunaSessions: saunaFixture(t, r),
-      nightExtras,
-      sleepSettings: { ...useStore.getState().sleepSettings, sleepSounds: true, setupCardDismissed: true },
+      sleepSettings: { ...useStore.getState().sleepSettings, setupCardDismissed: true },
       healthSettings: { ...useStore.getState().healthSettings, connected: true },
       coachMarks: Object.fromEntries(Object.keys(useStore.getState().coachMarks || {}).map((k) => [k, true])),
     })

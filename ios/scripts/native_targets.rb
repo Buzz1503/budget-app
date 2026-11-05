@@ -50,15 +50,22 @@ end
 # Add every .swift file under `dir` to `target` (missing ones only), and drop
 # the ones that were deleted from the folder.
 def add_sources(project, target, dir, group = nil)
-  return unless Dir.exist?(dir)
-  group ||= group_for(project, dir)
+  # files deleted from the folder leave the target first, even when the whole folder is gone
   target.source_build_phase.files.dup.each do |bf|
-    path = bf.file_ref&.real_path&.to_s
-    next unless path && path.start_with?(dir + '/') && path.end_with?('.swift') && !File.exist?(path)
     ref = bf.file_ref
+    # a reference another target already took out of the project has no path left: drop it too
+    path = begin
+      ref&.real_path&.to_s
+    rescue RuntimeError
+      target.source_build_phase.remove_build_file(bf)
+      next
+    end
+    next unless path && path.start_with?(dir + '/') && path.end_with?('.swift') && !File.exist?(path)
     target.source_build_phase.remove_build_file(bf)
     ref.remove_from_project if ref.build_files.empty?
   end
+  return unless Dir.exist?(dir)
+  group ||= group_for(project, dir)
   existing = target.source_build_phase.files_references.map { |f| f&.real_path&.to_s }
   Dir.glob(File.join(dir, '**', '*.swift')).sort.each do |file|
     sub = File.dirname(file)
@@ -165,12 +172,11 @@ info['NSSupportsLiveActivities'] = FEATURES['liveActivities']
 info['INAlternativeAppNames'] = [{ 'INAlternativeAppName' => 'Pepito' }]
 info['NSFaceIDUsageDescription'] = 'Pepito+ uses Face ID to unlock the app when the lock is on in More, Settings.'
 info['NSHealthUpdateUsageDescription'] = 'Pepito+ writes one thing to Health: water you log with a sauna session. It also asks so the sauna on your Apple Watch can be started from your iPhone.'
-# Sleep Lab: Sleep sounds listens on the iPhone's microphone through the night (on-device
-# classification, no audio saved), reads whether the phone moved, and a HomeKit sensor
-info['NSMicrophoneUsageDescription'] = 'Sleep sounds listens for snoring, coughing and sleep talking on your iPhone while you sleep. It keeps only the time and the kind of sound. No audio is ever saved.'
-info['NSMotionUsageDescription'] = 'Sleep sounds checks whether your iPhone moved in the night, so snoring readings from a phone in the bed are marked less reliable.'
-info['NSHomeKitUsageDescription'] = 'Sleep sounds reads a bedroom temperature sensor every 5 minutes while it runs, if you have one.' if FEATURES['homeKit']
-info['UIBackgroundModes'] = ((info['UIBackgroundModes'] || []) | ['audio'])
+# Sleep sounds (microphone, phone motion, HomeKit room sensor) was removed: all sleep data
+# comes from Apple Health, so these permissions and the audio background mode go.
+%w[NSMicrophoneUsageDescription NSMotionUsageDescription NSHomeKitUsageDescription].each { |k| info.delete(k) }
+modes = (info['UIBackgroundModes'] || []) - ['audio']
+modes.empty? ? info.delete('UIBackgroundModes') : info['UIBackgroundModes'] = modes
 # the daily backups and doctor reports, visible in the Files app under On My iPhone › Pepito+
 info['UIFileSharingEnabled'] = true
 info['LSSupportsOpeningDocumentsInPlace'] = true
@@ -258,8 +264,7 @@ if Dir.exist?(watch_dir)
     'WKCompanionAppBundleIdentifier' => BUNDLE,
     'WKBackgroundModes' => ['workout-processing'],
     'CFBundleURLTypes' => [{ 'CFBundleURLName' => "#{BUNDLE}.watchkitapp", 'CFBundleURLSchemes' => ['pepito'] }],
-    'NSHealthShareUsageDescription' => 'Pepito+ reads your heart rate during a sauna session to show it live and in the summary, and your sleep times to summarise how much you moved in the night.',
-    'NSMotionUsageDescription' => 'Pepito+ records wrist movement overnight to show how restless your sleep was. Only a summary goes to your iPhone.',
+    'NSHealthShareUsageDescription' => 'Pepito+ reads your heart rate during a sauna session to show it live and in the summary.',
     'NSHealthUpdateUsageDescription' => 'Pepito+ saves each sauna session as a workout in Health, with its heart rate.',
     'PepitoFeatures' => features_plist
   })
@@ -310,7 +315,6 @@ if Dir.exist?(watch_widgets_dir) && (wa = project.targets.find { |t| t.name == '
     'CFBundleShortVersionString' => '$(MARKETING_VERSION)',
     'CFBundleVersion' => '$(CURRENT_PROJECT_VERSION)',
     'NSExtension' => { 'NSExtensionPointIdentifier' => 'com.apple.widgetkit-extension' },
-    'NSMotionUsageDescription' => 'Pepito+ records wrist movement overnight to show how restless your sleep was. Only a summary goes to your iPhone.',
     'PepitoFeatures' => features_plist
   })
   configure(ww, {

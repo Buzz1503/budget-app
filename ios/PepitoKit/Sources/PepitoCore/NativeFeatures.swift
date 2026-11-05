@@ -20,7 +20,7 @@ public enum NativeFeatures {
     public static var watchHealthKit: Bool { flag("watchHealthKit") }
     /// The sauna Live Activity.
     public static var liveActivities: Bool { flag("liveActivities") }
-    /// HomeKit, for a bedroom temperature sensor during Sleep sounds.
+    /// HomeKit. Off: it was read only by Sleep sounds, which was removed.
     public static var homeKit: Bool { flag("homeKit") }
     /// Screen Time (Family Controls), for late phone use.
     public static var screenTime: Bool { flag("screenTime") }

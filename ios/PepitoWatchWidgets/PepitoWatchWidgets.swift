@@ -32,11 +32,8 @@ struct WatchProvider: TimelineProvider {
     func getTimeline(in context: Context, completion: @escaping (Timeline<WatchEntry>) -> Void) {
         let snap = SharedStore.shared().readSnapshot()
         let now = Date()
-        // the backup start for tonight's movement recording
-        RestlessStart.startIfDue(enabled: snap?.sleep?.restlessness ?? true, fromExtension: true, now: now)
         let entries = SurfaceRelevance.moments(snap, from: now).map { entry(snap, at: $0) }
-        // back again by the evening, so a refresh after 6 pm can start it
-        let next = min(now.addingTimeInterval(6 * 3600), RestlessRecording.nextRefresh(after: now))
+        let next = now.addingTimeInterval(6 * 3600)
         completion(Timeline(entries: entries, policy: .after(next)))
     }
 
@@ -141,15 +138,15 @@ struct SaunaFamilyView: View {
     }
 }
 
-/// The Pepito sleep complication: a moon that opens Start sleep in the evening, the time since
-/// lights out at night, last night's score by day. New entries at 4 am, noon and 6 pm.
+/// The Pepito sleep complication: last night's sleep score (or hours) from Apple Health,
+/// read-only; a tap opens last night's summary. Refreshed with every new snapshot.
 struct SleepEntry: TimelineEntry {
     let date: Date
     let state: SleepMode.Complication
 }
 
 struct SleepProvider: TimelineProvider {
-    func placeholder(in context: Context) -> SleepEntry { SleepEntry(date: Date(), state: .start) }
+    func placeholder(in context: Context) -> SleepEntry { SleepEntry(date: Date(), state: .empty) }
 
     func getSnapshot(in context: Context, completion: @escaping (SleepEntry) -> Void) {
         completion(entry(at: Date()))
@@ -157,16 +154,12 @@ struct SleepProvider: TimelineProvider {
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<SleepEntry>) -> Void) {
         let now = Date()
-        var dates = [now]
-        var t = now
-        for _ in 0..<4 { t = SleepMode.nextChange(after: t); dates.append(t) }
-        completion(Timeline(entries: dates.map { entry(at: $0) }, policy: .after(dates.last ?? now.addingTimeInterval(6 * 3600))))
+        completion(Timeline(entries: [entry(at: now)], policy: .after(now.addingTimeInterval(6 * 3600))))
     }
 
     private func entry(at date: Date) -> SleepEntry {
         let snap = SharedStore.shared().readSnapshot()
-        let night = SleepMode.load(RestlessStart.defaults)
-        return SleepEntry(date: date, state: SleepMode.complication(now: date, night: night, lastNight: snap?.sleep?.lastNight))
+        return SleepEntry(date: date, state: SleepMode.complication(lastNight: snap?.sleep?.lastNight))
     }
 }
 
@@ -176,7 +169,7 @@ struct WatchSleepWidget: Widget {
             WatchWidgetRoot(.sleep) { SleepFamilyView(entry: entry) }
         }
         .configurationDisplayName("Pepito sleep")
-        .description("Start sleep with one tap; last night's score in the morning.")
+        .description("Last night's sleep score from Apple Health.")
         .supportedFamilies([.accessoryCircular, .accessoryCorner])
     }
 }

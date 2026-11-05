@@ -891,7 +891,6 @@
         "lastUnit": "tablets"
       }
     ],
-    "restlessness": true,
     "took": {
       "id": "an-dex",
       "short": "Dex",
@@ -1105,8 +1104,8 @@
       "asleepMin": 431,
       "score": 80,
       "readiness": 72,
-      "restless": 3,
-      "snoringMin": 17
+      "wakeUps": 3,
+      "awakeMin": 21
     }
   },
   "notifications": {

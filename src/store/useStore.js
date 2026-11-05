@@ -1,5 +1,4 @@
 import { create } from 'zustand'
-import { recordSleepMode } from '../sleep/sleepMode'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import { format } from 'date-fns'
 import {
@@ -167,6 +166,7 @@ function initialState() {
     healthSettings: {
       connected: false,                  // the first-run screen was completed
       sleepPriority: ['watch', 'withings', 'phone', 'other'],
+      sleepSource: null,                 // the chosen sleep source by name, as Health lists it; null is any Apple Watch
       sleepNeedH: 8,
       maxHR: null,                       // null: 208 − 0.7 × age
       wakeTarget: null,                  // 'HH:MM'; null: median of the last 14 nights
@@ -188,18 +188,18 @@ function initialState() {
     morningChecks: {},                   // { wakeDate: { rested, dreams, headache, dryMouth, pee, partner, at } }
     // What the Watch and the iPhone recorded overnight, by wake date. Not
     // re-derivable from Health, so it lives here and in the backup.
-    //   restless: the Watch's movement summary; sounds: Sleep sounds sessions;
+    //   restless and sounds: the removed Watch movement recording and Sleep sounds;
+    //   no longer collected, kept as stored (and in the backup)
     //   lateUseMin: Screen Time minutes after bedtime (by the evening's date, see lateUse)
     nightExtras: {},
     withingsReports: [],                // Withings Medical Report summaries, one per period; never charted (src/body/import/withings.ts)
-    sleepModeLog: {},                   // Watch sleep mode: lights out and get-up per wake date (src/sleep/sleepMode.ts)
-    soundsLog: [],                      // every Sleep sounds start and stop attempt, with the result and iOS error text
+    sleepModeLog: {},                   // removed Watch Start sleep: lights out and get-up per wake date; kept, no longer collected
+    soundsLog: [],                      // removed Sleep sounds: its start and stop log; kept, no longer collected
     lateUse: {},                         // { eveningDate: minutes } from the Screen Time monitor
     apneaOverrides: {},                  // STOP-BANG answers set by hand: { snoring: true, ... }
     sleepSettings: {
-      restlessness: true,                // the Watch's overnight movement recording
-      sleepSounds: false,                // snoring and sound detection on the iPhone
-      schedule: { on: true, start: '21:00', stop: '05:00' }, // Sleep sounds every night, once it is on
+      // restlessness, sleepSounds, schedule: settings of the removed movement
+      // recording and Sleep sounds; old values stay as stored, unused
       sleepAudioApps: ['YouTube'],       // left out of late phone use
       eveningPrompt: true,               // 30 min before planned bedtime
       morningPrompt: true,               // usual wake time + 30 min
@@ -2513,41 +2513,6 @@ const useStore = create(
       answerMorningCheck(wakeDate, patch = {}) {
         set((s) => ({ morningChecks: { ...s.morningChecks, [wakeDate]: mergeMorningCheck(s.morningChecks[wakeDate], patch, new Date().toISOString()) } }))
       },
-      /** The Watch's restlessness summary for a night (latest wins). */
-      setRestless(wakeDate, summary) {
-        if (!wakeDate || !summary) return
-        set((s) => ({ nightExtras: { ...s.nightExtras, [wakeDate]: { ...(s.nightExtras[wakeDate] || {}), restless: summary } } }))
-      },
-      /** The iPhone's start log, each attempt kept once; the newest 200. */
-      addSoundsLog(entries = []) {
-        if (!entries.length) return
-        set((s) => {
-          const key = (e) => `${e.at}|${e.kind}|${e.by}|${e.result}`
-          const have = new Set((s.soundsLog || []).map(key))
-          const fresh = entries.filter((e) => {
-            if (!e || typeof e.at !== 'number' || have.has(key(e))) return false
-            have.add(key(e))
-            return true
-          })
-          if (!fresh.length) return {}
-          return { soundsLog: [...(s.soundsLog || []), ...fresh].sort((a, b) => a.at - b.at).slice(-200) }
-        })
-      },
-      /** Finished Sleep sounds nights from the iPhone, each kept once by id. */
-      addSoundSessions(sessions = [], nightOf) {
-        if (!sessions.length) return
-        set((s) => {
-          const next = { ...s.nightExtras }
-          for (const ss of sessions) {
-            const d = nightOf(ss)
-            const row = { ...(next[d] || {}) }
-            const list = (row.sounds || []).filter((x) => x.id !== ss.id)
-            row.sounds = [...list, ss].sort((a, b) => a.start - b.start)
-            next[d] = row
-          }
-          return { nightExtras: next }
-        })
-      },
       /** A STOP-BANG answer set by hand; null goes back to the automatic one. */
       setApneaOverride(key, value) {
         set((s) => {
@@ -2683,12 +2648,6 @@ const useStore = create(
             case 'morningCheck':
               get().answerMorningCheck(o.date, o.patch)
               break
-            case 'restless':
-              get().setRestless(o.date, o.summary)
-              break
-            case 'sleepMode':
-              set((st) => ({ sleepModeLog: recordSleepMode(st.sleepModeLog || {}, o.kind, o.at) }))
-              break
             case 'saunaRating': {
               // the session the Watch just finished: matched by its start, else its workout
               const list = get().saunaSessions
@@ -2698,10 +2657,7 @@ const useStore = create(
             }
             case 'watchStatus': {
               const prev = get().nativeState.watch || {}
-              get().setNativeState({ watch: {
-                complication: o.complication ?? prev.complication ?? null, battery: o.battery ?? prev.battery ?? null, at: o.at,
-                motionAt: o.motionAt ?? prev.motionAt ?? null, motionBy: o.motionBy ?? prev.motionBy ?? null, motionResult: o.motionResult ?? prev.motionResult ?? null,
-              } })
+              get().setNativeState({ watch: { ...prev, complication: o.complication ?? prev.complication ?? null, battery: o.battery ?? prev.battery ?? null, at: o.at } })
               break
             }
             case 'skipDose':

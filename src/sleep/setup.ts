@@ -14,16 +14,10 @@ export interface SetupInput {
   breathingNights: number
   /** a Pepito complication on the current watch face (from the Watch), null when never reported */
   complication: boolean | null
-  /** Sleep sounds has started by itself (the shortcut) at least once */
-  soundsAuto: boolean
   /** Screen Time access for late phone use, null when not available on this device */
   screenTime: boolean | null
-  /** a HomeKit temperature sensor this app can read, null when HomeKit is off */
-  roomSensor: boolean | null
   /** the Watch battery last reported (0 to 1), null when never */
   watchBattery: number | null
-  /** the Watch's movement recording line (`motionWords`), null when never reported */
-  motionNote?: string | null
 }
 
 export interface SetupItem {
@@ -36,7 +30,7 @@ export interface SetupItem {
   /** a line under it, like the last reported battery */
   note?: string
   /** where the app can take you for it */
-  action?: 'sounds' | 'screenTime' | 'homeKit'
+  action?: 'screenTime'
 }
 
 export function setupChecklist(x: SetupInput): { items: SetupItem[]; done: number; of: number; complete: boolean } {
@@ -55,24 +49,15 @@ export function setupChecklist(x: SetupInput): { items: SetupItem[]; done: numbe
     },
     {
       key: 'complication', label: 'A Pepito complication on your watch face', done: x.complication === true,
-      how: 'Long-press the watch face, Edit, and add any Pepito+ complication. It keeps background updates reliable, including the overnight recording.',
-      note: x.motionNote || undefined,
-    },
-    {
-      key: 'sounds', label: 'Sleep sounds starts by itself', done: x.soundsAuto,
-      how: 'Make it automatic in More › Health › Sleep. The first automatic start ticks this.', action: 'sounds',
+      how: "Long-press the watch face, Edit, and add any Pepito+ complication. It shows last night's sleep score and keeps the Watch up to date.",
     },
     {
       key: 'screenTime', label: 'Screen Time access for late phone use', done: x.screenTime === true,
       how: x.screenTime === null ? 'Not available on this iPhone.' : 'Allow Screen Time in More › Health › Sleep.', action: 'screenTime',
     },
     {
-      key: 'room', label: 'A HomeKit bedroom temperature sensor', done: x.roomSensor === true, optional: true,
-      how: 'Optional. Any HomeKit sensor in a room with "bed" in its name, else the first one found.', action: 'homeKit',
-    },
-    {
       key: 'battery', label: 'Wear the Watch to bed with at least 30% battery', done: null,
-      how: 'If the Watch is under 30% at the evening prompt, it reminds you to charge it first.',
+      how: 'Apple Watch records your sleep stages, heart rate and blood oxygen overnight. If it is under 30% at the evening prompt, it reminds you to charge it first.',
       note: x.watchBattery != null ? `Last reported: ${Math.round(x.watchBattery * 100)}%` : undefined,
     },
   ]

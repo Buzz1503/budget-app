@@ -32,17 +32,15 @@
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>NSHealthShareUsageDescription</key>
-	<string>Pepito+ reads your heart rate during a sauna session to show it live and in the summary, and your sleep times to summarise how much you moved in the night.</string>
+	<string>Pepito+ reads your heart rate during a sauna session to show it live and in the summary.</string>
 	<key>NSHealthUpdateUsageDescription</key>
 	<string>Pepito+ saves each sauna session as a workout in Health, with its heart rate.</string>
-	<key>NSMotionUsageDescription</key>
-	<string>Pepito+ records wrist movement overnight to show how restless your sleep was. Only a summary goes to your iPhone.</string>
 	<key>PepitoFeatures</key>
 	<dict>
 		<key>appGroup</key>
 		<true/>
 		<key>homeKit</key>
-		<true/>
+		<false/>
 		<key>liveActivities</key>
 		<true/>
 		<key>screenTime</key>

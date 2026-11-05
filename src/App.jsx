@@ -138,9 +138,6 @@ export default function App() {
     if (nativeRoute === 'count') {
       setTab('supplies')
       useNativeFeed.setState({ openCount: true })
-    } else if (nativeRoute === 'sounds') {
-      setTab('sleep')
-      useNativeFeed.setState({ openSounds: true })
     } else if (nativeRoute === 'evening') {
       setTab('sleep')
       useNativeFeed.setState({ openEvening: true })

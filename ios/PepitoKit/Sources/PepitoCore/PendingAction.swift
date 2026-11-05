@@ -17,13 +17,13 @@ public struct PendingAction: Codable, Equatable, Identifiable, Sendable {
         case eveningNothing, eveningLog
         /// The morning check from the Watch or a notification (payload.rested, dreams)
         case morningCheck
-        /// The Watch's overnight movement summary (payload.restless)
+        /// No longer sent (the Watch movement recording was removed); kept so older queued actions still decode
         case restlessness
         /// What the Watch reports about itself (payload.complication, battery 0 to 1)
         case watchStatus
         /// The rating step after a Watch session (payload.start, feel, lightheaded, headache, cramps, electrolytes, waterMl)
         case saunaRating
-        /// Watch sleep mode: lights out or "I'm up" (payload.kind lightsOut or up, payload.start epoch ms)
+        /// Watch sleep mode, no longer sent (Start sleep was removed); kept so older queued actions still decode
         case sleepMode
     }
     public enum Source: String, Codable, Sendable {
@@ -92,7 +92,6 @@ public struct PendingAction: Codable, Equatable, Identifiable, Sendable {
         public var factors: [String]?
         public var rested: Int?
         public var dreams: String?
-        public var restless: RestlessSummary?
         public var complication: Bool?
         public var battery: Double?
         // the sauna rating step
@@ -110,7 +109,7 @@ public struct PendingAction: Codable, Equatable, Identifiable, Sendable {
                     samples: [[Double]]? = nil, roundSplits: [Double]? = nil, workoutId: String? = nil,
                     exitAt: Double? = nil, coolDown: [[Double]]? = nil,
                     amount: Double? = nil, unit: String? = nil, takenAt: String? = nil, drinks: Int? = nil, factors: [String]? = nil,
-                    rested: Int? = nil, dreams: String? = nil, restless: RestlessSummary? = nil,
+                    rested: Int? = nil, dreams: String? = nil,
                     complication: Bool? = nil, battery: Double? = nil,
                     feel: Int? = nil, lightheaded: Bool? = nil, headache: Bool? = nil, cramps: Bool? = nil, electrolytes: Bool? = nil, waterMl: Int? = nil) {
             self.date = date; self.slot = slot; self.kind = kind; self.refId = refId; self.refIds = refIds
@@ -120,7 +119,7 @@ public struct PendingAction: Codable, Equatable, Identifiable, Sendable {
             self.samples = samples; self.roundSplits = roundSplits; self.workoutId = workoutId
             self.exitAt = exitAt; self.coolDown = coolDown
             self.amount = amount; self.unit = unit; self.takenAt = takenAt; self.drinks = drinks; self.factors = factors
-            self.rested = rested; self.dreams = dreams; self.restless = restless
+            self.rested = rested; self.dreams = dreams
             self.complication = complication; self.battery = battery
             self.feel = feel; self.lightheaded = lightheaded; self.headache = headache; self.cramps = cramps
             self.electrolytes = electrolytes; self.waterMl = waterMl

@@ -271,7 +271,7 @@ function stockSection(state, now) {
  * @param opts.now  Date
  * @param opts.verdictOf  (compoundA, compoundB) => verdict, from the lazily loaded matrix; null leaves groups out
  * @param opts.readiness  { score, band, bandLabel, status, asOf, rhr, rhrDelta, hrv, hrvDelta, sleepMin } or null
- * @param opts.lastNight  { date, asleepMin, score, readiness, restless, snoringMin } or null (Watch sleep mode)
+ * @param opts.lastNight  { date, asleepMin, score, readiness, wakeUps, awakeMin } or null (the Watch's read-only sleep tile)
  * @param opts.maxHR  from the Health model; falls back to the setting
  */
 export function buildSnapshot(state, { now = new Date(), verdictOf = null, readiness = null, maxHR = null, bedtime = null, wake = null, lastNight = null } = {}) {

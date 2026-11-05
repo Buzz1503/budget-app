@@ -3,6 +3,6 @@
   "timeSensitive": true,
   "watchHealthKit": true,
   "liveActivities": true,
-  "homeKit": true,
+  "homeKit": false,
   "screenTime": true
 }

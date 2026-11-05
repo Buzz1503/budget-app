@@ -138,27 +138,14 @@ describe('a session timed on the iPhone and recorded on the Watch', () => {
   })
 })
 
-describe('Watch sleep mode', () => {
-  it('lights out and I am up from the Watch land on one night, once each', () => {
-    const lightsOut = new Date('2026-10-28T22:40:00').getTime()
-    const up = new Date('2026-10-29T06:50:00').getTime()
+describe('the Watch status report', () => {
+  it('carries the complication and battery only; a later report keeps what was known', () => {
     useStore.getState().applyNativeActions([
-      { id: 'sm1', type: 'sleepMode', at: new Date(lightsOut).toISOString(), source: 'watch', payload: { kind: 'lightsOut', start: lightsOut } },
-      { id: 'sm2', type: 'sleepMode', at: new Date(up).toISOString(), source: 'watch', payload: { kind: 'up', start: up } },
+      { id: 'ws1', type: 'watchStatus', at: new Date().toISOString(), source: 'watch', payload: { complication: true, battery: 0.8 } },
     ])
-    expect(useStore.getState().sleepModeLog['2026-10-29']).toEqual({ lightsOut, upAt: up })
-    const bad = useStore.getState().applyNativeActions([{ id: 'sm3', type: 'sleepMode', at: new Date().toISOString(), source: 'watch', payload: { kind: 'nap' } }])
-    expect(bad.applied || []).not.toContain('sm3')
-  })
-
-  it('the Watch report carries when the movement recording was asked for and what the last read found', () => {
-    const asked = new Date('2026-10-28T21:02:00').getTime()
-    useStore.getState().applyNativeActions([
-      { id: 'ws1', type: 'watchStatus', at: new Date(asked).toISOString(), source: 'watch', payload: { complication: true, battery: 0.8, start: asked, kind: 'soundsStarted', answer: 'noData' } },
-    ])
-    expect(useStore.getState().nativeState.watch).toMatchObject({ complication: true, battery: 0.8, motionAt: asked, motionBy: 'soundsStarted', motionResult: 'noData' })
-    // a later report without them keeps what was known
-    useStore.getState().applyNativeActions([{ id: 'ws2', type: 'watchStatus', at: new Date().toISOString(), source: 'watch', payload: { complication: true, battery: 0.7 } }])
-    expect(useStore.getState().nativeState.watch).toMatchObject({ battery: 0.7, motionAt: asked, motionBy: 'soundsStarted' })
+    expect(useStore.getState().nativeState.watch).toMatchObject({ complication: true, battery: 0.8 })
+    expect(useStore.getState().nativeState.watch.motionAt).toBeUndefined()
+    useStore.getState().applyNativeActions([{ id: 'ws2', type: 'watchStatus', at: new Date().toISOString(), source: 'watch', payload: { battery: 0.7 } }])
+    expect(useStore.getState().nativeState.watch).toMatchObject({ complication: true, battery: 0.7 })
   })
 })

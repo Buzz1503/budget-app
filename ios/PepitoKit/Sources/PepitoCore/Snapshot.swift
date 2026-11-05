@@ -28,7 +28,8 @@ public struct Snapshot: Codable, Equatable, Sendable {
 
     public struct Sleep: Codable, Equatable, Sendable {
         public var asNeeded: [AsNeeded]
-        public var restlessness: Bool
+        /// no longer sent (the Watch movement recording was removed); kept so older snapshots decode
+        public var restlessness: Bool?
         /// The item behind "Took Dex" on the AM reminder, with the amount it logs. Absent without a last amount.
         public var took: Took?
         /// The evening sheet's quick toggles, in order (drinks and the as-needed items are their own rows)
@@ -40,7 +41,7 @@ public struct Snapshot: Codable, Equatable, Sendable {
         /// Last night as Health has it, for the Watch's sleep tile, complication and morning screen
         public var lastNight: LastNight?
 
-        public init(asNeeded: [AsNeeded] = [], restlessness: Bool = true, took: Took? = nil, toggles: [Toggle]? = nil,
+        public init(asNeeded: [AsNeeded] = [], restlessness: Bool? = nil, took: Took? = nil, toggles: [Toggle]? = nil,
                     prompts: [Notice]? = nil, nextEvening: String? = nil, lastNight: LastNight? = nil) {
             self.asNeeded = asNeeded; self.restlessness = restlessness; self.took = took
             self.toggles = toggles; self.prompts = prompts; self.nextEvening = nextEvening; self.lastNight = lastNight
@@ -54,16 +55,17 @@ public struct Snapshot: Codable, Equatable, Sendable {
         }
     }
 
-    /// Last night: its wake date, minutes asleep, sleep score, readiness, restless periods and snoring minutes.
+    /// Last night from Apple Health: its wake date, minutes asleep, sleep score, readiness, wake-ups and awake minutes.
     public struct LastNight: Codable, Hashable, Sendable {
         public var date: String
         public var asleepMin: Int?
         public var score: Int?
         public var readiness: Int?
-        public var restless: Int?
-        public var snoringMin: Int?
-        public init(date: String, asleepMin: Int? = nil, score: Int? = nil, readiness: Int? = nil, restless: Int? = nil, snoringMin: Int? = nil) {
-            self.date = date; self.asleepMin = asleepMin; self.score = score; self.readiness = readiness; self.restless = restless; self.snoringMin = snoringMin
+        /// awake periods after falling asleep, and their minutes (from Apple Health)
+        public var wakeUps: Int?
+        public var awakeMin: Int?
+        public init(date: String, asleepMin: Int? = nil, score: Int? = nil, readiness: Int? = nil, wakeUps: Int? = nil, awakeMin: Int? = nil) {
+            self.date = date; self.asleepMin = asleepMin; self.score = score; self.readiness = readiness; self.wakeUps = wakeUps; self.awakeMin = awakeMin
         }
     }
 

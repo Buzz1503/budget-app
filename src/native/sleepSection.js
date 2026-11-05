@@ -45,7 +45,6 @@ export function sleepSection(state, now = new Date(), { bedtime = null, wake = n
     : null
   return {
     asNeeded: asNeededForWatch(state),
-    restlessness: ss.restlessness !== false,
     took: tookItem(state),
     toggles: eveningToggles(state),
     // the same entries the iPhone schedules (ids match), for the Watch to plan

@@ -26,8 +26,6 @@ final class WatchStore: NSObject, ObservableObject {
     @Published private(set) var willSync = false
     /// Ticks that left a vial about empty, each waiting for its answer.
     @Published private(set) var vialQuestions: [VialQuestion] = []
-    /// Sleep mode: tonight's lights out and the morning's get-up, kept in the App Group for the complication.
-    @Published private(set) var sleepNight: SleepMode.Night?
 
     struct VialQuestion: Identifiable, Equatable {
         let id: String
@@ -43,7 +41,6 @@ final class WatchStore: NSObject, ObservableObject {
         super.init()
         if let d = try? Data(contentsOf: outboxURL), let box = try? JSONDecoder().decode(WatchOutbox.self, from: d) { outbox = box }
         snapshot = store.readSnapshot()
-        sleepNight = SleepMode.load(RestlessStart.defaults)
     }
 
     /// Open a screen from Home, a complication or the Smart Stack.
@@ -72,8 +69,6 @@ final class WatchStore: NSObject, ObservableObject {
         WidgetCenter.shared.reloadAllTimelines()
         WatchReminderScheduler.reschedule(shown)
         refreshSyncState()
-        // a fresh movement recording window on every snapshot
-        RestlessRecorder.shared.tick(.snapshot)
     }
 
     func refreshSyncState() {
@@ -175,43 +170,6 @@ final class WatchStore: NSObject, ObservableObject {
     }
 }
 
-// MARK: - sleep mode
-
-extension WatchStore {
-    /// Start sleep: lights out now, movement covered for 10 hours, Sleep sounds asked for on the iPhone, the night screen.
-    func startSleep(now: Date = Date()) {
-        let night = SleepMode.Night(lightsOut: now)
-        SleepMode.save(night, to: RestlessStart.defaults)
-        sleepNight = night
-        RestlessStart.ensureCovers(now: now)
-        sendSleepCommand(.start, at: now)
-        send(SleepMode.action(.start, at: now))
-        path = [.sleep]
-    }
-
-    /// "I'm up": the get-up time, Sleep sounds stopped on the iPhone, then the morning screen.
-    func wakeUp(now: Date = Date()) {
-        var night = sleepNight ?? SleepMode.Night(lightsOut: now)
-        night.upAt = now
-        SleepMode.save(night, to: RestlessStart.defaults)
-        sleepNight = night
-        sendSleepCommand(.up, at: now)
-        send(SleepMode.action(.up, at: now))
-    }
-
-    /// A message when the iPhone is reachable (it wakes the iPhone app in the background), queued otherwise.
-    private func sendSleepCommand(_ command: SleepMode.Command, at: Date) {
-        guard WCSession.isSupported(), WCSession.default.activationState == .activated else { return }
-        let info = SleepMode.message(command, at: at)
-        let s = WCSession.default
-        if s.isReachable {
-            s.sendMessage(info, replyHandler: nil) { _ in s.transferUserInfo(info) }
-        } else {
-            s.transferUserInfo(info)
-        }
-    }
-}
-
 extension WatchStore: WCSessionDelegate {
     nonisolated func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
         let context = session.receivedApplicationContext
@@ -243,11 +201,9 @@ extension WatchStore: WCSessionDelegate {
         Task { @MainActor in self.command(userInfo) }
     }
 
-    /// "Send test" from the phone, Stop for a session the phone stopped, and a fresh
-    /// movement recording window when Sleep sounds starts or its schedule fires.
+    /// "Send test" from the phone, and Stop for a session the phone stopped.
     @MainActor private func command(_ info: [String: Any]) {
         if info["test"] != nil { banner = "Test from your iPhone arrived." }
-        if let trigger = RestlessRecording.trigger(from: info) { RestlessRecorder.shared.tick(trigger) }
         if (info["command"] as? String) == "stopSauna" { SaunaWorkoutManager.shared.stop(fromPhone: true) }
     }
 }

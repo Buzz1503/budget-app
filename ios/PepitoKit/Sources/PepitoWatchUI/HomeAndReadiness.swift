@@ -10,12 +10,11 @@ import PepitoTheme
 public struct WatchHomeContent: View {
     let snap: Snapshot?
     let now: Date
-    let night: SleepMode.Night?
     let open: (WatchRoute) -> Void
     @Environment(\.isLuminanceReduced) private var dimmed
 
-    public init(snap: Snapshot?, now: Date, night: SleepMode.Night? = nil, open: @escaping (WatchRoute) -> Void) {
-        self.snap = snap; self.now = now; self.night = night; self.open = open
+    public init(snap: Snapshot?, now: Date, open: @escaping (WatchRoute) -> Void) {
+        self.snap = snap; self.now = now; self.open = open
     }
 
     public var body: some View {
@@ -29,7 +28,7 @@ public struct WatchHomeContent: View {
                  line: Text(sauna.text).foregroundStyle(sauna.text == "Running" ? Pal.sauna : Pal.text2),
                  short: Text(sauna.short).foregroundStyle(sauna.text == "Running" ? Pal.sauna : Pal.text2))
             tile(.readiness, symbol: "heart.fill", title: "Readiness", line: readinessLine, short: readinessShort)
-            let sleep = SleepMode.tileLine(phase: SleepMode.phase(now: now, night: night), lastNight: snap?.sleep?.lastNight, now: now)
+            let sleep = SleepMode.tileLine(lastNight: snap?.sleep?.lastNight)
             tile(.sleep, symbol: "moon.fill", title: "Sleep",
                  line: Text(sleep.text).foregroundStyle(Pal.text2), short: Text(sleep.short).foregroundStyle(Pal.text2))
         }

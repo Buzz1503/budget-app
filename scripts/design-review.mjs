@@ -22,7 +22,6 @@ const EXE = process.env.CHROMIUM_PATH || '/opt/pw-browsers/chromium-1194/chrome-
 const SCREENS = [
   ['home'], ['composition'], ['effects'], ['recovery'],
   ['sleep'], ['sleep-full', '[data-testid="night-expand"]'], ['recovery-full', '[data-testid="chart-expand"]'], ['sleep-lab', '[data-testid="lab-open-analysis"]', '[data-testid="lab-helps"]'],
-  ['sleep-sounds', '[data-testid="sounds-row"]'],
   ['sleep-zoom', 'eval:__previewNightZoom', '[data-testid="night-overview"]'], ['sleep-cross', 'eval:__previewNightCross', '[data-testid="cross-panel"]'],
   ['sauna'], ['more'], ['stock'], ['bloods'], ['import'], ['import-list', 'eval:__previewImport', '[data-testid="import-list"]'],
   ['import-check', 'eval:__previewImport', '[data-testid="import-list"]', '[data-testid="import-row"]:has([data-status="check"])'],

@@ -126,44 +126,40 @@ describe('from the Watch and notifications', () => {
   })
 })
 
-describe('overnight data from the Watch and the iPhone', () => {
-  it('the Watch summary lands on its wake date; a bad one is ignored', () => {
-    useStore.setState({ nightExtras: {} })
+describe('removed Sleep sounds and movement recording: nothing new is collected, stored rows stay', () => {
+  it('an older queued restlessness or sleep mode action is taken off the queue and stores nothing', () => {
+    useStore.setState({ nightExtras: {}, sleepModeLog: {} })
     const summary = { start: 1, end: 2, movementMin: 6.5, positionChanges: 3, restlessPeriods: 2, indexPerHour: 0.7, series: [0, 0.2] }
-    useStore.getState().applyNativeActions([
+    const at = new Date('2026-10-28T22:40:00').getTime()
+    const r = useStore.getState().applyNativeActions([
       { id: 'r1', type: 'restlessness', at: '2026-10-24T08:00:00.000Z', source: 'watch', payload: { date: '2026-10-24', restless: summary } },
-      { id: 'r2', type: 'restlessness', at: '2026-10-24T08:00:00.000Z', source: 'watch', payload: { date: '2026-10-24', restless: { nope: 1 } } },
+      { id: 'sm1', type: 'sleepMode', at: new Date(at).toISOString(), source: 'watch', payload: { kind: 'lightsOut', start: at } },
     ])
-    expect(useStore.getState().nightExtras['2026-10-24'].restless).toEqual(summary)
+    expect(r.applied).toEqual(expect.arrayContaining(['r1', 'sm1']))
+    expect(useStore.getState().nightExtras).toEqual({})
+    expect(useStore.getState().sleepModeLog).toEqual({})
   })
 
-  it('a session closed after a kill replaces its open copy by id', () => {
-    useStore.setState({ nightExtras: {} })
-    const open = { id: 'ss-2', start: 1000, end: 5000, events: [], levels: [], loudMinutes: 0, movingMinutes: 0, lowConfidence: false, room: [], startedBy: 'shortcut', open: true }
-    const closed = { ...open, open: false, recovered: true, stopReason: 'appClosed', end: 4000 }
-    useStore.getState().addSoundSessions([open], () => '2026-10-24')
-    useStore.getState().addSoundSessions([closed], () => '2026-10-24')
-    const list = useStore.getState().nightExtras['2026-10-24'].sounds
-    expect(list).toHaveLength(1)
-    expect(list[0]).toMatchObject({ recovered: true, stopReason: 'appClosed', end: 4000 })
+  it('the store has no collectors for them any more', () => {
+    const st = useStore.getState()
+    for (const k of ['setRestless', 'addSoundSessions', 'addSoundsLog']) expect(st[k]).toBeUndefined()
   })
 
-  it('the start log keeps each attempt once and the newest 200', () => {
-    useStore.setState({ soundsLog: [] })
-    const e = { at: 1000, kind: 'start', by: 'shortcut', result: 'blockedLocked', error: 'x' }
-    useStore.getState().addSoundsLog([e, e])
-    useStore.getState().addSoundsLog([e])
-    expect(useStore.getState().soundsLog).toHaveLength(1)
-    useStore.getState().addSoundsLog(Array.from({ length: 250 }, (_, i) => ({ at: 2000 + i, kind: 'start', by: 'app', result: 'started' })))
-    expect(useStore.getState().soundsLog).toHaveLength(200)
-    expect(useStore.getState().soundsLog.at(-1).at).toBe(2249)
-  })
-
-  it('Sleep sounds nights are kept once by id, under the morning they ended', () => {
-    useStore.setState({ nightExtras: {} })
-    const ss = { id: 'ss-1', start: 1000, end: 2000, events: [], levels: [], loudMinutes: 0, movingMinutes: 0, lowConfidence: false, room: [], startedBy: 'automation' }
-    useStore.getState().addSoundSessions([ss, ss], () => '2026-10-24')
-    useStore.getState().addSoundSessions([ss], () => '2026-10-24')
-    expect(useStore.getState().nightExtras['2026-10-24'].sounds).toHaveLength(1)
+  it('what they recorded before stays in the store and in the backup export', async () => {
+    const { buildBackup } = await import('../lib/backup')
+    const sounds = [{ id: 'ss-1', start: 1000, end: 2000, events: [{ s: 1100, e: 1200, label: 'snoring', c: 0.8 }], levels: [], startedBy: 'shortcut' }]
+    const restless = { start: 1, end: 2, movementMin: 6.5, restlessPeriods: 2, indexPerHour: 0.7, series: [0, 0.2] }
+    useStore.setState({
+      nightExtras: { '2026-10-24': { sounds, restless } },
+      soundsLog: [{ at: 1000, kind: 'start', by: 'shortcut', result: 'started' }],
+      sleepModeLog: { '2026-10-24': { lightsOut: 1, upAt: 2 } },
+      sleepSettings: { ...useStore.getState().sleepSettings, sleepSounds: true, restlessness: true },
+    })
+    const state = (await buildBackup()).appState.state
+    expect(state.nightExtras['2026-10-24'].sounds).toEqual(sounds)
+    expect(state.nightExtras['2026-10-24'].restless).toEqual(restless)
+    expect(state.soundsLog).toHaveLength(1)
+    expect(state.sleepModeLog['2026-10-24']).toEqual({ lightsOut: 1, upAt: 2 })
+    expect(state.sleepSettings).toMatchObject({ sleepSounds: true, restlessness: true })
   })
 })

@@ -144,7 +144,7 @@ export async function startNativeSync() {
   // heart rate from Health for sauna sessions timed on the iPhone alone
   const { startSaunaHR } = await import('./saunaHR')
   startSaunaHR()
-  // Sleep Lab: finished Sleep sounds nights and Screen Time's late phone use
+  // Sleep Lab: Screen Time's late phone use
   const { startSleepRuntime } = await import('./sleepRuntime')
   startSleepRuntime(bridgeOn)
   // the daily backup to Documents/Backups, the last 14 kept

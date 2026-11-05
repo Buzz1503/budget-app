@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { promptPlan, promptsFor, eveningLogged, soundsMissed, recordingMissing, SOUNDS_MISSED_LINE } from './prompts'
+import { promptPlan, promptsFor, eveningLogged } from './prompts'
 import { setupChecklist, needsCharge } from './setup'
 
 const pad = (n: number) => String(n).padStart(2, '0')
@@ -57,42 +57,22 @@ describe('evening and morning prompts', () => {
   })
 })
 
-describe('quiet checks', () => {
-  it('Sleep sounds missed: on before last night, not running, nothing recorded', () => {
-    const base = { enabled: true, onSince: '2026-10-20', today: '2026-10-24', running: false, recordedTonight: false }
-    expect(soundsMissed(base)).toBe(true)
-    expect(soundsMissed({ ...base, recordedTonight: true })).toBe(false)
-    expect(soundsMissed({ ...base, running: true })).toBe(false)
-    expect(soundsMissed({ ...base, onSince: '2026-10-24' })).toBe(false)
-    expect(soundsMissed({ ...base, enabled: false })).toBe(false)
-    expect(SOUNDS_MISSED_LINE).toBe("Sleep sounds didn't run last night. Check the automation.")
-  })
-
-  it('a night without a Watch recording is flagged only after the first one worked', () => {
-    const base = { enabled: true, date: '2026-10-24', firstRecorded: '2026-10-10', hasSleep: true, hasRecording: false }
-    expect(recordingMissing(base)).toBe(true)
-    expect(recordingMissing({ ...base, firstRecorded: null })).toBe(false)
-    expect(recordingMissing({ ...base, date: '2026-10-09' })).toBe(false)
-    expect(recordingMissing({ ...base, hasSleep: false })).toBe(false)
-    expect(recordingMissing({ ...base, hasRecording: true })).toBe(false)
-  })
-})
-
 describe('sleep setup checklist', () => {
-  const none = { sleepNights: 0, spo2Nights: 0, breathingNights: 0, complication: null, soundsAuto: false, screenTime: false, roomSensor: null, watchBattery: null }
+  const none = { sleepNights: 0, spo2Nights: 0, breathingNights: 0, complication: null, screenTime: false, watchBattery: null }
   it('ticks each item from its data; optional and info items do not hold it open', () => {
     const empty = setupChecklist(none)
     expect(empty.complete).toBe(false)
-    expect(empty.of).toBe(6)
-    const all = setupChecklist({ ...none, sleepNights: 12, spo2Nights: 10, breathingNights: 11, complication: true, soundsAuto: true, screenTime: true, watchBattery: 0.64 })
+    expect(empty.of).toBe(5)
+    const all = setupChecklist({ ...none, sleepNights: 12, spo2Nights: 10, breathingNights: 11, complication: true, screenTime: true, watchBattery: 0.64 })
     expect(all.complete).toBe(true)
-    expect(all.items.find((i) => i.key === 'room')!.done).toBe(false)
+    expect(all.items.map((i) => i.key)).not.toContain('sounds')
+    expect(all.items.map((i) => i.key)).not.toContain('room')
     expect(all.items.find((i) => i.key === 'battery')!.note).toBe('Last reported: 64%')
   })
 
   it('Screen Time not available on the device is left out of the count', () => {
     const r = setupChecklist({ ...none, screenTime: null })
-    expect(r.of).toBe(5)
+    expect(r.of).toBe(4)
     expect(r.items.find((i) => i.key === 'screenTime')!.how).toBe('Not available on this iPhone.')
   })
 

@@ -1,71 +1,29 @@
-// The Sleep Lab's native glue, iPhone app only: collects finished Sleep sounds
-// nights and Screen Time's late phone use into the store, and lets the
-// screens start and stop Sleep sounds. Nothing goes to the console or the
-// network; a failure is "no data".
+// The Sleep Lab's native glue, iPhone app only: Screen Time's late phone use
+// into the store. Nothing goes to the console or the network; a failure is
+// "no data". (Sleep sounds and the Watch movement recording were removed: all
+// sleep data comes from Apple Health. Their stored nights stay in the store
+// and the backup.)
 import { registerPlugin } from '@capacitor/core'
 import useStore from '../store/useStore'
-import { sessionNight } from '../sleep/sounds'
-import { DEFAULT_SCHEDULE } from '../sleep/soundsView'
 
 export const PepitoSleep = registerPlugin('PepitoSleep')
 
-const localDate = (ms) => {
-  const d = new Date(ms)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-const localHour = (ms) => new Date(ms).getHours()
-
-/** Move finished Sleep sounds nights and late phone use into the store. */
+/** Move late phone use into the store. */
 export async function collectSleepData() {
-  try {
-    const { sessions: all = [] } = await PepitoSleep.finishedSounds()
-    // a session still listening stays on the phone until it has finished
-    const sessions = all.filter((s) => !s.open)
-    if (sessions.length) {
-      useStore.getState().addSoundSessions(sessions, (s) => sessionNight(s, localDate, localHour))
-      await PepitoSleep.acknowledgeSounds({ ids: sessions.map((s) => s.id) })
-    }
-  } catch { /* no plugin */ }
-  try {
-    const { entries = [] } = await PepitoSleep.soundsStartLog()
-    useStore.getState().addSoundsLog(entries.map((e) => ({ ...e, error: e.error ?? null })))
-  } catch { /* no plugin */ }
   try {
     const { nights = {} } = await PepitoSleep.lateUse()
     if (Object.keys(nights).length) useStore.getState().setLateUse(nights)
   } catch { /* no plugin */ }
 }
 
-/**
- * What the setup checklist and the evening sheet need to know: Screen Time
- * allowed and apps chosen, and a HomeKit sensor to read.
- */
+/** What the setup checklist and the evening sheet need to know: Screen Time allowed and apps chosen. */
 export async function refreshSleepStatus() {
-  const so = await soundsStatus()
   const sc = await screenTimeStatus()
   const ss = useStore.getState().sleepSettings || {}
-  const patch = { screenTimeOn: !!(sc.authorized && sc.picked), screenTimeAvailable: sc.available !== false, roomSensor: !!so.roomSensor }
+  const patch = { screenTimeOn: !!(sc.authorized && sc.picked), screenTimeAvailable: sc.available !== false }
   if (Object.keys(patch).some((k) => ss[k] !== patch[k])) useStore.getState().setSleepSettings(patch)
 }
 
-export async function soundsStatus() {
-  try { return await PepitoSleep.soundsStatus() } catch { return { running: false, unavailable: true } }
-}
-/** Start in the foreground, the reliable way. Resolves with the exact result and the iOS error text. */
-export async function startSounds(by = 'app') {
-  try {
-    const r = await PepitoSleep.startSounds({ by })
-    await collectSleepData()
-    return r
-  } catch (e) { return { running: false, result: 'audioError', error: String(e?.message || e || '') } }
-}
-export async function stopSounds() {
-  try { const r = await PepitoSleep.stopSounds({ reason: 'app' }); await collectSleepData(); return r } catch { return { running: false } }
-}
-/** Listen for one minute and say what was heard. Nothing is kept. */
-export async function testSounds() {
-  try { return await PepitoSleep.testSounds() } catch { return { ran: false, reason: 'unavailable' } }
-}
 export async function screenTimeStatus() {
   try { return await PepitoSleep.screenTimeStatus() } catch { return { available: false } }
 }
@@ -80,46 +38,11 @@ export async function scheduleLateUse(bedtime, wake) {
   try { return await PepitoSleep.scheduleLateUse({ bedtime, wake }) } catch { return { scheduled: false } }
 }
 
-/**
- * The safety net, cleared by the phone once listening starts. With the schedule on: a
- * time-sensitive "Tap to start Sleep sounds" 5 minutes after the scheduled start, on the next
- * 7 nights, for when the automation did not run or could not start. Without it: "Sleep sounds
- * is not listening yet" 10 minutes after planned bedtime. The phone also gets the schedule, so
- * it stops at the scheduled time by itself.
- */
-export async function syncSoundsCheck() {
-  const ss = useStore.getState().sleepSettings || {}
-  const sched = { ...DEFAULT_SCHEDULE, ...(ss.schedule || {}) }
-  const scheduled = !!ss.sleepSounds && sched.on
-  try {
-    await PepitoSleep.setSoundsSchedule({ on: scheduled, start: sched.start, stop: sched.stop })
-    if (scheduled) await PepitoSleep.scheduleSoundsCheck({ enabled: true, bedtime: sched.start, offsetMin: 5, scheduled: true })
-    else await PepitoSleep.scheduleSoundsCheck({ enabled: !!ss.sleepSounds && !!ss.lastBedtime, bedtime: ss.lastBedtime || '22:30' })
-  } catch { /* no plugin */ }
-}
-
-/** A tap on a "start it" notification: start now, in the foreground. */
-export async function startIfAsked() {
-  try {
-    const { pending } = await PepitoSleep.takePendingStart()
-    if (pending) await startSounds('notification')
-  } catch { /* no plugin */ }
-}
-
 let started = false
 export function startSleepRuntime(addListener) {
   if (started) return
   started = true
   void collectSleepData()
   void refreshSleepStatus()
-  void startIfAsked()
-  void syncSoundsCheck()
-  let last = ''
-  useStore.subscribe((s) => {
-    const sc = s.sleepSettings?.schedule
-    const key = `${s.sleepSettings?.sleepSounds}|${s.sleepSettings?.lastBedtime}|${sc?.on}|${sc?.start}|${sc?.stop}`
-    if (key !== last) { last = key; void syncSoundsCheck() }
-  })
-  addListener?.('appActive', () => { void startIfAsked(); void collectSleepData(); void refreshSleepStatus(); void syncSoundsCheck() })
-  void import('./runtime').then(({ listen }) => listen(PepitoSleep, 'PepitoSleep', 'sleepSoundsChanged', () => { void collectSleepData() }))
+  addListener?.('appActive', () => { void collectSleepData(); void refreshSleepStatus() })
 }

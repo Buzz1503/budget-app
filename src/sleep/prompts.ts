@@ -3,9 +3,6 @@
 // usual wake time. Built here once, for the iPhone's schedule and for the
 // snapshot (the Watch plans the same entries, same ids, like stock notices).
 // An evening already logged, or a morning already answered, gets no prompt.
-//
-// Also the quiet checks that follow from "I will forget to turn things on":
-// Sleep sounds did not run last night, and a night with no Watch recording.
 
 import { addDays } from '../health/tz'
 import { eveningAnswered, morningAnswered } from './logging'
@@ -21,8 +18,6 @@ export const PROMPTS = {
 }
 
 export const SCHEDULE_PREFIX = 'pepito.sched.'
-export const SOUNDS_MISSED_LINE = "Sleep sounds didn't run last night. Check the automation."
-export const NO_RECORDING_LINE = 'No Watch movement recording for this night.'
 
 export interface Prompt {
   id: string
@@ -143,32 +138,4 @@ export function promptsFor(state: {
     eveningDone: (d) => eveningLogged(d, state, localDate),
     morningDone: (d) => morningAnswered(state.morningChecks?.[d]),
   })
-}
-
-// ---------------------------------------------------------------- quiet checks
-
-/**
- * "Sleep sounds didn't run last night": Sleep sounds is on, was on before
- * last night, is not running now, and nothing was recorded for this morning.
- */
-export function soundsMissed(input: {
-  enabled: boolean
-  /** the first evening it was on (the setting's date, else the first recorded night) */
-  onSince: string | null
-  today: string
-  running: boolean
-  recordedTonight: boolean
-}): boolean {
-  if (!input.enabled || input.running || input.recordedTonight || !input.onSince) return false
-  return input.onSince < input.today
-}
-
-/**
- * A night with no Watch movement recording is flagged once recording has
- * worked at least once (nights before the first summary are never flagged)
- * and the night has Health sleep data.
- */
-export function recordingMissing(input: { enabled: boolean; date: string; firstRecorded: string | null; hasSleep: boolean; hasRecording: boolean }): boolean {
-  if (!input.enabled || !input.hasSleep || input.hasRecording || !input.firstRecorded) return false
-  return input.date > input.firstRecorded
 }

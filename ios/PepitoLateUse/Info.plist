@@ -32,7 +32,7 @@
 		<key>appGroup</key>
 		<true/>
 		<key>homeKit</key>
-		<true/>
+		<false/>
 		<key>liveActivities</key>
 		<true/>
 		<key>screenTime</key>

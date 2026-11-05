@@ -183,13 +183,12 @@ export function applyPendingActions(state, actions = [], { dueOn = null } = {}) 
         applied.push(a.id)
         break
       }
-      case 'restlessness': {
-        const r = p.restless
-        if (!r || !p.date || !Array.isArray(r.series)) { set(a, 'invalid'); break }
-        ops.push({ op: 'restless', date: p.date, summary: r })
+      // retired: the Watch movement recording and Start sleep were removed. An
+      // older queued action is taken off the queue and stores nothing.
+      case 'restlessness':
+      case 'sleepMode':
         applied.push(a.id)
         break
-      }
       case 'morningCheck': {
         const d = p.date || dateOf(a.at)
         const patch = {}
@@ -209,23 +208,12 @@ export function applyPendingActions(state, actions = [], { dueOn = null } = {}) 
         applied.push(a.id)
         break
       }
-      case 'sleepMode': {
-        const at = Number(p.start)
-        if (!['lightsOut', 'up'].includes(p.kind) || !Number.isFinite(at)) { set(a, 'invalid'); break }
-        ops.push({ op: 'sleepMode', kind: p.kind, at })
-        applied.push(a.id)
-        break
-      }
       case 'watchStatus': {
         const battery = Number(p.battery)
         ops.push({
           op: 'watchStatus',
           complication: typeof p.complication === 'boolean' ? p.complication : null,
           battery: Number.isFinite(battery) && battery >= 0 && battery <= 1 ? battery : null,
-          // the movement recording: when a window was last asked for, by what, what the last read found
-          motionAt: Number.isFinite(Number(p.start)) && p.start != null ? Number(p.start) : null,
-          motionBy: typeof p.kind === 'string' ? p.kind : null,
-          motionResult: typeof p.answer === 'string' ? p.answer : null,
           at: a.at,
         })
         applied.push(a.id)

@@ -47,7 +47,7 @@ await step('More › Health first run explains the reads, then connects', async 
   await seen('[data-testid="health-connect"]')
   await page.click('[data-testid="health-connect-button"]')
   await seen('[data-testid="health-counts"]', 30000)
-  await seen('[data-testid="health-sleep-priority"]')
+  await seen('[data-testid="health-sleep-source"]')
   await seen('[data-testid="health-habits"]')
   await noOverflow('More › Health')
 })
@@ -615,60 +615,55 @@ await step('Sleep: "Log this evening" opens the evening sheet, tonight and past 
   if (await page.locator('[data-testid="morning-check"]').count()) throw new Error('morning check still showing')
 })
 
-await step('Sleep sounds: row, last night, timeline, trend, session log, settings', async () => {
-  // a session spanning the demo night, with a snoring burst every 20 minutes, filed under today
+await step('Sleep from Apple Health only: lanes, summary, Restless nights, Sleep source, old data kept', async () => {
+  // what the removed Sleep sounds and movement recording stored before stays stored
   await page.evaluate(() => {
     const raw = JSON.parse(localStorage.getItem('peptide-command-center'))
     const d = new Date()
     const t = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-    const end = Date.now() - 3600000
-    const start = end - 25 * 3600000
-    const events = []
-    for (let i = 0; i < 70; i++) events.push({ s: start + i * 20 * 60000, e: start + i * 20 * 60000 + 4 * 60000, label: 'snoring', c: 0.8 })
-    events.push({ s: start + 5 * 3600000, e: start + 5 * 3600000 + 2000, label: 'cough', c: 0.9 })
-    const levels = Array.from({ length: 1500 }, (_, i) => [start + i * 60000, i % 200 < 3 ? -30 : -58])
-    const gaps = Array.from({ length: 12 }, (_, i) => ({ s: start + (i * 2 + 1) * 3600000 + 600000, e: start + (i * 2 + 1) * 3600000 + 1500000, reason: 'interrupted' }))
-    const session = { id: 'ss-demo', start, end, events, levels, loudMinutes: 6, movingMinutes: 0, lowConfidence: false, room: [], startedBy: 'shortcut', stopReason: 'focusOff', gaps, checkpoints: 300, open: false, recovered: false }
-    raw.state.nightExtras = { ...(raw.state.nightExtras || {}), [t]: { ...((raw.state.nightExtras || {})[t] || {}), sounds: [session] } }
-    raw.state.sleepSettings = { ...(raw.state.sleepSettings || {}), sleepSounds: true }
-    raw.state.soundsLog = [{ at: end - 9 * 3600000, kind: 'start', by: 'shortcut', result: 'blockedLocked', error: 'error 561145187' }]
+    const session = { id: 'ss-old', start: Date.now() - 9 * 3600000, end: Date.now() - 3600000, events: [{ s: Date.now() - 5 * 3600000, e: Date.now() - 5 * 3600000 + 60000, label: 'snoring', c: 0.8 }], levels: [], startedBy: 'shortcut' }
+    raw.state.nightExtras = { ...(raw.state.nightExtras || {}), [t]: { ...((raw.state.nightExtras || {})[t] || {}), sounds: [session], restless: { indexPerHour: 2, series: [0, 0.2] } } }
+    raw.state.soundsLog = [{ at: Date.now() - 9 * 3600000, kind: 'start', by: 'shortcut', result: 'started' }]
     localStorage.setItem('peptide-command-center', JSON.stringify(raw))
   })
   await page.reload({ waitUntil: 'domcontentloaded' })
   await page.waitForSelector('nav button')
   await page.waitForTimeout(1500)
   await tab('Sleep')
-  await seen('[data-testid="sounds-row"]')
-  const line = await page.textContent('[data-testid="sounds-line"]')
-  if (!/^Last night: .* snoring/.test(line)) throw new Error(`row reads "${line}"`)
-  if (!/^Snoring /.test((await page.textContent('[data-testid="hero-snoring"]')).trim())) throw new Error('no snoring line in the night header')
-  await seen('[data-testid="strip-snore"]')
-  if ((await page.textContent('[data-testid="sounds-schedule-line"]')) !== 'Scheduled 9 pm to 5 am') throw new Error('the row does not show the schedule')
-  await page.click('[data-testid="sounds-row"]')
-  await seen('[data-testid="lab-sounds"]')
-  for (const k of ['snoring', 'share', 'longest', 'loudest', 'coughs', 'talking', 'avg', 'loud']) await seen(`[data-testid="stat-${k}"]`)
-  await seen('[data-testid="density-bin"]')
-  await seen('[data-testid="density-gap"]')
-  await page.locator('[data-testid="burst-chip"]').first().click()
-  if (!/^Snoring \d\d:\d\d to \d\d:\d\d.* Confidence 80%\.$/.test((await page.textContent('[data-testid="burst-detail"]')).trim())) throw new Error('burst detail')
-  await seen('[data-testid="sounds-chart"], [data-testid="sounds-trend"]')
-  await page.locator('[data-testid="session-row"]').first().click()
-  await seen('[data-testid="session-detail"]')
-  if (!/Interrupted|call/.test(await page.textContent('[data-testid="detail-gaps"]'))) throw new Error('gap not listed')
-  await closeSheet()
-  const attempt = await page.locator('[data-testid="attempt-row"]').first().innerText()
-  if (!/Blocked: the phone was locked/.test(attempt) || !/error 561145187/.test(attempt)) throw new Error(`start attempt reads "${attempt}"`)
-  if (!/No audio is ever saved/.test(await page.textContent('[data-testid="sounds-no-audio"]'))) throw new Error('no audio statement')
-  // the schedule: on by default, 9 pm to 5 am, the guided steps, and Check my setup
-  await seen('[data-testid="sounds-schedule"] [data-testid="sounds-schedule-steps"]')
-  if ((await page.getAttribute('[data-testid="sounds-schedule-on"]', 'data-on')) !== 'true') throw new Error('the schedule should be on by default')
-  await page.click('[data-testid="sounds-check-setup"]')
-  const verdict = await page.textContent('[data-testid="sounds-setup-verdict"]')
-  if (!/^Didn't start on \w+, \w+ and \w+\. Check the automation\.$/.test(verdict)) throw new Error(`setup verdict reads "${verdict}"`)
-  await noOverflow('Sleep sounds')
-  // back, then the Morning check summary opens the same screen
+  await seen('[data-testid="night-card"]')
+  for (const k of ['hr', 'spo2']) await seen(`[data-testid="strip-${k}"]`)
+  for (const gone of ['strip-move', 'strip-snore', 'strip-sound', 'sounds-row', 'hero-snoring', 'sleep-onset']) {
+    if (await page.locator(`[data-testid="${gone}"]`).count()) throw new Error(`${gone} is still on the Sleep tab`)
+  }
+  const summary = (await page.textContent('[data-testid="night-summary"]')).trim()
+  if (!/^(Woke (once|\d+ times), \d+ min awake\.|No wake-ups\.)( (No heart rate spikes|1 heart rate spike|\d+ heart rate spikes)\.)?$/.test(summary)) throw new Error(`summary reads "${summary}"`)
+  console.log(`   last night: ${summary}`)
+  if (/snor|moved|restless/i.test(await page.textContent('[data-testid="what-happened"]').catch(() => ''))) throw new Error('What happened mentions sound or movement')
+  await page.click('[data-testid="lab-open-restless"]')
+  await seen('[data-testid="lab-restlessness"]')
+  await seen('[data-testid="restless-wakeups"]')
+  await noOverflow('Restless nights')
   await page.click('[data-testid="lab-back"]')
   await seen('[data-testid="sleep-view"]')
+  // More › Health › Sleep source lists only what Health returned
+  await tab('More')
+  await page.click('[data-testid="more-health"]')
+  await seen('[data-testid="health-sleep-source"]')
+  const rows = await page.$$eval('[data-testid="sleep-source-row"]', (els) => els.map((e) => e.getAttribute('data-source')))
+  if (rows[0] !== 'default' || !rows.includes("Buzz's Apple Watch") || rows.includes("Buzz's iPhone") || rows.includes('Withings')) throw new Error(`sources: ${rows.join(', ')}`)
+  const line = await page.locator('[data-testid="sleep-source-row"][data-source="Buzz\'s Apple Watch"]').innerText()
+  if (!/nights in the last 30 days/.test(line) || !/REM, Core, Deep/.test(line)) throw new Error(`source row reads "${line}"`)
+  console.log(`   sources: ${line.replace(/\n/g, ' / ')}`)
+  for (const gone of ['sleep-restlessness', 'sleep-sounds-settings', 'bedtime-shortcut']) {
+    if (await page.locator(`[data-testid="${gone}"]`).count()) throw new Error(`${gone} is still in settings`)
+  }
+  await noOverflow('More › Health › Sleep source')
+  const kept = await page.evaluate(() => {
+    const st = JSON.parse(localStorage.getItem('peptide-command-center')).state
+    const x = Object.values(st.nightExtras || {}).find((n) => n?.sounds?.some((ss) => ss.id === 'ss-old'))
+    return !!(x && x.restless && st.soundsLog?.length)
+  })
+  if (!kept) throw new Error('the old Sleep sounds or movement rows were dropped from the store')
 })
 
 await step('Sauna settings: switching off "Show sauna on Home" removes the row', async () => {

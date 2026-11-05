@@ -3,35 +3,28 @@ import { Check, Circle, Minus } from 'lucide-react'
 import useStore, { todayStr } from '../../store/useStore'
 import { addDays } from '../../health/tz'
 import { setupChecklist } from '../../sleep/setup'
-import useHealthModel, { tz } from './useHealthModel'
-import { motionWords } from '../../sleep/restlessMatch'
-import { hhmm } from '../../health/engine/planner'
+import useHealthModel from './useHealthModel'
 
 const muted = { color: 'var(--text-3)' }
 const soft = { color: 'var(--text-2)' }
 
 /** The checklist's inputs, read from Health, the store and what the Watch last reported. */
 export function useSleepSetup(model) {
-  const nightExtras = useStore((s) => s.nightExtras)
   const ss = useStore((s) => s.sleepSettings)
   const watch = useStore((s) => s.nativeState?.watch)
   const t = todayStr()
   return useMemo(() => {
     const from = addDays(t, -14)
     const nights = [...(model?.nightBy?.values() || [])].filter((n) => n.date > from)
-    const sounds = Object.values(nightExtras || {}).flatMap((x) => x?.sounds || [])
     return setupChecklist({
       sleepNights: nights.length,
       spo2Nights: nights.filter((n) => n.overnight?.spo2?.length).length,
       breathingNights: nights.filter((n) => n.overnight?.breathing != null).length,
       complication: watch?.complication ?? null,
-      soundsAuto: sounds.some((x) => x.startedBy === 'shortcut'),
       screenTime: ss.screenTimeAvailable === false ? null : !!ss.screenTimeOn,
-      roomSensor: ss.roomSensor ?? null,
       watchBattery: watch?.battery ?? null,
-      motionNote: motionWords({ at: watch?.motionAt, by: watch?.motionBy, result: watch?.motionResult }, (ms) => hhmm(tz.hourOf(ms) * 60), Date.now()),
     })
-  }, [model, nightExtras, ss, watch, t])
+  }, [model, ss, watch, t])
 }
 
 function Tick({ done }) {
