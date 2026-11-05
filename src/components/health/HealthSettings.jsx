@@ -1,9 +1,10 @@
 import SleepLabSettings from './SleepLabSettings'
 import { SleepSetupSection } from './SleepSetup'
-import { useEffect, useState } from 'react'
-import { HeartPulse, RefreshCw, ChevronUp, ChevronDown, Trash2, Plus } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { HeartPulse, RefreshCw, Trash2, Plus } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
-import useStore from '../../store/useStore'
+import useStore, { todayStr } from '../../store/useStore'
+import { sourceRows, stagesWords } from '../../sleep/sources'
 import { useHealth } from '../../health/state'
 import NumberField from '../ui/NumberField'
 import PickerField from '../ui/PickerField'
@@ -46,12 +47,13 @@ function Connect() {
   const connect = useHealth((s) => s.connect)
   const setHealthSettings = useStore((s) => s.setHealthSettings)
   const priority = useStore((s) => s.healthSettings.sleepPriority)
+  const sleepSource = useStore((s) => s.healthSettings.sleepSource ?? null)
   const [busy, setBusy] = useState(false)
 
   const go = async () => {
     setBusy(true)
     setHealthSettings({ connected: true })
-    await connect({ priority })
+    await connect({ priority, sleepSource })
     setBusy(false)
   }
 
@@ -82,7 +84,6 @@ function Connect() {
   )
 }
 
-const SOURCE_LABEL = { watch: 'Apple Watch', withings: 'Withings', phone: 'iPhone', other: 'Other apps' }
 
 /** The same switch as Settings › Site map. */
 export function Switch({ on, onChange, label, hint, testId }) {
@@ -102,32 +103,53 @@ export function Switch({ on, onChange, label, hint, testId }) {
   )
 }
 
+/**
+ * More › Health › Sleep source: every source Apple Health returned sleep from,
+ * with its nights in the last 30 days and the stages it gives. One is used for
+ * every night; a night only another source has is shown as Other source and
+ * kept out of baselines and the Sleep Lab.
+ */
 function SleepSource() {
   const priority = useStore((s) => s.healthSettings.sleepPriority)
+  const chosen = useStore((s) => s.healthSettings.sleepSource ?? null)
   const setHealthSettings = useStore((s) => s.setHealthSettings)
   const sync = useHealth((s) => s.sync)
-  const move = (i, by) => {
-    const next = [...priority]
-    const [x] = next.splice(i, 1)
-    next.splice(i + by, 0, x)
-    setHealthSettings({ sleepPriority: next })
-    // nights are built when Health is read, so read again to apply the order
-    void sync({ priority: next, full: true })
+  const syncing = useHealth((s) => s.syncing)
+  const nights = useHealth((s) => s.data.nights)
+  const rows = useMemo(() => sourceRows(nights || [], todayStr()), [nights])
+  const pick = (name) => {
+    if (name === chosen) return
+    setHealthSettings({ sleepSource: name })
+    // nights are built when Health is read, so read again to apply the choice
+    void sync({ priority, sleepSource: name, full: true })
   }
+  const Radio = ({ name, title, sub }) => (
+    <button type="button" role="radio" aria-checked={chosen === name} onClick={() => pick(name)} disabled={syncing}
+      className="flex w-full items-center gap-3 py-2.5 text-left disabled:opacity-60" data-testid="sleep-source-row" data-source={name ?? 'default'}>
+      <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full" style={{ border: `2px solid ${chosen === name ? 'var(--accent)' : 'var(--border)'}` }}>
+        {chosen === name && <span className="h-2.5 w-2.5 rounded-full" style={{ background: 'var(--accent)' }} />}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-semibold">{title}</span>
+        {sub && <span className="block text-xs font-medium tabular-nums" style={{ color: 'var(--text-3)' }}>{sub}</span>}
+      </span>
+    </button>
+  )
   return (
-    <div className="card p-4" data-testid="health-sleep-priority">
+    <div className="card p-4" data-testid="health-sleep-source">
       <p className="t-label">Sleep source</p>
-      <p className="text-xs font-medium leading-snug" style={{ color: 'var(--text-3)' }}>When two sources record the same night, the higher one is used. One source per night.</p>
-      <div className="mt-2 rows">
-        {priority.map((k, i) => (
-          <div key={k} className="flex items-center gap-2 py-2" data-testid="sleep-priority-row" data-source={k}>
-            <span className="w-5 text-xs font-black tabular-nums" style={{ color: 'var(--text-3)' }}>{i + 1}</span>
-            <span className="min-w-0 flex-1 text-sm font-semibold">{SOURCE_LABEL[k] || k}</span>
-            <button onClick={() => move(i, -1)} disabled={i === 0} aria-label={`Move ${SOURCE_LABEL[k]} up`} data-testid={`sleep-up-${k}`} className="rounded-full p-1.5 disabled:opacity-30"><ChevronUp size={16} /></button>
-            <button onClick={() => move(i, 1)} disabled={i === priority.length - 1} aria-label={`Move ${SOURCE_LABEL[k]} down`} className="rounded-full p-1.5 disabled:opacity-30"><ChevronDown size={16} /></button>
-          </div>
+      <p className="text-xs font-medium leading-snug" style={{ color: 'var(--text-3)' }}>
+        Every sleep number uses this one source. A night it missed uses the next source with data, marked Other source and left out of your baselines and the Sleep Lab.
+      </p>
+      <div className="mt-2 rows" role="radiogroup" aria-label="Sleep source">
+        <Radio name={null} title="Apple Watch (default)" sub="Any Apple Watch that wrote sleep to Health" />
+        {rows.map((r) => (
+          <Radio key={r.name} name={r.name} title={r.name}
+            sub={`${r.nights} ${r.nights === 1 ? 'night' : 'nights'} in the last 30 days · ${stagesWords(r.stages)}`} />
         ))}
       </div>
+      {!rows.length && <p className="mt-1 text-xs font-medium" style={{ color: 'var(--text-3)' }} data-testid="sleep-source-none">No sleep in Apple Health in the last 30 days yet.</p>}
+      {syncing && <p className="mt-1 text-xs font-medium" style={{ color: 'var(--text-3)' }}>Reading Health again</p>}
     </div>
   )
 }
@@ -242,6 +264,7 @@ export default function HealthSettings() {
   const data = useHealth((s) => s.data)
   const connected = useStore((s) => s.healthSettings.connected)
   const priority = useStore((s) => s.healthSettings.sleepPriority)
+  const sleepSource = useStore((s) => s.healthSettings.sleepSource ?? null)
 
   useEffect(() => { if (!loaded) void load() }, [loaded, load])
 
@@ -266,7 +289,7 @@ export default function HealthSettings() {
               <p className="t-label">Apple Health</p>
               <SyncLine />
             </div>
-            <button onClick={() => sync({ priority, full: true })} disabled={syncing} data-testid="health-resync"
+            <button onClick={() => sync({ priority, sleepSource, full: true })} disabled={syncing} data-testid="health-resync"
               className="flex shrink-0 items-center gap-1.5 rounded-full px-3 py-2 text-xs font-black disabled:opacity-50"
               style={{ background: 'var(--surface-sunk)', color: 'var(--text)' }}>
               <RefreshCw size={13} /> Re-sync last 365 days

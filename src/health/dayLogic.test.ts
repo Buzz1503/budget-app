@@ -117,6 +117,36 @@ describe('nights', () => {
     expect(nights['2026-09-11'].source).toBe('withings')
   })
 
+  it('the chosen source gives every night it has; another source fills a gap as a flagged fallback', () => {
+    const AS = { sourceName: 'AutoSleep', sourceId: 'com.tantsissa.AutoSleep' }
+    const samples = [
+      ...night('2026-09-10', W), ...night('2026-09-10', AS, 22),
+      ...night('2026-09-11', AS, 23),
+    ]
+    // default: any Apple Watch is the chosen source
+    const def = buildNights(samples, { tz })
+    expect(def['2026-09-10']).toMatchObject({ sourceName: W.sourceName, fallback: false, asleepMin: 420 })
+    expect(def['2026-09-11']).toMatchObject({ sourceName: 'AutoSleep', fallback: true })
+    // every source with sleep that date is listed for the picker, with its stages
+    expect(def['2026-09-10'].sources!.map((x) => x.name)).toEqual([W.sourceName, 'AutoSleep'])
+    expect(def['2026-09-10'].sources![0].stages).toEqual(['awake', 'core', 'deep', 'rem'])
+    // AutoSleep chosen by name: it wins both nights, the Watch is never blended in
+    const as = buildNights(samples, { tz, preferred: 'AutoSleep' })
+    expect(as['2026-09-10']).toMatchObject({ sourceName: 'AutoSleep', fallback: false, asleepMin: 420 })
+    expect(as['2026-09-11'].fallback).toBe(false)
+  })
+
+  it('two apps of the same kind stay apart, and in bed alone is not a sleep source', () => {
+    const A = { sourceName: 'Sleep App A', sourceId: 'com.a' }
+    const B = { sourceName: 'Sleep App B', sourceId: 'com.b' }
+    const inBed = seg(at('2026-09-09', 22), 500, 'inBed', P)
+    const n = buildNights([...night('2026-09-10', A), ...night('2026-09-10', B, 21), inBed], { tz, preferred: 'Sleep App B' })['2026-09-10']
+    expect(n.sourceName).toBe('Sleep App B')
+    expect(n.asleepMin).toBe(420)
+    expect(n.sources!.map((x) => x.name).sort()).toEqual(['Sleep App A', 'Sleep App B'])
+    expect(buildNights([inBed], { tz })['2026-09-10']).toBeUndefined()
+  })
+
   it('a night across the daylight-saving change is measured in real minutes', () => {
     const nights = buildNights(night('2026-10-04'), { tz })
     const n = nights['2026-10-04']

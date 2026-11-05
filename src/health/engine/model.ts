@@ -118,8 +118,12 @@ export function buildModel({
 }): HealthModel {
   const dailyBy = mapOf(daily, (r) => r.date)
   const nightBy = mapOf(nights, (n) => n.date)
+  // a night from another source than the chosen one ("Other source") is shown, but never
+  // counts towards a baseline: not the sleep series readiness reads, not the score's recent nights
+  const chosen = nights.filter((n) => !n.fallback)
+  const baseBy = mapOf(chosen, (n) => n.date)
   const sleepH = new Map<string, number>()
-  for (const n of nights) sleepH.set(n.date, n.asleepMin / 60)
+  for (const n of chosen) sleepH.set(n.date, n.asleepMin / 60)
 
   const series: ReadinessSeries = {
     hrv: seriesFrom(daily, (r) => r.hrvOvernight ?? r.hrvDayMean),
@@ -147,7 +151,7 @@ export function buildModel({
   const sleepScore = (date: string) => {
     if (!sleepCache.has(date)) {
       const n = nightBy.get(date)
-      sleepCache.set(date, n ? sleepPerformance(n, { recent: nightsEnding(nightBy, date), needH, tz }) : null)
+      sleepCache.set(date, n ? sleepPerformance(n, { recent: nightsEnding(baseBy, date), needH, tz }) : null)
     }
     return sleepCache.get(date) as SleepPerformance | null
   }

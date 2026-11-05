@@ -7,7 +7,8 @@
 //  - The main sleep is the longest session ending between 03:00 and 14:00
 //    local. It belongs to the date you woke up. Everything else is a nap,
 //    shown but never scored.
-//  - One source per night, chosen by the user's priority. Sources are never
+//  - One source per night: the chosen source (More › Health › Sleep source),
+//    else the next one with data, marked as a fallback. Sources are never
 //    merged, so a watch and a sleep mat cannot double count the same night.
 //  - Overnight HRV is the mean of HRV samples inside the main sleep.
 
@@ -141,54 +142,86 @@ export function groupSessions(samples: RawSleep[], source: SourceClass, gapMin =
 
 const sessionLength = (s: SleepSession) => s.end - s.start
 
+/** A source that wrote a qualifying main sleep for a night: its name, kind and the stages it gave. */
+export interface NightSource {
+  name: string
+  cls: SourceClass
+  /** stages present in its samples, among awake, rem, core, deep, asleep (unspecified) */
+  stages: string[]
+}
+
+/** The source key: the name Health gives (each app or device on its own), else its kind. */
+const keyOf = (s: RawSleep) => s.sourceName?.trim() || classifySource(s.sourceName, s.sourceId)
+
 /**
  * Nights, keyed by wake-up date.
  *
- * Each source is grouped on its own. For each date the highest-priority source
- * that has a qualifying main sleep is used, and only that source: its longest
- * qualifying session is the night, its other sessions ending that day are naps.
+ * Each source (by the name Health gives it) is grouped on its own and never
+ * blended with another. The chosen source (`preferred`, a source name; by
+ * default any Apple Watch) gives the night when it has a qualifying main sleep
+ * that date. When it has none, the next source with one by kind (`priority`)
+ * is used and the night is marked `fallback` ("Other source"): it is shown,
+ * but kept out of baselines and the Sleep Lab. Every source that had a main
+ * sleep that date is listed in `sources`, for the source picker.
  */
 export function buildNights(
   samples: RawSleep[],
-  { tz, priority = DEFAULT_SLEEP_PRIORITY, dates }: { tz: Tz; priority?: SourceClass[]; dates?: string[] },
+  { tz, priority = DEFAULT_SLEEP_PRIORITY, dates, preferred = null }: { tz: Tz; priority?: SourceClass[]; dates?: string[]; preferred?: string | null },
 ): Record<string, SleepNight> {
-  const bySource = new Map<SourceClass, RawSleep[]>()
+  const bySource = new Map<string, RawSleep[]>()
   for (const s of samples) {
-    const cls = classifySource(s.sourceName, s.sourceId)
-    if (!bySource.has(cls)) bySource.set(cls, [])
-    bySource.get(cls)!.push(s)
+    const k = keyOf(s)
+    if (!bySource.has(k)) bySource.set(k, [])
+    bySource.get(k)!.push(s)
   }
   // per source, per wake date: every session ending that day
-  const sessions = new Map<SourceClass, Map<string, SleepSession[]>>()
-  for (const [cls, list] of bySource) {
+  const sessions = new Map<string, Map<string, SleepSession[]>>()
+  const clsOf = new Map<string, SourceClass>()
+  for (const [k, list] of bySource) {
+    const cls = classifySource(list[0].sourceName, list[0].sourceId)
+    clsOf.set(k, cls)
     const byDate = new Map<string, SleepSession[]>()
     for (const sess of groupSessions(list, cls)) {
       const d = tz.dateOf(sess.end)
       if (!byDate.has(d)) byDate.set(d, [])
       byDate.get(d)!.push(sess)
     }
-    sessions.set(cls, byDate)
+    sessions.set(k, byDate)
   }
   const isMain = (s: SleepSession) => {
     const h = tz.hourOf(s.end)
     return h >= MAIN_SLEEP_END_FROM_H && h < MAIN_SLEEP_END_TO_H
   }
-  const order = [...priority, ...DEFAULT_SLEEP_PRIORITY.filter((c) => !priority.includes(c))]
+  const classOrder = [...priority, ...DEFAULT_SLEEP_PRIORITY.filter((c) => !priority.includes(c))]
+  // the chosen source first, then every other source by kind, then by name
+  const keys = [...sessions.keys()].sort((a, b) => {
+    const pa = a === preferred ? -1 : classOrder.indexOf(clsOf.get(a)!)
+    const pb = b === preferred ? -1 : classOrder.indexOf(clsOf.get(b)!)
+    return pa - pb || a.localeCompare(b)
+  })
+  const isChosen = (k: string) => (preferred ? k === preferred : clsOf.get(k) === classOrder[0])
   const allDates = new Set<string>()
   for (const byDate of sessions.values()) for (const d of byDate.keys()) allDates.add(d)
   const wanted = dates ? new Set(dates) : null
+  const stagesIn = (sess: SleepSession) => [...new Set((sess.segments || []).map((g) => g.stage))].sort()
 
   const out: Record<string, SleepNight> = {}
   for (const date of allDates) {
     if (wanted && !wanted.has(date)) continue
-    for (const cls of order) {
-      const list = sessions.get(cls)?.get(date) || []
-      const mains = list.filter(isMain).sort((a, b) => sessionLength(b) - sessionLength(a))
+    const sources: NightSource[] = []
+    let night: SleepNight | null = null
+    for (const k of keys) {
+      const list = sessions.get(k)?.get(date) || []
+      // a source counts once it wrote sleep: in bed alone (an iPhone's bedtime) is not a night
+      const mains = list.filter((x) => isMain(x) && x.asleepMin > 0).sort((a, b) => sessionLength(b) - sessionLength(a))
       if (!mains.length) continue
       const main = mains[0]
-      out[date] = { ...main, date, naps: list.filter((s) => s !== main).sort((a, b) => a.start - b.start) }
-      break
+      sources.push({ name: k, cls: clsOf.get(k)!, stages: stagesIn(main) })
+      if (!night) {
+        night = { ...main, sourceName: main.sourceName || k, date, naps: list.filter((s) => s !== main).sort((a, b) => a.start - b.start), fallback: !isChosen(k) }
+      }
     }
+    if (night) out[date] = { ...night, sources }
   }
   return out
 }

@@ -26,10 +26,12 @@ const HISTORY_PROBE = ['weight', 'bodyFat', 'leanMass', 'restingHR'] as const
  * What the cached nights and days hold. 2: stage segments and sleeping heart
  * rate. 3: timed weigh-ins on each day. 4: the Sleep Lab's overnight detail
  * (latency, WASO, heart rate and SpO2 through the night, breathing
- * disturbances, headphone audio) and morning light. A cache written by an
- * older version is read again in full on the next sync.
+ * disturbances, headphone audio) and morning light. 5: HRV and breathing
+ * rate samples through the night (night chart lanes), and each night's
+ * sleep sources (the source picker). A cache written by an older version is
+ * read again in full on the next sync.
  */
-export const NIGHTS_SCHEMA = 4
+export const NIGHTS_SCHEMA = 5
 export const CHUNK_DAYS = 30
 export const LATE_DATA_DAYS = 3
 
@@ -87,13 +89,15 @@ export async function earliestReading(bridge: HealthBridge, tz: Tz, now: number)
 }
 
 export async function syncHealth({
-  bridge, db, tz, now = Date.now(), priority, full = false, onProgress,
+  bridge, db, tz, now = Date.now(), priority, preferred = null, full = false, onProgress,
 }: {
   bridge: HealthBridge
   db: HealthDB
   tz: Tz
   now?: number
   priority?: SourceClass[]
+  /** the chosen sleep source by name; null is any Apple Watch */
+  preferred?: string | null
   full?: boolean
   onProgress?: (p: SyncProgress) => void
 }): Promise<SyncResult> {
@@ -150,7 +154,7 @@ export async function syncHealth({
       older ? Promise.resolve([]) : bridge.quantity('headphone', wide - 6 * 3600000, b),
     ])
 
-    const nights = buildNights(sleep, { tz, priority, dates })
+    const nights = buildNights(sleep, { tz, priority, dates, preferred })
     // heart rate while asleep: read per main sleep, so a day of samples is never pulled
     // (older than the usual year there is no sleeping heart rate: nothing reads it)
     for (const n of Object.values(nights)) {

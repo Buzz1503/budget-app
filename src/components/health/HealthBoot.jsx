@@ -31,7 +31,7 @@ export default function HealthBoot() {
 
   useEffect(() => {
     if (!available || !connected) return undefined
-    return startAutoSync(() => useStore.getState().healthSettings.sleepPriority)
+    return startAutoSync(() => useStore.getState().healthSettings.sleepPriority, () => useStore.getState().healthSettings.sleepSource ?? null)
   }, [available, connected])
 
   // readiness for the widgets, the Watch and Siri (iPhone app only)

@@ -26,8 +26,9 @@ export interface HealthState {
   failed: boolean
   data: HealthSnapshot
   load: () => Promise<void>
-  connect: (opts: { priority?: SourceClass[] }) => Promise<boolean>
-  sync: (opts: { priority?: SourceClass[]; full?: boolean }) => Promise<void>
+  connect: (opts: { priority?: SourceClass[]; sleepSource?: string | null }) => Promise<boolean>
+  /** `sleepSource`: the chosen sleep source by name (More › Health › Sleep source); null is any Apple Watch */
+  sync: (opts: { priority?: SourceClass[]; sleepSource?: string | null; full?: boolean }) => Promise<void>
   resetCache: () => Promise<void>
 }
 
@@ -49,22 +50,22 @@ export const useHealth = create<HealthState>((set, get) => ({
     }
   },
 
-  async connect({ priority }) {
+  async connect({ priority, sleepSource }) {
     const bridge = await createBridge(makeTz())
     if (!bridge) return false
     const ok = await bridge.requestAuthorization()
-    if (ok) await get().sync({ priority, full: true })
+    if (ok) await get().sync({ priority, sleepSource, full: true })
     return ok
   },
 
-  async sync({ priority, full = false }) {
+  async sync({ priority, sleepSource = null, full = false }) {
     if (!get().available || get().syncing) return
     set({ syncing: true, failed: false, progress: null })
     try {
       const bridge = await createBridge(makeTz())
       if (!bridge) return
       await syncHealth({
-        bridge, db: healthDb(), tz: makeTz(), priority, full,
+        bridge, db: healthDb(), tz: makeTz(), priority, preferred: sleepSource, full,
         onProgress: (progress) => set({ progress }),
       })
       set({ data: await loadAll(healthDb()), loaded: true })
@@ -86,8 +87,8 @@ export const useHealth = create<HealthState>((set, get) => ({
  * Sync on launch and whenever the app comes back to the foreground. Returns a
  * function that stops listening.
  */
-export function startAutoSync(getPriority: () => SourceClass[] | undefined): () => void {
-  const run = () => { void useHealth.getState().sync({ priority: getPriority() }) }
+export function startAutoSync(getPriority: () => SourceClass[] | undefined, getSleepSource: () => string | null = () => null): () => void {
+  const run = () => { void useHealth.getState().sync({ priority: getPriority(), sleepSource: getSleepSource() }) }
   const onVisible = () => { if (document.visibilityState === 'visible') run() }
   void useHealth.getState().load().then(run)
   document.addEventListener('visibilitychange', onVisible)

@@ -245,6 +245,18 @@ describe('model and day snapshot', () => {
   }
   const model = buildModel({ daily, nights, workouts, characteristics: { dateOfBirth: '1990-06-15', biologicalSex: 'male' }, protocol, today: '2026-10-18', tz })
 
+  it('an Other source night is shown but never counts towards a baseline', () => {
+    const d = '2026-10-17'
+    const flagged = nights.map((n) => (n.date === d ? { ...n, fallback: true, asleepMin: 120 } : n))
+    const m = buildModel({ daily, nights: flagged, workouts, protocol, today: '2026-10-18', tz })
+    expect(m.nightBy.get(d)!.fallback).toBe(true)
+    expect(m.series.sleep.has(d)).toBe(false)
+    expect(model.series.sleep.has(d)).toBe(true)
+    // the next night's score does not use the fallback night among its recent nights
+    const clean = buildModel({ daily, nights: nights.filter((n) => n.date !== d), workouts, protocol, today: '2026-10-18', tz })
+    expect(m.sleepScore('2026-10-18')).toEqual(clean.sleepScore('2026-10-18'))
+  })
+
   it('scores readiness once a baseline exists, and builds before that', () => {
     expect(model.readiness('2026-10-17').status).toBe('ok')
     expect(model.readiness('2026-06-25').status).toBe('building')

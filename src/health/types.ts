@@ -124,6 +124,10 @@ export interface SleepNight extends SleepSession {
   sleepingHR?: SleepingHR | null
   /** Latency, WASO, heart rate and SpO2 through the night, breathing, audio (Sleep Lab, schema 4) */
   overnight?: Overnight | null
+  /** not the chosen sleep source: shown as "Other source", left out of baselines and the Sleep Lab */
+  fallback?: boolean
+  /** every source with a main sleep that date, with the stages each gave (schema 5) */
+  sources?: Array<{ name: string; cls: SourceClass; stages: string[] }>
 }
 
 export interface HealthWorkout {
