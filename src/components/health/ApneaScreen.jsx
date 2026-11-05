@@ -39,7 +39,6 @@ export function useApnea(lab) {
     const since30 = addDays(t, -APNEA.signalDays)
     const bp = lab.model.daily.filter((r) => r.date >= addDays(t, -APNEA.bpDays) && r.bpSys != null && r.bpDia != null).map((r) => ({ sys: r.bpSys, dia: r.bpDia }))
     const sb = stopBang({
-      soundNights: extras.filter((e) => e.night.date >= since90 && e.sounds?.eligible).map((e) => ({ date: e.night.date, snoringMin: e.sounds.snoringMin, lowConfidence: e.sounds.lowConfidence })),
       morning: Object.entries(morningChecks).filter(([d]) => d >= since90).sort(([a], [b]) => a.localeCompare(b)).map(([date, m]) => ({ date, ...m })),
       bp,
       weightKg: weight?.value ?? null,
@@ -52,7 +51,7 @@ export function useApnea(lab) {
     const recent = extras.filter((e) => e.night.date >= since30)
     const sig = signals(recent.map((e) => ({
       date: e.night.date, breathing: e.overnight?.breathing ?? null, elevated: e.overnight?.breathingElevated ?? null,
-      spo2: e.spo2?.readings ? e.spo2 : null, snoringMin: e.sounds?.eligible ? e.sounds.snoringMin : null, lowConfidence: !!e.sounds?.lowConfidence,
+      spo2: e.spo2?.readings ? e.spo2 : null, resp: e.overnight?.respRate ?? null,
       awakenings: e.overnight?.awakenings ?? null, morning: morningChecks[e.night.date] || null,
     })))
     return { sb, sig, like: likelihood(sb.band, sig), recent }
@@ -72,7 +71,7 @@ export default function ApneaScreen({ lab, onBack }) {
   const [editing, setEditing] = useState(null)
   const [info, setInfo] = useState(false)
   const bloods = relatedBloods(tests)
-  const breathingRows = useMemo(() => (r ? [...r.factors.comparisons, ...r.carryOver].filter((c) => ['breathing', 'spo2Dips', 'snoring'].includes(c.outcome))
+  const breathingRows = useMemo(() => (r ? [...r.factors.comparisons, ...r.carryOver].filter((c) => ['breathing', 'spo2Dips'].includes(c.outcome))
     .sort((a, b) => (a.label === b.label ? Math.abs(b.diff) - Math.abs(a.diff) : a.label === 'Clear' ? -1 : 1)) : []), [r])
   const item = sb.items.find((i) => i.key === editing)
 
@@ -115,7 +114,7 @@ export default function ApneaScreen({ lab, onBack }) {
           <Stat label="Lowest SpO2" value={sig.spo2Lowest != null ? `${sig.spo2Lowest}%` : 'No data'} />
           <Stat label="Readings below 90%" value={sig.spo2PctBelow90 != null ? `${sig.spo2PctBelow90}%` : 'No data'} />
           <Stat label="Nights with SpO2 dips" value={sig.spo2Nights ? `${sig.dipNights} of ${sig.spo2Nights}` : 'No data'} />
-          <Stat label="Snoring, average" value={sig.snoringMinAvg != null ? `${sig.snoringMinAvg} min` : 'No data'} />
+          <Stat label="Breathing rate, average" value={sig.respAvg != null ? `${sig.respAvg} per min` : 'No data'} />
           <Stat label="Awakenings, average" value={sig.awakeningsAvg != null ? String(sig.awakeningsAvg) : 'No data'} />
           <Stat label="Morning headache" value={sig.mornings ? `${sig.headacheMornings} mornings` : 'No data'} />
           <Stat label="Dry mouth" value={sig.mornings ? `${sig.dryMouthMornings} mornings` : 'No data'} />
@@ -128,7 +127,7 @@ export default function ApneaScreen({ lab, onBack }) {
       <section className="card p-4" data-testid="apnea-goes">
         <p className="text-[17px] font-semibold">What goes with worse breathing nights</p>
         <Updating on={updating} />
-        {breathingRows.length ? <div className="rows">{breathingRows.slice(0, 8).map((c) => <FactorRow key={`${c.factor}-${c.outcome}`} c={c} names={lab.names} showOutcome={true} />)}</div> : <p className="mt-1 text-sm font-medium" style={soft}>Appears once breathing, SpO2 or snoring has 7 recorded nights with and without a factor.</p>}
+        {breathingRows.length ? <div className="rows">{breathingRows.slice(0, 8).map((c) => <FactorRow key={`${c.factor}-${c.outcome}`} c={c} names={lab.names} showOutcome={true} />)}</div> : <p className="mt-1 text-sm font-medium" style={soft}>Appears once breathing or SpO2 has 7 recorded nights with and without a factor.</p>}
       </section>
 
       <section className="card p-4" data-testid="apnea-bloods">
@@ -146,7 +145,7 @@ export default function ApneaScreen({ lab, onBack }) {
 
       <section className="card space-y-2 p-4" data-testid="apnea-share">
         <p className="t-label">Share with your doctor</p>
-        <p className="text-xs font-medium" style={muted}>A plain PDF with this screen, breathing, blood oxygen, snoring, what was logged in the evenings, weight, blood pressure and these bloods.</p>
+        <p className="text-xs font-medium" style={muted}>A plain PDF with this screen, breathing, blood oxygen, breathing rate, what was logged in the evenings, weight, blood pressure and these bloods.</p>
         <SleepReportButtons />
       </section>
 

@@ -70,7 +70,7 @@ export default function NightmaresScreen({ lab, onBack }) {
               <p className="text-sm font-bold">{format(parseISO(e.night.date), 'EEE d MMM')}<span className="ml-2 text-xs font-medium" style={muted}>{e.truth ? 'You answered yes' : e.rating}</span></p>
               {(e.events || []).length > 0 && (
                 <p className="text-xs font-medium tabular-nums" style={soft}>
-                  {e.events.map((ev) => `${format(new Date(ev.t), 'h:mm a').toLowerCase()} +${ev.surge} bpm${ev.rem ? ', REM' : ''}${ev.awakeAfter ? ', woke' : ''}${ev.movement ? ', moved' : ''}`).join(' · ')}
+                  {e.events.map((ev) => `${format(new Date(ev.t), 'h:mm a').toLowerCase()} +${ev.surge} bpm${ev.rem ? ', REM' : ''}${ev.awakeAfter ? ', woke' : ''}${ev.hrvDrop ? ', HRV dropped' : ''}`).join(' · ')}
                 </p>
               )}
             </div>
@@ -86,7 +86,7 @@ export default function NightmaresScreen({ lab, onBack }) {
       <Modal open={info} onClose={() => setInfo(false)} title="How nightmares are estimated">
         <div className="space-y-2 text-sm font-medium" style={soft} data-testid="nightmare-info">
           <p>An event is a heart rate jump of {NIGHTMARES.surgeBpm} bpm or more over your sleeping heart rate of the half hour before, rising within {NIGHTMARES.riseWithinMin} minutes and lasting at least a minute.</p>
-          <p>It counts for more when it happens in or just after REM sleep, is followed by waking within 5 minutes, comes with wrist movement, or your breathing rate that night was above your usual.</p>
+          <p>It counts for more when it happens in or just after REM sleep, is followed by waking within 5 minutes, comes with a drop in HRV, or your breathing rate that night was above your usual.</p>
           <p>Your morning answers are the ground truth. Once {NIGHTMARES.calibrateFrom} nights are confirmed, the thresholds are fitted to you.</p>
           <p>{HR_NOTE}</p>
         </div>

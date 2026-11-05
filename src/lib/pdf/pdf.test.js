@@ -38,24 +38,24 @@ describe('the PDF writer', () => {
 
 const apnea = {
   label: 'Screen, not a diagnosis.', score: 4, band: 'intermediate', known: 7, level: 'Moderate', reasons: ['STOP-BANG 4 of 8'],
-  items: [{ label: 'Snoring loudly', answer: true, source: 'Sleep sounds: snoring on 9 of 20 recorded nights (45%)' }, { label: 'Neck over 40 cm', answer: null, source: 'No neck measurement' }],
+  items: [{ label: 'Snoring loudly', answer: true, source: 'Partner noticed snoring on 9 of 20 mornings (45%)' }, { label: 'Neck over 40 cm', answer: null, source: 'No neck measurement' }],
 }
 const series = (n, f) => Array.from({ length: n }, (_, i) => ({ date: `2026-10-${String(i + 1).padStart(2, '0')}`, value: f(i) }))
 
 describe('the doctor reports', () => {
-  it('the sleep report lists the screen with sources, breathing, SpO2, snoring, logs, weight, BP and bloods', () => {
+  it('the sleep report lists the screen with sources, breathing, SpO2, restless nights, logs, weight, BP and bloods', () => {
     const t = str(sleepReportPdf({
       days: 30, from: '2026-09-25', to: '2026-10-24', generatedOn: '2026-10-24',
       averages: { nights: 28, asleepMin: 412, score: 78, deepMin: 61, remMin: 92, awakeMin: 34, sleepingHR: 54.3, hrv: 58 },
       trends: { asleep: series(20, (i) => 6.5 + (i % 3) / 2), score: series(20, (i) => 70 + i), breathing: series(20, () => 3.1) },
-      apnea, signals: { breathingNights: 20, elevatedNights: 3, spo2Lowest: 88, spo2PctBelow90: 1.2, spo2Nights: 20, dipNights: 4 },
-      snoring: { nights: 20, avgMin: 22, over15: 9, lowConfidence: 2 },
+      apnea, signals: { breathingNights: 20, elevatedNights: 3, spo2Lowest: 88, spo2PctBelow90: 1.2, spo2Nights: 20, dipNights: 4, respAvg: 14.6 },
+      restless: { nights: 20, wakeUps: 3.4, awakeMin: 22, hrSpikes: 1.5 },
       logs: [{ name: 'Temazepam', nights: 6, typical: '10 mg' }, { name: 'Alcohol', nights: 9, typical: '2 drinks' }],
       weight: series(10, (i) => 104 - i / 5), bp: [{ date: '2026-10-01', sys: 132, dia: 84 }, { date: '2026-10-20', sys: 128, dia: 82 }],
       bloods: [{ name: 'Haematocrit', value: 0.49, unit: 'L/L', date: '2026-09-01' }, { name: 'Testosterone', value: null }],
       testosteroneNote: 'Testosterone therapy can worsen sleep apnea in some people.',
     }))
-    for (const s of ['Sleep report, last 30 days', 'STOP-BANG', 'Sleep sounds: snoring on 9 of 20 recorded nights \\(45%\\)', '3 of 20 nights', '88%', 'Temazepam', '6 of 30 evenings, usually 10 mg', 'Systolic blood pressure', 'Haematocrit', 'Testosterone therapy can worsen sleep apnea in some people.', 'page 1 of']) {
+    for (const s of ['Sleep report, last 30 days', 'STOP-BANG', 'Partner noticed snoring on 9 of 20 mornings \\(45%\\)', '3 of 20 nights', 'Restless nights', '3.4 a night', '22 min a night', '14.6 per min', '88%', 'Temazepam', '6 of 30 evenings, usually 10 mg', 'Systolic blood pressure', 'Haematocrit', 'Testosterone therapy can worsen sleep apnea in some people.', 'page 1 of']) {
       expect(t).toContain(s)
     }
     checkXref(t)

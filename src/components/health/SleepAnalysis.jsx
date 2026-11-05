@@ -35,7 +35,7 @@ function Chip({ label }) {
 
 const UNIT_SHORT = { 'per hour': '/h', 'of 5': '' }
 // short outcome names so a row's second line never cuts a word
-const SHORT_OUTCOME = { rhrNext: 'Morning resting HR', hrLow: 'Lowest sleeping HR', hrAvg: 'Average sleeping HR', readinessNext: 'Morning readiness', breathing: 'Breathing', nightmare: 'Nightmare nights', spo2Dips: 'SpO2 dips' }
+const SHORT_OUTCOME = { rhrNext: 'Morning resting HR', hrLow: 'Lowest sleeping HR', hrAvg: 'Average sleeping HR', readinessNext: 'Morning readiness', breathing: 'Breathing', nightmare: 'Nightmare nights', spo2Dips: 'SpO2 dips', wasoMin: 'Awake minutes', fragmentation: 'Stage changes' }
 const shortOutcome = (k) => SHORT_OUTCOME[k] || OUTCOME_BY_KEY[k]?.label || k
 
 /** The difference as a chip, green when it is the better way for that outcome. */

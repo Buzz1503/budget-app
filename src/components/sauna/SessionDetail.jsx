@@ -70,7 +70,7 @@ function Block({ title, children, testid }) {
   )
 }
 
-const COMPARE_METRIC = { sleepScore: 'sleepScore', deepSleep: 'deepSleep', sleepingHR: 'sleepingHR', wristTemp: 'wristTemp', restless: 'restless', hrv: 'hrv', rhr: 'rhr', readiness: 'readiness' }
+const COMPARE_METRIC = { sleepScore: 'sleepScore', deepSleep: 'deepSleep', sleepingHR: 'sleepingHR', wristTemp: 'wristTemp', wakeUps: 'wakeUps', hrv: 'hrv', rhr: 'rhr', readiness: 'readiness' }
 
 /**
  * Waiting for that night or the next morning: "Available tomorrow" only before the morning

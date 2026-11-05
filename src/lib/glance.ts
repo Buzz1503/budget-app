@@ -19,8 +19,8 @@ export const BETTER: Record<string, Better> = {
   // sleep
   sleep: 'up', asleep: 'up', asleepMin: 'up', sleepMin: 'up', sleepDuration: 'up', deepSleep: 'up', deepMin: 'up', deep: 'up',
   remMin: 'up', rem: 'up', sleepScore: 'up', score: 'up', efficiency: 'up', rested: 'up',
-  restlessness: 'down', restless: 'down', awake: 'down', awakeMin: 'down', wakeups: 'down', latency: 'down', onsetMin: 'down',
-  snoring: 'down', snoringMin: 'down', breathing: 'down', breathingDisturbances: 'down', lateUse: 'down',
+  awake: 'down', wakeUps: 'down', wasoMin: 'down', fragmentation: 'down', hrSpikes: 'down', awakeMin: 'down', wakeups: 'down', latency: 'down',
+  breathing: 'down', breathingDisturbances: 'down', lateUse: 'down',
   // body
   fatMass: 'down', bodyFat: 'down', fat: 'down', visceralFat: 'down', visceralFatLevel: 'down', visceralFatMass: 'down',
   visceralArea: 'down', waist: 'down', subcutaneousFat: 'down', bioAge: 'down',

@@ -1,15 +1,17 @@
-// One row per night for the analysis: every factor (from logging, Health, the
-// Watch, Sleep sounds and Screen Time) and every outcome. A value nobody
-// recorded is null and is left out of whatever needs it.
+// One row per night for the analysis: every factor (from logging, Health and
+// Screen Time) and every outcome. A value nobody recorded is null and is left
+// out of whatever needs it. Every sleep outcome comes from Apple Health (the
+// Watch movement recording and Sleep sounds were removed; their stored nights
+// stay in the store and the backup but feed nothing here).
 
 import type { NightFeatures } from '../features'
 import type { MorningCheck } from '../logging'
-import type { SoundsNight } from '../sounds'
+import type { RestlessNight } from '../restless'
 
 export type OutcomeKey =
   | 'sleepScore' | 'totalSleep' | 'deep' | 'rem' | 'awake' | 'awakenings'
   | 'hrLow' | 'hrAvg' | 'hrv' | 'rhrNext' | 'readinessNext'
-  | 'restlessness' | 'snoring' | 'breathing' | 'rested'
+  | 'wakeUps' | 'wasoMin' | 'fragmentation' | 'hrSpikes' | 'breathing' | 'rested'
   | 'spo2Dips' | 'nightmare'
 
 export interface OutcomeDef {
@@ -35,8 +37,10 @@ export const OUTCOMES: OutcomeDef[] = [
   { key: 'hrv', label: 'Overnight HRV', unit: 'ms', better: 'up', dp: 0, words: ['higher', 'lower'] },
   { key: 'rhrNext', label: 'Next-morning resting heart rate', unit: 'bpm', better: 'down', dp: 1, words: ['higher', 'lower'] },
   { key: 'readinessNext', label: 'Next-morning readiness', unit: '', better: 'up', dp: 0, words: ['higher', 'lower'] },
-  { key: 'restlessness', label: 'Restlessness', unit: 'per hour', better: 'down', dp: 1, words: ['higher', 'lower'] },
-  { key: 'snoring', label: 'Snoring', unit: 'min', better: 'down', dp: 0, words: ['more', 'less'] },
+  { key: 'wakeUps', label: 'Wake-ups', unit: '', better: 'down', dp: 1, words: ['more', 'fewer'] },
+  { key: 'wasoMin', label: 'Awake after falling asleep', unit: 'min', better: 'down', dp: 0, words: ['more', 'less'] },
+  { key: 'fragmentation', label: 'Stage changes', unit: 'per hour', better: 'down', dp: 1, words: ['more', 'fewer'] },
+  { key: 'hrSpikes', label: 'Heart rate spikes', unit: '', better: 'down', dp: 1, words: ['more', 'fewer'] },
   { key: 'breathing', label: 'Breathing disturbances', unit: '', better: 'down', dp: 1, words: ['more', 'fewer'] },
   { key: 'rested', label: 'How rested', unit: 'of 5', better: 'up', dp: 1, words: ['higher', 'lower'] },
   { key: 'spo2Dips', label: 'Blood oxygen dips', unit: '', better: 'down', dp: 1, words: ['more', 'fewer'] },
@@ -69,8 +73,8 @@ export interface NightInputs {
   readinessNext: number | null
   breathing: number | null
   spo2Dips: number | null
-  restless: { indexPerHour: number } | null
-  sounds: SoundsNight | null
+  /** wake-ups, awake minutes, fragmentation and heart rate spikes from Health */
+  restless: RestlessNight | null
   morning: MorningCheck | null
   /** the nightmare estimate for the night: 1 likely or confirmed, 0 not, null unknown */
   nightmare?: number | null
@@ -98,10 +102,6 @@ export function buildRows(features: NightFeatures[], inputs: Map<string, NightIn
         continuous.lateUseMin = n.lateUseMin
         binary['habit:screen-bed'] = n.lateUseMin >= LATE_USE_MIN
       }
-      if (n.sounds?.roomMeanC != null) {
-        continuous.roomTempC = n.sounds.roomMeanC
-        binary['habit:room-hot'] = n.sounds.roomMeanC >= 24
-      }
       binary.sleepAudio = n.audio ? n.audio.minutesInBed >= 5 : (n.audio === null ? false : null)
       binary.audioAfterSleep = n.audio ? n.audio.minutesAfterSleep >= 5 : (n.audio === null ? false : null)
       binary.audioLoud = n.audio ? n.audio.avgDb > 60 : (n.audio === null ? false : null)
@@ -109,8 +109,6 @@ export function buildRows(features: NightFeatures[], inputs: Map<string, NightIn
       continuous.daylightMorningMin = n.daylightMorningMin
       continuous.waterL = n.waterL
     }
-    // a night counts only when the phone listened for at least 4 hours; a night that did not run is missing, never 0
-    const snoring = n?.sounds && n.sounds.eligible && !n.sounds.lowConfidence ? n.sounds.snoringMin : null
     const outcomes: NightRow['outcomes'] = n ? {
       sleepScore: n.score,
       totalSleep: n.asleepMin,
@@ -123,8 +121,10 @@ export function buildRows(features: NightFeatures[], inputs: Map<string, NightIn
       hrv: n.hrv,
       rhrNext: n.rhrNext,
       readinessNext: n.readinessNext,
-      restlessness: n.restless?.indexPerHour ?? null,
-      snoring,
+      wakeUps: n.restless?.wakeUps ?? null,
+      wasoMin: n.restless?.awakeMin ?? null,
+      fragmentation: n.restless?.fragmentation ?? null,
+      hrSpikes: n.restless?.hrSpikes ?? null,
       breathing: n.breathing,
       rested: n.morning?.rested ?? null,
       spo2Dips: n.spo2Dips,

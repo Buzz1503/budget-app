@@ -127,8 +127,8 @@ export interface NightRow {
   sleepingHR: number | null
   /** the night's wrist temperature (Health, filed on the wake date) */
   wristTemp?: number | null
-  /** the Watch's restlessness index, movements per hour */
-  restless?: number | null
+  /** wake-ups after falling asleep, from Health's stages */
+  wakeUps?: number | null
 }
 export interface MorningRow {
   hrv: number | null
@@ -167,9 +167,9 @@ const NIGHT_METRICS = [
   { key: 'sleepScore', label: 'Sleep score', unit: '', more: ['higher', 'lower'], get: (n: NightRow) => n.score },
   { key: 'deepSleep', label: 'Deep sleep', unit: 'min', more: ['more', 'less'], get: (n: NightRow) => n.deepMin },
   { key: 'sleepingHR', label: 'Sleeping heart rate', unit: 'bpm', more: ['higher', 'lower'], get: (n: NightRow) => n.sleepingHR },
-  // shown only when recorded: the wrist temperature against usual, and the Watch's restlessness
+  // shown only when recorded: the wrist temperature against usual, and the wake-ups
   { key: 'wristTemp', label: 'Wrist temperature', unit: 'C', dp: 1, optional: true, more: ['higher', 'lower'], get: (n: NightRow) => n.wristTemp ?? null },
-  { key: 'restlessness', label: 'Restlessness', unit: 'per hour', dp: 1, optional: true, more: ['higher', 'lower'], get: (n: NightRow) => n.restless ?? null },
+  { key: 'wakeUps', label: 'Wake-ups', unit: '', dp: 1, optional: true, more: ['more', 'fewer'], get: (n: NightRow) => n.wakeUps ?? null },
 ] as const
 const MORNING_METRICS = [
   { key: 'hrv', label: 'HRV', unit: 'ms', more: ['higher', 'lower'], get: (m: MorningRow) => m.hrv },
@@ -210,7 +210,7 @@ function compare<T>(m: { key: string; label: string; unit: string; dp?: number; 
 /**
  * That night against the 28 nights before it: sleep score, deep sleep,
  * sleeping heart rate, and when recorded the wrist temperature and the
- * Watch's restlessness. "pending" ("Available tomorrow") until the night's
+ * wake-ups. "pending" ("Available tomorrow") until the night's
  * data has arrived.
  */
 export function thatNight(session: SaunaSession, h: SaunaHealth): { status: 'ok' | 'pending' | 'none'; rows: Compared[] } {
@@ -436,7 +436,7 @@ const PATTERN_METRICS = [
   { key: 'sleepingHR', label: 'Sleeping heart rate', unit: 'bpm', dp: 0, when: 'night', fallback: 2 },
   { key: 'hrv', label: 'Next-morning HRV', unit: 'ms', dp: 0, when: 'morning', fallback: 6 },
   { key: 'rhr', label: 'Next-morning resting heart rate', unit: 'bpm', dp: 0, when: 'morning', fallback: 2 },
-  { key: 'restlessness', label: 'Restlessness', unit: 'per hour', dp: 1, when: 'night', fallback: 1 },
+  { key: 'wakeUps', label: 'Wake-ups', unit: '', dp: 1, when: 'night', fallback: 1 },
 ] as const
 
 const outcome = (key: string, input: PatternInput) => (d: string): number | null => {
@@ -444,7 +444,7 @@ const outcome = (key: string, input: PatternInput) => (d: string): number | null
   if (key === 'hrv' || key === 'rhr') return input.morning(next)[key]
   const n = input.night(next)
   if (!n) return null
-  if (key === 'restlessness') return n.restless ?? null
+  if (key === 'wakeUps') return n.wakeUps ?? null
   return key === 'sleepScore' ? n.score : key === 'deepSleep' ? n.deepMin : n.sleepingHR
 }
 
@@ -464,9 +464,12 @@ function patternRows(input: PatternInput, days: string[], inGroup: (d: string) =
     const label = changeLabel(s.diff, input.wobble[m.key] ?? m.fallback)
     const k = 10 ** m.dp
     const d = Math.round(s.diff * k) / k
+    // a count reads as more or fewer: "Wake-ups were 2 fewer on sauna nights"
+    const count = m.key === 'wakeUps'
+    const verb = count ? 'were' : 'was'
     const text = label === 'Within normal fluctuation' || d === 0
-      ? `${m.label} was about the same ${words[0]} as ${words[1]}.`
-      : `${m.label} was ${Math.abs(d)}${m.unit ? ` ${m.unit}` : ''} ${d > 0 ? 'higher' : 'lower'} ${words[0]} than ${words[1]}.`
+      ? `${m.label} ${verb} about the same ${words[0]} as ${words[1]}.`
+      : `${m.label} ${verb} ${Math.abs(d)}${m.unit ? ` ${m.unit}` : ''} ${d > 0 ? (count ? 'more' : 'higher') : (count ? 'fewer' : 'lower')} ${words[0]} than ${words[1]}.`
     rows.push({ key: m.key, name: m.label, unit: m.unit, dp: m.dp, text, nWith: s.with.n, nWithout: s.without.n, label, diff: s.diff })
   }
   return { rows, nWith, nWithout }

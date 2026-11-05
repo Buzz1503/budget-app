@@ -30,7 +30,7 @@ describe('since you started sauna against the 4 weeks before', () => {
     // nights belong to their wake date: the night after the first session is "since"
     expect(sleepHR.since).toBe(53)
     expect(sleepHR.before).toBe(56)
-    expect(r.rows.find((x) => x.key === 'restlessness')).toBeUndefined() // no data on either side: no line
+    expect(r.rows.find((x) => x.key === 'wakeUps')).toBeUndefined() // no data on either side: no line
   })
 
   it('no longer early from 14 days', () => {

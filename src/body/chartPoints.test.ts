@@ -241,7 +241,7 @@ describe('ranges fit the data', () => {
 
 describe('overlays and axes', () => {
   it('pins start off on sauna and sleep charts, on elsewhere', () => {
-    for (const c of ['saunaLength', 'sleep', 'sleepScore', 'deepSleep', 'sleepHrv', 'bedtime', 'restlessness']) expect(pinsOffByDefault(c)).toBe(true)
+    for (const c of ['saunaLength', 'sleep', 'sleepScore', 'deepSleep', 'sleepHrv', 'bedtime', 'wakeUps', 'fragmentation']) expect(pinsOffByDefault(c)).toBe(true)
     for (const c of ['weight', 'hrv', 'rhr', 'readiness']) expect(pinsOffByDefault(c)).toBe(false)
   })
 

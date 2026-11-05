@@ -107,7 +107,7 @@ const yesNo = (v) => (v == null ? 'Unknown' : v ? 'Yes' : 'No')
 /**
  * Sleep report for the last 30 or 90 days: averages and trends, the apnea
  * screen with each STOP-BANG item and its source, breathing disturbances,
- * blood oxygen, snoring, how often sedatives and alcohol were logged, weight
+ * blood oxygen, breathing rate, wake-ups and heart rate spikes, how often sedatives and alcohol were logged, weight
  * and blood pressure, and related bloods.
  */
 export function sleepReportPdf(d) {
@@ -139,14 +139,16 @@ export function sleepReportPdf(d) {
   rep.row('Lowest blood oxygen', s.spo2Lowest != null ? `${s.spo2Lowest}%` : 'No data')
   rep.row('Readings below 90%', s.spo2PctBelow90 != null ? `${s.spo2PctBelow90}%` : 'No data')
   rep.row('Nights with dips of 3 points or more', s.spo2Nights ? `${s.dipNights} of ${s.spo2Nights}` : 'No data')
+  rep.row('Breathing rate, average', s.respAvg != null ? `${r1(s.respAvg)} per min` : 'No data')
   rep.para('Apple Watch samples blood oxygen every few minutes in sleep, so these are spot readings, not continuous oximetry.', { muted: true })
 
-  rep.h2('Snoring')
-  const sn = d.snoring || {}
-  rep.row('Nights recorded by Sleep sounds', sn.nights ?? 0)
-  rep.row('Average snoring', sn.avgMin != null ? `${Math.round(sn.avgMin)} min a night` : 'No data')
-  rep.row('Nights with 15 min or more', sn.nights ? `${sn.over15} of ${sn.nights}` : 'No data')
-  if (sn.lowConfidence) rep.para(`${sn.lowConfidence} nights with the phone in the bed are left out.`, { muted: true })
+  rep.h2('Restless nights')
+  const rn = d.restless || {}
+  rep.row('Nights with sleep stages', rn.nights ?? 0)
+  rep.row('Wake-ups', rn.wakeUps != null ? `${r1(rn.wakeUps)} a night` : 'No data')
+  rep.row('Awake after falling asleep', rn.awakeMin != null ? `${Math.round(rn.awakeMin)} min a night` : 'No data')
+  rep.row('Heart rate spikes', rn.hrSpikes != null ? `${r1(rn.hrSpikes)} a night` : 'No data')
+  rep.para('From Apple Health. A spike is heart rate more than 10 bpm above that night\'s median for 2 minutes or more.', { muted: true })
 
   rep.h2('Sedatives and alcohol logged')
   if (!(d.logs?.length)) rep.para('None logged.', { muted: true })

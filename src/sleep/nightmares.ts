@@ -4,8 +4,9 @@
 // An event is a heart rate surge of 15 bpm or more above the night's rolling
 // sleeping baseline, rising within 2 minutes and lasting at least 1 minute.
 // It scores higher when it happens during or right after REM, is followed by
-// an awake stretch within 5 minutes, comes with a burst of wrist movement, or
-// the night's breathing rate was above its usual. The strongest event rates
+// an awake stretch within 5 minutes, comes with an HRV drop (an overnight HRV
+// sample within 15 minutes at least 20% under the night's median), or the
+// night's breathing rate was above its usual. Everything is Apple Health data. The strongest event rates
 // the night: Unlikely, Possible or Likely. Your morning answers (Nightmare,
 // Vivid) are the ground truth: agreement is shown, and from 10 confirmed
 // nights the thresholds are fitted to you.
@@ -23,7 +24,8 @@ export const NIGHTMARES = {
   baselineMin: 30, // the rolling baseline: median of the 30 minutes before
   remWindowMin: 5,
   awakeWithinMin: 5,
-  movementShare: 0.3, // a movement burst: 30% or more of a minute moving
+  hrvDropShare: 0.2, // an HRV drop: a sample 20% or more under the night's median
+  hrvWithinMin: 15,
   possible: 2,
   likely: 3,
   calibrateFrom: 10,
@@ -37,7 +39,7 @@ export interface NightmareEvent {
   durationMin: number
   rem: boolean
   awakeAfter: boolean
-  movement: boolean
+  hrvDrop: boolean
   breathing: boolean
   score: number
 }
@@ -51,15 +53,13 @@ const median = (xs: number[]) => {
 }
 
 /**
- * Events in one night. `hr` is [minutes from the night's start, bpm];
- * `movement` the Watch's share of each minute moving, from `movementStart`.
+ * Events in one night. `hr` and `hrv` are [minutes from the night's start, value].
  */
 export function detectEvents(input: {
   start: number
   hr: Array<[number, number]>
   segments?: SleepSegment[]
-  movement?: number[] | null
-  movementStart?: number | null
+  hrv?: Array<[number, number]> | null
   respAboveUsual?: boolean | null
 }): NightmareEvent[] {
   const { hr, start } = input
@@ -67,6 +67,8 @@ export function detectEvents(input: {
   const at = (m: number) => start + m * 60000
   const stageAt = (t: number) => segs.find((s) => s.start <= t && s.end > t)?.stage
   const events: NightmareEvent[] = []
+  const hrvVals = (input.hrv || []).map(([, v]) => v)
+  const hrvMedian = hrvVals.length >= 3 ? median(hrvVals) : null
   let i = 0
   while (i < hr.length) {
     const [m, bpm] = hr[i]
@@ -87,16 +89,12 @@ export function detectEvents(input: {
     const remBefore = segs.some((s) => s.stage === 'rem' && s.start <= t && s.end >= t - NIGHTMARES.remWindowMin * 60000)
     const rem = stageAt(t) === 'rem' || remBefore
     const awakeAfter = segs.some((s) => s.stage === 'awake' && s.start >= t && s.start <= t + NIGHTMARES.awakeWithinMin * 60000)
-    let movement = false
-    if (input.movement?.length && input.movementStart != null) {
-      const k = Math.floor((t - input.movementStart) / 60000)
-      for (let d = -2; d <= 2; d++) if ((input.movement[k + d] ?? 0) >= NIGHTMARES.movementShare) movement = true
-    }
+    const hrvDrop = hrvMedian != null && (input.hrv || []).some(([mm, v]) => Math.abs(mm - m) <= NIGHTMARES.hrvWithinMin && v <= hrvMedian * (1 - NIGHTMARES.hrvDropShare))
     const breathing = !!input.respAboveUsual
     const surge = Math.round(peak - base)
-    const score = Math.round((1 + (rem ? 1 : 0) + (awakeAfter ? 1 : 0) + (movement ? 1 : 0) + (breathing ? 0.5 : 0)
+    const score = Math.round((1 + (rem ? 1 : 0) + (awakeAfter ? 1 : 0) + (hrvDrop ? 1 : 0) + (breathing ? 0.5 : 0)
       + Math.min(1, (surge - NIGHTMARES.surgeBpm) / NIGHTMARES.surgeBpm)) * 10) / 10
-    events.push({ t, surge, durationMin: duration, rem, awakeAfter, movement, breathing, score })
+    events.push({ t, surge, durationMin: duration, rem, awakeAfter, hrvDrop, breathing, score })
     i = j + 1
   }
   return events
@@ -122,7 +120,7 @@ export function agreement(nights: Array<{ rating: NightRating; truth: boolean | 
 /** Features of a night's strongest event for the personal fit (zeros without an event). */
 export function eventFeatures(events: NightmareEvent[]): number[] {
   const e = [...events].sort((a, b) => b.score - a.score)[0]
-  return e ? [Math.min(2, e.surge / NIGHTMARES.surgeBpm), e.rem ? 1 : 0, e.awakeAfter ? 1 : 0, e.movement ? 1 : 0, e.breathing ? 1 : 0] : [0, 0, 0, 0, 0]
+  return e ? [Math.min(2, e.surge / NIGHTMARES.surgeBpm), e.rem ? 1 : 0, e.awakeAfter ? 1 : 0, e.hrvDrop ? 1 : 0, e.breathing ? 1 : 0] : [0, 0, 0, 0, 0]
 }
 
 /** Logistic regression by gradient descent with a small L2 penalty; deterministic. */

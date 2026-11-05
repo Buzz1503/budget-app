@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { wakeUps } from '../../sleep/restless'
 import useStore, { todayStr } from '../../store/useStore'
 import { addDays, dateRange } from '../../health/tz'
 import { wobble } from '../../health/engine/phases'
@@ -13,7 +14,6 @@ import useHealthModel, { tz } from './useHealthModel'
 export default function useSaunaInput() {
   const model = useHealthModel()
   const sessions = useStore((s) => s.saunaSessions)
-  const nightExtras = useStore((s) => s.nightExtras)
   const t = todayStr()
   return useMemo(() => {
     const night = (wake) => {
@@ -21,7 +21,7 @@ export default function useSaunaInput() {
       if (!n) return null
       return {
         start: n.start, asleepMin: n.asleepMin ?? null, score: model.sleepScore(wake)?.score ?? null, deepMin: n.hasStages ? n.deepMin : null, sleepingHR: n.sleepingHR?.avg ?? null,
-        wristTemp: model.series.temp?.get(wake) ?? null, restless: nightExtras?.[wake]?.restless?.indexPerHour ?? null,
+        wristTemp: model.series.temp?.get(wake) ?? null, wakeUps: n.fallback ? null : wakeUps(n.segments)?.count ?? null,
       }
     }
     const morning = (d) => {
@@ -46,5 +46,5 @@ export default function useSaunaInput() {
         },
       },
     }
-  }, [model, sessions, nightExtras, t])
+  }, [model, sessions, t])
 }

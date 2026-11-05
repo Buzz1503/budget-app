@@ -10,13 +10,15 @@ describe('delta chip colour follows the metric', () => {
     expect(toneFor('hrv', 26)).toBe('better')
     expect(toneFor('hrv', -5)).toBe('worse')
   })
-  it('fat down, muscle up, deep sleep up, restlessness down', () => {
+  it('fat down, muscle up, deep sleep up, wake-ups down', () => {
     expect(toneFor('fatMass', -0.4)).toBe('better')
     expect(toneFor('bodyFat', 0.3)).toBe('worse')
     expect(toneFor('muscleMass', 0.5)).toBe('better')
     expect(toneFor('skeletalMuscle', -0.5)).toBe('worse')
     expect(toneFor('deepSleep', 12)).toBe('better')
-    expect(toneFor('restlessness', -3)).toBe('better')
+    expect(toneFor('wakeUps', -2)).toBe('better')
+    expect(toneFor('hrSpikes', 1)).toBe('worse')
+    expect(toneFor('fragmentation', -1)).toBe('better')
   })
   it('no change and metrics with no better side are grey', () => {
     expect(toneFor('hrv', 0)).toBe('same')

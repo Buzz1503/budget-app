@@ -1,15 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { momentAt, restlessBands, whatHappened, nightSummary, soundLane, SOUND_LANE_WORDS, movementWord, hrRange } from './nightView'
+import { momentAt, whatHappened, nightSummary, hrRange } from './nightView'
 import type { NightData } from './nightView'
-import type { SoundsSession } from './sounds'
 
 const T = Date.parse('2026-10-26T23:00:00Z')
 const m = (min: number) => T + min * 60000
 const clock = (ms: number) => new Date(ms).toISOString().slice(11, 16)
-const session = (over: Partial<SoundsSession> = {}): SoundsSession => ({ id: 's', start: m(-10), end: m(480), events: [], levels: [], loudMinutes: 0, movingMinutes: 0, lowConfidence: false, room: [], startedBy: 'shortcut', ...over })
 
-// moving share per minute: still, then a restless burst at 55 to 64 min, another at 200 to 204
-const series = Array.from({ length: 480 }, (_, i) => ((i >= 55 && i < 65) || (i >= 200 && i < 205) ? 0.4 : i === 100 ? 0.1 : 0))
+// Health only: stages, heart rate (a spike at 300 to 302 min), HRV, SpO2 (one dip) and breathing rate
 const night: NightData = {
   night: {
     start: m(0), end: m(480),
@@ -21,69 +18,51 @@ const night: NightData = {
     ],
   },
   overnight: {
-    hr: [[0, 55], [30, 53], [61, 62], [90, 51], [200, 54], [300, 66], [400, 52]],
+    hr: [[0, 55], [30, 53], [61, 62], [90, 51], [200, 54], [300, 70], [301, 72], [302, 70], [400, 52]],
+    hrv: [[60, 40], [240, 55]],
     spo2: [[120, 95], [250, 88]],
+    resp: [[60, 15], [300, 14]],
   },
-  restless: { start: m(0), series },
-  sounds: [session({ events: [{ s: m(300), e: m(303), label: 'snoring', c: 0.8 }, { s: m(303.5), e: m(305), label: 'snoring', c: 0.9 }] })],
-  events: [{ t: m(300), surge: 14 }],
+  events: [{ t: m(301), surge: 15 }, { t: m(420), surge: 9 }],
 }
 
-describe('the crosshair reads every lane at one minute', () => {
-  it('stage, movement, heart rate, blood oxygen, sound and event at the same moment', () => {
-    expect(momentAt(night, m(61))).toMatchObject({ stage: 'awake', movement: 'Restless', hr: 62, spo2: null, sound: null })
-    expect(momentAt(night, m(250))).toMatchObject({ stage: 'rem', movement: 'Still', spo2: 88 })
-    expect(momentAt(night, m(301))).toMatchObject({ sound: 'Snoring', event: 'Heart rate up 14 bpm', hr: 66 })
-    expect(momentAt(night, m(100)).movement).toBe('Light')
-    // nothing near: no heart rate is made up
+describe('the crosshair reads every Health lane at one minute', () => {
+  it('stage, heart rate, HRV, blood oxygen, breathing and a note at the same moment', () => {
+    expect(momentAt(night, m(61))).toMatchObject({ stage: 'awake', hr: 62, hrv: 40, spo2: null, resp: 15, event: null })
+    expect(momentAt(night, m(250))).toMatchObject({ stage: 'rem', spo2: 88, hrv: 55 })
+    expect(momentAt(night, m(301))).toMatchObject({ hr: 72, event: 'Heart rate spike, 17 above', resp: 14 })
+    // nothing near: no reading is made up
     expect(momentAt(night, m(170)).hr).toBeNull()
   })
 
-  it('movement words and the heart rate range', () => {
-    expect([movementWord(0), movementWord(0.1), movementWord(0.5), movementWord(null)]).toEqual(['Still', 'Light', 'Restless', null])
-    expect(hrRange(night.overnight!.hr)).toEqual({ low: 51, high: 66 })
-  })
-})
-
-describe('restless bands', () => {
-  it('5-minute blocks with 30 seconds of movement, neighbours joined', () => {
-    expect(restlessBands(night.restless)).toEqual([{ s: m(55), e: m(65) }, { s: m(200), e: m(205) }])
-    // 20 seconds in a block is not restless
-    expect(restlessBands({ start: m(0), series: [0.1, 0.1, 0.1, 0.03, 0] })).toEqual([])
-    expect(restlessBands(null)).toEqual([])
+  it('has no movement or sound', () => {
+    const k = Object.keys(momentAt(night, m(61)))
+    expect(k).not.toContain('movement')
+    expect(k).not.toContain('sound')
+    expect(hrRange(night.overnight!.hr)).toEqual({ low: 51, high: 72 })
   })
 })
 
 describe('what happened', () => {
-  it('the night in time order, one line each, the lanes read together', () => {
+  it('wake-ups, heart rate spikes, surges and SpO2 dips in time order', () => {
     const list = whatHappened(night, clock)
-    expect(list.map((h) => h.kind)).toEqual(['restless', 'wake', 'restless', 'spo2', 'surge', 'snoring'])
-    expect(list[1].text).toBe('00:00 Woke for 4 min. Heart rate rose to 62, you moved a lot just before.')
-    expect(list[0].text).toBe('23:55 Restless for 10 min, to 00:05.')
-    expect(list[3].text).toBe('03:10 Blood oxygen reading 88%.')
-    expect(list[5].text).toBe('04:00 Snoring for 5 min.')
-    const times = list.map((h) => h.t)
-    expect([...times].sort((a, b) => a - b)).toEqual(times)
+    expect(list.map((h) => h.kind)).toEqual(['wake', 'spo2', 'spike', 'surge'])
+    expect(list[0].text).toBe('00:00 Woke for 4 min. Heart rate rose to 62.')
+    expect(list[1].text).toBe('03:10 Blood oxygen reading 88%.')
+    expect(list[2].text).toBe("04:00 Heart rate 72, 17 above the night's usual, for 3 min.")
+    // the surge inside the spike is not listed twice
+    expect(list[3].text).toBe('06:00 Heart rate rose 9 bpm above your usual for the night.')
   })
 
-  it('a wake at the very start or end of the night is not listed', () => {
+  it('a wake at the very start of the night is not listed', () => {
     const edge: NightData = { night: { start: m(0), end: m(60), segments: [{ start: m(0), end: m(5), stage: 'awake' }, { start: m(5), end: m(60), stage: 'core' }] } }
     expect(whatHappened(edge, clock)).toEqual([])
   })
 })
 
-describe('the summary line and the Sound lane', () => {
-  it('restless count and longest, heart rate low, snoring', () => {
-    expect(nightSummary(night)).toBe('Restless 2 times, longest 10 min. Heart rate low 51. Snoring 5 min.')
-    expect(nightSummary({ ...night, sounds: [session()] })).toBe('Restless 2 times, longest 10 min. Heart rate low 51. No snoring heard.')
-    expect(nightSummary({ ...night, sounds: [] })).toBe('Restless 2 times, longest 10 min. Heart rate low 51.')
-  })
-
-  it('ran and heard nothing, did not run, heard something', () => {
-    expect(soundLane([session()])).toBe('quiet')
-    expect(soundLane([])).toBe('off')
-    expect(soundLane(null)).toBe('off')
-    expect(soundLane(night.sounds)).toBe('heard')
-    expect(SOUND_LANE_WORDS).toEqual({ quiet: 'Nothing heard', off: 'Not recording' })
+describe('the summary line', () => {
+  it('wake-ups, awake minutes and heart rate spikes, nothing about snoring or movement', () => {
+    expect(nightSummary(night)).toBe('Woke once, 4 min awake. 1 heart rate spike.')
+    expect(nightSummary({ night: night.night })).toBe('Woke once, 4 min awake.')
   })
 })

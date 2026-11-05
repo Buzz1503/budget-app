@@ -7,12 +7,12 @@ import { haptic } from '../../lib/feedback'
 import { hypnogramRows, durationWords } from '../../health/engine/sleepView'
 import { hhmm } from '../../health/engine/planner'
 import {
-  momentAt, restlessBands, soundLane, SOUND_LANE_WORDS, whatHappened, nightSummary, NIGHT, STAGE_WORD,
+  momentAt, whatHappened, nightSummary, NIGHT, STAGE_WORD,
   STAGE_COLOR, stageTotals, smoothPath, hrLow, crosshairCells, nightLegend, NIGHT_LAYOUT,
 } from '../../sleep/nightView'
+import { hrSpikes } from '../../sleep/restless'
 import { NightGesture, GESTURE, isZoomed, overviewBox, overviewDrag, nightTicks, tickPlace } from '../../sleep/nightGestures'
 import { W, STAGE_LABEL } from './SleepCharts'
-import { NO_RECORDING_LINE } from '../../sleep/prompts'
 import { ChartLegend } from '../charts/TrendChart'
 
 const MIN = 60000
@@ -25,18 +25,19 @@ const muted = { color: 'var(--text-3)' }
 const soft = { color: 'var(--text-2)' }
 
 const LANE_INFO = {
-  stages: 'Sleep stages, estimated by your Apple Watch from movement and heart rate. One row each: Awake at the top, then REM, Core and Deep.',
-  move: 'Movement from your Apple Watch: taller bars mean more movement in that minute. Shaded stretches are restless periods, 5 minutes with 30 seconds or more of movement. The Watch sends a night once it has read it, usually when the Pepito Watch app next runs.',
-  sound: 'Snoring, coughs and talking heard by Sleep sounds on your iPhone. Only the time and kind of sound are kept, never audio.',
-  hr: 'Heart rate from your Apple Watch while you slept. The dot marks the lowest reading of the night.',
-  spo2: 'Blood oxygen readings from your Apple Watch. A reading under 90% is shown in amber.',
+  stages: 'Sleep stages from Apple Health, recorded by your chosen sleep source. One row each: Awake at the top, then REM, Core and Deep.',
+  hr: 'Heart rate from Apple Health while you slept. The dot marks the lowest reading of the night; amber stretches are spikes, more than 10 bpm over the night\'s usual for 2 minutes or more.',
+  hrv: 'Heart rate variability samples Apple Health recorded overnight, one dot each. Higher usually goes with a calmer night.',
+  spo2: 'Blood oxygen readings from Apple Health. A reading under 90% is shown in amber.',
+  resp: 'Breathing rate samples Apple Health recorded overnight, in breaths a minute.',
 }
-const LANE_NAME = { move: ['Move', null], sound: ['Sound', null], hr: ['Heart rate', 'bpm'], spo2: ['SpO2', '%'] }
-const INFO_TITLE = { stages: 'Stages', move: 'Move', sound: 'Sound', hr: 'Heart rate', spo2: 'Blood oxygen' }
+const LANE_NAME = { hr: ['Heart rate', 'bpm'], hrv: ['HRV', 'ms'], spo2: ['SpO2', '%'], resp: ['Breathing', 'per min'] }
+const INFO_TITLE = { stages: 'Stages', hr: 'Heart rate', hrv: 'Heart rate variability', spo2: 'Blood oxygen', resp: 'Breathing rate' }
 
 /**
  * The night in one card: stages as coloured blocks, one row each (Awake, REM,
- * Core, Deep), then Move, Sound, heart rate and blood oxygen on the same clock.
+ * Core, Deep), then heart rate, HRV, blood oxygen and breathing rate on the same
+ * clock, all from Apple Health.
  * Touch follows `NightGesture`: a vertical swipe scrolls the page, a sideways
  * drag shows the crosshair (when zoomed it pans, and a press and hold first
  * gives the crosshair), two fingers pinch the time axis from 30 minutes to the
@@ -45,9 +46,7 @@ const INFO_TITLE = { stages: 'Stages', move: 'Move', sound: 'Sound', hr: 'Heart 
  * expand icon and is the same component, larger. Under the chart: an overview
  * strip while zoomed, the legend and the night's notable moments.
  */
-export default function NightCard({ night, overnight, restless, soundSessions, soundsOn, events = [], moveLane = 'none', tz, full = false, onClose = null }) {
-  const noRecording = moveLane === 'missing'
-  const moveWaiting = moveLane === 'waiting'
+export default function NightCard({ night, overnight, events = [], tz, full = false, onClose = null }) {
   const [win, setWinNow] = useState(null)
   const [cursor, setCursor] = useState(null)
   const [isFull, setFull] = useState(false)
@@ -72,12 +71,11 @@ export default function NightCard({ night, overnight, restless, soundSessions, s
   const clipId = `night-plot-${useId().replace(/:/g, '')}`
 
   const clock = (ms) => hhmm(tz.hourOf(ms) * 60)
-  const data = useMemo(() => ({ night, overnight, restless, sounds: soundSessions || [], events }), [night, overnight, restless, soundSessions, events])
+  const data = useMemo(() => ({ night, overnight, events }), [night, overnight, events])
   const { rows, steps } = useMemo(() => hypnogramRows(night), [night])
   const totals = useMemo(() => stageTotals(steps), [steps])
-  const bands = useMemo(() => restlessBands(restless), [restless])
   const low = hrLow(overnight?.hr, night.start)
-  const lane = soundLane(soundSessions)
+  const spikes = useMemo(() => hrSpikes(overnight?.hr, night.start), [overnight, night.start])
   const list = useMemo(() => whatHappened(data, clock), [data]) // eslint-disable-line react-hooks/exhaustive-deps
   const summary = nightSummary(data)
 
@@ -100,10 +98,10 @@ export default function NightCard({ night, overnight, restless, soundSessions, s
   const lanes = []
   const tight = full && (box?.h || 999) < NIGHT_LAYOUT.tightBelow
   const laneDef = (key) => ({ key, h: full ? (tight ? NIGHT_LAYOUT.fullLaneTight : NIGHT_LAYOUT.fullLaneH) : NIGHT_LAYOUT.cardLaneH[key] })
-  if (restless?.series?.length || noRecording || moveWaiting) lanes.push(laneDef('move'))
-  if (soundsOn || soundSessions?.length) lanes.push(laneDef('sound'))
   if (overnight?.hr?.length > 2) lanes.push(laneDef('hr'))
+  if (overnight?.hrv?.length) lanes.push(laneDef('hrv'))
   if (overnight?.spo2?.length) lanes.push(laneDef('spo2'))
+  if (overnight?.resp?.length) lanes.push(laneDef('resp'))
   const lanesH = lanes.reduce((a, l) => a + l.h, 0)
   const stagesH = full ? Math.max(tight ? NIGHT_LAYOUT.fullStagesTight : NIGHT_LAYOUT.fullStagesMin, (box?.h || 0) - lanesH - 40) : NIGHT_LAYOUT.cardStagesH
   const rowH = stagesH / Math.max(1, rows.length)
@@ -260,7 +258,7 @@ export default function NightCard({ night, overnight, restless, soundSessions, s
 
       {!steps.length && <p className="text-xs font-medium" style={muted} data-testid="hypnogram-empty">Stage detail arrives with the next sync.</p>}
       <div ref={full ? boxRef : undefined} className={full ? 'mt-1 shrink-0' : ''} style={full ? { height: 'max(300px, calc(100dvh - 210px))' } : undefined} data-testid="night-plot">
-        <svg ref={svgRef} viewBox={`0 0 ${Wn} ${H}`} className="w-full select-none" role="img" aria-label="The night: stages, movement, sounds, heart rate and blood oxygen on one time axis"
+        <svg ref={svgRef} viewBox={`0 0 ${Wn} ${H}`} className="w-full select-none" role="img" aria-label="The night: stages, heart rate, HRV, blood oxygen and breathing rate on one time axis"
           style={{ touchAction: 'pan-y', WebkitUserSelect: 'none', WebkitTouchCallout: 'none' }} data-testid="hypnogram" data-stages-h={Math.round(stagesH)} data-lane-h={lanes.map((l) => l.h).join(',')}
           data-from={Math.round(from)} data-to={Math.round(to)}
           onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onCancel}>
@@ -299,34 +297,6 @@ export default function NightCard({ night, overnight, restless, soundSessions, s
                 <Name y={mid} name={name} sub={unit} testid="lane-label" />
                 <InfoDot k={l.key} y={mid} />
                 <g clipPath={`url(#${clipId})`}>
-                  {l.key === 'move' && (
-                    <>
-                      {bands.filter((b) => inView(b.s, b.e)).map((b) => (
-                        <rect key={b.s} x={clipX(b.s)} y={top + 2} width={Math.max(2, clipX(b.e) - clipX(b.s))} height={l.h - 4} rx="3" fill="var(--amber)" opacity="0.16" data-testid="restless-band" />
-                      ))}
-                      {(restless?.series || []).map((v, i) => {
-                        const t = restless.start + i * MIN
-                        if (v <= 0 || t < from - MIN || t > to) return null
-                        const h = Math.max(1.5, Math.min(1, v) * (l.h - 8))
-                        const w = Math.max(1, x(t + MIN) - x(t) - (to - from < 3 * 3600000 ? 1 : 0))
-                        return <rect key={i} x={x(t)} y={top + l.h - 3 - h} width={w} height={h} rx={Math.min(1.5, w / 2)} fill="var(--text-2)" opacity="0.8" data-testid="move-bar" />
-                      })}
-                      {!restless?.series?.length && noRecording && <text x={L + 6} y={mid + 4} fontSize={FS - 0.5} fontWeight="600" fill="var(--text-3)" data-testid="strip-no-move">Not recorded</text>}
-                      {!restless?.series?.length && moveWaiting && <text x={L + 6} y={mid + 4} fontSize={FS - 0.5} fontWeight="600" fill="var(--text-3)" data-testid="strip-move-waiting">Waiting for your Watch</text>}
-                    </>
-                  )}
-                  {l.key === 'sound' && (
-                    lane === 'heard' ? [
-                      ...(soundSessions || []).flatMap((s) => s.gaps || []).filter((g) => inView(g.s, g.e)).map((g, i) => (
-                        <rect key={`g${i}`} x={clipX(g.s)} y={top + 4} width={Math.max(1.5, clipX(g.e) - clipX(g.s))} height={l.h - 8} rx="2" fill="var(--text-3)" opacity="0.2" data-testid="strip-gap"><title>No audio captured</title></rect>
-                      )),
-                      ...(soundSessions || []).flatMap((s) => s.events).filter((e) => inView(e.s, e.e)).map((e, i) => (
-                        e.label === 'snoring'
-                          ? <rect key={i} x={clipX(e.s)} y={mid - 7} width={Math.max(2, clipX(e.e) - clipX(e.s))} height={14} rx="3" fill="var(--text-2)" data-testid="strip-snore" />
-                          : <circle key={i} cx={x(e.s)} cy={mid} r="3" fill="none" stroke="var(--text-2)" strokeWidth="1.4"><title>{e.label === 'cough' ? 'Cough' : 'Talking'}</title></circle>
-                      )),
-                    ] : <text x={L + 6} y={mid + 4} fontSize={FS - 0.5} fontWeight="600" fill="var(--text-3)" data-testid={`sound-${lane}`}>{SOUND_LANE_WORDS[lane]}</text>
-                  )}
                   {l.key === 'hr' && low && (() => {
                     const vals = overnight.hr.map((p) => p[1])
                     const lo = Math.min(...vals) - 2
@@ -337,6 +307,9 @@ export default function NightCard({ night, overnight, restless, soundSessions, s
                     const showLow = low.t >= from && low.t <= to
                     return (
                       <>
+                        {spikes.filter((k) => inView(k.t - MIN, k.end + MIN)).map((k) => (
+                          <rect key={k.t} x={clipX(k.t)} y={top + 2} width={Math.max(3, clipX(k.end + MIN) - clipX(k.t))} height={l.h - 4} rx="3" fill="var(--amber)" opacity="0.18" data-testid="hr-spike" />
+                        ))}
                         <path d={smoothPath(pts)} fill="none" stroke="var(--text-2)" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" data-testid="hr-line" />
                         {showLow && (
                           <g data-testid="hr-low">
@@ -352,6 +325,18 @@ export default function NightCard({ night, overnight, restless, soundSessions, s
                     if (t < from || t > to) return null
                     return <circle key={i} cx={x(t)} cy={mid} r="3" fill={p < NIGHT.spo2Low ? 'var(--warn)' : 'var(--text-3)'} data-testid="spo2-dot" data-low={p < NIGHT.spo2Low ? 'true' : 'false'}><title>{`${p}%`}</title></circle>
                   })}
+                  {(l.key === 'hrv' || l.key === 'resp') && (() => {
+                    const pts = l.key === 'hrv' ? overnight.hrv : overnight.resp
+                    const vals = pts.map((p) => p[1])
+                    const lo = Math.min(...vals)
+                    const hi = Math.max(...vals)
+                    const yOf = (v) => top + l.h - 7 - ((v - lo) / (hi - lo || 1)) * (l.h - 14)
+                    return pts.map(([mm, v], i) => {
+                      const t = night.start + mm * MIN
+                      if (t < from || t > to) return null
+                      return <circle key={i} cx={x(t)} cy={hi === lo ? mid : yOf(v)} r="2.8" fill="var(--text-2)" data-testid={`${l.key}-dot`}><title>{`${v} ${l.key === 'hrv' ? 'ms' : 'per min'}`}</title></circle>
+                    })
+                  })()}
                 </g>
               </g>
             )
@@ -385,8 +370,7 @@ export default function NightCard({ night, overnight, restless, soundSessions, s
         )
       })()}
 
-      <ChartLegend items={nightLegend({ restless: bands.length > 0, snoring: lane === 'heard' && (soundSessions || []).some((s) => s.events.some((e) => e.label === 'snoring')), other: lane === 'heard' && (soundSessions || []).some((s) => s.events.some((e) => e.label !== 'snoring')), gaps: (soundSessions || []).some((s) => s.gaps?.length), spo2Low: (overnight?.spo2 || []).some(([, p]) => p < NIGHT.spo2Low) })} />
-      {noRecording && !lanes.some((l) => l.key === 'move') && <p className="text-[11px] font-medium" style={muted} data-testid="strip-no-move">{NO_RECORDING_LINE}</p>}
+      <ChartLegend items={nightLegend({ hrLow: !!low && lanes.some((l) => l.key === 'hr'), spikes: spikes.length > 0, spo2Low: (overnight?.spo2 || []).some(([, p]) => p < NIGHT.spo2Low) })} />
       {list.length > 0 && (
         <div className="mt-3" data-testid="what-happened">
           <p className="text-[15px] font-semibold">What happened</p>
@@ -413,7 +397,7 @@ export default function NightCard({ night, overnight, restless, soundSessions, s
       {isFull && typeof document !== 'undefined' && createPortal(
         <div className="fixed inset-0 z-[70] flex flex-col p-4" style={{ background: 'var(--bg)', paddingTop: 'max(16px, env(safe-area-inset-top))', paddingBottom: 'max(16px, env(safe-area-inset-bottom))', paddingLeft: 'max(16px, env(safe-area-inset-left))', paddingRight: 'max(16px, env(safe-area-inset-right))' }}
           role="dialog" aria-modal="true" aria-label="The night, full screen" data-testid="night-fullscreen">
-          <NightCard night={night} overnight={overnight} restless={restless} soundSessions={soundSessions} soundsOn={soundsOn} events={events} moveLane={moveLane} tz={tz} full onClose={() => setFull(false)} />
+          <NightCard night={night} overnight={overnight} events={events} tz={tz} full onClose={() => setFull(false)} />
         </div>,
         document.body,
       )}

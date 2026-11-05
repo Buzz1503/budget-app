@@ -49,7 +49,7 @@ const BEFORE_SINCE = [
   { key: 'sleepingHR', label: 'Sleeping heart rate', unit: 'bpm', dp: 0, wobble: 2, get: (l: Lookups, d: string) => l.night(d)?.sleepingHR ?? null },
   { key: 'sleep', label: 'Sleep', unit: 'h', dp: 1, wobble: 0.5, get: (l: Lookups, d: string) => { const v = l.night(d)?.asleepMin; return v == null ? null : v / 60 } },
   { key: 'deepSleep', label: 'Deep sleep', unit: 'min', dp: 0, wobble: 15, get: (l: Lookups, d: string) => l.night(d)?.deepMin ?? null },
-  { key: 'restlessness', label: 'Restlessness', unit: 'per hour', dp: 1, wobble: 1, get: (l: Lookups, d: string) => l.night(d)?.restless ?? null },
+  { key: 'wakeUps', label: 'Wake-ups', unit: '', dp: 1, wobble: 1, get: (l: Lookups, d: string) => l.night(d)?.wakeUps ?? null },
   { key: 'readiness', label: 'Readiness', unit: '', dp: 0, wobble: 8, get: (l: Lookups, d: string) => l.morning(d).readiness },
 ] as const
 
@@ -73,7 +73,7 @@ export function beforeVsSince(input: Lookups & { sessions: SaunaSession[]; today
   const rows: BeforeSinceRow[] = []
   for (const m of BEFORE_SINCE) {
     // a morning belongs to its own date; a night to its wake date (the night after day d wakes on d + 1)
-    const isNight = ['sleepingHR', 'sleep', 'deepSleep', 'restlessness'].includes(m.key)
+    const isNight = ['sleepingHR', 'sleep', 'deepSleep', 'wakeUps'].includes(m.key)
     const at = (d: string) => (isNight ? addDays(d, 1) : d)
     const b = before.map((d) => m.get(input, at(d))).filter((v): v is number => v != null && Number.isFinite(v))
     const s = since.map((d) => m.get(input, at(d))).filter((v): v is number => v != null && Number.isFinite(v))
@@ -253,7 +253,7 @@ export function weekHeader(sessions: SaunaSession[], today: string, target: numb
 
 // ------------------------------------------------- the elite pass: visual first
 
-const BS_METRIC: Record<string, string> = { rhr: 'rhr', hrv: 'hrv', sleepingHR: 'sleepingHR', sleep: 'sleep', deepSleep: 'deepSleep', restlessness: 'restlessness', readiness: 'readiness' }
+const BS_METRIC: Record<string, string> = { rhr: 'rhr', hrv: 'hrv', sleepingHR: 'sleepingHR', sleep: 'sleep', deepSleep: 'deepSleep', wakeUps: 'wakeUps', readiness: 'readiness' }
 
 export interface BeforeSinceDot {
   key: string; name: string; unit: string; dp: number

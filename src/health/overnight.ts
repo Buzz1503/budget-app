@@ -22,12 +22,16 @@ export interface Overnight {
   /** HRV in the first and second half of the night, ms */
   hrvFirst: number | null
   hrvSecond: number | null
+  /** every HRV sample in the night: [minutes from the night's start, ms] (schema 5) */
+  hrv?: Array<[number, number]>
   /** every blood oxygen reading in the night: [minutes from start, %] */
   spo2: Array<[number, number]>
   /** Apple's breathing disturbances for the night, and Apple's elevated call when the sample carries one */
   breathing: number | null
   breathingElevated: boolean | null
   respRate: number | null
+  /** every breathing rate sample in the night: [minutes from the night's start, breaths a minute] (schema 5) */
+  resp?: Array<[number, number]>
   /** headphone audio in bed */
   audio: AudioNight | null
 }
@@ -118,6 +122,13 @@ export function hrvHalves(hrv: RawQuantity[], start: number, end: number): { fir
   const f = mean(inN.filter((s) => s.start < mid).map((s) => s.value))
   const s = mean(inN.filter((x) => x.start >= mid).map((x) => x.value))
   return { first: f == null ? null : Math.round(f), second: s == null ? null : Math.round(s) }
+}
+
+/** Every sample of a quantity inside the night: [minutes from the night's start, value], oldest first. */
+export function nightSamples(samples: RawQuantity[], start: number, end: number, dp = 0): Array<[number, number]> {
+  const k = 10 ** dp
+  return samples.filter((s) => s.start >= start && s.start <= end && Number.isFinite(s.value) && s.value > 0)
+    .sort((a, b) => a.start - b.start).map((s) => [Math.round((s.start - start) / MIN), Math.round(s.value * k) / k])
 }
 
 /** Every blood oxygen reading in the night, in %. */
@@ -233,10 +244,12 @@ export function buildOvernight(input: {
     hr: nightHeartRate(input.hr, night.start, night.end),
     hrvFirst: halves.first,
     hrvSecond: halves.second,
+    hrv: nightSamples(input.hrv, night.start, night.end),
     spo2: nightSpo2(input.spo2, night.start, night.end),
     breathing: nightBreathing(input.breathing, night.start, night.end),
     breathingElevated: breathingElevated(input.breathing, night.start, night.end),
     respRate: resp == null ? null : r1(resp),
+    resp: nightSamples(input.resp, night.start, night.end, 1),
     audio: audioInBed(input.headphone, bed, firstSleep, night.end),
   }
 }

@@ -13,7 +13,7 @@ describe('night chart sizes', () => {
 
   it('a legend item per kind of mark drawn', () => {
     expect(nightLegend({}).length).toBe(0)
-    expect(nightLegend({ restless: true, snoring: true, spo2Low: true }).map((x) => x.label)).toEqual(['Restless', 'Snoring', 'SpO2 under 90%'])
+    expect(nightLegend({ hrLow: true, spikes: true, spo2Low: true }).map((x) => x.label)).toEqual(['Lowest heart rate', 'Heart rate spike', 'SpO2 under 90%'])
   })
 })
 
@@ -45,8 +45,8 @@ describe('heart rate lane', () => {
 
 describe('crosshair panel', () => {
   it('values as cells, not a sentence', () => {
-    const cells = crosshairCells({ t: 0, stage: 'deep', movement: 'Still', hr: 52.4, spo2: 96, sound: 'Snoring', event: null })
-    expect(cells.map((c) => [c.label, c.value, c.unit ?? ''])).toEqual([['Heart rate', '52', 'bpm'], ['Movement', 'Still', ''], ['SpO2', '96', '%'], ['Sound', 'Snoring', '']])
-    expect(crosshairCells({ t: 0, stage: null, movement: null, hr: null, spo2: null, sound: null, event: null })).toEqual([])
+    const cells = crosshairCells({ t: 0, stage: 'deep', hr: 52.4, hrv: 48.6, spo2: 96, resp: 14.5, event: null })
+    expect(cells.map((c) => [c.label, c.value, c.unit ?? ''])).toEqual([['Heart rate', '52', 'bpm'], ['HRV', '49', 'ms'], ['SpO2', '96', '%'], ['Breathing', '14.5', '/min']])
+    expect(crosshairCells({ t: 0, stage: null, hr: null, hrv: null, spo2: null, resp: null, event: null })).toEqual([])
   })
 })

@@ -348,12 +348,12 @@ describe('M7: the Sauna tab around health data', () => {
     expect(hrFallback([m(-60, 70)], start, end)).toBeNull()
   })
 
-  it('that night adds wrist temperature and restlessness only when recorded', () => {
+  it('that night adds wrist temperature and wake-ups only when recorded', () => {
     const sess = s('2026-10-21')
-    const h = health({ base: { night: { wristTemp: 35.8, restless: 4 } }, nights: { '2026-10-22': { wristTemp: 36.1, restless: 6.5 } } })
+    const h = health({ base: { night: { wristTemp: 35.8, wakeUps: 2 } }, nights: { '2026-10-22': { wristTemp: 36.1, wakeUps: 4 } } })
     const rows = thatNight(sess, h).rows
     expect(rows.find((r) => r.key === 'wristTemp')?.text).toBe('36.1 C, 0.3 higher than usual')
-    expect(rows.find((r) => r.key === 'restlessness')?.text).toBe('6.5 per hour, 2.5 higher than usual')
+    expect(rows.find((r) => r.key === 'wakeUps')?.text).toBe('4, 2 more than usual')
     expect(thatNight(sess, health()).rows.map((r) => r.key)).toEqual(['sleepScore', 'deepSleep', 'sleepingHR'])
     // the night of today's session: available tomorrow
     expect(thatNight(s(T), health()).status).toBe('pending')
@@ -383,16 +383,16 @@ describe('M7: the Sauna tab around health data', () => {
     expect(waterToWrite(list).map((w) => [w.date, w.ml])).toEqual([['2026-10-01', 500]])
   })
 
-  it('patterns add restlessness; the longer term adds blood pressure weeks', () => {
+  it('patterns add wake-ups; the longer term adds blood pressure weeks', () => {
     const sessions = Array.from({ length: 70 }, (_, i) => addDays('2026-08-01', i)).filter((_, i) => i % 3 === 0).map((d) => s(d))
     const byDay = new Set(sessions.map((x) => x.date))
     const input: PatternInput = {
       sessions, days: dateRange('2026-07-01', addDays(T, -1)), toMs, wobble: {},
-      night: (wake) => ({ start: toMs(addDays(wake, -1), '23:00'), score: 80, deepMin: 60, sleepingHR: 55, restless: byDay.has(addDays(wake, -1)) ? 3 : 5 }),
+      night: (wake) => ({ start: toMs(addDays(wake, -1), '23:00'), score: 80, deepMin: 60, sleepingHR: 55, wakeUps: byDay.has(addDays(wake, -1)) ? 3 : 5 }),
       morning: (d) => ({ hrv: 50, rhr: 55, readiness: 70, bpSys: d.endsWith('5') ? 128 : null, bpDia: d.endsWith('5') ? 82 : null }),
     }
     const p = patterns(input)
-    expect(p.nights.find((r) => r.key === 'restlessness')?.text).toBe('Restlessness was 2 per hour lower on sauna nights than on nights without.')
+    expect(p.nights.find((r) => r.key === 'wakeUps')?.text).toBe('Wake-ups were 2 fewer on sauna nights than on nights without.')
     const lt = longerTerm(input, T)
     expect(lt.locked).toBe(false)
     if (!lt.locked) {

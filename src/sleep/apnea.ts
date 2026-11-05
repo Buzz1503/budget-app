@@ -36,8 +36,7 @@ export const ITEMS: Array<{ key: ItemKey; label: string }> = [
 ]
 
 export const APNEA = {
-  snoringNightMin: 10, // a recorded night counts as a snoring night from 10 minutes
-  snoringShare: 0.3, // snoring on more than 30% of recorded nights
+  snoringShare: 0.3, // a partner noticed snoring on more than 30% of their answers
   tiredScore: 2, // rested 2 or less
   tiredShare: 0.5, // on more than half of the last 14 answered mornings
   tiredMornings: 14,
@@ -53,8 +52,6 @@ export const APNEA = {
 }
 
 export interface StopBangInput {
-  /** recorded Sleep sounds nights, newest last: snoring minutes and whether the phone moved a lot */
-  soundNights: Array<{ date: string; snoringMin: number; lowConfidence: boolean }>
   morning: Array<{ date: string } & MorningCheck>
   /** blood pressure readings in the last 30 days */
   bp: Array<{ sys: number; dia: number }>
@@ -72,16 +69,11 @@ const pct = (v: number) => `${Math.round(v * 100)}%`
 export function stopBang(input: StopBangInput): { items: StopBangItem[]; score: number; known: number; band: 'low' | 'intermediate' | 'high' } {
   const auto: Record<ItemKey, { answer: boolean | null; source: string }> = {} as never
 
-  // Snoring: Sleep sounds (phone in the bed left out) or a partner's report
-  const nights = input.soundNights.filter((n) => !n.lowConfidence)
-  const snoringNights = nights.filter((n) => n.snoringMin >= APNEA.snoringNightMin).length
+  // Snoring: what a partner noticed (the morning check), or your own answer
   const partner = input.morning.filter((m) => m.partner && m.partner !== 'notAsked')
   const partnerSnore = partner.filter((m) => m.partner === 'snoring' || m.partner === 'stopped').length
-  if (nights.length && snoringNights / nights.length > APNEA.snoringShare) auto.snoring = { answer: true, source: `Sleep sounds: snoring on ${snoringNights} of ${nights.length} recorded nights (${pct(snoringNights / nights.length)})` }
-  else if (partner.length && partnerSnore / partner.length > APNEA.snoringShare) auto.snoring = { answer: true, source: `Partner noticed snoring on ${partnerSnore} of ${partner.length} mornings` }
-  else if (nights.length) auto.snoring = { answer: false, source: `Sleep sounds: snoring on ${snoringNights} of ${nights.length} recorded nights (${pct(snoringNights / nights.length)})` }
-  else if (partner.length) auto.snoring = { answer: false, source: `Partner noticed snoring on ${partnerSnore} of ${partner.length} mornings` }
-  else auto.snoring = { answer: null, source: 'No Sleep sounds nights or partner answers yet' }
+  if (partner.length) auto.snoring = { answer: partnerSnore / partner.length > APNEA.snoringShare, source: `Partner noticed snoring on ${partnerSnore} of ${partner.length} mornings (${pct(partnerSnore / partner.length)})` }
+  else auto.snoring = { answer: null, source: 'No partner answers yet. Set it by hand if you know' }
 
   // Tired: rested 2 or less on more than half of the last 14 answered mornings
   const answered = input.morning.filter((m) => m.rested != null).slice(-APNEA.tiredMornings)
@@ -151,8 +143,8 @@ export interface NightSignal {
   breathing: number | null
   elevated: boolean | null
   spo2: { readings: number; lowest: number | null; pctBelow90: number | null; dips: number } | null
-  snoringMin: number | null
-  lowConfidence: boolean
+  /** the night's average breathing rate, breaths a minute */
+  resp: number | null
   awakenings: number | null
   morning: MorningCheck | null
 }
@@ -164,7 +156,7 @@ export function signals(nights: NightSignal[]) {
   const withS = nights.filter((n) => n.spo2 && n.spo2.readings > 0)
   const allReadings = withS.reduce((t, n) => t + (n.spo2?.readings || 0), 0)
   const below = withS.reduce((t, n) => t + ((n.spo2?.pctBelow90 || 0) / 100) * (n.spo2?.readings || 0), 0)
-  const snore = nights.filter((n) => n.snoringMin != null && !n.lowConfidence)
+  const withR = nights.filter((n) => n.resp != null)
   const aw = nights.filter((n) => n.awakenings != null)
   const m = nights.map((n) => n.morning).filter((x): x is MorningCheck => !!x)
   const mean = (xs: number[]) => (xs.length ? Math.round((xs.reduce((a, b) => a + b, 0) / xs.length) * 10) / 10 : null)
@@ -176,8 +168,8 @@ export function signals(nights: NightSignal[]) {
     spo2Lowest: withS.length ? Math.min(...withS.map((n) => n.spo2!.lowest as number)) : null,
     spo2PctBelow90: allReadings ? Math.round((below / allReadings) * 1000) / 10 : null,
     dipNights: withS.filter((n) => (n.spo2?.dips || 0) > 0).length,
-    snoringMinAvg: mean(snore.map((n) => n.snoringMin as number)),
-    snoringNights: snore.length,
+    resp: withR.map((n) => ({ date: n.date, value: n.resp as number })),
+    respAvg: mean(withR.map((n) => n.resp as number)),
     awakeningsAvg: mean(aw.map((n) => n.awakenings as number)),
     headacheMornings: m.filter((x) => x.headache === true).length,
     dryMouthMornings: m.filter((x) => x.dryMouth === true).length,

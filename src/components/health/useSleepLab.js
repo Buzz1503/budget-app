@@ -5,19 +5,20 @@ import { addDays } from '../../health/tz'
 import { clockFromNoon } from '../../health/engine/sleep'
 import { hrDip } from '../../health/overnight'
 import { nightFeatures } from '../../sleep/features'
-import { soundsNight } from '../../sleep/sounds'
 import { spo2Night } from '../../sleep/oxygen'
 import { buildRows } from '../../sleep/analysis/dataset'
 import { detectEvents, calibrate, truthOf } from '../../sleep/nightmares'
-import { restlessForNight } from '../../sleep/restlessMatch'
+import { restlessNight } from '../../sleep/restless'
 import { useCompounds } from '../../lib/useCompounds'
 import useHealthModel, { tz } from './useHealthModel'
 
 /**
  * Everything the Sleep Lab knows about each night, gathered from Health and
  * the store: the night features (what was logged and done), the measured
- * extras (Watch movement, Sleep sounds, Screen Time), and one analysis row
- * per night. The analysis itself runs elsewhere (useSleepAnalysis).
+ * extras (Apple Health's restless-night measures, Screen Time), and one
+ * analysis row per night. A night from another source than the chosen one
+ * ("Other source") is shown but left out of the analysis. The analysis
+ * itself runs elsewhere (useSleepAnalysis).
  */
 export default function useSleepLab() {
   const model = useHealthModel()
@@ -25,14 +26,16 @@ export default function useSleepLab() {
   const s = useStore(useShallow((st) => ({
     asNeededItems: st.asNeededItems, asNeededLogs: st.asNeededLogs, supplements: st.supplements, supplementLogs: st.supplementLogs,
     doseLogs: st.doseLogs, habitLogs: st.habitLogs, habits: st.habits, eveningDetails: st.eveningDetails, saunaSessions: st.saunaSessions,
-    morningChecks: st.morningChecks, nightExtras: st.nightExtras, lateUse: st.lateUse, sleepSettings: st.sleepSettings,
+    morningChecks: st.morningChecks, lateUse: st.lateUse, sleepSettings: st.sleepSettings,
   })))
 
   return useMemo(() => {
     const nights = [...model.nightBy.values()]
+    // only the chosen sleep source feeds the analysis; a fallback night is shown, never analysed
+    const chosen = nights.filter((n) => !n.fallback)
     const daily = model.dailyBy
     const features = nightFeatures({
-      tz, nights,
+      tz, nights: chosen,
       asNeededItems: s.asNeededItems, asNeededLogs: s.asNeededLogs,
       supplements: s.supplements, supplementLogs: s.supplementLogs,
       doseLogs: s.doseLogs, compounds: compounds.map((c) => ({ id: c.id, name: c.name })),
@@ -55,10 +58,8 @@ export default function useSleepLab() {
       if (!o?.hr?.length) return
       const prevResp = sorted.slice(Math.max(0, i - 28), i).map((x) => x.overnight?.respRate).filter((v) => v != null).sort((a, b) => a - b)
       const usualResp = prevResp.length >= 7 ? prevResp[Math.floor(prevResp.length / 2)] : null
-      const restless = restlessForNight(s.nightExtras, n)
       eventsBy.set(n.date, detectEvents({
-        start: n.start, hr: o.hr, segments: n.segments,
-        movement: restless?.series || null, movementStart: restless?.start ?? null,
+        start: n.start, hr: o.hr, segments: n.segments, hrv: o.hrv || null,
         respAboveUsual: usualResp != null && o.respRate != null ? o.respRate > usualResp + 1 : null,
       }))
     })
@@ -67,8 +68,7 @@ export default function useSleepLab() {
       const o = n.overnight || null
       const evening = addDays(n.date, -1)
       const dayBefore = daily.get(evening)
-      const ex = { ...(s.nightExtras[n.date] || {}), restless: restlessForNight(s.nightExtras, n) }
-      const sounds = soundsNight(ex.sounds || [], { start: n.start, end: n.end, asleepMin: n.asleepMin })
+      const restless = restlessNight(n)
       const spo2 = spo2Night(o?.spo2)
       const readiness = model.readiness(n.date)
       const events = eventsBy.get(n.date) || null
@@ -89,8 +89,7 @@ export default function useSleepLab() {
         readinessNext: readiness.status === 'ok' ? readiness.score : null,
         breathing: o?.breathing ?? null,
         spo2Dips: spo2.readings ? spo2.dips : null,
-        restless: ex.restless || null,
-        sounds,
+        restless,
         morning: s.morningChecks[n.date] || null,
         lateUseMin: s.lateUse[evening] ?? null,
         audio: o ? o.audio : null,
@@ -102,9 +101,9 @@ export default function useSleepLab() {
         nightmare: truth != null ? (truth ? 1 : 0) : rating ? (rating === 'Likely' ? 1 : 0) : null,
       }
       inputs.set(n.date, input)
-      extras.set(n.date, { night: n, overnight: o, sounds, spo2, restless: ex.restless || null, feature: featureBy.get(n.date), input, events, rating, truth })
+      extras.set(n.date, { night: n, overnight: o, spo2, restless, feature: featureBy.get(n.date), input, events, rating, truth })
     }
-    const rows = buildRows(features, inputs)
+    const rows = buildRows(features, new Map([...inputs].filter(([d]) => !model.nightBy.get(d)?.fallback)))
     const timing = nights.map((n) => [n.date, { bedFromNoon: clockFromNoon(n.start, tz), wakeFromNoon: clockFromNoon(n.end, tz) }])
     const names = {
       habits: Object.fromEntries(s.habits.map((h) => [h.id, h.name])),

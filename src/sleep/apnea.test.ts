@@ -6,7 +6,7 @@ import { detectEvents, rateNight, agreement, truthOf, calibrate, logisticFit, NI
 import type { SleepSegment } from '../health/types'
 
 const base = (over: Partial<StopBangInput> = {}): StopBangInput => ({
-  soundNights: [], morning: [], bp: [], weightKg: null, heightCm: null, age: null, neckCm: null, sex: null, overrides: {}, ...over,
+  morning: [], bp: [], weightKg: null, heightCm: null, age: null, neckCm: null, sex: null, overrides: {}, ...over,
 })
 
 describe('STOP-BANG', () => {
@@ -16,13 +16,13 @@ describe('STOP-BANG', () => {
 
   it('maps each item from the data, with its source', () => {
     const r = stopBang(base({
-      soundNights: Array.from({ length: 10 }, (_, i) => ({ date: `2026-10-${10 + i}`, snoringMin: i < 4 ? 25 : 2, lowConfidence: false })),
-      morning: Array.from({ length: 14 }, (_, i) => ({ date: `d${i}`, rested: (i < 8 ? 2 : 4) as 2 | 4, partner: i === 3 ? 'stopped' as const : 'nothing' as const })),
+      morning: Array.from({ length: 14 }, (_, i) => ({ date: `d${i}`, rested: (i < 8 ? 2 : 4) as 2 | 4, partner: i < 5 ? (i === 3 ? 'stopped' as const : 'snoring' as const) : 'nothing' as const })),
       bp: [{ sys: 142, dia: 86 }, { sys: 140, dia: 88 }],
       weightKg: 110, heightCm: 175, age: 36, neckCm: 42, sex: 'male',
     }))
     const by = Object.fromEntries(r.items.map((i) => [i.key, i]))
-    expect(by.snoring).toMatchObject({ answer: true, source: 'Sleep sounds: snoring on 4 of 10 recorded nights (40%)' })
+    // snoring comes from the partner's answers only: no recording of any kind
+    expect(by.snoring).toMatchObject({ answer: true, source: 'Partner noticed snoring on 5 of 14 mornings (36%)' })
     expect(by.tired).toMatchObject({ answer: true, source: 'Morning check: rested 2 or less on 8 of the last 14 answered mornings' })
     expect(by.observed.answer).toBe(true)
     expect(by.pressure).toMatchObject({ answer: true, source: 'Blood pressure 30-day average 141/87 (2 readings)' })
@@ -34,10 +34,11 @@ describe('STOP-BANG', () => {
     expect(r.band).toBe('high')
   })
 
-  it('phone-in-bed nights are left out of snoring; unknowns stay unknown', () => {
-    const r = stopBang(base({ soundNights: [{ date: 'a', snoringMin: 60, lowConfidence: true }] }))
+  it('works without any snoring data; unknowns stay unknown', () => {
+    const r = stopBang(base())
     const s = r.items.find((i) => i.key === 'snoring')!
     expect(s.answer).toBeNull()
+    expect(s.source).toBe('No partner answers yet. Set it by hand if you know')
     expect(r.known).toBe(0)
     expect(r.band).toBe('low')
   })
@@ -79,10 +80,11 @@ describe('blood oxygen', () => {
 
   it('the signals panel pools the nights', () => {
     const s = signals([
-      { date: 'a', breathing: 3, elevated: false, spo2: { readings: 10, lowest: 91, pctBelow90: 0, dips: 0 }, snoringMin: 20, lowConfidence: false, awakenings: 2, morning: { headache: true, pee: 1 } },
-      { date: 'b', breathing: 9, elevated: true, spo2: { readings: 10, lowest: 87, pctBelow90: 20, dips: 2 }, snoringMin: 80, lowConfidence: true, awakenings: 4, morning: { dryMouth: true, pee: 2 } },
+      { date: 'a', breathing: 3, elevated: false, spo2: { readings: 10, lowest: 91, pctBelow90: 0, dips: 0 }, resp: 14, awakenings: 2, morning: { headache: true, pee: 1 } },
+      { date: 'b', breathing: 9, elevated: true, spo2: { readings: 10, lowest: 87, pctBelow90: 20, dips: 2 }, resp: 16, awakenings: 4, morning: { dryMouth: true, pee: 2 } },
     ])
-    expect(s).toMatchObject({ breathingNights: 2, elevatedNights: 1, spo2Nights: 2, spo2Lowest: 87, spo2PctBelow90: 10, dipNights: 1, snoringMinAvg: 20, awakeningsAvg: 3, headacheMornings: 1, dryMouthMornings: 1, peeAvg: 1.5 })
+    expect(s).toMatchObject({ breathingNights: 2, elevatedNights: 1, spo2Nights: 2, spo2Lowest: 87, spo2PctBelow90: 10, dipNights: 1, respAvg: 15, awakeningsAvg: 3, headacheMornings: 1, dryMouthMornings: 1, peeAvg: 1.5 })
+    expect(Object.keys(s).some((k) => /snor/i.test(k))).toBe(false)
   })
 })
 
@@ -99,12 +101,13 @@ describe('nightmare detection', () => {
     expect(rateNight(ev)).toBe('Unlikely')
   })
 
-  it('REM, waking after and a movement burst score it up to Likely', () => {
+  it('REM, waking after and an HRV drop score it up to Likely, with no motion or sound', () => {
     const hr: Array<[number, number]> = [...steady(0, 120), [120, 60], [121, 74], [122, 78], [123, 76], ...steady(124, 200)]
-    const movement = new Array(200).fill(0)
-    movement[122] = 0.6
-    const ev = detectEvents({ start, hr, segments: [seg(100, 121, 'rem'), seg(121, 124, 'core'), seg(124, 128, 'awake')], movement, movementStart: start })
-    expect(ev[0]).toMatchObject({ rem: true, awakeAfter: true, movement: true })
+    // HRV 20% or more under the night's median within 15 minutes
+    const hrv: Array<[number, number]> = [[0, 50], [30, 50], [60, 52], [90, 48], [125, 35], [180, 51]]
+    const ev = detectEvents({ start, hr, segments: [seg(100, 121, 'rem'), seg(121, 124, 'core'), seg(124, 128, 'awake')], hrv })
+    expect(ev[0]).toMatchObject({ rem: true, awakeAfter: true, hrvDrop: true })
+    expect(Object.keys(ev[0])).not.toContain('movement')
     expect(ev[0].score).toBeGreaterThanOrEqual(NIGHTMARES.likely)
     expect(rateNight(ev)).toBe('Likely')
   })
@@ -130,7 +133,7 @@ describe('nightmare detection', () => {
   })
 
   it('fits personal thresholds from 10 confirmed nights', () => {
-    const ev = (score: number, rem: boolean) => [{ t: 0, surge: 20, durationMin: 2, rem, awakeAfter: rem, movement: false, breathing: false, score }]
+    const ev = (score: number, rem: boolean) => [{ t: 0, surge: 20, durationMin: 2, rem, awakeAfter: rem, hrvDrop: false, breathing: false, score }]
     const few = calibrate([{ events: ev(3, true), truth: true }])
     expect(few.personal).toBe(false)
     const nights = [

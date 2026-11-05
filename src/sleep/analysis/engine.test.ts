@@ -192,18 +192,20 @@ describe('weekday and weekend', () => {
 })
 
 describe('rows', () => {
-  it('Screen Time and the bedroom sensor answer the manual toggles when present', () => {
+  it('Screen Time answers its manual toggle; the outcomes are the Health restless measures', () => {
     const rows = buildRows(
       [{ date: '2026-10-24', evening: '2026-10-23', binary: { 'habit:screen-bed': false, 'habit:room-hot': false, weekend: true }, continuous: {}, line: [] }],
       new Map([['2026-10-24', {
         date: '2026-10-24', asleepMin: 400, deepMin: 50, remMin: 90, awakeMin: 20, awakenings: 2, hrLow: 50, hrAvg: 55, hrv: 50, score: 80, rhrNext: 54,
-        readinessNext: 70, breathing: 3, spo2Dips: 0, restless: { indexPerHour: 2 }, morning: { rested: 4 },
-        sounds: { recorded: true, snoringMin: 20, snoringPct: 5, longestSnoreMin: 4, coughs: 0, talking: 0, loudMinutes: 0, lowConfidence: false, roomMeanC: 25, roomMaxC: 26, humidityMean: 50, startedBy: 'automation', capturedMin: 420, eligible: true, longestSnoreAt: null, loudestWindow: null, avgDb: -55, loudEvents: [] },
+        readinessNext: 70, breathing: 3, spo2Dips: 0, restless: { wakeUps: 3, awakeMin: 21, fragmentation: 5.2, hrSpikes: 2 }, morning: { rested: 4 },
         lateUseMin: 30, audio: { minutesInBed: 40, minutesAfterSleep: 15, avgDb: 55 }, latencyMin: 10, hrDipPct: 15, daylightMorningMin: 20, waterL: 2,
       }]]),
     )
-    expect(rows[0].binary).toMatchObject({ 'habit:screen-bed': true, 'habit:room-hot': true, sleepAudio: true, audioAfterSleep: true, audioLoud: false })
-    expect(rows[0].outcomes).toMatchObject({ snoring: 20, rested: 4, restlessness: 2, deep: 50 })
+    // Room too hot stays a manual answer now that no bedroom sensor is read
+    expect(rows[0].binary).toMatchObject({ 'habit:screen-bed': true, 'habit:room-hot': false, sleepAudio: true, audioAfterSleep: true, audioLoud: false })
+    expect(rows[0].outcomes).toMatchObject({ rested: 4, wakeUps: 3, wasoMin: 21, fragmentation: 5.2, hrSpikes: 2, deep: 50 })
+    expect(Object.keys(rows[0].outcomes)).not.toContain('snoring')
+    expect(Object.keys(rows[0].outcomes)).not.toContain('restlessness')
     expect(rows[0].weekend).toBe(true)
   })
 })

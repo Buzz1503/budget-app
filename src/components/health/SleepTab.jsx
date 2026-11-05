@@ -27,17 +27,11 @@ import AnalysisScreen from './SleepAnalysis'
 import RestlessnessScreen from './RestlessnessScreen'
 import ApneaScreen from './ApneaScreen'
 import NightmaresScreen from './NightmaresScreen'
-import SoundsScreen, { SoundsRow, useNightSounds, useSoundsLive, useSoundsControl, useSchedule } from './SoundsScreen'
-import { scheduleWords } from '../../sleep/soundsView'
 import useSleepLab from './useSleepLab'
 import SleepSetupCard from './SleepSetup'
 import { useNativeFeed } from '../../native/feed'
-import { soundsMissed, SOUNDS_MISSED_LINE } from '../../sleep/prompts'
-import { moveLane } from '../../sleep/restlessMatch'
-import { soundsStatus } from '../../native/sleepRuntime'
-import { soundsLine, minutesWords } from '../../sleep/soundsView'
+import { OTHER_SOURCE_LABEL } from '../../sleep/sources'
 import { AnswerLine, DeltaChip, InfoButton } from '../ui/Glance'
-import { onsetMin, onsetWords } from '../../sleep/sleepMode'
 
 const clock = (ms) => clockOf(clockFromNoon(ms, tz))
 const dayWords = (d, t) => (d === t ? 'Last night' : d === addDays(t, -1) ? 'The night before' : `Night to ${format(parseISO(d), 'EEE d MMM')}`)
@@ -71,31 +65,12 @@ function SleepScreen({ model }) {
   const dates = useMemo(() => [...model.nightBy.keys()].sort(), [model])
   const [date, setDate] = useState(() => (model.nightBy.has(t) ? t : dates.at(-1)))
   const [calendar, setCalendar] = useState(false)
-  const [view, setView] = useState(null) // 'analysis' | 'restless' | 'apnea' | 'nightmares' | 'sounds'
+  const [view, setView] = useState(null) // 'analysis' | 'restless' | 'apnea' | 'nightmares'
   const lab = useSleepLab()
-  const restlessOn = useStore((s) => s.sleepSettings.restlessness !== false)
-  const nightExtras = useStore((s) => s.nightExtras)
-  const firstRecorded = useMemo(() => Object.keys(nightExtras).filter((d) => nightExtras[d]?.restless).sort()[0] || null, [nightExtras])
-  const soundsNotice = useSoundsNotice(t, nightExtras)
-  const soundsOn = useStore((s) => !!s.sleepSettings.sleepSounds)
-  const live = useSoundsLive(soundsOn)
-  const control = useSoundsControl(live, null)
-  const schedule = useSchedule()
-  const openSounds = useNativeFeed((s) => s.openSounds)
-  useEffect(() => {
-    if (!openSounds) return
-    setView('sounds')
-    useNativeFeed.setState({ openSounds: false })
-  }, [openSounds])
-  const shown = useNightSounds(model, date || dates.at(-1))
-  const today = useNightSounds(model, t)
-  const isLatest = date === dates.at(-1)
-  const lineFor = (n, label, isLast, liveNow) => soundsLine({ enabled: soundsOn, running: !!live?.running, startedAt: live?.startedAt ?? null, sounds: n, label, isLast, live: liveNow, clock })
   if (view === 'analysis') return <AnalysisScreen lab={lab} onBack={() => setView(null)} />
   if (view === 'restless') return <RestlessnessScreen lab={lab} onBack={() => setView(null)} />
   if (view === 'apnea') return <ApneaScreen lab={lab} onBack={() => setView(null)} />
   if (view === 'nightmares') return <NightmaresScreen lab={lab} onBack={() => setView(null)} />
-  if (view === 'sounds') return <SoundsScreen lab={lab} date={date} label={dayWords(date, t)} isLast={date === t} onBack={() => setView(null)} />
   if (!dates.length || !date) {
     return <div className="card p-4"><p className="text-sm font-medium" style={{ color: 'var(--text-2)' }}>No main sleep recorded yet.</p></div>
   }
@@ -107,25 +82,18 @@ function SleepScreen({ model }) {
   return (
     <Stagger className="space-y-6" data-testid="sleep-view">
       <StaggerItem>
-        <Hero model={model} night={night} date={date} t={t} prev={prev} next={next} setDate={setDate} openCalendar={() => setCalendar(true)} sounds={shown.n} />
+        <Hero model={model} night={night} date={date} t={t} prev={prev} next={next} setDate={setDate} openCalendar={() => setCalendar(true)} />
       </StaggerItem>
       <StaggerItem>
-        <MorningCheck notice={soundsNotice}
-          soundsSummary={soundsOn && !soundsNotice ? lineFor(today.n, 'Last night', true, true) : null} onOpenSounds={() => { setDate(t); setView('sounds') }} />
+        <MorningCheck />
       </StaggerItem>
       <StaggerItem><SleepSetupCard model={model} /></StaggerItem>
       <StaggerItem className="space-y-2">
-        <SectionTitle icon={Activity} info={<p>Stages, movement, sound, heart rate and blood oxygen on one clock. Drag sideways to read every lane at one moment, pinch to zoom, double tap to see the whole night. The expand button opens full screen.</p>}>Through the night</SectionTitle>
+        <SectionTitle icon={Activity} info={<p>Stages, heart rate, HRV, blood oxygen and breathing rate from Apple Health on one clock. Drag sideways to read every lane at one moment, pinch to zoom, double tap to see the whole night. The expand button opens full screen.</p>}>Through the night</SectionTitle>
         <section className="card p-4">
-          <NightCard night={night} overnight={night.overnight} restless={lab.extras.get(date)?.restless} tz={tz}
-            soundSessions={nightExtras[date]?.sounds} soundsOn={soundsOn}
-            moveLane={moveLane({ enabled: restlessOn, hasRecording: !!lab.extras.get(date)?.restless, date, firstRecorded, nightEnd: night.end, now: Date.now(), latest: isLatest })}
-            events={lab.extras.get(date)?.events || []} />
+          <NightCard night={night} overnight={night.overnight} tz={tz} events={lab.extras.get(date)?.events || []} />
           <NightFactorsLine feature={lab.featureBy.get(date)} />
         </section>
-        <SoundsRow line={lineFor(shown.n, dayWords(date, t), date === t, isLatest)} onOpen={() => setView('sounds')}
-          schedule={soundsOn ? scheduleWords(schedule) : null}
-          running={!!live?.running} onToggle={typeof __NATIVE__ !== 'undefined' && __NATIVE__ ? control.toggle : null} busy={control.busy} message={control.message} />
       </StaggerItem>
       <StaggerItem className="space-y-2">
         <SectionTitle icon={FlaskConical}>Sleep Lab</SectionTitle>
@@ -156,21 +124,6 @@ function SleepScreen({ model }) {
   )
 }
 
-/** "Sleep sounds didn't run last night": on, not running now, and nothing came in for this morning. */
-function useSoundsNotice(t, nightExtras) {
-  const ss = useStore((s) => s.sleepSettings)
-  const [running, setRunning] = useState(null)
-  useEffect(() => {
-    let live = true
-    if (ss.sleepSounds) soundsStatus().then((r) => { if (live) setRunning(!!r?.running) })
-    return () => { live = false }
-  }, [ss.sleepSounds])
-  const firstNight = useMemo(() => Object.keys(nightExtras).filter((d) => nightExtras[d]?.sounds?.length).sort()[0] || null, [nightExtras])
-  if (running == null) return null
-  const missed = soundsMissed({ enabled: !!ss.sleepSounds, onSince: ss.soundsOnSince || firstNight, today: t, running, recordedTonight: !!nightExtras[t]?.sounds?.length })
-  return missed ? SOUNDS_MISSED_LINE : null
-}
-
 /** "2 drinks, last 9:40 pm · Temazepam 10 mg 9:15 pm · Magnesium 0.4 g" */
 function NightFactorsLine({ feature }) {
   if (!feature?.line?.length) return null
@@ -181,7 +134,7 @@ const LAB_LINKS = [
   ['analysis', 'Analysis', 'What goes with better nights', FlaskConical],
   ['apnea', 'Apnea screen', 'Breathing signals overnight', Wind],
   ['nightmares', 'Nightmares', 'Estimated from heart rate', Ghost],
-  ['restless', 'Restlessness', 'Movement from the Watch', Activity],
+  ['restless', 'Restless nights', 'Wake-ups and heart rate spikes', Activity],
 ]
 
 function LabLinks({ onOpen }) {
@@ -210,11 +163,8 @@ export function sleepAnswer(asleepMin, needH) {
   return diff < 0 ? `${durationWords(-diff)} short of your ${needH} h.` : `${durationWords(diff)} over your ${needH} h.`
 }
 
-function Hero({ model, night, date, t, prev, next, setDate, openCalendar, sounds }) {
+function Hero({ model, night, date, t, prev, next, setDate, openCalendar }) {
   const perf = model.sleepScore(date)
-  // from Start sleep on Apple Watch: how long from lights out to sleep
-  const lightsOut = useStore((st) => st.sleepModeLog?.[date]?.lightsOut)
-  const onset = onsetWords(onsetMin(lightsOut, night.start))
   const band = scoreBand(perf?.score)
   return (
     <section className="card p-5" data-testid="last-night">
@@ -236,15 +186,15 @@ function Hero({ model, night, date, t, prev, next, setDate, openCalendar, sounds
         <div className="min-w-0 flex-1">
           <p className="text-3xl font-black tabular-nums leading-tight" data-testid="asleep-duration">{durationWords(night.asleepMin)}</p>
           <p className="mt-2 text-sm font-medium tabular-nums" style={{ color: 'var(--text-2)' }} data-testid="sleep-times">{clock(night.start)} to {clock(night.end)}</p>
-          {sounds && (
-            <p className="text-sm font-medium tabular-nums" style={{ color: 'var(--text-2)' }} data-testid="hero-snoring">
-              {sounds.snoringMin > 0 ? `Snoring ${minutesWords(sounds.snoringMin)}` : 'No snoring heard'}
+          {night.fallback && (
+            <p className="mt-1 inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[12px] font-semibold" style={{ background: 'var(--surface-sunk)', color: 'var(--text-2)' }}
+              data-testid="other-source" title={`From ${night.sourceName || 'another source'}: kept out of your baselines and the Sleep Lab`}>
+              {OTHER_SOURCE_LABEL} · {night.sourceName || 'unknown'}
             </p>
           )}
         </div>
       </div>
       <AnswerLine className="mt-4" testid="sleep-answer">{sleepAnswer(night.asleepMin, model.needH)}</AnswerLine>
-      {onset && <p className="mt-1 text-sm font-medium tabular-nums" style={{ color: 'var(--text-2)' }} data-testid="sleep-onset">{onset}</p>}
       {!night.hasStages && <p className="mt-1 text-sm font-medium" style={{ color: 'var(--text-2)' }}>No stages from {night.sourceName || 'this source'}, so the score leaves them out.</p>}
     </section>
   )

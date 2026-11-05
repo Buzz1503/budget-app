@@ -114,7 +114,7 @@ export function CoolDownCard() {
   )
 }
 
-const PATTERN_METRIC = { sleepScore: 'sleepScore', deepSleep: 'deepSleep', sleepingHR: 'sleepingHR', hrv: 'hrv', rhr: 'rhr', restlessness: 'restlessness' }
+const PATTERN_METRIC = { sleepScore: 'sleepScore', deepSleep: 'deepSleep', sleepingHR: 'sleepingHR', hrv: 'hrv', rhr: 'rhr', wakeUps: 'wakeUps' }
 
 function PatternRows({ title, rows, group }) {
   if (!rows.length) return null

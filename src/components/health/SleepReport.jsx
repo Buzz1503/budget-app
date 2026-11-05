@@ -15,14 +15,15 @@ const BAND = { low: 'low', intermediate: 'intermediate', high: 'high' }
 /** Everything the sleep report needs for the last `days` days, as plain numbers. */
 export function sleepReportData({ lab, apnea, state, days, today, weight }) {
   const from = addDays(today, -days + 1)
-  const extras = [...lab.extras.values()].filter((e) => e.night.date >= from && e.night.date <= today).sort((a, b) => a.night.date.localeCompare(b.night.date))
+  // the chosen sleep source only: Other source nights stay out, as they do in baselines
+  const extras = [...lab.extras.values()].filter((e) => !e.night.fallback && e.night.date >= from && e.night.date <= today).sort((a, b) => a.night.date.localeCompare(b.night.date))
   const inp = extras.map((e) => e.input)
   const sig = signals(extras.map((e) => ({
     date: e.night.date, breathing: e.overnight?.breathing ?? null, elevated: e.overnight?.breathingElevated ?? null,
-    spo2: e.spo2?.readings ? e.spo2 : null, snoringMin: e.sounds?.eligible ? e.sounds.snoringMin : null, lowConfidence: !!e.sounds?.lowConfidence,
+    spo2: e.spo2?.readings ? e.spo2 : null, resp: e.overnight?.respRate ?? null,
     awakenings: e.overnight?.awakenings ?? null, morning: state.morningChecks?.[e.night.date] || null,
   })))
-  const snore = extras.filter((e) => e.sounds?.eligible && !e.sounds.lowConfidence)
+  const rest = extras.map((e) => e.restless).filter((r) => r && r.wakeUps != null)
   const bp = lab.model.daily.filter((r) => r.date >= from && r.date <= today && r.bpSys != null && r.bpDia != null).map((r) => ({ date: r.date, sys: r.bpSys, dia: r.bpDia }))
   const round = (v) => (v == null ? null : Math.round(v))
   return {
@@ -43,11 +44,11 @@ export function sleepReportData({ lab, apnea, state, days, today, weight }) {
       level: apnea.like.level, reasons: apnea.like.reasons, items: apnea.sb.items.map((i) => ({ label: i.label, answer: i.answer, source: i.source })),
     },
     signals: sig,
-    snoring: {
-      nights: snore.length,
-      avgMin: mean(snore.map((e) => e.sounds.snoringMin)),
-      over15: snore.filter((e) => e.sounds.snoringMin >= 15).length,
-      lowConfidence: extras.filter((e) => e.sounds?.lowConfidence).length,
+    restless: {
+      nights: rest.length,
+      wakeUps: mean(rest.map((r) => r.wakeUps)),
+      awakeMin: mean(rest.map((r) => r.awakeMin)),
+      hrSpikes: mean(rest.map((r) => r.hrSpikes)),
     },
     logs: eveningLogs(state, addDays(from, -1), addDays(today, -1)),
     weight: weight.filter((p) => p.date >= from && p.date <= today),
