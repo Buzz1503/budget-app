@@ -2967,11 +2967,13 @@ const useStore = create(
         set((s) => ({ bodyRefs: { ...s.bodyRefs, [key]: v } }))
       },
       // ---------- progress photos (metadata; blob lives in IndexedDB) ----------
-      addPhoto({ pose, blobKey, date }) {
+      addPhoto({ pose, blobKey, date, thumbKey = null, width = null, height = null }) {
         const s = get()
         const entry = {
           id: `photo-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
           date: date || todayStr(), pose: pose || 'front', blobKey,
+          // the thumbnail for the timeline and the stored size; Adjust adds `align` later
+          ...(thumbKey ? { thumbKey } : {}), ...(width && height ? { width, height } : {}),
         }
         set({ photos: [...s.photos, entry].sort((a, b) => a.date.localeCompare(b.date)) })
 

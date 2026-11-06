@@ -40,7 +40,7 @@ export default [
     },
   },
   {
-    files: ['src/components/native/**/*.jsx', 'src/components/health/**/*.jsx', 'src/components/charts/**/*.jsx', 'src/components/charts/**/*.js', 'src/components/body/**/*.jsx', 'src/components/sauna/**/*.jsx', 'src/components/sauna/**/*.js', 'src/components/sleep/**/*.jsx', 'src/components/sleep/**/*.js', 'src/components/health/**/*.js', 'src/health/**/*.jsx', 'src/components/data/**/*.jsx', 'src/lib/compute/**/*.js', 'src/lib/compute/**/*.jsx', 'src/lib/pdf/**/*.js'],
+    files: ['src/components/native/**/*.jsx', 'src/components/health/**/*.jsx', 'src/components/charts/**/*.jsx', 'src/components/charts/**/*.js', 'src/components/body/**/*.jsx', 'src/components/sauna/**/*.jsx', 'src/components/sauna/**/*.js', 'src/components/sleep/**/*.jsx', 'src/components/sleep/**/*.js', 'src/components/health/**/*.js', 'src/health/**/*.jsx', 'src/components/data/**/*.jsx', 'src/lib/compute/**/*.js', 'src/lib/compute/**/*.jsx', 'src/lib/pdf/**/*.js', 'src/components/photos/**/*.jsx', 'src/components/measurements/**/*.jsx'],
     languageOptions: {
       ecmaVersion: 'latest',
       sourceType: 'module',

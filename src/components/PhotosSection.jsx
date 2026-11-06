@@ -1,50 +1,98 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Camera, Trash2, GitCompareArrows, Images, FolderOpen, Link2 } from 'lucide-react'
+import { motion } from 'framer-motion'
+import { Camera, Trash2, GitCompareArrows, Images, FolderOpen, Link2, Move, Settings as SettingsIcon } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import useStore, { todayStr } from '../store/useStore'
-import { putBlob, blobUrl, deleteBlob, downscaleImage, revokeBlobUrl } from '../lib/blobStore'
+import { putBlob, deleteBlob, revokeBlobUrl } from '../lib/blobStore'
 import { importPhotos } from '../lib/photoImport'
+import { preparePhoto } from '../lib/photoImage'
+import { cameraStatus, cameraBlocked, openAppSettings, captureRoute } from '../native/camera'
 import Modal from './ui/Modal'
+import AlignedPhoto, { PhotoFrame } from './photos/AlignedPhoto'
+import PhotoEditor from './photos/PhotoEditor'
+import PhotoCompare from './photos/PhotoCompare'
+import LiveCamera from './photos/LiveCamera'
 
 const POSES = ['front', 'side', 'back']
+export const PHOTO_TIP = 'Same spot, same distance, same light.'
+export const CAMERA_OFF = 'Camera access is off for Pepito. Turn it on in Settings to take progress photos.'
+
+/** Resize, make a thumbnail, store both; the metadata goes in the store. */
+export async function savePhotoBlob(fileOrBlob, { pose, date }) {
+  const { blob, thumb, width, height } = await preparePhoto(fileOrBlob)
+  const key = `photo-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+  if (!(await putBlob(key, blob))) throw new Error('Storage on this device is unavailable')
+  const thumbKey = (await putBlob(`${key}-thumb`, thumb)) ? `${key}-thumb` : null
+  return useStore.getState().addPhoto({ pose, blobKey: key, thumbKey, width, height, date })
+}
 
 export default function PhotosSection() {
   const photos = useStore((s) => s.photos)
-  const addPhoto = useStore((s) => s.addPhoto)
   const removePhoto = useStore((s) => s.removePhoto)
+  const guideOn = useStore((s) => !!s.settings?.photoCameraGuide)
+  const updateSettings = useStore((s) => s.updateSettings)
   const [pose, setPose] = useState('front')
   const [busy, setBusy] = useState(false)
   const [compare, setCompare] = useState(false)
   const [review, setReview] = useState(null)
   const [reading, setReading] = useState(false)
   const [editing, setEditing] = useState(null)
+  const [adjusting, setAdjusting] = useState(null)
+  const [justSaved, setJustSaved] = useState(null)
+  const [camera, setCamera] = useState('unknown')
+  const [blocked, setBlocked] = useState(false)
+  const [live, setLive] = useState(false)
+  const [liveFailed, setLiveFailed] = useState(false)
+  const [error, setError] = useState(null)
   const fileRef = useRef(null)
   const libraryRef = useRef(null)
 
-  // previous photo of this pose → ghost overlay
   const posePhotos = useMemo(
-    () => photos.filter((p) => p.pose === pose).sort((a, b) => a.date.localeCompare(b.date)),
+    () => photos.filter((p) => p.pose === pose).sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id)),
     [photos, pose]
   )
   const prev = posePhotos[posePhotos.length - 1]
 
-  const onFile = async (e) => {
-    const file = e.target.files?.[0]
-    e.target.value = ''
-    if (!file) return
+  // camera access, asked of iOS ahead of the tap (a file input must open from the tap itself)
+  useEffect(() => {
+    const check = () => { void cameraStatus().then((st) => { setCamera(st); if (!cameraBlocked(st)) setBlocked(false) }) }
+    check()
+    const onVis = () => { if (document.visibilityState === 'visible') check() }
+    document.addEventListener('visibilitychange', onVis)
+    window.addEventListener('focus', check)
+    return () => { document.removeEventListener('visibilitychange', onVis); window.removeEventListener('focus', check) }
+  }, [])
+
+  const save = async (fileOrBlob) => {
     setBusy(true)
+    setError(null)
     try {
-      const blob = await downscaleImage(file).catch(() => file)
-      const key = `photo-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
-      const ok = await putBlob(key, blob)
-      if (!ok) throw new Error('IndexedDB unavailable')
-      addPhoto({ pose, blobKey: key, date: todayStr() })
+      const saved = await savePhotoBlob(fileOrBlob, { pose, date: todayStr() })
+      setJustSaved(saved ? { id: saved.id, hasPrev: !!prev } : null)
     } catch (err) {
-      alert(`Couldn't save photo: ${err.message}`)
+      setError(`Couldn't save the photo. ${err.message || ''}`.trim())
     } finally {
       setBusy(false)
     }
+  }
+
+  const onFile = async (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) {
+      // cancelled: iOS may just have been told no
+      void cameraStatus().then((st) => { setCamera(st); setBlocked(cameraBlocked(st)) })
+      return
+    }
+    await save(file)
+  }
+
+  const takePhoto = () => {
+    setError(null)
+    const route = captureRoute({ camera, guideOn, hasPrev: !!prev, liveFailed })
+    if (route === 'blocked') setBlocked(true)
+    else if (route === 'live') setLive(true)
+    else fileRef.current?.click()
   }
 
   /**
@@ -62,19 +110,18 @@ export default function PhotosSection() {
     try {
       const out = await importPhotos(files)
       const good = out.filter((x) => x.ok)
-      if (!good.length) { alert("Couldn't read those photos."); return }
+      if (!good.length) { setError("Couldn't read those photos."); return }
       setReview(good.map((x, i) => ({
         key: `${Date.now()}-${i}`,
         blob: x.blob,
         name: x.name,
-        // null rather than today when EXIF has nothing: the review sheet shows
-        // today as a guess and highlights the field so it gets looked at
+        // today as a guess when EXIF has nothing: the review sheet highlights the field so it gets looked at
         date: x.dateStr || todayStr(),
         detected: !!x.dateStr,
         pose,
       })))
     } catch (err) {
-      alert(`Import failed: ${err.message}`)
+      setError(`Import failed: ${err.message}`)
     } finally {
       setReading(false)
     }
@@ -82,17 +129,19 @@ export default function PhotosSection() {
 
   const del = async (photo) => {
     await deleteBlob(photo.blobKey)
+    if (photo.thumbKey) await deleteBlob(photo.thumbKey)
     revokeBlobUrl(photo.blobKey)
+    if (photo.thumbKey) revokeBlobUrl(photo.thumbKey)
     removePhoto(photo.id)
   }
 
   return (
     <div className="space-y-3">
       {/* capture */}
-      <div className="card p-3">
+      <div className="card p-3" data-testid="photo-capture">
         <div className="mb-3 flex gap-2">
           {POSES.map((ps) => (
-            <button key={ps} onClick={() => setPose(ps)}
+            <button key={ps} onClick={() => setPose(ps)} data-testid={`pose-${ps}`}
               className="flex-1 rounded-full py-2 text-xs font-black capitalize"
               style={pose === ps
                 ? { background: 'var(--accent)', color: 'var(--accent-fg)' }
@@ -102,14 +151,13 @@ export default function PhotosSection() {
           ))}
         </div>
 
-        {/* framing guide with ghost overlay of previous same-pose photo */}
-        <div className="relative mx-auto overflow-hidden rounded-[14px]" style={{ aspectRatio: '3/4', maxWidth: 260, background: 'var(--surface-sunk)' }}>
-          <PoseGuide />
-          {prev && <Ghost blobKey={prev.blobKey} />}
-          <div className="absolute inset-x-0 bottom-2 text-center text-xs font-bold" style={{ color: 'var(--text-2)' }}>
-            {prev ? 'Match the ghost pose · same distance & light' : 'Stand in frame · face forward'}
-          </div>
-        </div>
+        {/* the last photo of this pose, as it was lined up */}
+        <PhotoFrame testid="capture-preview">
+          {prev
+            ? <AlignedPhoto photo={prev} thumb alt={`Last ${pose} photo`} />
+            : <div className="absolute inset-0 flex items-center justify-center px-6 text-center text-sm font-medium" style={{ color: 'var(--text-3)' }}>No {pose} photo yet</div>}
+          {prev && <span className="absolute left-2 top-2 rounded-full bg-black/60 px-2.5 py-1 text-xs font-bold text-white">Last: {format(parseISO(prev.date), 'd MMM')}</span>}
+        </PhotoFrame>
 
         {/* Two inputs on purpose. The capture attribute is what sends iOS
             straight to the camera, so the library button must not carry it,
@@ -117,39 +165,66 @@ export default function PhotosSection() {
         <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={onFile} data-testid="photo-camera-input" />
         <input ref={libraryRef} type="file" accept="image/*" multiple className="hidden" onChange={onLibrary} data-testid="photo-library-input" />
         <div className="mt-3 flex gap-2">
-          <motion.button whileTap={{ scale: 0.97 }} disabled={busy || reading} onClick={() => fileRef.current?.click()}
+          <motion.button whileTap={{ scale: 0.97 }} disabled={busy || reading} onClick={takePhoto}
             data-testid="take-photo"
             className="btn-primary flex flex-1 items-center justify-center gap-2 rounded-full py-3 text-sm font-black disabled:opacity-50">
-            <Camera size={17} /> {busy ? 'Saving…' : 'Take photo'}
+            <Camera size={17} /> {busy ? 'Saving' : 'Take photo'}
           </motion.button>
           <motion.button whileTap={{ scale: 0.97 }} disabled={busy || reading} onClick={() => libraryRef.current?.click()}
             data-testid="choose-from-library"
             className="flex flex-1 items-center justify-center gap-2 rounded-full py-3 text-sm font-black disabled:opacity-50"
             style={{ background: 'var(--surface-sunk)', color: 'var(--text)' }}>
-            <FolderOpen size={17} /> {reading ? 'Reading…' : 'Choose from library'}
+            <FolderOpen size={17} /> {reading ? 'Reading' : 'Choose from library'}
           </motion.button>
         </div>
-        <p className="mt-2 text-center text-xs font-medium" style={{ color: 'var(--text-2)' }}>
-          Library photos keep the date they were taken. Saved as {pose}.
-        </p>
+        <p className="mt-2 text-center text-xs font-medium" style={{ color: 'var(--text-2)' }} data-testid="photo-tip">{PHOTO_TIP}</p>
+        {prev && (
+          <label className="mt-2 flex items-center justify-center gap-2 text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
+            <input type="checkbox" checked={guideOn} onChange={(e) => { updateSettings({ photoCameraGuide: e.target.checked }); setLiveFailed(false) }} data-testid="camera-guide-toggle" />
+            Show last photo in the camera
+          </label>
+        )}
+        {blocked && (
+          <div className="mt-3 rounded-[14px] p-3" style={{ background: 'var(--surface-sunk)' }} role="alert" data-testid="camera-denied">
+            <p className="text-sm font-semibold">{CAMERA_OFF}</p>
+            <button onClick={() => { void openAppSettings() }} className="mt-2 flex min-h-[36px] items-center gap-1.5 rounded-full px-3 text-xs font-bold"
+              style={{ background: 'var(--surface2)', border: '1px solid var(--border)' }} data-testid="camera-open-settings">
+              <SettingsIcon size={13} /> Open Settings
+            </button>
+          </div>
+        )}
+        {liveFailed && !blocked && (
+          <p className="mt-2 text-center text-xs font-medium" style={{ color: 'var(--text-2)' }} data-testid="live-unavailable">
+            The live guide isn&apos;t available here, so Take photo opens the camera.
+          </p>
+        )}
+        {error && <p className="mt-2 text-center text-xs font-semibold" style={{ color: 'var(--warn)' }} role="alert" data-testid="photo-error">{error}</p>}
+        {justSaved && (
+          <div className="mt-3 flex items-center gap-2 rounded-[14px] p-3" style={{ background: 'var(--surface-sunk)' }} data-testid="photo-saved">
+            <p className="min-w-0 flex-1 text-sm font-semibold">{justSaved.hasPrev ? 'Saved. Line it up with your last photo?' : 'Saved.'}</p>
+            <button onClick={() => { setAdjusting(justSaved.id); setJustSaved(null) }} className="min-h-[36px] rounded-full px-3 text-xs font-bold"
+              style={{ background: 'var(--surface2)', border: '1px solid var(--border)' }} data-testid="photo-saved-adjust">Adjust</button>
+            <button onClick={() => setJustSaved(null)} className="min-h-[36px] px-2 text-xs font-bold" style={{ color: 'var(--text-3)' }}>Not now</button>
+          </div>
+        )}
       </div>
 
       {/* timeline / compare */}
       {photos.length > 0 ? (
         <div className="card p-3">
           <div className="mb-3 flex items-center justify-between">
-            <p className="flex items-center gap-2 text-sm font-bold"><Images size={15} style={{ color: 'var(--good)' }} /> Timeline</p>
+            <p className="flex items-center gap-2 text-sm font-bold"><Images size={15} style={{ color: 'var(--text-2)' }} /> Timeline</p>
             {posePhotos.length >= 2 && (
-              <button onClick={() => setCompare(!compare)} className="chip !py-2 font-bold" style={{ color: 'var(--text-2)' }}>
+              <button onClick={() => setCompare(!compare)} className="chip !py-2 font-bold" style={{ color: 'var(--text-2)' }} data-testid="photo-compare-toggle">
                 <GitCompareArrows size={13} /> {compare ? 'Grid' : 'Compare'}
               </button>
             )}
           </div>
           {compare && posePhotos.length >= 2 ? (
-            <CompareSlider a={posePhotos[0]} b={posePhotos[posePhotos.length - 1]} />
+            <PhotoCompare photos={posePhotos} />
           ) : (
-            <div className="grid grid-cols-3 gap-2">
-              {posePhotos.map((p) => <Thumb key={p.id} photo={p} onDelete={() => del(p)} onEdit={() => setEditing(p.id)} />)}
+            <div className="grid grid-cols-3 gap-2" data-testid="photo-grid">
+              {posePhotos.map((p) => <Thumb key={p.id} photo={p} onDelete={() => del(p)} onEdit={() => setEditing(p.id)} onAdjust={() => setAdjusting(p.id)} />)}
             </div>
           )}
           <p className="mt-2 text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
@@ -167,69 +242,35 @@ export default function PhotosSection() {
         pose={pose}
         onClose={() => setReview(null)}
       />
-      <EditPhoto photoId={editing} onClose={() => setEditing(null)} />
+      <EditPhoto photoId={editing} onClose={() => setEditing(null)} onAdjust={(id) => { setEditing(null); setAdjusting(id) }} />
+      {adjusting && <PhotoEditor photoId={adjusting} onClose={() => setAdjusting(null)} />}
+      {live && (
+        <LiveCamera last={prev} onClose={() => setLive(false)}
+          onShot={(blob) => { setLive(false); void save(blob) }}
+          onFail={(why) => {
+            setLive(false)
+            if (why === 'denied') { setCamera('denied'); setBlocked(true) } else setLiveFailed(true)
+          }} />
+      )}
     </div>
   )
 }
 
-function PoseGuide() {
+export function Thumb({ photo, onDelete, onEdit, onAdjust }) {
   return (
-    <svg viewBox="0 0 100 133" className="absolute inset-0 h-full w-full opacity-25">
-      <g fill="none" stroke="var(--text)" strokeWidth="0.8" strokeDasharray="2 2">
-        <circle cx="50" cy="20" r="9" />
-        <path d="M38 30 L34 70 L40 72 L44 45 M62 30 L66 70 L60 72 L56 45" />
-        <path d="M40 30 q10 -4 20 0 l2 42 -6 55 -8 0 -2 -40 -2 40 -8 0 -6 -55 z" />
-      </g>
-      <line x1="50" y1="4" x2="50" y2="130" stroke="var(--text)" strokeWidth="0.4" strokeDasharray="1 3" opacity="0.5" />
-    </svg>
-  )
-}
-
-function Ghost({ blobKey }) {
-  const [url, setUrl] = useState(null)
-  useEffect(() => { let a = true; blobUrl(blobKey).then((u) => a && setUrl(u)); return () => { a = false } }, [blobKey])
-  if (!url) return null
-  return <img src={url} alt="previous pose ghost" className="absolute inset-0 h-full w-full object-cover" style={{ opacity: 0.4 }} />
-}
-
-function Thumb({ photo, onDelete, onEdit }) {
-  const [url, setUrl] = useState(null)
-  useEffect(() => { let a = true; blobUrl(photo.blobKey).then((u) => a && setUrl(u)); return () => { a = false } }, [photo.blobKey])
-  return (
-    <div className="relative overflow-hidden rounded-[14px]" style={{ aspectRatio: '3/4', background: 'var(--surface-sunk)' }}>
-      {url && <img src={url} alt={`${photo.pose} ${photo.date}`} className="h-full w-full object-cover" />}
+    <div className="relative overflow-hidden rounded-[14px]" style={{ aspectRatio: '3/4', background: 'var(--surface-sunk)' }} data-testid="photo-thumb">
+      <AlignedPhoto photo={photo} thumb />
       <button onClick={onEdit} data-testid={`photo-thumb-${photo.id}`}
         className="absolute inset-x-0 bottom-0 bg-black/50 py-1 text-center text-xs font-bold text-white">
         {format(parseISO(photo.date), 'd MMM')}
       </button>
-      <button onClick={onDelete} className="absolute right-1 top-1 rounded-full p-1" style={{ background: 'rgba(0,0,0,0.5)' }} aria-label="Delete photo">
-        <Trash2 size={11} color="var(--accent-fg)" />
+      <button onClick={onAdjust} className="absolute left-1 top-1 flex h-7 items-center gap-1 rounded-full px-2 text-[11px] font-bold text-white" style={{ background: 'rgba(0,0,0,0.55)' }}
+        aria-label="Adjust photo" data-testid={`photo-adjust-${photo.id}`}>
+        <Move size={11} /> Adjust
       </button>
-    </div>
-  )
-}
-
-function CompareSlider({ a, b }) {
-  const [urlA, setUrlA] = useState(null)
-  const [urlB, setUrlB] = useState(null)
-  const [pos, setPos] = useState(50)
-  useEffect(() => { let al = true; blobUrl(a.blobKey).then((u) => al && setUrlA(u)); blobUrl(b.blobKey).then((u) => al && setUrlB(u)); return () => { al = false } }, [a, b])
-
-  return (
-    <div>
-      <div className="relative mx-auto overflow-hidden rounded-[14px]" style={{ aspectRatio: '3/4', maxWidth: 260, background: 'var(--surface-sunk)' }}>
-        {urlB && <img src={urlB} alt="after" className="absolute inset-0 h-full w-full object-cover" />}
-        {urlA && (
-          <div className="absolute inset-0 overflow-hidden" style={{ width: `${pos}%` }}>
-            <img src={urlA} alt="before" className="h-full w-full object-cover" style={{ width: `${260 * 100 / pos}%`, maxWidth: 'none' }} />
-          </div>
-        )}
-        <div className="absolute inset-y-0" style={{ left: `${pos}%`, width: 2, background: 'var(--good)', boxShadow: '0 0 8px var(--good)' }} />
-        <span className="absolute left-1 top-1 rounded-full bg-black/50 px-2 py-1 text-xs font-bold text-white">{format(parseISO(a.date), 'd MMM')}</span>
-        <span className="absolute right-1 top-1 rounded-full bg-black/50 px-2 py-1 text-xs font-bold text-white">{format(parseISO(b.date), 'd MMM')}</span>
-      </div>
-      <input type="range" min="0" max="100" value={pos} onChange={(e) => setPos(+e.target.value)} className="mt-3 w-full" style={{ accentColor: 'var(--good)' }} />
-      <p className="text-center text-xs font-bold" style={{ color: 'var(--text-2)' }}>Drag to compare before ↔ after</p>
+      <button onClick={onDelete} className="absolute right-1 top-1 rounded-full p-1.5" style={{ background: 'rgba(0,0,0,0.55)' }} aria-label="Delete photo">
+        <Trash2 size={11} color="#fff" />
+      </button>
     </div>
   )
 }
@@ -243,7 +284,6 @@ function CompareSlider({ a, b }) {
  * this screen must not produce.
  */
 function ReviewImports({ items, pose, onClose }) {
-  const addPhoto = useStore((s) => s.addPhoto)
   const measurements = useStore((s) => s.measurements)
   const updateMeasurement = useStore((s) => s.updateMeasurement)
   const [rows, setRows] = useState([])
@@ -257,10 +297,8 @@ function ReviewImports({ items, pose, onClose }) {
     setSaving(true)
     try {
       for (const row of rows) {
-        const key = `photo-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
-        const ok = await putBlob(key, row.blob)
-        if (!ok) continue
-        const saved = addPhoto({ pose: row.pose || pose, blobKey: key, date: row.date })
+        let saved = null
+        try { saved = await savePhotoBlob(row.blob, { pose: row.pose || pose, date: row.date }) } catch { continue }
         // a photo and a reading taken the same day belong together, so the
         // offer is made per row and taken only where it was left ticked
         const sameDay = measurements.find((m) => m.date === row.date)
@@ -337,8 +375,8 @@ function ImportThumb({ blob }) {
   )
 }
 
-/** A saved photo's date stays editable — imports are guesses until confirmed. */
-function EditPhoto({ photoId, onClose }) {
+/** A saved photo's date stays editable: imports are guesses until confirmed. */
+function EditPhoto({ photoId, onClose, onAdjust }) {
   const photos = useStore((s) => s.photos)
   const updatePhoto = useStore((s) => s.updatePhoto)
   const photo = photos.find((p) => p.id === photoId)
@@ -363,6 +401,10 @@ function EditPhoto({ photoId, onClose }) {
             </button>
           ))}
         </div>
+        <button onClick={() => onAdjust(photo.id)} data-testid="photo-edit-adjust"
+          className="flex w-full items-center justify-center gap-2 rounded-full py-3 text-sm font-bold" style={{ background: 'var(--surface-sunk)' }}>
+          <Move size={15} /> Adjust{photo.align ? ' (lined up)' : ''}
+        </button>
         <button onClick={() => { updatePhoto(photo.id, { date }); onClose() }} data-testid="photo-date-save"
           className="btn-primary w-full rounded-full py-3 text-sm font-black">
           Save
