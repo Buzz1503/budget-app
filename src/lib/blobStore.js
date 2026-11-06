@@ -33,6 +33,10 @@ export async function blobUrl(key) {
   urlCache.set(key, url)
   return url
 }
+/** The URL already made for a blob, without waiting (null when there is none yet). */
+export function cachedBlobUrl(key) {
+  return (key && urlCache.get(key)) || null
+}
 export function revokeBlobUrl(key) {
   const url = urlCache.get(key)
   if (url) { URL.revokeObjectURL(url); urlCache.delete(key) }

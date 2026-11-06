@@ -9,5 +9,6 @@ class PepitoBridgeViewController: CAPBridgeViewController {
         bridge?.registerPluginInstance(PepitoBridgePlugin())
         bridge?.registerPluginInstance(PepitoSleepPlugin())
         bridge?.registerPluginInstance(PepitoFilesPlugin())
+        bridge?.registerPluginInstance(PepitoCameraPlugin())
     }
 }

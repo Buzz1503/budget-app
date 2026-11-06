@@ -33,12 +33,18 @@
 	<true/>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Pepito uses the camera to take progress photos. Photos stay on this device.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Pepito+ uses Face ID to unlock the app when the lock is on in More, Settings.</string>
 	<key>NSHealthShareUsageDescription</key>
 	<string>Pepito+ reads your sleep, heart, body and workout data to show recovery and trends alongside your protocol. Nothing leaves your phone.</string>
 	<key>NSHealthUpdateUsageDescription</key>
 	<string>Pepito+ writes one thing to Health: water you log with a sauna session. It also asks so the sauna on your Apple Watch can be started from your iPhone.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Pepito saves a progress photo to your library only when you ask it to. Photos stay on this device.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Pepito reads the photos you choose as progress photos. Photos stay on this device.</string>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
 	<key>PepitoFeatures</key>

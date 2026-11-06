@@ -31,6 +31,7 @@
 		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
 		6E299F9EC7910B52BD13E725 /* PepitoWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C111B3E7F043D0895E03329 /* PepitoWidgets.swift */; };
 		707FFC6BD3344C5A2CC99EAC /* SaunaWorkoutManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = ADA32A6878651502297B4B82 /* SaunaWorkoutManager.swift */; };
+		740E6EB544776410CECFFBD7 /* PepitoCameraPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EEED8134FB2AD3B7DA7A9F1 /* PepitoCameraPlugin.swift */; };
 		78D37890AE4E63E2FD27E594 /* PepitoBridgePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B6394D0645D8B463A8FF282 /* PepitoBridgePlugin.swift */; };
 		9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B6822FE993A50072D4E8 /* SceneDelegate.swift */; };
 		996E84AA92D03905FB90ECF0 /* Screens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 373BC1DF8EEF445A4E090C10 /* Screens.swift */; };
@@ -142,6 +143,7 @@
 		2FAD9762203C412B000D30F8 /* config.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = config.xml; sourceTree = "<group>"; };
 		35F07B17BA63A3452BFA7636 /* SaunaEffects.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SaunaEffects.swift; sourceTree = "<group>"; };
 		373BC1DF8EEF445A4E090C10 /* Screens.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Screens.swift; sourceTree = "<group>"; };
+		3EEED8134FB2AD3B7DA7A9F1 /* PepitoCameraPlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PepitoCameraPlugin.swift; sourceTree = "<group>"; };
 		4B6394D0645D8B463A8FF282 /* PepitoBridgePlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PepitoBridgePlugin.swift; sourceTree = "<group>"; };
 		4F9FB1366CE96896188FD218 /* PepitoShortcuts.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PepitoShortcuts.swift; sourceTree = "<group>"; };
 		50379B222058CBB4000EE86E /* capacitor.config.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = capacitor.config.json; sourceTree = "<group>"; };
@@ -255,6 +257,7 @@
 				2DD43BC9C69ED998863334B2 /* LateUse.swift */,
 				1F99A1F5235C851292909F3B /* PepitoSleepPlugin.swift */,
 				9820238C32C53DF0D36630FB /* PepitoFilesPlugin.swift */,
+				3EEED8134FB2AD3B7DA7A9F1 /* PepitoCameraPlugin.swift */,
 			);
 			name = Native;
 			path = Native;
@@ -590,6 +593,7 @@
 				E3674D9501A4C71DE811ACD6 /* LateUse.swift in Sources */,
 				A583A85466FF90ABF87C1B70 /* PepitoSleepPlugin.swift in Sources */,
 				492A601B88D78F923EBF2651 /* PepitoFilesPlugin.swift in Sources */,
+				740E6EB544776410CECFFBD7 /* PepitoCameraPlugin.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -172,6 +172,10 @@ info['NSSupportsLiveActivities'] = FEATURES['liveActivities']
 info['INAlternativeAppNames'] = [{ 'INAlternativeAppName' => 'Pepito' }]
 info['NSFaceIDUsageDescription'] = 'Pepito+ uses Face ID to unlock the app when the lock is on in More, Settings.'
 info['NSHealthUpdateUsageDescription'] = 'Pepito+ writes one thing to Health: water you log with a sauna session. It also asks so the sauna on your Apple Watch can be started from your iPhone.'
+# progress photos: iOS closes an app that opens the camera without NSCameraUsageDescription
+info['NSCameraUsageDescription'] = 'Pepito uses the camera to take progress photos. Photos stay on this device.'
+info['NSPhotoLibraryUsageDescription'] = 'Pepito reads the photos you choose as progress photos. Photos stay on this device.'
+info['NSPhotoLibraryAddUsageDescription'] = 'Pepito saves a progress photo to your library only when you ask it to. Photos stay on this device.'
 # Sleep sounds (microphone, phone motion, HomeKit room sensor) was removed: all sleep data
 # comes from Apple Health, so these permissions and the audio background mode go.
 %w[NSMicrophoneUsageDescription NSMotionUsageDescription NSHomeKitUsageDescription].each { |k| info.delete(k) }
