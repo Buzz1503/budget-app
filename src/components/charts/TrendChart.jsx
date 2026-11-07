@@ -200,7 +200,7 @@ export default function TrendChart(props) {
     startLine = null, refBand = null, format = null, changeUnit = null, controls = null, headerNote = null, pinsDefault, gapDays = undefined,
     suspects = [], onReview = null, full = false, initialRange = null, onClose = null,
     // `better` turns the better way round for this chart; `second` { label, series } is a dashed second line
-    better: betterProp = null, second = null, question = null,
+    better: betterProp = null, second = null, question = null, answer: answerProp = null, answerTone: answerToneProp = null,
   } = props
   // how a value reads: a number by default, or e.g. a clock time for bedtime
   const show = format || ((v) => fmt(v, dp))
@@ -283,10 +283,10 @@ export default function TrendChart(props) {
     startValue: startLine?.value ?? null, startDate: startLine?.date ?? null, unit: changeUnit ?? (unit === '%' ? 'pts' : unit), dp,
   })
   const change = changeAll.words
-  const answer = chartAnswer(change)
+  const answer = answerProp || chartAnswer(change)
   const better = betterProp || chartBetter(metric)
   const d0 = changeAll.delta
-  const answerTone = !better || d0 == null || Math.abs(d0) < Math.pow(10, -dp) / 2 ? 'same' : (d0 > 0) === (better === 'up') ? 'better' : 'worse'
+  const answerTone = answerToneProp ? answerToneProp : !better || d0 == null || Math.abs(d0) < Math.pow(10, -dp) / 2 ? 'same' : (d0 > 0) === (better === 'up') ? 'better' : 'worse'
 
   // value labels by priority (last, first, lowest, highest, then the start label); a label that
   // would cover another, the dates or the plot's edge is left out
@@ -524,7 +524,7 @@ export default function TrendChart(props) {
           {secondPts.length > 0 && (
             <g data-testid="chart-second">
               {secondPts.length > 1 && <polyline points={secondPts.map((p) => `${xFor(p.date).toFixed(1)},${yFor(p.value).toFixed(1)}`).join(' ')} fill="none" stroke="var(--text-3)" strokeWidth="1.5" strokeDasharray="4 4" />}
-              {secondPts.map((p) => (
+              {second.dots !== false && secondPts.map((p) => (
                 <circle key={`2${p.date}`} cx={xFor(p.date)} cy={yFor(p.value)} r="3" fill="var(--surface-solid)" stroke="var(--text-3)" strokeWidth="1.5"><title>{`${second.label} ${show(p.value)}${unit ? ` ${unit}` : ''} on ${shortDate(p.date)}`}</title></circle>
               ))}
             </g>

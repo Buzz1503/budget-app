@@ -7,10 +7,10 @@ import { haptic } from '../../lib/feedback'
 import { hypnogramRows, durationWords } from '../../health/engine/sleepView'
 import { hhmm } from '../../health/engine/planner'
 import {
-  momentAt, whatHappened, nightSummary, NIGHT, STAGE_WORD,
+  momentAt, whatHappened, nightSummary, NIGHT, STAGE_WORD, SETTLED,
   STAGE_COLOR, stageTotals, smoothPath, hrLow, crosshairCells, nightLegend, NIGHT_LAYOUT,
 } from '../../sleep/nightView'
-import { hrSpikes } from '../../sleep/restless'
+import { hrSpikes, spikeRule } from '../../sleep/restless'
 import { NightGesture, GESTURE, isZoomed, overviewBox, overviewDrag, nightTicks, tickPlace } from '../../sleep/nightGestures'
 import { W, STAGE_LABEL } from './SleepCharts'
 import { ChartLegend } from '../charts/TrendChart'
@@ -371,9 +371,10 @@ export default function NightCard({ night, overnight, events = [], tz, full = fa
       })()}
 
       <ChartLegend items={nightLegend({ hrLow: !!low && lanes.some((l) => l.key === 'hr'), spikes: spikes.length > 0, spo2Low: (overnight?.spo2 || []).some(([, p]) => p < NIGHT.spo2Low) })} />
-      {list.length > 0 && (
+      {(
         <div className="mt-3" data-testid="what-happened">
           <p className="text-[15px] font-semibold">What happened</p>
+          {!list.length && <p className="mt-1 px-2 text-sm font-medium" style={soft} data-testid="happened-settled">{SETTLED}</p>}
           <div className="mt-1 space-y-0.5">
             {list.map((h) => (
               <button key={`${h.kind}${h.t}`} type="button" onClick={() => jump(h.t)} className="block w-full rounded-[10px] px-2 py-1.5 text-left text-sm font-medium tabular-nums"
@@ -386,6 +387,7 @@ export default function NightCard({ night, overnight, events = [], tz, full = fa
       )}
       <Modal open={!!info} onClose={() => setInfo(null)} title={INFO_TITLE[info] || ''}>
         <p className="text-sm font-medium" style={soft} data-testid="lane-info">{info ? LANE_INFO[info] : ''}</p>
+        {info === 'hr' && <p className="mt-2 text-sm font-medium" style={soft} data-testid="spike-rule">{spikeRule(overnight?.hr, night.start)}</p>}
       </Modal>
     </div>
   )

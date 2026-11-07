@@ -1,25 +1,20 @@
 import { useEffect, useMemo, useState } from 'react'
 import { format, parseISO } from 'date-fns'
-import { ChevronLeft, ChevronRight, Info, FlaskConical, Wind, Ghost, Activity, Moon, HeartPulse, Clock, BedDouble, Sunset, TrendingUp, Gauge, Layers } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Info, Activity, Moon, HeartPulse, TrendingUp, Gauge, Layers } from 'lucide-react'
 import { motion, useReducedMotion } from 'framer-motion'
 import useStore, { todayStr } from '../../store/useStore'
 import Modal from '../ui/Modal'
 import { CountIn, FillRing, Stagger, StaggerItem } from '../ui/Motion'
-import TrendChart, { ChartLegend } from '../charts/TrendChart'
-import useChartEvents from '../charts/useChartEvents'
 import { addDays, dateRange } from '../../health/tz'
-import { planBedtime } from '../../health/engine/planner'
-import { nightsEnding, consistencySd, clockFromNoon } from '../../health/engine/sleep'
-import { COMPARE, SLEEP_VIEW } from '../../health/engine/config'
-import { mean, round } from '../../health/engine/stats'
+import { nightsEnding, clockFromNoon } from '../../health/engine/sleep'
+import { SLEEP_VIEW } from '../../health/engine/config'
 import {
-  scoreBand, scoreBreakdown, stageStats, vitalVsUsual, weekdayWeekend, midpointFromNoon, chronogram, clockOf,
-  windDownAt, debtNights, durationWords,
+  scoreBand, scoreBreakdown, stageStats, vitalVsUsual, clockOf, durationWords,
 } from '../../health/engine/sleepView'
 import useHealthModel, { tz } from './useHealthModel'
 import { NotConnected, EmptyState } from './BodyHealthView'
 import { HEALTH_BANDS } from './bands'
-import { Chronogram, DebtBars, NightCalendar } from './SleepCharts'
+import { NightCalendar } from './SleepCharts'
 import EveningSheet from '../sleep/EveningSheet'
 import MorningCheck from '../sleep/MorningCheck'
 import NightCard from './NightCard'
@@ -31,7 +26,12 @@ import useSleepLab from './useSleepLab'
 import SleepSetupCard from './SleepSetup'
 import { useNativeFeed } from '../../native/feed'
 import { OTHER_SOURCE_LABEL } from '../../sleep/sources'
-import { AnswerLine, DeltaChip, InfoButton } from '../ui/Glance'
+import { DeltaChip, InfoButton } from '../ui/Glance'
+import { spikeRule } from '../../sleep/restless'
+import {
+  VsNormal, StagesCard, ShapedCard, Last14, DebtCard, TonightCard, LabTeaser, TrendsScreen, MetricScreen, CheckNumbers, RowLink, Back,
+  useBedDiff, verdictFor,
+} from './SleepMain'
 
 const clock = (ms) => clockOf(clockFromNoon(ms, tz))
 const dayWords = (d, t) => (d === t ? 'Last night' : d === addDays(t, -1) ? 'The night before' : `Night to ${format(parseISO(d), 'EEE d MMM')}`)
@@ -65,57 +65,51 @@ function SleepScreen({ model }) {
   const dates = useMemo(() => [...model.nightBy.keys()].sort(), [model])
   const [date, setDate] = useState(() => (model.nightBy.has(t) ? t : dates.at(-1)))
   const [calendar, setCalendar] = useState(false)
-  const [view, setView] = useState(null) // 'analysis' | 'restless' | 'apnea' | 'nightmares'
+  // 'analysis' | 'restless' | 'apnea' | 'nightmares' | 'detail' | 'trends' | 'metric:<key>'
+  const [view, setView] = useState(null)
+  const [evening, setEvening] = useState(false)
   const lab = useSleepLab()
-  if (view === 'analysis') return <AnalysisScreen lab={lab} onBack={() => setView(null)} />
-  if (view === 'restless') return <RestlessnessScreen lab={lab} onBack={() => setView(null)} />
-  if (view === 'apnea') return <ApneaScreen lab={lab} onBack={() => setView(null)} />
-  if (view === 'nightmares') return <NightmaresScreen lab={lab} onBack={() => setView(null)} />
-  if (!dates.length || !date) {
+  // the evening prompt's Log button
+  const openEvening = useNativeFeed((s) => s.openEvening)
+  useEffect(() => {
+    if (!openEvening) return
+    setEvening(true)
+    useNativeFeed.setState({ openEvening: false })
+  }, [openEvening])
+  const night = date ? model.nightBy.get(date) : null
+  const bed = useBedDiff(model, night)
+  // a new screen opens at its top
+  useEffect(() => { try { window.scrollTo(0, 0) } catch { /* no window */ } }, [view])
+  const back = () => setView(null)
+  if (view === 'analysis') return <AnalysisScreen lab={lab} onBack={back} />
+  if (view === 'restless') return <RestlessnessScreen lab={lab} onBack={back} />
+  if (view === 'apnea') return <ApneaScreen lab={lab} onBack={back} />
+  if (view === 'nightmares') return <NightmaresScreen lab={lab} onBack={back} />
+  if (view === 'trends') return <TrendsScreen model={model} onBack={back} />
+  if (view?.startsWith('metric:')) return <MetricScreen model={model} metricKey={view.slice(7)} onBack={back} />
+  if (!dates.length || !night) {
     return <div className="card p-4"><p className="text-sm font-medium" style={{ color: 'var(--text-2)' }}>No main sleep recorded yet.</p></div>
   }
-  const night = model.nightBy.get(date)
+  if (view === 'detail') return <NightDetail model={model} lab={lab} night={night} date={date} onBack={back} />
   const i = dates.indexOf(date)
   const prev = i > 0 ? dates[i - 1] : null
   const next = i < dates.length - 1 ? dates[i + 1] : null
 
   return (
     <Stagger className="space-y-6" data-testid="sleep-view">
-      <StaggerItem>
-        <Hero model={model} night={night} date={date} t={t} prev={prev} next={next} setDate={setDate} openCalendar={() => setCalendar(true)} />
-      </StaggerItem>
-      <StaggerItem>
-        <MorningCheck />
-      </StaggerItem>
-      <StaggerItem><SleepSetupCard model={model} /></StaggerItem>
       <StaggerItem className="space-y-2">
-        <SectionTitle icon={Activity} info={<p>Stages, heart rate, HRV, blood oxygen and breathing rate from Apple Health on one clock. Drag sideways to read every lane at one moment, pinch to zoom, double tap to see the whole night. The expand button opens full screen.</p>}>Through the night</SectionTitle>
-        <section className="card p-4">
-          <NightCard night={night} overnight={night.overnight} tz={tz} events={lab.extras.get(date)?.events || []} />
-          <NightFactorsLine feature={lab.featureBy.get(date)} />
-        </section>
+        <Hero model={model} night={night} date={date} t={t} prev={prev} next={next} setDate={setDate} openCalendar={() => setCalendar(true)} bed={bed} />
+        <RowLink title="Trends" sub="7, 30 and 90 nights: time asleep, deep, REM, heart rate, HRV, consistency, score" onClick={() => setView('trends')} testid="open-trends" icon={TrendingUp} />
       </StaggerItem>
-      <StaggerItem className="space-y-2">
-        <SectionTitle icon={FlaskConical}>Sleep Lab</SectionTitle>
-        <LabLinks onOpen={setView} />
-      </StaggerItem>
-      <StaggerItem className="space-y-2">
-        <SectionTitle icon={Gauge} info={<p>The sleep score is four parts, each out of 100. Tap a part for what went into it.</p>}>Score breakdown</SectionTitle>
-        <Breakdown model={model} night={night} date={date} />
-      </StaggerItem>
-      <StaggerItem className="space-y-2"><Stages model={model} night={night} date={date} /></StaggerItem>
-      <StaggerItem className="space-y-2">
-        <SectionTitle icon={HeartPulse} info={<p>This night against your usual, the median of the 28 nights before. Green chips moved the better way for that measure, amber the other way, grey means about the same or no better side (respiratory rate, wrist temperature).</p>}>Overnight vitals</SectionTitle>
-        <Vitals model={model} night={night} date={date} />
-      </StaggerItem>
-      <StaggerItem className="space-y-2"><Timing model={model} t={t} /></StaggerItem>
-      <StaggerItem className="space-y-2"><DebtAndPlan model={model} t={t} /></StaggerItem>
-      <StaggerItem className="space-y-2"><Factors /></StaggerItem>
-      <StaggerItem className="space-y-2">
-        <SectionTitle icon={TrendingUp} info={<p>Tap Overlay on a chart to add compound lanes under it.</p>}>Trends</SectionTitle>
-        <Trends model={model} />
-      </StaggerItem>
-      <StaggerItem><Naps model={model} t={t} /></StaggerItem>
+      <StaggerItem><MorningCheck /></StaggerItem>
+      <StaggerItem><VsNormal model={model} date={date} onOpen={(k) => setView(`metric:${k}`)} /></StaggerItem>
+      <StaggerItem><StagesCard model={model} night={night} date={date} onDetail={() => setView('detail')} /></StaggerItem>
+      <StaggerItem><ShapedCard lab={lab} date={date} /></StaggerItem>
+      <StaggerItem><Last14 model={model} t={t} /></StaggerItem>
+      <StaggerItem><DebtCard model={model} t={t} /></StaggerItem>
+      <StaggerItem><TonightCard model={model} lab={lab} onLogEvening={() => setEvening(true)} /></StaggerItem>
+      <StaggerItem><LabTeaser lab={lab} onOpen={() => setView('analysis')} onOpenView={setView} /></StaggerItem>
+      <EveningSheet open={evening} onClose={() => setEvening(false)} />
       <Modal open={calendar} onClose={() => setCalendar(false)} title="Nights">
         <NightCalendar selected={date} today={t} hasNight={(d) => model.nightBy.has(d)} scoreOf={(d) => model.sleepScore(d)?.score}
           onPick={(d) => { setDate(d); setCalendar(false) }} />
@@ -124,34 +118,43 @@ function SleepScreen({ model }) {
   )
 }
 
+/**
+ * The night in detail: the gesture chart with every lane and what happened,
+ * the numbers checked, the score's parts, stages, vitals and naps. Everything
+ * the main tab leaves out is here.
+ */
+function NightDetail({ model, lab, night, date, onBack }) {
+  const t = todayStr()
+  return (
+    <div className="space-y-6" data-testid="night-detail">
+      <Back title={dayWords(date, t)} onBack={onBack} />
+      <section className="space-y-2">
+        <SectionTitle icon={Activity} info={<p>Stages, heart rate, HRV, blood oxygen and breathing rate from Apple Health on one clock. Drag sideways to read every lane at one moment, pinch to zoom, double tap to see the whole night. The expand button opens full screen.</p>}>Through the night</SectionTitle>
+        <div className="card p-4">
+          <NightCard night={night} overnight={night.overnight} tz={tz} events={lab.extras.get(date)?.events || []} />
+          <NightFactorsLine feature={lab.featureBy.get(date)} />
+          <p className="mt-3 text-[13px] font-medium" style={{ color: 'var(--text-3)' }} data-testid="detail-spike-rule">{spikeRule(night.overnight?.hr, night.start)}</p>
+        </div>
+      </section>
+      <CheckNumbers model={model} />
+      <section className="space-y-2">
+        <SectionTitle icon={Gauge} info={<p>The sleep score is four parts, each out of 100. Tap a part for what went into it.</p>}>Score breakdown</SectionTitle>
+        <Breakdown model={model} night={night} date={date} />
+      </section>
+      <section className="space-y-2"><Stages model={model} night={night} date={date} /></section>
+      <section className="space-y-2">
+        <SectionTitle icon={HeartPulse} info={<p>This night against your usual, the median of the 28 nights before. Green chips moved the better way for that measure, amber the other way, grey means about the same or no better side (respiratory rate, wrist temperature).</p>}>Overnight vitals</SectionTitle>
+        <Vitals model={model} night={night} date={date} />
+      </section>
+      <Naps model={model} t={t} />
+    </div>
+  )
+}
+
 /** "2 drinks, last 9:40 pm · Temazepam 10 mg 9:15 pm · Magnesium 0.4 g" */
 function NightFactorsLine({ feature }) {
   if (!feature?.line?.length) return null
   return <p className="mt-2 text-xs font-medium tabular-nums" style={{ color: 'var(--text-2)' }} data-testid="night-factors">{feature.line.join(' · ')}</p>
-}
-
-const LAB_LINKS = [
-  ['analysis', 'Analysis', 'What goes with better nights', FlaskConical],
-  ['apnea', 'Apnea screen', 'Breathing signals overnight', Wind],
-  ['nightmares', 'Nightmares', 'Estimated from heart rate', Ghost],
-  ['restless', 'Restless nights', 'Wake-ups and heart rate spikes', Activity],
-]
-
-function LabLinks({ onOpen }) {
-  return (
-    <section className="card rows p-0" data-testid="lab-links">
-      {LAB_LINKS.map(([id, title, sub, Icon]) => (
-        <button key={id} onClick={() => onOpen(id)} className="flex w-full items-center gap-3 px-4 py-3 text-left" data-testid={`lab-open-${id}`}>
-          <Icon size={18} style={{ color: 'var(--text-2)' }} aria-hidden="true" />
-          <span className="min-w-0 flex-1">
-            <span className="block text-[15px] font-semibold">{title}</span>
-            <span className="block truncate text-sm font-medium" style={{ color: 'var(--text-2)' }}>{sub}</span>
-          </span>
-          <ChevronRight size={16} style={{ color: 'var(--text-3)' }} />
-        </button>
-      ))}
-    </section>
-  )
 }
 
 // -------------------------------------------------------------------- hero
@@ -163,7 +166,7 @@ export function sleepAnswer(asleepMin, needH) {
   return diff < 0 ? `${durationWords(-diff)} short of your ${needH} h.` : `${durationWords(diff)} over your ${needH} h.`
 }
 
-function Hero({ model, night, date, t, prev, next, setDate, openCalendar }) {
+function Hero({ model, night, date, t, prev, next, setDate, openCalendar, bed }) {
   const perf = model.sleepScore(date)
   const band = scoreBand(perf?.score)
   return (
@@ -177,24 +180,27 @@ function Hero({ model, night, date, t, prev, next, setDate, openCalendar }) {
       </div>
       <div className="mt-5 flex items-center gap-5">
         <div className="relative shrink-0" data-testid="sleep-score-ring" data-band={band || ''}>
-          <FillRing value={perf?.score ?? 0} size={112} stroke={9} color={band ? HEALTH_BANDS[band].tone : 'var(--text-3)'} />
+          <FillRing value={perf?.score ?? 0} size={104} stroke={9} color={band ? HEALTH_BANDS[band].tone : 'var(--text-3)'} />
           <div className="absolute inset-0 flex flex-col items-center justify-center">
             <p className="text-3xl font-black tabular-nums leading-none" data-testid="sleep-score">{perf ? <CountIn value={perf.score} /> : '–'}</p>
             <p className="mt-1 text-[11px] font-bold" style={{ color: 'var(--text-3)' }}>{band ? HEALTH_BANDS[band].label : 'Score'}</p>
           </div>
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-3xl font-black tabular-nums leading-tight" data-testid="asleep-duration">{durationWords(night.asleepMin)}</p>
-          <p className="mt-2 text-sm font-medium tabular-nums" style={{ color: 'var(--text-2)' }} data-testid="sleep-times">{clock(night.start)} to {clock(night.end)}</p>
-          {night.fallback && (
-            <p className="mt-1 inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[12px] font-semibold" style={{ background: 'var(--surface-sunk)', color: 'var(--text-2)' }}
-              data-testid="other-source" title={`From ${night.sourceName || 'another source'}: kept out of your baselines and the Sleep Lab`}>
-              {OTHER_SOURCE_LABEL} · {night.sourceName || 'unknown'}
-            </p>
-          )}
+          <p className="text-[19px] font-semibold leading-snug" data-testid="sleep-verdict">{verdictFor(model, night, bed)}</p>
         </div>
       </div>
-      <AnswerLine className="mt-4" testid="sleep-answer">{sleepAnswer(night.asleepMin, model.needH)}</AnswerLine>
+      <p className="mt-4 text-sm font-medium tabular-nums" style={{ color: 'var(--text-2)' }} data-testid="sleep-times">
+        In bed {clock(night.start)} to {clock(night.end)} · asleep {durationWords(night.asleepMin)}
+      </p>
+      {night.fallback ? (
+        <p className="mt-1 inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[12px] font-semibold" style={{ background: 'var(--surface-sunk)', color: 'var(--text-2)' }}
+          data-testid="other-source" title={`From ${night.sourceName || 'another source'}: kept out of your baselines and the Sleep Lab`}>
+          {OTHER_SOURCE_LABEL} · {night.sourceName || 'unknown'}
+        </p>
+      ) : (
+        <p className="mt-0.5 text-[13px] font-medium" style={{ color: 'var(--text-3)' }} data-testid="sleep-source">From {night.sourceName || 'Apple Health'}</p>
+      )}
       {!night.hasStages && <p className="mt-1 text-sm font-medium" style={{ color: 'var(--text-2)' }}>No stages from {night.sourceName || 'this source'}, so the score leaves them out.</p>}
     </section>
   )
@@ -332,156 +338,6 @@ function Vitals({ model, night, date }) {
         )
       })}
     </section>
-  )
-}
-
-// ------------------------------------------------------------------ timing
-
-function usePlan(model, t) {
-  const settings = useStore((s) => s.healthSettings)
-  return planBedtime({
-    recent: nightsEnding(model.nightBy, t, 14), debtH: model.debtH(t), needH: model.needH,
-    yesterdayLoad: model.loadVsUsual(addDays(t, -1)).label, wakeTarget: settings.wakeTarget, tz,
-  })
-}
-
-function Timing({ model, t }) {
-  const [count, setCount] = useState(14)
-  const plan = usePlan(model, t)
-  const rows = chronogram(model.nightBy, t, count, tz)
-  const nights = nightsEnding(model.nightBy, t, count)
-  const sd = consistencySd(nightsEnding(model.nightBy, t, 7), tz)
-  const mid = nights.length ? mean(nights.map((n) => midpointFromNoon(n, tz))) : null
-  const split = weekdayWeekend(nights, tz)
-  return (
-    <>
-      <SectionTitle icon={Clock} info={<p>Each bar runs from bedtime to waking. Consistency is how much bed and wake times varied over the last 7 nights; the midpoint is halfway between bed and waking.</p>}
-        action={(
-          <div className="flex gap-1" data-testid="timing-range">
-            {[14, 30].map((n) => (
-              <button key={n} onClick={() => setCount(n)} aria-pressed={count === n} data-testid={`timing-${n}`}
-                className="rounded-full px-2.5 py-1 text-xs font-bold tabular-nums"
-                style={count === n ? { background: 'var(--surface2)', color: 'var(--text)' } : { background: 'var(--surface-sunk)', color: 'var(--text-3)' }}>{n} nights</button>
-            ))}
-          </div>
-        )}>
-        Timing
-      </SectionTitle>
-      <section className="card p-4" data-testid="sleep-timing">
-        <p className="text-[17px] font-semibold">Is my bedtime steady?</p>
-        <p className="mb-2 text-[15px] font-semibold tabular-nums" data-testid="timing-answer">
-          {sd != null ? `Bed and wake vary by about ${Math.round(sd)} min.` : 'Needs 3 nights to say.'}
-        </p>
-        <Chronogram rows={rows} target={plan.bedtime} bandMin={SLEEP_VIEW.bedtimeBandMin} />
-        <ChartLegend items={[{ key: 'bar', label: 'Bed to wake', kind: 'bar', color: 'var(--series-sleep)' }, ...(plan.bedtime ? [{ key: 'tgt', label: 'Target bedtime', kind: 'band', color: 'var(--text)' }] : [])]} />
-        <div className="mt-4 grid grid-cols-2 gap-3">
-          <div data-testid="sleep-consistency">
-            <p className="t-caption" style={{ color: 'var(--text-3)' }}>Consistency</p>
-            <p className="text-lg font-black tabular-nums">{sd != null ? `±${Math.round(sd)} min` : '–'}</p>
-            <p className="text-[13px] font-medium" style={{ color: 'var(--text-3)' }}>{sd != null ? 'Last 7 nights' : 'Needs 3 nights'}</p>
-          </div>
-          <div data-testid="sleep-midpoint">
-            <p className="t-caption" style={{ color: 'var(--text-3)' }}>Average midpoint</p>
-            <p className="text-lg font-black tabular-nums">{mid != null ? clockOf(mid) : '–'}</p>
-          </div>
-        </div>
-        <p className="mt-3 text-sm font-medium" style={{ color: 'var(--text-2)' }} data-testid="weekend-split">
-          {split.text || 'Weekday and weekend timing needs 2 nights of each.'}
-        </p>
-      </section>
-    </>
-  )
-}
-
-// ------------------------------------------------------------ debt and plan
-
-function DebtAndPlan({ model, t }) {
-  const [open, setOpen] = useState(false)
-  const plan = usePlan(model, t)
-  const debt = model.debtH(t)
-  const bars = debtNights(model.nightBy, t, model.needH)
-  return (
-    <>
-      <SectionTitle icon={BedDouble} info={<p>Hours short of your {model.needH} h over the last 7 nights. A night with no record is left out, not counted as short.</p>}>Debt and tonight</SectionTitle>
-      <section className="card p-4" data-testid="sleep-debt">
-        <p className="text-[17px] font-semibold">Am I short on sleep this week?</p>
-        <p className="text-[26px] font-extrabold tabular-nums">{round(debt, 1)}<span className="ml-0.5 text-[13px] font-medium" style={{ color: 'var(--text-3)' }}>h</span><span className="ml-2 text-sm font-medium" style={{ color: 'var(--text-2)' }}>short over 7 nights</span></p>
-        <div className="mt-2"><DebtBars nights={bars} needH={model.needH} /></div>
-        <ChartLegend items={[{ key: 'bar', label: 'Asleep', kind: 'bar', color: 'var(--series-sleep)' }, { key: 'need', label: `Your ${model.needH} h need`, kind: 'dashed', color: 'var(--text-2)' }]} />
-      </section>
-      <button onClick={() => setOpen((v) => !v)} className="card w-full p-4 text-left" data-testid="sleep-planner" aria-expanded={open}>
-        <p className="text-base font-black tabular-nums">Aim to be in bed by {plan.bedtime}</p>
-        <p className="mt-1 text-sm font-medium tabular-nums" style={{ color: 'var(--text-2)' }} data-testid="wind-down">Start winding down at {windDownAt(plan.bedtime)}</p>
-        <p className="mt-1 text-[13px] font-medium" style={{ color: 'var(--text-3)' }}>To wake at {plan.wake}. Tap to see how.</p>
-        {open && (
-          <div className="mt-3 space-y-0.5 text-xs font-medium tabular-nums" style={{ color: 'var(--text-2)' }} data-testid="planner-inputs">
-            <p>Sleep need {durationWords(plan.inputs.needMin)}{plan.inputs.debtAddMin ? ` + ${plan.inputs.debtAddMin} min for this week’s debt` : ''}{plan.inputs.loadBumpMin ? ` + ${plan.inputs.loadBumpMin} min after a higher-load day` : ''}</p>
-            <p>Typical efficiency {Math.round(plan.inputs.efficiency * 100)}%, so {durationWords(plan.inputs.inBedMin)} in bed</p>
-            <p>Wake time {plan.wake} ({plan.inputs.wakeFrom === 'setting' ? 'your setting' : plan.inputs.wakeFrom === 'history' ? 'your usual, last 14 nights' : 'default'})</p>
-          </div>
-        )}
-      </button>
-    </>
-  )
-}
-
-// ------------------------------------------------- what affects your sleep
-
-/** The evening sheet's entry point; the comparisons themselves are in Sleep › Analysis. */
-function Factors() {
-  const [open, setOpen] = useState(false)
-  // the evening prompt's Log button
-  const openEvening = useNativeFeed((s) => s.openEvening)
-  useEffect(() => {
-    if (!openEvening) return
-    setOpen(true)
-    useNativeFeed.setState({ openEvening: false })
-  }, [openEvening])
-  return (
-    <>
-      <SectionTitle icon={Sunset}>This evening</SectionTitle>
-      <section className="card rows p-0" data-testid="sleep-factors">
-        <button onClick={() => setOpen(true)} className="flex w-full items-center gap-2 px-4 py-3 text-left" data-testid="log-habits">
-          <span className="min-w-0 flex-1">
-            <span className="block text-[15px] font-semibold">Log this evening</span>
-            <span className="block truncate text-sm font-medium" style={{ color: 'var(--text-2)' }}>Drinks, meals and the rest, all optional</span>
-          </span>
-          <ChevronRight size={16} style={{ color: 'var(--text-3)' }} />
-        </button>
-      </section>
-      <EveningSheet open={open} onClose={() => setOpen(false)} />
-    </>
-  )
-}
-
-
-// ------------------------------------------------------------------ trends
-
-function Trends({ model }) {
-  const events = useChartEvents()
-  const s = useMemo(() => {
-    const nights = [...model.nightBy.values()].sort((a, b) => a.date.localeCompare(b.date))
-    const staged = nights.filter((n) => n.hasStages)
-    return {
-      sleep: nights.map((n) => ({ date: n.date, value: n.asleepMin / 60 })),
-      score: nights.map((n) => ({ date: n.date, value: model.sleepScore(n.date)?.score })).filter((p) => p.value != null),
-      deep: staged.map((n) => ({ date: n.date, value: n.deepMin })),
-      rem: staged.map((n) => ({ date: n.date, value: n.remMin })),
-      hr: nights.filter((n) => n.sleepingHR).map((n) => ({ date: n.date, value: n.sleepingHR.min })),
-      hrv: model.daily.filter((r) => r.hrvOvernight != null).map((r) => ({ date: r.date, value: r.hrvOvernight })),
-      bed: nights.map((n) => ({ date: n.date, value: clockFromNoon(n.start, tz) })),
-    }
-  }, [model])
-  return (
-    <div className="space-y-3" data-testid="sleep-trends">
-      <TrendChart metric="sleep" title="Time asleep" unit="h" dp={1} series={s.sleep} events={events} testid="sleep-duration-chart" />
-      <TrendChart metric="sleepScore" title="Sleep score" dp={0} series={s.score} events={events} />
-      <TrendChart metric="deepSleep" title="Deep sleep" unit="min" dp={0} series={s.deep} events={events} />
-      <TrendChart metric="remSleep" title="REM sleep" unit="min" dp={0} series={s.rem} events={events} />
-      <TrendChart metric="sleepHR" title="Lowest heart rate asleep" unit="bpm" dp={0} series={s.hr} events={events} />
-      <TrendChart metric="hrv" chartType="sleepHrv" title="Overnight HRV" unit="ms" dp={0} series={s.hrv} events={events} />
-      <TrendChart metric="bedtime" title="Bedtime" dp={0} series={s.bed} events={events} format={clockOf} changeUnit="min" />
-    </div>
   )
 }
 
