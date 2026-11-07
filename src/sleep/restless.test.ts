@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { wakeUps, awakePeriods, fragmentation, hrSpikes, restlessNight, restlessLine, nightMedianHR } from './restless'
+import { wakeUps, wakeEvents, awakePeriods, fragmentation, hrSpikes, restlessNight, restlessLine, nightMedianHR, spikeRule } from './restless'
 
 const MIN = 60000
 const t0 = Date.parse('2026-11-04T23:00:00Z')
@@ -25,6 +25,14 @@ describe('wake-ups from Health stages', () => {
   })
 })
 
+describe('wake-ups and What happened use one detection', () => {
+  it('an awake blip under 2 minutes is not a wake-up; awake minutes still count it', () => {
+    const blip = [seg(0, 60, 'core'), seg(60, 61, 'awake'), seg(61, 120, 'deep'), seg(120, 128, 'awake'), seg(128, 200, 'rem')]
+    expect(wakeEvents(blip).map((w) => w.min)).toEqual([8])
+    expect(wakeUps(blip)).toEqual({ count: 1, awakeMin: 9 })
+  })
+})
+
 describe('fragmentation', () => {
   it('stage changes per hour from falling asleep to the final wake', () => {
     // from 10 to 420 min: 410 min; changes between consecutive segments of different stage
@@ -44,7 +52,8 @@ describe('heart rate spikes', () => {
     const hr = flat.map(([m, b]) => [m, m >= 20 && m <= 22 ? 70 : m === 40 ? 75 : b] as [number, number])
     const s = hrSpikes(hr, t0)
     expect(s).toHaveLength(1)
-    expect(s[0]).toMatchObject({ t: t0 + 20 * MIN, peak: 70, above: 18, durationMin: 3 })
+    // over the line from where it is crossed between 19 and 20 to where it is crossed between 22 and 23
+    expect(s[0]).toMatchObject({ t: t0 + 20 * MIN, peak: 70, above: 18, durationMin: 2.9 })
     expect(nightMedianHR(hr)).toBe(52)
   })
 
@@ -53,9 +62,21 @@ describe('heart rate spikes', () => {
     expect(hrSpikes(flat.map(([m, b]) => [m, m === 7 ? 80 : b] as [number, number]), t0)).toEqual([])
   })
 
+  it('Apple Watch overnight: one high reading between normal ones 5 minutes apart is a spike', () => {
+    const hr: Array<[number, number]> = Array.from({ length: 80 }, (_, i) => [i * 5, 54] as [number, number])
+    hr[30] = [150, 78]
+    const s = hrSpikes(hr, t0)
+    expect(s).toHaveLength(1)
+    expect(s[0]).toMatchObject({ peak: 78, above: 24 })
+    expect(s[0].durationMin).toBeCloseTo(5.8, 1)
+    expect(spikeRule(hr, t0)).toMatch(/median 54 bpm, so the line is 64 bpm; 1 spike found/)
+    // readings far apart are not joined: a lone high reading 30 minutes from the next is half a minute each side
+    expect(hrSpikes([[0, 50], [30, 80], [60, 50], [90, 50]], t0)).toEqual([])
+  })
+
   it('readings a minute or two apart still make one spike', () => {
     const sparse: Array<[number, number]> = [[0, 50], [2, 50], [4, 50], [6, 66], [8, 67], [10, 50], [12, 50]]
-    expect(hrSpikes(sparse, t0).map((x) => x.durationMin)).toEqual([3])
+    expect(hrSpikes(sparse, t0).map((x) => x.durationMin)).toEqual([3.6])
   })
 })
 

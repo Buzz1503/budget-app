@@ -81,6 +81,29 @@ describe('sleep sessions', () => {
   })
 })
 
+describe('overlapping samples are counted once', () => {
+  it('the same source writing a night twice, revised: stages come from one timeline', () => {
+    const t0 = at('2026-09-09', 23)
+    const first = [seg(t0, 120, 'core'), seg(t0 + 120 * 60000, 60, 'rem'), seg(t0 + 180 * 60000, 240, 'core')]
+    // a second copy that calls part of the same time REM and adds a short wake
+    const again = [seg(t0 + 60 * 60000, 120, 'rem'), seg(t0 + 200 * 60000, 6, 'awake')]
+    const n = buildNights([...first, ...again], { tz })['2026-09-10']
+    // before: REM 120, core 360 and awake 6 summed on their own: 486 min in a 420 min night
+    expect(n.check!.raw).toMatchObject({ rem: 120, core: 360, awake: 6 })
+    // after: every minute once, 420 in all
+    expect(n.remMin + n.coreMin + n.awakeMin + n.deepMin).toBe(420)
+    expect(n.awakeMin).toBe(6)
+    expect(n.check!.overlapMin).toBe(66)
+  })
+
+  it('exact duplicates change nothing', () => {
+    const one = night('2026-09-10')
+    const n = buildNights([...one, ...one], { tz })['2026-09-10']
+    expect([n.asleepMin, n.deepMin, n.remMin, n.coreMin, n.awakeMin]).toEqual([420, 60, 90, 270, 20])
+    expect(n.check!.overlapMin).toBe(0)
+  })
+})
+
 describe('nights', () => {
   it('a night spanning midnight belongs to the date you woke up', () => {
     const nights = buildNights(night('2026-09-10'), { tz })

@@ -68,27 +68,48 @@ export function unionMinutes(intervals: Interval[]): number {
   return total / MIN
 }
 
-const ASLEEP: ReadonlySet<string> = new Set(['asleep', 'core', 'deep', 'rem'])
+
+// stages that say what you were doing beat "asleep" (unspecified), which beats "in bed"
+const STAGE_RANK: Record<string, number> = { awake: 3, rem: 3, core: 3, deep: 3, asleep: 2, inBed: 1 }
 
 /**
- * The hypnogram: every sample except "in bed", oldest first. Where two
- * samples overlap the later one starts where the earlier ends, and touching
- * stretches of the same stage (under a minute apart) become one.
+ * One timeline for the night with every overlap resolved once. Where samples
+ * overlap (the same source writing twice, a revised night, duplicates from
+ * two reads), each stretch of time goes to one sample: the more specific
+ * stage, then the shorter sample (a 4-minute wake inside a long core is the
+ * wake), then the later one. Touching stretches of one stage (under a minute
+ * apart) become one. "In bed" is left out.
  */
 export function buildSegments(samples: RawSleep[]): SleepSegment[] {
-  const sorted = samples
-    .filter((s) => s.stage !== 'inBed' && s.end > s.start)
-    .sort((a, b) => a.start - b.start || a.end - b.end)
+  const list = samples.filter((s) => s.stage !== 'inBed' && s.end > s.start && STAGE_RANK[s.stage] != null)
+  if (!list.length) return []
+  const cuts = [...new Set(list.flatMap((s) => [s.start, s.end]))].sort((a, b) => a - b)
   const out: SleepSegment[] = []
-  for (const s of sorted) {
+  for (let i = 0; i < cuts.length - 1; i++) {
+    const a = cuts[i]
+    const b = cuts[i + 1]
+    let best: RawSleep | null = null
+    for (const s of list) {
+      if (s.start > a || s.end < b) continue
+      if (!best) { best = s; continue }
+      const rs = STAGE_RANK[s.stage]
+      const rb = STAGE_RANK[best.stage]
+      if (rs > rb || (rs === rb && (s.end - s.start < best.end - best.start || (s.end - s.start === best.end - best.start && s.start > best.start)))) best = s
+    }
+    if (!best) continue
+    const stage = best.stage as SleepSegment['stage']
     const prev = out[out.length - 1]
-    const start = prev ? Math.max(s.start, prev.end) : s.start
-    if (s.end <= start) continue
-    const stage = s.stage as SleepSegment['stage']
-    if (prev && prev.stage === stage && start - prev.end < MIN) prev.end = s.end
-    else out.push({ start, end: s.end, stage })
+    if (prev && prev.stage === stage && a - prev.end < MIN) prev.end = b
+    else out.push({ start: a, end: b, stage })
   }
   return out
+}
+
+/** Minutes per stage from the resolved timeline. */
+export function stageMinutes(segments: SleepSegment[]): { awake: number; rem: number; core: number; deep: number; asleep: number } {
+  const m = { awake: 0, rem: 0, core: 0, deep: 0, asleep: 0 }
+  for (const g of segments) m[g.stage as keyof typeof m] += (g.end - g.start) / MIN
+  return m
 }
 
 /** Heart rate while asleep: the lowest and the mean of samples starting inside the window. */
@@ -104,20 +125,31 @@ export function summariseSession(samples: RawSleep[], source: SourceClass): Slee
   const iv = (pred: (s: RawSleep) => boolean): Interval[] => samples.filter(pred).map((s) => [s.start, s.end])
   const start = Math.min(...samples.map((s) => s.start))
   const end = Math.max(...samples.map((s) => s.end))
+  const segments = buildSegments(samples)
+  const m = stageMinutes(segments)
+  // the old way, each stage on its own: kept for the "check the numbers" view
+  const raw = {
+    awake: unionMinutes(iv((s) => s.stage === 'awake')), rem: unionMinutes(iv((s) => s.stage === 'rem')),
+    core: unionMinutes(iv((s) => s.stage === 'core')), deep: unionMinutes(iv((s) => s.stage === 'deep')),
+    asleep: unionMinutes(iv((s) => s.stage === 'asleep')),
+  }
+  const r1 = (v: number) => Math.round(v * 10) / 10
+  const overlapMin = r1(Object.values(raw).reduce((a, b) => a + b, 0) - Object.values(m).reduce((a, b) => a + b, 0))
   return {
     source,
     sourceName: samples[0]?.sourceName || '',
     start,
     end,
     inBedMin: unionMinutes(iv(() => true)),
-    asleepMin: unionMinutes(iv((s) => ASLEEP.has(s.stage))),
-    awakeMin: unionMinutes(iv((s) => s.stage === 'awake')),
-    deepMin: unionMinutes(iv((s) => s.stage === 'deep')),
-    coreMin: unionMinutes(iv((s) => s.stage === 'core')),
-    remMin: unionMinutes(iv((s) => s.stage === 'rem')),
-    unspecifiedMin: unionMinutes(iv((s) => s.stage === 'asleep')),
+    asleepMin: m.rem + m.core + m.deep + m.asleep,
+    awakeMin: m.awake,
+    deepMin: m.deep,
+    coreMin: m.core,
+    remMin: m.rem,
+    unspecifiedMin: m.asleep,
     hasStages: samples.some((s) => s.stage === 'core' || s.stage === 'deep' || s.stage === 'rem'),
-    segments: buildSegments(samples),
+    segments,
+    check: { raw: { awake: r1(raw.awake), rem: r1(raw.rem), core: r1(raw.core), deep: r1(raw.deep) }, overlapMin, samples: samples.length },
   }
 }
 

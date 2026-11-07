@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { momentAt, whatHappened, nightSummary, hrRange } from './nightView'
+import { momentAt, whatHappened, nightSummary, hrRange, SETTLED } from './nightView'
 import type { NightData } from './nightView'
 
 const T = Date.parse('2026-10-26T23:00:00Z')
@@ -44,14 +44,25 @@ describe('the crosshair reads every Health lane at one minute', () => {
 })
 
 describe('what happened', () => {
-  it('wake-ups, heart rate spikes, surges and SpO2 dips in time order', () => {
+  it('only notable moments: brief wake-ups as one line, heart rate spikes and SpO2 under 90, in time order', () => {
     const list = whatHappened(night, clock)
-    expect(list.map((h) => h.kind)).toEqual(['wake', 'spo2', 'spike', 'surge'])
-    expect(list[0].text).toBe('00:00 Woke for 4 min. Heart rate rose to 62.')
+    expect(list.map((h) => h.kind)).toEqual(['wakes', 'spo2', 'spike'])
+    expect(list[0].text).toBe('00:00 Woke briefly, 4 min.')
     expect(list[1].text).toBe('03:10 Blood oxygen reading 88%.')
-    expect(list[2].text).toBe("04:00 Heart rate 72, 17 above the night's usual, for 3 min.")
-    // the surge inside the spike is not listed twice
-    expect(list[3].text).toBe('06:00 Heart rate rose 9 bpm above your usual for the night.')
+    expect(list[2].text).toBe("04:00 Heart rate 72, 17 above the night's usual, for about 3 min.")
+  })
+
+  it('a wake over 5 minutes is listed on its own, and the count matches the list', () => {
+    const long: NightData = { night: { ...night.night, segments: [
+      { start: m(0), end: m(60), stage: 'core' }, { start: m(60), end: m(72), stage: 'awake' },
+      { start: m(72), end: m(200), stage: 'deep' }, { start: m(200), end: m(203), stage: 'awake' },
+      { start: m(203), end: m(204), stage: 'awake' }, { start: m(204), end: m(206), stage: 'rem' },
+      { start: m(206), end: m(207), stage: 'awake' }, { start: m(207), end: m(480), stage: 'rem' },
+    ] }, overnight: { hr: [[0, 55], [61, 63], [100, 52]] } }
+    const list = whatHappened(long, clock)
+    expect(list.map((h) => h.text)).toEqual(['00:00 Woke for 12 min. Heart rate rose to 63.', '02:20 Woke briefly, 4 min.'])
+    expect(nightSummary(long)).toMatch(/^Woke 2 times, 17 min awake\./)
+    expect(SETTLED).toBe('A settled night.')
   })
 
   it('a wake at the very start of the night is not listed', () => {

@@ -114,6 +114,8 @@ export interface SleepSession {
   hasStages: boolean
   /** Stage by stage, oldest first, overlaps trimmed. Missing on nights cached before stage 2C. */
   segments?: SleepSegment[]
+  /** stage minutes summed stage by stage before overlaps were resolved, and the minutes the overlaps added (schema 6) */
+  check?: { raw: { awake: number; rem: number; core: number; deep: number }; overlapMin: number; samples: number }
 }
 
 /** The main sleep that ended on `date` (the wake-up date), and any naps. */

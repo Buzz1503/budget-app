@@ -2,11 +2,17 @@
 // Sleep sounds were removed). Pure: the night's stage segments and its heart
 // rate through the night go in.
 //
-//   Wake-ups       awake periods after falling asleep, touching ones joined,
-//                  and their total minutes.
+//   Wake-ups       awake periods of 2 minutes or more after falling asleep
+//                  (touching ones joined); the same list feeds What happened,
+//                  so the count and the list always agree. Awake minutes are
+//                  every awake minute after falling asleep.
 //   Fragmentation  stage changes per hour, from falling asleep to the final wake.
 //   HR spikes      heart rate more than 10 bpm above that night's median for
-//                  2 minutes or more.
+//                  2 minutes or more. Apple Watch reads heart rate every few
+//                  minutes overnight, so the time above the line is estimated
+//                  between readings (where the line is crossed), not counted
+//                  in whole readings: one high reading between two normal ones
+//                  five minutes apart is above the line for about five minutes.
 
 const MIN = 60000
 
@@ -15,10 +21,12 @@ export const RESTLESS = {
   spikeBpm: 10,
   /** ...for at least this long */
   spikeMin: 2,
-  /** readings this far apart still belong to one spike */
-  spikeGapMin: 2,
-  /** an awake period listed in What happened */
-  listWakeMin: 2,
+  /** readings further apart than this are not joined when estimating time above the line */
+  spikeGapMin: 15,
+  /** an awake period counts as a wake-up from this long */
+  wakeMin: 2,
+  /** a wake-up listed on its own in What happened; shorter ones are one summary line */
+  notableWakeMin: 5,
 }
 
 export interface Segment { start: number; end: number; stage: string }
@@ -48,11 +56,18 @@ export function awakePeriods(segments: Segment[] | undefined): Array<{ s: number
   return runs
 }
 
-/** Wake-ups after falling asleep and their total minutes; null without stage detail. */
+/** The wake-ups: awake periods of 2 minutes or more after falling asleep, with their length. */
+export function wakeEvents(segments: Segment[] | undefined): Array<{ s: number; e: number; min: number }> {
+  return awakePeriods(segments)
+    .map((r) => ({ ...r, min: Math.round((r.e - r.s) / MIN) }))
+    .filter((r) => (r.e - r.s) / MIN >= RESTLESS.wakeMin)
+}
+
+/** Wake-ups (2 minutes or more) and every awake minute after falling asleep; null without stage detail. */
 export function wakeUps(segments: Segment[] | undefined): { count: number; awakeMin: number } | null {
   if (!sleepSpan(segments)) return null
   const runs = awakePeriods(segments)
-  return { count: runs.length, awakeMin: Math.round(runs.reduce((t, r) => t + (r.e - r.s) / MIN, 0)) }
+  return { count: wakeEvents(segments).length, awakeMin: Math.round(runs.reduce((t, r) => t + (r.e - r.s) / MIN, 0)) }
 }
 
 /** Stage changes per hour from falling asleep to the final wake; null without stages. */
@@ -87,33 +102,46 @@ const median = (xs: number[]) => {
 export const nightMedianHR = (hr: Array<[number, number]> | undefined) => (hr && hr.length >= 3 ? median(hr.map((p) => p[1])) : null)
 
 /**
- * Heart rate spikes: readings more than 10 bpm above the night's median, in a
- * run lasting 2 minutes or more. `hr` is [minutes from `start`, bpm].
+ * Heart rate spikes: more than 10 bpm above the night's median for 2 minutes
+ * or more. `hr` is [minutes from `start`, bpm]. A run of readings above the
+ * line starts and ends where the line is crossed, found between the reading
+ * before and the first above it (and the last above and the reading after),
+ * as long as they are within 15 minutes of each other.
  */
 export function hrSpikes(hr: Array<[number, number]> | undefined, start: number): HrSpike[] {
   const base = nightMedianHR(hr)
   if (base == null || !hr) return []
   const line = base + RESTLESS.spikeBpm
+  const pts = [...hr].sort((a, b) => a[0] - b[0])
   const out: HrSpike[] = []
-  let run: Array<[number, number]> = []
-  const close = () => {
-    if (run.length) {
-      const dur = run[run.length - 1][0] - run[0][0] + 1
-      if (dur >= RESTLESS.spikeMin) {
-        const peak = Math.max(...run.map((p) => p[1]))
-        out.push({ t: start + run[0][0] * MIN, end: start + run[run.length - 1][0] * MIN, peak, above: Math.round(peak - base), durationMin: dur })
-      }
+  const cross = (lo: [number, number], hi: [number, number]) => lo[0] + ((line - lo[1]) / (hi[1] - lo[1])) * (hi[0] - lo[0])
+  let i = 0
+  while (i < pts.length) {
+    if (pts[i][1] <= line) { i++; continue }
+    let j = i
+    while (j + 1 < pts.length && pts[j + 1][1] > line && pts[j + 1][0] - pts[j][0] <= RESTLESS.spikeGapMin) j++
+    const before = i > 0 && pts[i][0] - pts[i - 1][0] <= RESTLESS.spikeGapMin ? pts[i - 1] : null
+    const after = j + 1 < pts.length && pts[j + 1][0] - pts[j][0] <= RESTLESS.spikeGapMin && pts[j + 1][1] <= line ? pts[j + 1] : null
+    // with no reading close by on a side, the run is taken to start or end half a minute out
+    const from = before ? cross([before[0], before[1]], [pts[i][0], pts[i][1]]) : pts[i][0] - 0.5
+    const to = after ? cross([after[0], after[1]], [pts[j][0], pts[j][1]]) : pts[j][0] + 0.5
+    const dur = Math.round((to - from) * 10) / 10
+    if (dur >= RESTLESS.spikeMin) {
+      const run = pts.slice(i, j + 1)
+      const peak = Math.max(...run.map((p) => p[1]))
+      out.push({ t: start + run[0][0] * MIN, end: start + run[run.length - 1][0] * MIN, peak, above: Math.round(peak - base), durationMin: dur })
     }
-    run = []
+    i = j + 1
   }
-  for (const p of [...hr].sort((a, b) => a[0] - b[0])) {
-    if (p[1] > line) {
-      if (run.length && p[0] - run[run.length - 1][0] > RESTLESS.spikeGapMin) close()
-      run.push(p)
-    } else close()
-  }
-  close()
   return out
+}
+
+/** The spike rule in words, with this night's numbers, for the (i). */
+export function spikeRule(hr: Array<[number, number]> | undefined, start: number): string {
+  const base = nightMedianHR(hr)
+  if (base == null) return 'A heart rate spike is heart rate more than 10 bpm above the night\'s median for 2 minutes or more. This night has too few readings to tell.'
+  const n = hrSpikes(hr, start).length
+  return `A heart rate spike is heart rate more than ${RESTLESS.spikeBpm} bpm above the night's median for ${RESTLESS.spikeMin} minutes or more. This night: median ${Math.round(base)} bpm, so the line is ${Math.round(base + RESTLESS.spikeBpm)} bpm; ${n === 0 ? 'no reading stayed over it that long' : `${n} ${n === 1 ? 'spike' : 'spikes'} found`}. Readings come every few minutes, so the time over the line is estimated between them.`
 }
 
 export interface RestlessNight {

@@ -5,7 +5,7 @@
 // (The Watch movement recording and Sleep sounds were removed: every lane is
 // Health data.)
 
-import { awakePeriods, hrSpikes, restlessNight, restlessLine, nightMedianHR } from './restless'
+import { wakeEvents, hrSpikes, restlessNight, restlessLine, nightMedianHR, RESTLESS } from './restless'
 
 const MIN = 60000
 
@@ -96,36 +96,38 @@ export function hrRange(hr: Array<[number, number]> | undefined): { low: number;
   return { low: Math.round(Math.min(...v)), high: Math.round(Math.max(...v)) }
 }
 
-export interface Happening { t: number; kind: 'wake' | 'spike' | 'surge' | 'spo2'; text: string }
+export interface Happening { t: number; kind: 'wake' | 'wakes' | 'spike' | 'spo2'; text: string }
 
-const mins = (ms: number) => Math.max(1, Math.round(ms / MIN))
+export const SETTLED = 'A settled night.'
 
 /**
- * The night's notable moments in time order, one line each: wake-ups (with
- * the heart rate around them), heart rate spikes, blood oxygen dips, and
- * nightmare-estimate surges that are not already a spike.
+ * The notable moments, in time order: each wake-up over 5 minutes, one line
+ * for the shorter wake-ups (so the list and "Woke N times" always add up),
+ * heart rate spikes, and blood oxygen under 90%. An empty list reads "A
+ * settled night."
  */
 export function whatHappened(d: NightData, clock: (ms: number) => string): Happening[] {
   const { night } = d
   const out: Happening[] = []
   const hr = d.overnight?.hr || []
   const usual = nightMedianHR(hr)
-  for (const w of awakePeriods(night.segments)) {
-    if (w.e - w.s < NIGHT.wakeMin * MIN) continue
+  const wakes = wakeEvents(night.segments)
+  const short: typeof wakes = []
+  for (const w of wakes) {
+    if (w.min <= RESTLESS.notableWakeMin) { short.push(w); continue }
     const peak = hr.filter(([m]) => {
       const t = night.start + m * MIN
       return t >= w.s - 2 * MIN && t <= w.e
     }).reduce((a, [, b]) => Math.max(a, b), 0)
     const tail = usual != null && peak >= usual + NIGHT.hrRise ? ` Heart rate rose to ${Math.round(peak)}.` : ''
-    out.push({ t: w.s, kind: 'wake', text: `${clock(w.s)} Woke for ${mins(w.e - w.s)} min.${tail}` })
+    out.push({ t: w.s, kind: 'wake', text: `${clock(w.s)} Woke for ${w.min} min.${tail}` })
   }
-  const spikes = hrSpikes(hr, night.start)
-  for (const x of spikes) {
-    out.push({ t: x.t, kind: 'spike', text: `${clock(x.t)} Heart rate ${x.peak}, ${x.above} above the night's usual, for ${x.durationMin} min.` })
+  if (short.length) {
+    const times = short.map((w) => clock(w.s)).join(', ')
+    out.push({ t: short[0].s, kind: 'wakes', text: short.length === 1 ? `${times} Woke briefly, ${short[0].min} min.` : `${short.length} brief wake-ups of ${RESTLESS.wakeMin} to ${RESTLESS.notableWakeMin} min: ${times}.` })
   }
-  for (const e of d.events || []) {
-    if (spikes.some((x) => e.t >= x.t - 3 * MIN && e.t <= x.end + 3 * MIN)) continue
-    out.push({ t: e.t, kind: 'surge', text: `${clock(e.t)} Heart rate rose ${e.surge} bpm above your usual for the night.` })
+  for (const x of hrSpikes(hr, night.start)) {
+    out.push({ t: x.t, kind: 'spike', text: `${clock(x.t)} Heart rate ${x.peak}, ${x.above} above the night's usual, for about ${Math.round(x.durationMin)} min.` })
   }
   for (const [m, p] of d.overnight?.spo2 || []) {
     if (p >= NIGHT.spo2Low) continue
@@ -135,7 +137,6 @@ export function whatHappened(d: NightData, clock: (ms: number) => string): Happe
   return out.sort((x, y) => x.t - y.t)
 }
 
-/** One line over the chart: "Woke 4 times, 21 min awake. 2 heart rate spikes." */
 export function nightSummary(d: NightData): string {
   return restlessLine(restlessNight({ start: d.night.start, segments: d.night.segments, overnight: d.overnight }))
 }

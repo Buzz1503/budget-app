@@ -31,7 +31,7 @@ const HISTORY_PROBE = ['weight', 'bodyFat', 'leanMass', 'restingHR'] as const
  * sleep sources (the source picker). A cache written by an older version is
  * read again in full on the next sync.
  */
-export const NIGHTS_SCHEMA = 5
+export const NIGHTS_SCHEMA = 6
 export const CHUNK_DAYS = 30
 export const LATE_DATA_DAYS = 3
 

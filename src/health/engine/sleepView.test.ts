@@ -31,11 +31,11 @@ describe('hypnogram segments', () => {
       s(t0 + 30 * 60000, 40, 'deep'),
       s(t0, 30, 'core'),
       s(t0 + 70 * 60000, 20, 'deep'),   // touches the deep before it: one stretch
-      s(t0 + 80 * 60000, 30, 'rem'),    // overlaps the deep by 10 min: starts where it ends
-      s(t0 + 95 * 60000, 5, 'awake'),   // wholly inside the REM: dropped
+      s(t0 + 80 * 60000, 30, 'rem'),    // overlaps the deep by 10 min: the shorter deep keeps its time
+      s(t0 + 95 * 60000, 5, 'awake'),   // a wake inside the REM: the wake is kept, the REM goes round it
     ])
     expect(segs.map((x) => [x.stage, (x.start - t0) / 60000, (x.end - t0) / 60000])).toEqual([
-      ['core', 0, 30], ['deep', 30, 90], ['rem', 90, 110],
+      ['core', 0, 30], ['deep', 30, 90], ['rem', 90, 95], ['awake', 95, 100], ['rem', 100, 110],
     ])
   })
 
