@@ -23,7 +23,7 @@ State is one persisted Zustand store, `src/store/useStore.js`; pure logic lives 
 - `HEALTH_BUILD` (`src/health/ui.js`) is false on the web. Reads Apple Health; the one write is water with a sauna rating (`writeWater`).
   `@capgo/capacitor-health` plus the Swift plugin `plugins/pepito-health`. Screens lazy in `src/components/health`.
 - Data: `bridge.ts` → `dayLogic.ts` (nights, days, workouts) → `sync.ts` (full history once, then from last sync −3 days) → Dexie
-  `pepito-health` (`cache.ts`, not in the backup). Bump `NIGHTS_SCHEMA` (now 5) to re-read the year. Engines `src/health/engine/*`,
+  `pepito-health` (`cache.ts`, not in the backup). Bump `NIGHTS_SCHEMA` (now 6) to re-read the year. Engines `src/health/engine/*`,
   constants in `config.ts`, wired by `model.ts`; `compoundEffects.ts` feeds Body › Effects.
 - Body values: always `getLatestMeasurement` / `dailySeries` (`src/body/bodySeries.ts`); "since" deltas via `getStartValue`
   (`startPoint.ts`). Source families (`sources.ts`): Scale, Evolt, DEXA, one line per source, never mixed. Scan fields `scanFields.ts`.
@@ -31,18 +31,16 @@ State is one persisted Zustand store, `src/store/useStore.js`; pure logic lives 
   fit the data (14 days min), under 3 points is a list; suspect scale weights are left out until kept (`readingReviews`).
   Imports (`src/body/import`, IO `src/lib/importFiles.js`): Evolt PDFs, Withings zip/CSV/Medical Report, scan JSON; only add.
 ## Sleep (Apple Health only)
-- One source per night (`buildNights`, grouped by source name, never blended). `healthSettings.sleepSource` (null = any Apple Watch),
-  picked in More › Health › Sleep source (`sourceRows`, `src/sleep/sources.ts`: only sources Health returned, nights in 30 days,
-  stages). A night the chosen source missed uses the next source with sleep, `fallback: true`, labelled "Other source", and is left
-  out of baselines (`model.ts`) and the Sleep Lab (`useSleepLab`). In bed alone is not a source.
-- Restless measures (`src/sleep/restless.ts`): wake-ups and awake minutes, fragmentation (stage changes per hour), heart rate spikes
-  (over 10 bpm above the night's median for 2 min+); `restlessLine`: "Woke 4 times, 21 min awake. 2 heart rate spikes."
-- Night card (`NightCard.jsx`, `src/sleep/nightView.ts`, touch `nightGestures.ts`): stages, Heart rate, HRV dots, SpO2 dots (amber
-  under 90), Breathing rate; no Move or Sound. `whatHappened`: wake-ups, spikes, surges, SpO2 dips. Overnight extras `overnight.ts`.
-- Sleep Lab (`src/sleep/analysis`, Web Worker `src/lib/compute`): outcomes include wakeUps, wasoMin, fragmentation, hrSpikes;
-  association never cause, n shown. Apnea (`apnea.ts`, "Screen, not a diagnosis"): breathing disturbances, SpO2, breathing rate,
-  STOP-BANG (snoring from partner answers), bloods. Nightmares (`nightmares.ts`): HR surges, HRV drops, awake after REM.
-- Logging `logging.ts`, prompts `prompts.ts`, setup `setup.ts`, late phone use from Screen Time (`native/sleepRuntime.js`).
+- One source per night (`buildNights`, by source name, never blended); `healthSettings.sleepSource` (null = any Apple Watch) from
+  More › Health › Sleep source (`src/sleep/sources.ts`). A missed night uses the next source, `fallback: true` ("Other source"), out of
+  baselines and the Sleep Lab. Stages are summed from one resolved timeline (`buildSegments`; `check` keeps the old totals).
+- Restless (`src/sleep/restless.ts`): wake-ups 2 min+ (`wakeEvents`, shared with What happened), awake minutes, fragmentation, HR
+  spikes (10 bpm over the night's median for 2 min+, time over the line estimated between readings, `spikeRule`).
+- Tab (`SleepTab.jsx`, `SleepMain.jsx`, `src/sleep/tabView.ts`): verdict, vs your normal (middle 80% of the 28 nights before), stages
+  bar, what shaped it (features + Sleep Lab line from 7/7 nights), 14 nights, debt, tonight, lab teaser, Trends (7/30/90). The detail
+  view holds the night card (`NightCard.jsx`, `nightView.ts`, `nightGestures.ts`), What happened, Check the numbers, vitals.
+- Sleep Lab (`src/sleep/analysis`, Web Worker `src/lib/compute`): association never cause, n shown. Apnea (`apnea.ts`, "Screen, not a
+  diagnosis"), nightmares (`nightmares.ts`). Logging `logging.ts`, prompts `prompts.ts`, setup `setup.ts`, Screen Time late use.
 ## Sauna
 - `saunaSessions`, `saunaSettings`, `saunaTimer` (backed up); `src/sauna` (`sauna.ts`, `saunaEffects.ts`, `analytics.ts` + `ANALYTICS`,
   `insights.ts`). Session on day D = night D, morning D+1; no statistic uses a day before the first session. Health via
