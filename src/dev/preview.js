@@ -10,7 +10,7 @@ import useStore, { todayStr } from '../store/useStore'
 import { useHealth } from '../health/state'
 import { useHealthLink } from '../lib/healthLink'
 import { isDue } from '../lib/due'
-import { addDays } from '../health/tz'
+import { addDays, daysBetween as addDaysBetween } from '../health/tz'
 import { applyScanHistory } from '../body/scanHistory'
 import evoltScans from '../data/evolt_scans.json'
 
@@ -33,6 +33,11 @@ export const PREVIEW_SCREENS = {
   'sleep-zoom': { tab: 'sleep' },
   'sleep-cross': { tab: 'sleep' },
   'import-check': { tab: 'scans' },
+  measurements: { tab: 'body', seg: 'measurements' },
+  'measurements-compare': { tab: 'body', seg: 'measurements' },
+  photos: { tab: 'body' },
+  'photos-compare': { tab: 'body' },
+  'photos-adjust': { tab: 'body' },
 }
 
 export const previewScreen = () => {
@@ -98,6 +103,35 @@ export async function seedPreview() {
     const st = useStore.getState()
     const scans = applyScanHistory(st.measurements, st.bodyStart, evoltScans)
     useStore.setState({ measurements: scans.measurements, bodyStart: scans.bodyStart })
+    // tape every few weeks since January 2025, the way a real record grows
+    const tape = []
+    const days = [0, 28, 63, 105, 150, 196, 245, 300, 350, 400, 455, addDaysBetween('2025-01-01', t) - 3]
+    days.forEach((d, i) => {
+      const date = addDays('2025-01-01', d)
+      if (date >= t) return
+      const k = i / (days.length - 1)
+      const e = { id: `preview-tape-${i}`, date, source: 'manual', waist: +(112 - 13 * k + (r() - 0.5)).toFixed(1), hips: +(114 - 8 * k).toFixed(1), chest: +(110 - 3 * k).toFixed(1), neck: +(43 - 1.6 * k).toFixed(1) }
+      if (i % 2 === 0 || i === days.length - 1) Object.assign(e, { armL: +(36 + 1.4 * k).toFixed(1), armR: +(36.6 + 1.3 * k).toFixed(1), thighL: +(64 - 2 * k).toFixed(1), thighR: +(64.4 - 2.1 * k).toFixed(1), calfL: +(40 + 0.3 * k).toFixed(1), calfR: +(40.2 + 0.4 * k).toFixed(1) })
+      tape.push(e)
+    })
+    useStore.setState({ measurements: [...useStore.getState().measurements, ...tape].sort((a, b) => a.date.localeCompare(b.date)) })
+    // two drawn front "photos", the second zoomed in and off centre, to line up in the editor
+    if (!useStore.getState().photos.length && typeof document !== 'undefined') {
+      const { savePhotoBlob } = await import('../components/PhotosSection')
+      const draw = (scale, dx) => new Promise((resolve) => {
+        const c = document.createElement('canvas')
+        c.width = 900; c.height = 1200
+        const g = c.getContext('2d')
+        g.fillStyle = '#2a2f3a'; g.fillRect(0, 0, 900, 1200)
+        g.translate(450 + dx, 600); g.scale(scale, scale); g.fillStyle = '#c9a98c'
+        g.beginPath(); g.arc(0, -380, 70, 0, Math.PI * 2); g.fill()
+        g.fillRect(-150, -290, 300, 420); g.fillRect(-140, 130, 120, 420); g.fillRect(20, 130, 120, 420)
+        g.fillRect(-230, -280, 70, 360); g.fillRect(160, -280, 70, 360)
+        c.toBlob((b) => resolve(b), 'image/jpeg', 0.9)
+      })
+      await savePhotoBlob(await draw(0.9, 0), { pose: 'front', date: addDays(t, -60) })
+      await savePhotoBlob(await draw(1.15, 90), { pose: 'front', date: addDays(t, -2) })
+    }
     useStore.setState({
       saunaSessions: saunaFixture(t, r),
       sleepSettings: { ...useStore.getState().sleepSettings, setupCardDismissed: true },

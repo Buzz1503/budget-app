@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, Suspense } from 'react'
+import { useEffect, useMemo, useState, Suspense, lazy } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Ruler, Images, PersonStanding, LineChart as LineChartIcon, Plus, Trash2, Play,
@@ -32,6 +32,9 @@ import PhotosSection from './PhotosSection'
 import OutcomeEngine from './OutcomeEngine'
 import { useHealthLink } from '../lib/healthLink'
 import { HEALTH_BUILD, BodyHealthView, MeasurementsHealth, EffectsView } from '../health/ui'
+import TapeLogSheet from './measurements/TapeLogSheet'
+
+const MeasurementsArea = lazy(() => import('./measurements/MeasurementsArea'))
 
 const SECTIONS = [
   { id: 'stats', label: 'Stats', icon: Ruler },
@@ -43,19 +46,20 @@ const SECTIONS = [
 
 const SEGMENTS = [
   { id: 'composition', label: 'Composition' },
-  { id: 'effects', label: 'Effects' },
-  { id: 'recovery', label: 'Recovery' },
+  { id: 'measurements', label: 'Measurements' },
+  { id: 'effects', label: 'Effects', health: true },
+  { id: 'recovery', label: 'Recovery', health: true },
 ]
 
-// Composition | Effects | Recovery. Only in the native app once
-// Apple Health is there; on the web the Body tab is Composition alone. Sleep
-// has its own tab.
-function HealthSegments({ value, onChange }) {
+// Composition | Measurements | Effects | Recovery. Effects and Recovery need
+// Apple Health (the native app); on the web it is Composition | Measurements.
+// Sleep has its own tab.
+function HealthSegments({ value, onChange, health = true }) {
   return (
     <div className="flex gap-1 rounded-full p-1" style={{ background: 'var(--surface-sunk)' }} role="tablist" data-testid="body-segments">
-      {SEGMENTS.map((s) => (
+      {SEGMENTS.filter((s) => health || !s.health).map((s) => (
         <button key={s.id} role="tab" aria-selected={value === s.id} onClick={() => onChange(s.id)} data-testid={`body-seg-${s.id}`}
-          className="min-h-[34px] flex-1 rounded-full text-xs font-bold"
+          className="min-h-[34px] flex-auto whitespace-nowrap rounded-full px-2 text-xs font-bold"
           style={value === s.id ? { background: 'var(--surface2)', color: 'var(--text)' } : { color: 'var(--text-3)' }}>
           {s.label}
         </button>
@@ -74,6 +78,16 @@ export default function BodyTab({ goTo }) {
   const segment = useHealthLink((s) => s.bodySegment)
   const setSegment = useHealthLink((s) => s.setBodySegment)
   const showHealth = HEALTH_BUILD && available
+  if (segment === 'measurements') {
+    return (
+      <div className="space-y-3">
+        <h1 className="text-2xl font-black tracking-tight">Body</h1>
+        <HealthSegments value={segment} onChange={setSegment} health={showHealth} />
+        <Suspense fallback={null}><MeasurementsArea onEditEntry={setViewing} /></Suspense>
+        <MeasurementSheet open={!!viewing} onClose={() => setViewing(null)} entryId={viewing} />
+      </div>
+    )
+  }
   if (showHealth && segment !== 'composition') {
     return (
       <div className="space-y-3">
@@ -90,7 +104,7 @@ export default function BodyTab({ goTo }) {
   return (
     <div className="space-y-3">
       <h1 className="text-2xl font-black tracking-tight">Body</h1>
-      {showHealth && <HealthSegments value="composition" onChange={setSegment} />}
+      <HealthSegments value="composition" onChange={setSegment} health={showHealth} />
       <CompositionView onLog={() => setAdding(true)} onOpenStart={() => setStartOpen(true)} onOpenDexa={() => setDexa(true)} onImport={() => goTo?.('scans')} />
 
       {/* the record itself: entries, tape trends, the model, photos, outcomes */}
@@ -111,7 +125,7 @@ export default function BodyTab({ goTo }) {
       </div>
       <AnimatePresence mode="wait">
         <motion.div key={section} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
-          {section === 'stats' && <StatsSection onAdd={() => setAdding(true)} />}
+          {section === 'stats' && <StatsSection onAdd={() => setAdding(true)} onOpenAll={() => setSegment('measurements')} />}
           {section === 'stats' && showHealth && <Suspense fallback={null}><MeasurementsHealth /></Suspense>}
           {section === 'trends' && <TrendsSection />}
           {section === 'model' && <ModelSection />}
@@ -119,7 +133,7 @@ export default function BodyTab({ goTo }) {
           {section === 'outcome' && <OutcomeEngine />}
         </motion.div>
       </AnimatePresence>
-      <MeasurementSheet open={adding} onClose={() => setAdding(false)} />
+      <TapeLogSheet open={adding} onClose={() => setAdding(false)} />
       <StartPointSheet open={startOpen} onClose={() => setStartOpen(false)} onViewEntry={setViewing} />
       <MeasurementSheet open={!!viewing} onClose={() => setViewing(null)} entryId={viewing} />
     </div>
@@ -127,7 +141,7 @@ export default function BodyTab({ goTo }) {
 }
 
 // ---------- Stats: quick entry + latest values ----------
-function StatsSection({ onAdd }) {
+function StatsSection({ onAdd, onOpenAll }) {
   const measurements = useStore((s) => s.measurements)
   const [editing, setEditing] = useState(null)
   const recent = [...measurements].reverse().slice(0, 8)
@@ -140,6 +154,9 @@ function StatsSection({ onAdd }) {
       <p className="px-1 text-xs font-medium" style={{ color: 'var(--text-3)' }} data-testid="not-by-hand">
         Weight and body composition come from your scale and Evolt scans. Tape measurements are logged here.
       </p>
+      <button onClick={onOpenAll} className="w-full rounded-full py-2.5 text-xs font-bold" style={{ background: 'var(--surface-sunk)', color: 'var(--text-2)' }} data-testid="open-measurements">
+        See every tape measurement, compare and charts in Measurements
+      </button>
 
       <MeasuringRules />
       <ReferenceDistances />

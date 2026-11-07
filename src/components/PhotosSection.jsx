@@ -174,7 +174,7 @@ export default function PhotosSection() {
             data-testid="choose-from-library"
             className="flex flex-1 items-center justify-center gap-2 rounded-full py-3 text-sm font-black disabled:opacity-50"
             style={{ background: 'var(--surface-sunk)', color: 'var(--text)' }}>
-            <FolderOpen size={17} /> {reading ? 'Reading' : 'Choose from library'}
+            <FolderOpen size={17} /> {reading ? 'Reading' : 'From library'}
           </motion.button>
         </div>
         <p className="mt-2 text-center text-xs font-medium" style={{ color: 'var(--text-2)' }} data-testid="photo-tip">{PHOTO_TIP}</p>

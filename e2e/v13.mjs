@@ -319,8 +319,14 @@ await step('reference distances are shown and editable', async () => {
 
 await step('the entry form gives each measurement its exact instruction', async () => {
   await page.click('button:has-text("Log tape measurement")')
-  await waitText(/Log tape measurement/)
-  await modal().locator('button:has-text("More")').click()
+  await waitText(/Log tape measurements/)
+  // the sites not shown yet are added from the sheet, then each shows how to measure it
+  for (const k of ['neck', 'forearmL', 'calfL', 'calfR']) {
+    if (await modal().locator(`[data-testid="tape-row-${k}"]`).count()) continue
+    if (await modal().locator('[data-testid="tape-add-site"]').count()) await modal().locator('[data-testid="tape-add-site"]').click()
+    await modal().locator(`[data-testid="tape-add-${k}"]`).click()
+  }
+  await modal().locator('[data-testid="tape-how"]').click()
   await page.waitForTimeout(400)
   const txt = (await modal().textContent()).toLowerCase()
   for (const w of [
@@ -343,7 +349,7 @@ await step('left and right are separate inputs and store separately', async () =
   await m.locator('input[aria-label="Thigh, left in cm"]').fill('58')
   await m.locator('input[aria-label="Thigh, right in cm"]').fill('57')
   await m.locator('input[aria-label="Calf, right in cm"]').fill('40')
-  await m.locator('button:has-text("Save measurement")').click()
+  await m.locator('[data-testid="tape-save"]').click()
   await page.waitForTimeout(700)
   const st = await state()
   const last = st.measurements[st.measurements.length - 1]

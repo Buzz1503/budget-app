@@ -199,6 +199,8 @@ export default function TrendChart(props) {
     events = [], wobble: wobbleProp, window: fixed = null, defaultRange = '90D', testid, note = null, onEditDate = null,
     startLine = null, refBand = null, format = null, changeUnit = null, controls = null, headerNote = null, pinsDefault, gapDays = undefined,
     suspects = [], onReview = null, full = false, initialRange = null, onClose = null,
+    // `better` turns the better way round for this chart; `second` { label, series } is a dashed second line
+    better: betterProp = null, second = null, question = null,
   } = props
   // how a value reads: a number by default, or e.g. a clock time for bedtime
   const show = format || ((v) => fmt(v, dp))
@@ -253,10 +255,12 @@ export default function TrendChart(props) {
   const band = ov.wobble && wobble ? [wobble, -wobble] : []
   // the starting value: on the axis only on "Since start"; elsewhere drawn when it falls inside it
   const startOn = startLine && startLine.date <= to && points.length ? startLine : null
+  const secondPts = useMemo(() => (second?.series || []).filter((p) => p.date >= from && p.date <= to && Number.isFinite(p.value)).sort((a, b) => a.date.localeCompare(b.date)), [second, from, to])
   const extra = useMemo(() => [
     ...(band.length ? points.flatMap((p) => [p.value + wobble, p.value - wobble]) : []),
     ...(startOn && range === 'Start' ? [startOn.value] : []),
-  ], [points, band.length, wobble, startOn, range])
+    ...secondPts.map((p) => p.value),
+  ], [points, band.length, wobble, startOn, range, secondPts])
   const { axis, xFor, yFor } = useChartGeometry({ points, from, to, metric, extraValues: extra, plotH, w: Wv })
   const start = startOn && startOn.value >= axis.lo && startOn.value <= axis.hi ? startOn : null
   const startOff = startOn && !start ? `Start ${show(startOn.value)}${unit ? ` ${unit}` : ''}, ${startOn.value > axis.hi ? 'above' : 'below'} this chart` : null
@@ -280,7 +284,7 @@ export default function TrendChart(props) {
   })
   const change = changeAll.words
   const answer = chartAnswer(change)
-  const better = chartBetter(metric)
+  const better = betterProp || chartBetter(metric)
   const d0 = changeAll.delta
   const answerTone = !better || d0 == null || Math.abs(d0) < Math.pow(10, -dp) / 2 ? 'same' : (d0 > 0) === (better === 'up') ? 'better' : 'worse'
 
@@ -437,7 +441,7 @@ export default function TrendChart(props) {
       data-range={fixed ? 'window' : range} data-bucket={bucket} data-from={from} data-to={to}>
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
-          <p className="text-[17px] font-semibold leading-snug" data-testid="chart-question">{chartQuestion(metric, title)}</p>
+          <p className="text-[17px] font-semibold leading-snug" data-testid="chart-question">{question || chartQuestion(metric, title)}</p>
           <p className="mt-1 flex items-baseline gap-2 tabular-nums">
             <span className="text-[26px] font-extrabold leading-tight" data-testid="chart-current">
               {shownValue != null ? show(shownValue) : '–'}{unit && <span className="ml-0.5 text-[13px] font-medium" style={{ color: 'var(--text-3)' }}>{unit}</span>}
@@ -516,7 +520,15 @@ export default function TrendChart(props) {
         <svg ref={svgRef} viewBox={`0 0 ${Wv} ${H}`} className="mt-2 w-full select-none" role="img" aria-label={`${title} over time`}
           style={{ touchAction: full ? 'none' : 'pan-y' }} data-testid="chart-svg" data-plot-h={plotH}
           onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} onClick={tapPlot}>
-          <Axes axis={axis} yFor={yFor} from={from} to={to} dp={dp} format={format} plotH={plotH} w={Wv} unit={axisUnit(unit, metric)} better={betterHint(metric)} />
+          <Axes axis={axis} yFor={yFor} from={from} to={to} dp={dp} format={format} plotH={plotH} w={Wv} unit={axisUnit(unit, metric)} better={betterProp ? (betterProp === 'up' ? '↑ better' : '↓ better') : betterHint(metric)} />
+          {secondPts.length > 0 && (
+            <g data-testid="chart-second">
+              {secondPts.length > 1 && <polyline points={secondPts.map((p) => `${xFor(p.date).toFixed(1)},${yFor(p.value).toFixed(1)}`).join(' ')} fill="none" stroke="var(--text-3)" strokeWidth="1.5" strokeDasharray="4 4" />}
+              {secondPts.map((p) => (
+                <circle key={`2${p.date}`} cx={xFor(p.date)} cy={yFor(p.value)} r="3" fill="var(--surface-solid)" stroke="var(--text-3)" strokeWidth="1.5"><title>{`${second.label} ${show(p.value)}${unit ? ` ${unit}` : ''} on ${shortDate(p.date)}`}</title></circle>
+              ))}
+            </g>
+          )}
           {refIn && (
             <g data-testid="chart-ref-band">
               <rect x={PAD.l} width={Wv - PAD.r - PAD.l} y={yFor(refIn.hi)} height={Math.max(1, yFor(refIn.lo) - yFor(refIn.hi))} fill="var(--text)" opacity="0.06" />
@@ -603,7 +615,7 @@ export default function TrendChart(props) {
         scans: points.some((p) => p.scan && !p.estimated), estimatedStart: points.some((p) => p.estimated), startLine: !!start,
         wobble: band.length > 0, refBand: refIn ? (refBand.label || 'Reference range') : null, suspects: flaggedIn.length > 0,
         bloods: blood.length > 0, gap: segments.some((g) => g.gap), color,
-      })} />}
+      }).concat(secondPts.length ? [{ key: 'second', label: second.label, kind: 'dashed' }] : [])} />}
       {(refOff || startOff) && (
         <p className="mt-1 text-[11px] font-medium tabular-nums" style={{ color: 'var(--text-3)' }} data-testid="chart-off-range">{[refOff, startOff].filter(Boolean).join('. ')}</p>
       )}

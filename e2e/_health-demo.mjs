@@ -199,10 +199,13 @@ await step('Sleep: hero, hypnogram, breakdown, stages, vitals, timing, plan, fac
   await closeSheet()
 })
 
-await step('Body has Composition, Effects and Recovery; no Training', async () => {
+await step('Body has Composition, Measurements, Effects and Recovery; no Training', async () => {
   await tab('Body')
   const segs = await page.locator('[data-testid^="body-seg-"]').allTextContents()
-  if (segs.join('|') !== 'Composition|Effects|Recovery') throw new Error(`segments ${segs}`)
+  if (segs.join('|') !== 'Composition|Measurements|Effects|Recovery') throw new Error(`segments ${segs}`)
+  await page.click('[data-testid="body-seg-measurements"]')
+  await seen('[data-testid="measurements-area"]')
+  await noOverflow('Body › Measurements')
 })
 
 await step('Measurements keeps its chips and adds the scale readings', async () => {

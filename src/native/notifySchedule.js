@@ -31,6 +31,7 @@ import { restartsOn, restartWords } from '../lib/due'
 import { displayName } from '../lib/naming'
 import { promptsFor } from '../sleep/prompts'
 import { tookItem } from './sleepSection'
+import { nextReminder } from '../body/tape'
 
 export const SCHEDULE_DAYS = 7
 export const ID_PREFIX = 'pepito.sched.'
@@ -193,6 +194,24 @@ export function buildSchedule(state, { now = new Date(), verdictOf = null, watch
         threadId: 'pepito.sauna',
         timeSensitive: !!ns.timeSensitive,
         payload: { kind: 'sauna', route: 'sauna' },
+      })
+    }
+  }
+  // tape measurements every 2 weeks, when turned on in Body › Measurements
+  if (state.tapeSettings?.reminder) {
+    const due = nextReminder(state.measurements || [], today)
+    let fire = at(due, ns.tapeTime || '08:00')
+    if (!later(fire)) fire = at(addDaysStr(today, 1), ns.tapeTime || '08:00')
+    if (fire.getTime() - now.getTime() <= SCHEDULE_DAYS * 86400000) {
+      out.push({
+        id: `${ID_PREFIX}tape.${localDate(fire)}`,
+        title: 'Tape measurements',
+        body: 'Two weeks since your last tape. Measure first thing, same spot, tape snug not tight.',
+        fireAt: fire.toISOString(),
+        category: 'TAPE',
+        threadId: 'pepito.tape',
+        timeSensitive: false,
+        payload: { kind: 'tape', route: 'measurements' },
       })
     }
   }

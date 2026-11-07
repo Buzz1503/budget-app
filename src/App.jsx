@@ -15,6 +15,7 @@ import Toast from './components/Toast'
 import VialPromptHost from './components/stock/VialPromptHost'
 import UpdatePrompt from './components/UpdatePrompt'
 import { HEALTH_BUILD, HealthBoot, HealthSettings, SleepTab } from './health/ui'
+import { useHealthLink } from './lib/healthLink'
 import { useNativeFeed } from './native/feed'
 import { ShortcutsScreen, NotificationsScreen, WatchScreen, LockSettingsScreen, LockGate } from './native/ui'
 
@@ -138,6 +139,9 @@ export default function App() {
     if (nativeRoute === 'count') {
       setTab('supplies')
       useNativeFeed.setState({ openCount: true })
+    } else if (nativeRoute === 'measurements') {
+      useHealthLink.getState().setBodySegment('measurements')
+      setTab('body')
     } else if (nativeRoute === 'evening') {
       setTab('sleep')
       useNativeFeed.setState({ openEvening: true })

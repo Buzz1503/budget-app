@@ -23,6 +23,7 @@ const SCREENS = [
   ['home'], ['composition'], ['effects'], ['recovery'],
   ['sleep'], ['sleep-full', '[data-testid="night-expand"]'], ['recovery-full', '[data-testid="chart-expand"]'], ['sleep-lab', '[data-testid="lab-open-analysis"]', '[data-testid="lab-helps"]'],
   ['sleep-zoom', 'eval:__previewNightZoom', '[data-testid="night-overview"]'], ['sleep-cross', 'eval:__previewNightCross', '[data-testid="cross-panel"]'],
+  ['measurements'], ['measurements-compare', '[data-testid="tape-compare"]'], ['photos', '[data-testid="body-section-photos"]'], ['photos-compare', '[data-testid="body-section-photos"]', '[data-testid="photo-compare-toggle"]'], ['photos-adjust', '[data-testid="body-section-photos"]', '[data-testid^="photo-adjust-"] >> nth=1'],
   ['sauna'], ['more'], ['stock'], ['bloods'], ['import'], ['import-list', 'eval:__previewImport', '[data-testid="import-list"]'],
   ['import-check', 'eval:__previewImport', '[data-testid="import-list"]', '[data-testid="import-row"]:has([data-status="check"])'],
 ].filter(([n]) => !only.length || only.includes(n))

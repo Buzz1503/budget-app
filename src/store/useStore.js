@@ -88,6 +88,9 @@ function initialState() {
     photos: [], // progress-photo metadata; blobs live in IndexedDB by blobKey
     bodyGoals: {}, // { metric: targetValue }; weight and bodyFat drive the Composition projection
     bodyProfile: { heightCm: null }, // height for FFMI; empty uses the latest scan's
+    // Body › Measurements: sites shown in the log sheet (null: measured ones and the defaults),
+    // better direction turned round per site, and the reminder every 2 weeks (src/body/tape.ts)
+    tapeSettings: { sites: null, better: {}, reminder: false },
     readingReviews: {},                 // Scale weights that looked wrong, by "date|value": 'keep' or 'hide' (never deleted)
     // Fixed distances up a limb, in cm, so every arm/thigh reading is taken at
     // the identical spot. Set once, editable, shown next to the field each time.
@@ -2879,6 +2882,27 @@ const useStore = create(
             .sort((a, b) => a.date.localeCompare(b.date)),
         }))
       },
+      /**
+       * Save tape from the log sheet: only the sites given. A typed entry on the
+       * same date takes them in (nothing else on it changes); otherwise a new one.
+       */
+      logTape(date, fields = {}) {
+        if (!date || !Object.keys(fields).length) return null
+        const s = get()
+        const same = [...s.measurements].reverse().find((m) => m.date === date && (m.source || 'manual') === 'manual' && !m.device && !m.hiddenFromCharts && !m.scanType)
+        if (same) {
+          get().updateMeasurement(same.id, fields)
+          get().showToast('Measurements saved')
+          return same.id
+        }
+        const entry = { id: `m-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, date, source: 'manual', ...fields }
+        set({ measurements: [...s.measurements, entry].sort((a, b) => a.date.localeCompare(b.date)) })
+        get().showToast('Measurements saved')
+        return entry.id
+      },
+      setTapeSettings(patch = {}) {
+        set((s) => ({ tapeSettings: { ...s.tapeSettings, ...patch } }))
+      },
       deleteMeasurement(id) {
         set((s) => ({ measurements: s.measurements.filter((m) => m.id !== id) }))
       },
@@ -3206,6 +3230,7 @@ const useStore = create(
         restock: { ...current.restock, ...(persisted?.restock || {}) },
         bodyRefs: { ...current.bodyRefs, ...(persisted?.bodyRefs || {}) },
         bodyProfile: { ...current.bodyProfile, ...(persisted?.bodyProfile || {}) },
+        tapeSettings: { ...current.tapeSettings, ...(persisted?.tapeSettings || {}) },
         // saves written before v19 have neither key
         supplements: persisted?.supplements || current.supplements,
         supplementLogs: persisted?.supplementLogs || current.supplementLogs,
