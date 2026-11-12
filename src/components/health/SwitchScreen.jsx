@@ -218,6 +218,11 @@ export function heartReportData(h, data, sw, measurements) {
       rhr: pick(r.cells.rhr.stat), sleepHR: pick(r.cells.sleepHR.stat), wakeUps: pick(r.cells.wakeUps.stat),
       weightPerWeek: slopePerWeek(weights.filter((w) => inRanges(w.date, r.period.ranges))),
     })),
-    switch: data ? { from: data.fromName, to: data.toName, date: sw.date, answer: data.answer, early: data.cmp.early, nBefore: data.cmp.nBefore, nAfter: data.cmp.nAfter } : null,
+    switch: data ? {
+      from: data.fromName, to: data.toName, date: sw.date, answer: data.answer, early: data.cmp.early, nBefore: data.cmp.nBefore, nAfter: data.cmp.nAfter,
+      old: data.w.old, new: data.w.new, overlap: data.overlap,
+      rows: data.cmp.rows.map((r) => ({ label: r.label, unit: r.unit, dp: r.dp, before: pick(r.before), after: pick(r.after) })),
+      weight: data.body.weight, fat: data.body.fat, reactions: data.body.reactions,
+    } : null,
   }
 }
