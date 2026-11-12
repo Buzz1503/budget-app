@@ -363,12 +363,13 @@ export function changeWindows(date: string, lookup: Lookup | undefined, counts: 
 
 export const isWeekly = (frequency: string | null | undefined) => frequency === 'weekly'
 
-export interface SinceBin { key: number; label: string; stat: Stat | null }
+export interface SinceBin { key: number; label: string; stat: Stat | null; n: number; early: boolean }
 
 /**
- * By day since the last injection (weekly: day 0 to 6, the evening before the
- * night counted), or by 12 hours since the last dose (more often: 0 to 48 h).
- * `ok` only when every bin has at least 6 nights.
+ * By day since the last injection: weekly compounds day 1 to 7 (day 1 is the
+ * first night within 24 hours of the injection), anything dosed more often in
+ * 12-hour steps from dose to bedtime. A bar is only drawn with at least 6
+ * nights; under that it reads Early. `ok` once two bars can be compared.
  */
 export function sinceDose(o: {
   weekly: boolean
@@ -390,17 +391,28 @@ export function sinceDose(o: {
     const k = o.weekly ? Math.floor((bed - last) / DAY) : Math.floor((bed - last) / (12 * 3600000))
     if (k >= 0 && k < n) buckets[k].push(v)
   }
-  const bins = buckets.map((vals, k) => ({ key: k, label: o.weekly ? `Day ${k}` : `${k * 12} to ${k * 12 + 12} h`, stat: meanCI(vals) }))
-  return { bins, ok: bins.every((b) => (b.stat?.n ?? 0) >= HEART.doseBinMin) }
+  const bins = buckets.map((vals, k) => {
+    const early = vals.length < HEART.doseBinMin
+    return { key: o.weekly ? k + 1 : k, label: o.weekly ? `Day ${k + 1}` : `${k * 12} to ${k * 12 + 12} h`, stat: early ? null : meanCI(vals), n: vals.length, early }
+  })
+  return { bins, ok: bins.filter((b) => !b.early).length >= 2 }
 }
 
-/** "Wake-ups are highest 1 day after your injection (2.4 a night, against 1.6 on the other days)." */
-export function sinceDoseAnswer(label: string, r: { bins: SinceBin[]; ok: boolean }, weekly: boolean, dp = 1): string {
-  if (!r.ok) return `Needs ${HEART.doseBinMin} nights in every ${weekly ? 'day' : '12 hours'} since a dose.`
-  const top = r.bins.reduce((a, b) => ((b.stat?.mean ?? -Infinity) > (a.stat?.mean ?? -Infinity) ? b : a))
-  const rest = mean(r.bins.filter((b) => b !== top).map((b) => b.stat!.mean))
-  const when = weekly ? (top.key === 0 ? 'on the night of your injection' : `${top.key} ${top.key === 1 ? 'day' : 'days'} after your injection`) : `${top.label} after a dose`
-  return `${label} highest ${when} (${top.stat!.mean.toFixed(dp)}, against ${rest!.toFixed(dp)} the rest of the week).`.replace('the rest of the week', weekly ? 'the rest of the week' : 'at other times')
+/** "Wake-ups are highest 1 to 2 days after your Retatrutide injection." Neighbouring days within 10% of the top join it. */
+export function sinceDoseAnswer(label: string, r: { bins: SinceBin[]; ok: boolean }, weekly: boolean, name = 'your', dp = 1): string {
+  if (!r.ok) return `Early: each ${weekly ? 'day' : '12 hours'} since a dose needs ${HEART.doseBinMin} nights.`
+  const shown = r.bins.filter((b) => !b.early && b.stat)
+  const top = shown.reduce((a, b) => (b.stat!.mean > a.stat!.mean ? b : a))
+  const rest = mean(shown.filter((b) => b !== top).map((b) => b.stat!.mean))!
+  if (Math.abs(top.stat!.mean - rest) < 10 ** -dp) return `${label} about the same whatever the ${weekly ? 'day' : 'time'} since ${name === 'your' ? 'a' : `your ${name}`} dose.`
+  const near = (b: SinceBin | undefined) => !!b && !b.early && !!b.stat && top.stat!.mean - b.stat.mean <= Math.abs(top.stat!.mean) * 0.1
+  const i = r.bins.indexOf(top)
+  const lo = near(r.bins[i - 1]) ? r.bins[i - 1] : top
+  const hi = lo === top && near(r.bins[i + 1]) ? r.bins[i + 1] : top
+  const who = name === 'your' ? 'your' : `your ${name}`
+  if (!weekly) return `${label} highest ${lo === hi ? lo.label : `${lo.key * 12} to ${hi.key * 12 + 12} h`} after ${who} dose.`
+  const days = lo === hi ? `${lo.key} ${lo.key === 1 ? 'day' : 'days'}` : `${lo.key} to ${hi.key} days`
+  return `${label} highest ${days} after ${who} injection.`
 }
 
 // --------------------------------------------- other things that changed
@@ -411,6 +423,8 @@ export interface Context {
   alcohol: string[]
   sedatives: Array<{ date: string; name: string }>
   weights: Array<{ date: string; value: number }>
+  /** average overnight outside temperature per night (9 pm to 6 am), from the weather cache */
+  temps?: Array<{ date: string; value: number }>
 }
 
 /** kg a week from a straight line through the readings; null under 3 readings or 14 days. */
@@ -449,6 +463,8 @@ export function contextLine(period: Period, ctx: Context, refPerWeek: { sauna: n
   }
   const slope = slopePerWeek(ctx.weights.filter((w) => inside(w.date)))
   if (slope != null) parts.push(Math.abs(slope) < 0.05 ? 'weight steady' : `weight ${slope < 0 ? 'down' : 'up'} ${Math.abs(slope).toFixed(1)} kg a week`)
+  const temps = (ctx.temps || []).filter((x) => inside(x.date)).map((x) => x.value)
+  if (temps.length >= 3) parts.push(`outside overnight ${Math.round(mean(temps)!)} C on average`)
   return parts.length ? `Also in this period: ${parts.join('; ')}.` : 'Nothing else logged changed in this period.'
 }
 

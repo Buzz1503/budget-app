@@ -15,6 +15,7 @@ export function useCompounds() {
     name: displayName(p),
     libraryId: p.libraryId || null,
     frequency: p.frequency || null,
+    route: p.route || 'SubQ',
     affectsRecoveryBaseline: p.affectsRecoveryBaseline,
     trackEffects: p.trackEffects,
     // A cycle going off is a stop and coming back on is a restart, so the

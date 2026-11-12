@@ -166,14 +166,27 @@ describe('days since the injection', () => {
     const k = Math.floor((Date.parse(`${add(d, -1)}T13:00:00Z`) - Date.parse('2026-08-03T08:00:00Z')) / dayMs) % 7
     wake.set(d, k === 1 ? 3 : 1.5)
   }
-  it('bins day 0 to 6 and says which day is highest, only with 6 nights in every bin', () => {
+  it('bins day 1 to 7 with n under each, says which days are highest; a bar under 6 nights is Early', () => {
     const r = sinceDose({ weekly: true, doses, bedtimes, lookup: wake })
-    expect(r.bins.map((b) => b.stat?.n)).toEqual([10, 10, 10, 10, 10, 10, 10])
+    expect(r.bins.map((b) => b.key)).toEqual([1, 2, 3, 4, 5, 6, 7])
+    expect(r.bins.map((b) => b.n)).toEqual([10, 10, 10, 10, 10, 10, 10])
     expect(r.ok).toBe(true)
-    expect(sinceDoseAnswer('Wake-ups are', r, true)).toBe('Wake-ups are highest 1 day after your injection (3.0, against 1.5 the rest of the week).')
+    expect(sinceDoseAnswer('Wake-ups are', r, true, 'Retatrutide')).toBe('Wake-ups are highest 2 days after your Retatrutide injection.')
+    // a neighbouring day within 10% of the top joins it
+    const both: Lookup = new Map([...wake].map(([d, v]) => [d, v]))
+    for (const [d, bed] of bedtimes) {
+      const k = Math.floor((bed - Date.parse('2026-08-03T08:00:00Z')) / dayMs) % 7
+      if (k === 0) both.set(d, 2.9)
+    }
+    expect(sinceDoseAnswer('Wake-ups are', sinceDose({ weekly: true, doses, bedtimes, lookup: both }), true, 'Reta')).toBe('Wake-ups are highest 1 to 2 days after your Reta injection.')
     const few = sinceDose({ weekly: true, doses, bedtimes: new Map([...bedtimes].slice(0, 20)), lookup: wake })
+    expect(few.bins.every((b) => b.early && b.stat === null)).toBe(true)
     expect(few.ok).toBe(false)
-    expect(sinceDoseAnswer('Wake-ups are', few, true)).toBe('Needs 6 nights in every day since a dose.')
+    expect(sinceDoseAnswer('Wake-ups are', few, true)).toBe('Early: each day since a dose needs 6 nights.')
+    const some = sinceDose({ weekly: true, doses, bedtimes: new Map([...bedtimes].slice(0, 45)), lookup: wake })
+    expect(some.bins.filter((b) => b.early).length).toBe(0)
+    const part = sinceDose({ weekly: true, doses, bedtimes: new Map([...bedtimes].slice(0, 41)), lookup: wake })
+    expect(part.bins.map((b) => b.early)).toEqual([false, false, false, false, false, false, true])
   })
   it('dosed more often: 12-hour bins', () => {
     const r = sinceDose({ weekly: false, doses: [Date.parse('2026-08-03T08:00:00Z')], bedtimes: new Map([['2026-08-04', Date.parse('2026-08-03T13:00:00Z')]]), lookup: new Map([['2026-08-04', 2]]) })
@@ -194,6 +207,9 @@ describe('other things that changed', () => {
     }, { sauna: 1 })
     expect(line).toBe('Also in this period: BPC-157 started at 250 mcg 10 Jun; sauna 0.2 a week (reference 1); alcohol on 2 of 122 days; Temazepam on 2 nights; weight down 0.5 kg a week.')
     expect(slopePerWeek([{ date: '2026-05-01', value: 100 }, { date: '2026-05-03', value: 99 }, { date: '2026-05-05', value: 98 }])).toBeNull()
+    // the average overnight outside temperature, once 3 nights have it
+    const withTemp = contextLine(p, { events: [], sauna: [], alcohol: [], sedatives: [], weights: [], temps: [{ date: '2026-05-02', value: 17.6 }, { date: '2026-05-03', value: 18.2 }, { date: '2026-05-04', value: 19.4 }] })
+    expect(withTemp).toBe('Also in this period: outside overnight 18 C on average.')
   })
 })
 

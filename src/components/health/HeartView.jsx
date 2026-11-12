@@ -14,7 +14,7 @@ import { HeartSummaryText } from './HeartSummary'
 import { ridgeWithCI } from '../../sleep/analysis/stats'
 import {
   changeWindows, sinceDose, sinceDoseAnswer, isWeekly, contextLine, adjustedPeriods, switchCandidates, historyCoverage,
-  inRanges, HEART_INFO, HEART, shortDate, rhrVsReference,
+  inRanges, HEART_INFO, HEART, shortDate, rhrVsReference, isGlp1,
 } from '../../health/heart'
 
 const soft = { color: 'var(--text-2)' }
@@ -176,6 +176,9 @@ function useAdjusted(h, metric, on) {
     const ids = (re) => Object.entries(lab.names.asNeeded || {}).filter(([, n]) => re.test(n)).map(([id]) => `asNeeded:${id}`)
     const sed = ids(/temazepam|diazepam|restavit/i)
     const dex = [...ids(/dex/i), ...Object.entries(lab.names.compounds || {}).filter(([, n]) => /dex/i.test(n)).map(([id]) => `dose:${id}`)]
+    // overnight outside temperature, centred on its average (a night without it sits at the average)
+    const temps = [...lab.featureBy.values()].map((f) => f.continuous?.outsideAvgC).filter((v) => v != null)
+    const tMean = temps.length ? temps.reduce((a, b) => a + b, 0) / temps.length : 0
     const rows = []
     for (const [date, y] of h.lookups[metric.key]) {
       const f = lab.featureBy.get(date)
@@ -183,7 +186,8 @@ function useAdjusted(h, metric, on) {
       const p = h.periods.find((x) => inRanges(date, x.ranges))
       if (!p) continue
       const b = f.binary
-      rows.push({ date, period: p.key, y, conf: [b.sauna, b['habit:alcohol'], sed.some((k) => b[k]), dex.some((k) => b[k]), b.lateMeal, b.weekend].map((v) => (v ? 1 : 0)) })
+      const flags = [b.sauna, b['habit:alcohol'], sed.some((k) => b[k]), dex.some((k) => b[k]), b.lateMeal, b.workoutAfter5 ?? b.lateWorkout, b.weekend].map((v) => (v ? 1 : 0))
+      rows.push({ date, period: p.key, y, conf: [...flags, (f.continuous?.outsideAvgC ?? tMean) - tMean] })
     }
     let seed = 7
     return adjustedPeriods(rows, h.periods.map((p) => p.key), (X, y) => ridgeWithCI(X, y, seed++, { resamples: 120 }))
@@ -222,7 +226,7 @@ function ByDose({ h, metric: key, setMetric, adjusted, setAdjusted }) {
           Adjusted for things you log
         </label>
         {adjusted && adj?.locked && <p className="pb-2 text-[13px] font-medium" style={muted} data-testid="heart-adjusted-locked">Needs {HEART.adjustedFrom} nights with your evening logged. You have {adj.have}.</p>}
-        {adjusted && adj && !adj.locked && <p className="pb-2 text-[13px] font-medium" style={muted}>Hollow dots: adjusted for sauna, alcohol, sedatives (temazepam, diazepam, Restavit), dexamphetamine, late meals and weekend, {adj.n} nights. Raw numbers stay as they are.</p>}
+        {adjusted && adj && !adj.locked && <p className="pb-2 text-[13px] font-medium" style={muted}>Hollow dots: adjusted for sauna, alcohol, sedatives (temazepam, diazepam, Restavit), dexamphetamine, late meals, late workouts, overnight outside temperature and weekend, {adj.n} nights. Raw numbers stay as they are.</p>}
       </div>
     </Section>
   )
@@ -273,44 +277,68 @@ function FragmentRow({ label, cells }) {
 
 // ---------------------------------------------------------- days since dose
 
-function SinceDose({ h }) {
-  const doseLogs = useStore((s) => s.doseLogs)
-  const [key, setKey] = useState('wakeUps')
-  const focus = useMemo(() => {
-    const ids = [...new Set(h.periods.filter((p) => p.compoundId).map((p) => p.compoundId))]
-    return h.compounds.filter((c) => ids.includes(c.id)).at(-1) || null
-  }, [h])
-  const r = useMemo(() => {
-    if (!focus) return null
-    const doses = doseLogs.filter((l) => l.peptideId === focus.id).map((l) => (l.at ? Date.parse(l.at) : Date.parse(`${l.date}T${l.time || '08:00'}:00`))).filter(Number.isFinite)
-    return sinceDose({ weekly: isWeekly(focus.frequency), doses, bedtimes: h.bedtimes, lookup: h.lookups[key] })
-  }, [focus, doseLogs, h, key])
-  if (!focus || !r) return null
-  const weekly = isWeekly(focus.frequency)
-  const metric = h.metrics.find((m) => m.key === key)
-  const max = Math.max(...r.bins.map((b) => b.stat?.mean ?? 0), 1)
+const SINCE_METRICS = ['wakeUps', 'awakeMin', 'sleepHR', 'rhr']
+
+/** One metric by day since the injection: a bar per day with n under it, Early under 6 nights. */
+function SinceBars({ r, metric, weekly, name }) {
+  const shown = r.bins.filter((b) => !b.early && b.stat)
+  const max = Math.max(...shown.map((b) => b.stat.mean), 1)
+  const min = Math.min(...shown.map((b) => b.stat.mean), max)
+  // bars start from a floor under the lowest value so differences in heart rate show
+  const floor = metric.unit === 'bpm' ? Math.max(0, Math.floor(min - 5)) : 0
+  const label = `${metric.label} ${metric.key === 'wakeUps' ? 'are' : 'is'}`
   return (
-    <Section icon={CalendarRange} title={weekly ? `Days since your ${focus.name} injection` : `Hours since your ${focus.name} dose`} testid="heart-since"
-      info={<p>{weekly ? 'Each night counted by the days since your last injection (the evening before the night).' : 'Each night counted by the hours from your last dose to bedtime, in 12-hour steps.'} Shown once every step has at least {HEART.doseBinMin} nights.</p>}>
-      <div className="flex gap-1.5">
-        {['wakeUps', 'sleepHR', 'rhr'].map((k) => (
-          <button key={k} onClick={() => setKey(k)} aria-pressed={key === k} className="min-h-[32px] rounded-full px-3 text-xs font-bold"
-            style={key === k ? { background: 'var(--surface2)', color: 'var(--text)', border: '1px solid var(--border)' } : { background: 'var(--surface-sunk)', color: 'var(--text-3)' }} data-testid={`since-${k}`}>{h.metrics.find((m) => m.key === k).label}</button>
+    <div className="card p-4" data-testid={`since-${metric.key}`}>
+      <p className="text-[15px] font-semibold">{metric.label}{metric.unit && metric.unit !== 'count' ? <span className="ml-1 text-[13px] font-medium" style={muted}>{metric.unit}</span> : null}</p>
+      <AnswerLine className="mt-1" testid={`since-answer-${metric.key}`}>{sinceDoseAnswer(label, r, weekly, name, metric.dp)}</AnswerLine>
+      <div className="mt-3 flex items-end gap-1.5" style={{ height: 112 }} data-testid="since-bars">
+        {r.bins.map((b) => (
+          <div key={b.key} className="flex min-w-0 flex-1 flex-col items-center gap-1" data-testid="since-bar" data-early={b.early ? 'true' : 'false'}>
+            <span className="text-[11px] font-semibold tabular-nums">{b.early ? '' : b.stat.mean.toFixed(metric.dp)}</span>
+            {b.early
+              ? <span className="flex w-full items-end justify-center rounded-t-[6px] text-[10px] font-semibold" style={{ height: 56, color: 'var(--text-3)', border: '1px dashed var(--border)' }}>Early</span>
+              : <span className="w-full rounded-t-[6px]" style={{ height: `${Math.max(4, ((b.stat.mean - floor) / (max - floor || 1)) * 64)}px`, background: 'var(--series-sleep)', opacity: 0.85 }} />}
+            <span className="text-[11px] font-semibold" style={soft}>{weekly ? `D${b.key}` : `${b.key * 12}h`}</span>
+            <span className="text-[10px] font-medium tabular-nums" style={muted}>n {b.n}</span>
+          </div>
         ))}
       </div>
-      <div className="card p-4">
-        <AnswerLine testid="since-answer">{sinceDoseAnswer(`${metric.label} ${key === 'wakeUps' ? 'are' : 'is'}`, r, weekly, metric.dp)}</AnswerLine>
-        {r.ok && (
-          <div className="mt-3 flex items-end gap-2" style={{ height: 120 }} data-testid="since-bars">
-            {r.bins.map((b) => (
-              <div key={b.key} className="flex min-w-0 flex-1 flex-col items-center gap-1">
-                <span className="text-[12px] font-semibold tabular-nums">{b.stat ? b.stat.mean.toFixed(metric.dp) : '–'}</span>
-                <span className="w-full rounded-t-[6px]" style={{ height: `${((b.stat?.mean ?? 0) / max) * 80}px`, background: 'var(--series-sleep)', opacity: 0.8 }} />
-                <span className="text-[11px] font-semibold" style={muted}>{weekly ? `D${b.key}` : `${b.key * 12}h`}</span>
-              </div>
-            ))}
-          </div>
-        )}
+    </div>
+  )
+}
+
+function SinceDose({ h }) {
+  const doseLogs = useStore((s) => s.doseLogs)
+  // injected compounds with doses logged, GLP-1 class first
+  const injected = useMemo(() => {
+    const count = new Map()
+    for (const l of doseLogs) count.set(l.peptideId, (count.get(l.peptideId) || 0) + 1)
+    const logged = h.compounds.filter((c) => (count.get(c.id) || 0) >= 2 && !/nasal|oral|topical/i.test(c.route || ''))
+    // nothing logged yet: the GLP-1 class compounds, every bar Early until doses are logged
+    return (logged.length ? logged : h.compounds.filter(isGlp1)).sort((a, b) => Number(isGlp1(b)) - Number(isGlp1(a)))
+  }, [h, doseLogs])
+  const [picked, setPicked] = useState(null)
+  const focus = injected.find((c) => c.id === picked) || injected[0] || null
+  const results = useMemo(() => {
+    if (!focus) return null
+    const doses = doseLogs.filter((l) => l.peptideId === focus.id).map((l) => (l.at ? Date.parse(l.at) : Date.parse(`${l.date}T${l.time || '08:00'}:00`))).filter(Number.isFinite)
+    return Object.fromEntries(SINCE_METRICS.map((k) => [k, sinceDose({ weekly: isWeekly(focus.frequency), doses, bedtimes: h.bedtimes, lookup: h.lookups[k] })]))
+  }, [focus, doseLogs, h])
+  if (!focus || !results) return null
+  const weekly = isWeekly(focus.frequency)
+  return (
+    <Section icon={CalendarRange} title="Days since injection" testid="heart-since"
+      info={<p>{weekly ? 'Each night counted by the days since your last injection: day 1 is the first night within 24 hours of it.' : 'Each night counted by the hours from your last dose to bedtime, in 12-hour steps.'} A bar needs at least {HEART.doseBinMin} nights; under that it reads Early. n is the number of nights.</p>}>
+      {injected.length > 1 && (
+        <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
+          {injected.map((c) => (
+            <button key={c.id} onClick={() => setPicked(c.id)} aria-pressed={c.id === focus.id} className="min-h-[32px] shrink-0 rounded-full px-3 text-xs font-bold"
+              style={c.id === focus.id ? { background: 'var(--surface2)', color: 'var(--text)', border: '1px solid var(--border)' } : { background: 'var(--surface-sunk)', color: 'var(--text-3)' }} data-testid={`since-compound-${c.id}`}>{c.name}</button>
+          ))}
+        </div>
+      )}
+      <div className="grid gap-3">
+        {SINCE_METRICS.map((k) => <SinceBars key={k} r={results[k]} metric={h.metrics.find((m) => m.key === k)} weekly={weekly} name={focus.name} />)}
       </div>
     </Section>
   )
@@ -324,6 +352,7 @@ function OtherChanges({ h }) {
   const eveningDetails = useStore((s) => s.eveningDetails)
   const asNeededLogs = useStore((s) => s.asNeededLogs)
   const measurements = useStore((s) => s.measurements)
+  const weather = useStore((s) => s.weatherNights)
   const lines = useMemo(() => {
     const events = []
     for (const c of h.compounds) {
@@ -338,11 +367,12 @@ function OtherChanges({ h }) {
     ]
     const sedatives = (asNeededLogs || []).filter((l) => /temazepam|diazepam|restavit/i.test(l.name || '')).map((l) => ({ date: String(l.at || '').slice(0, 10), name: l.name }))
     const weights = (measurements || []).filter((m) => typeof m.weight === 'number' && !m.hiddenFromCharts).map((m) => ({ date: m.date, value: m.weight }))
-    const ctx = { events, sauna: (saunaSessions || []).map((s) => s.date), alcohol, sedatives, weights }
+    const temps = Object.entries(weather || {}).filter(([, w]) => w?.avgC != null).map(([date, w]) => ({ date, value: w.avgC }))
+    const ctx = { events, sauna: (saunaSessions || []).map((s) => s.date), alcohol, sedatives, weights, temps }
     const refDays = h.reference ? Math.max(1, (Date.parse(h.reference.to) - Date.parse(h.reference.from)) / 86400000 + 1) : null
     const refSauna = h.reference ? Math.round((ctx.sauna.filter((d) => d >= h.reference.from && d <= h.reference.to).length / refDays) * 7 * 10) / 10 : null
     return h.periods.map((p) => ({ p, line: contextLine(p, ctx, { sauna: refSauna }) }))
-  }, [h, saunaSessions, habitLogs, eveningDetails, asNeededLogs, measurements])
+  }, [h, saunaSessions, habitLogs, eveningDetails, asNeededLogs, measurements, weather])
   if (!lines.length) return null
   return (
     <Section icon={ListChecks} title="Other things that changed" testid="heart-context"
