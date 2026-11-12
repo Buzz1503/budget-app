@@ -21,6 +21,8 @@ export default function useHeart() {
     const rhr = new Map()
     const hrv = new Map()
     for (const r of model.daily) {
+      // the morning after an excluded night is left out with it
+      if (model.nightBy.get(r.date)?.excluded) continue
       if (r.restingHR != null) rhr.set(r.date, r.restingHR)
       if (r.hrvOvernight != null) hrv.set(r.date, r.hrvOvernight)
     }
@@ -32,7 +34,7 @@ export default function useHeart() {
     const hearts = new Map()
     const bedtimes = new Map()
     for (const n of model.nightBy.values()) {
-      if (n.fallback) continue
+      if (n.fallback || n.excluded) continue
       bedtimes.set(n.date, n.start)
       const h = nightHeart(n, n.overnight?.hr, day.get(addDays(n.date, -1))?.hrDaytime ?? null)
       if (h) {

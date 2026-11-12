@@ -128,6 +128,8 @@ export interface SleepNight extends SleepSession {
   overnight?: Overnight | null
   /** not the chosen sleep source: shown as "Other source", left out of baselines and the Sleep Lab */
   fallback?: boolean
+  /** excluded by choice (an outlier night): shown, but left out of baselines and every analysis */
+  excluded?: boolean
   /** every source with a main sleep that date, with the stages each gave (schema 5) */
   sources?: Array<{ name: string; cls: SourceClass; stages: string[] }>
 }

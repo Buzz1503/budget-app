@@ -38,11 +38,11 @@ State is one persisted Zustand store, `src/store/useStore.js`; pure logic lives 
   baselines and the Sleep Lab. Stages are summed from one resolved timeline (`buildSegments`; `check` keeps the old totals).
 - Restless (`src/sleep/restless.ts`): wake-ups 2 min+ (`wakeEvents`, shared with What happened), awake minutes, fragmentation, HR
   spikes (10 bpm over the night's median for 2 min+, time over the line estimated between readings, `spikeRule`).
-- Tab (`SleepTab.jsx`, `SleepMain.jsx`, `src/sleep/tabView.ts`): verdict, vs your normal (middle 80% of the 28 nights before), stages
-  bar, what shaped it (features + Sleep Lab line from 7/7 nights), 14 nights, debt, tonight, lab teaser, Trends (7/30/90). The detail
-  view holds the night card (`NightCard.jsx`, `nightView.ts`, `nightGestures.ts`), What happened, Check the numbers, vitals.
-- Sleep Lab (`src/sleep/analysis`, Web Worker `src/lib/compute`): association never cause, n shown. Apnea (`apnea.ts`, "Screen, not a
-  diagnosis"), nightmares (`nightmares.ts`). Logging `logging.ts`, prompts `prompts.ts`, setup `setup.ts`, Screen Time late use.
+- Last night (`SleepTab.jsx`, `SleepMain.jsx`, `tabView.ts`): verdict, Wake-ups card (`wakeDetail.ts`, `WakeCard.jsx`; why-I-woke
+  `wakeReasons`, asked once on Today), vs your normal, stages, what shaped it, 14 nights, debt, tonight. Detail: night card, vitals.
+- Sleep Lab (`src/sleep/analysis`, worker `src/lib/compute`; Insights): good vs bad nights (`goodBad.ts`, BH at 10%), automatic context
+  (`autoContext.ts`, Open-Meteo `src/lib/weather.js` position and dates only), outliers (`outliers.ts`; `excludedNights` marks nights
+  `excluded`, out of every analysis, never deleted). Apnea "Screen, not a diagnosis", nightmares. Association never cause, n shown.
 ## Sauna
 - `saunaSessions`, `saunaSettings`, `saunaTimer` (backed up); `src/sauna` (`sauna.ts`, `saunaEffects.ts`, `analytics.ts` + `ANALYTICS`,
   `insights.ts`). Session on day D = night D, morning D+1; no statistic uses a day before the first session. Health via

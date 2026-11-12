@@ -5,6 +5,9 @@ import { addDays } from '../../health/tz'
 import { clockFromNoon } from '../../health/engine/sleep'
 import { hrDip } from '../../health/overnight'
 import { nightFeatures } from '../../sleep/features'
+import { autoContext } from '../../sleep/autoContext'
+import { outlierReasons } from '../../sleep/outliers'
+import { doseSegments } from '../../health/heart'
 import { spo2Night } from '../../sleep/oxygen'
 import { buildRows } from '../../sleep/analysis/dataset'
 import { detectEvents, calibrate, truthOf } from '../../sleep/nightmares'
@@ -20,6 +23,8 @@ import useHealthModel, { tz } from './useHealthModel'
  * ("Other source") is shown but left out of the analysis. The analysis
  * itself runs elsewhere (useSleepAnalysis).
  */
+const clockMin = (hhmm) => { const [h, m] = String(hhmm || '0:0').split(':').map(Number); return (h || 0) * 60 + (m || 0) }
+
 export default function useSleepLab() {
   const model = useHealthModel()
   const compounds = useCompounds()
@@ -27,12 +32,13 @@ export default function useSleepLab() {
     asNeededItems: st.asNeededItems, asNeededLogs: st.asNeededLogs, supplements: st.supplements, supplementLogs: st.supplementLogs,
     doseLogs: st.doseLogs, habitLogs: st.habitLogs, habits: st.habits, eveningDetails: st.eveningDetails, saunaSessions: st.saunaSessions,
     morningChecks: st.morningChecks, lateUse: st.lateUse, sleepSettings: st.sleepSettings,
+    weatherNights: st.weatherNights, wakeReasons: st.wakeReasons,
   })))
 
   return useMemo(() => {
     const nights = [...model.nightBy.values()]
     // only the chosen sleep source feeds the analysis; a fallback night is shown, never analysed
-    const chosen = nights.filter((n) => !n.fallback)
+    const chosen = nights.filter((n) => !(n.fallback || n.excluded))
     const daily = model.dailyBy
     const features = nightFeatures({
       tz, nights: chosen,
@@ -47,7 +53,43 @@ export default function useSleepLab() {
       steps: new Map(model.daily.filter((r) => r.steps != null).map((r) => [r.date, r.steps])),
       naps: nights.flatMap((n) => (n.naps || []).map((x) => ({ date: n.date, start: x.start, end: x.end }))),
     })
+    // automatic context (late workouts, sauna near bed, consistency, breathing and wrist temperature
+    // against your baseline, overnight outside temperature, injection timing, why I woke) joins each night
+    const segs = new Map(compounds.map((c) => [c.id, doseSegments(c, model.today)]))
+    // every night from the chosen source, excluded ones too, so an excluded night keeps its flags
+    const own = nights.filter((n) => !n.fallback)
+    const auto = autoContext({
+      nights: own.map((n) => ({ date: n.date, start: n.start, end: n.end, respRate: n.overnight?.respRate ?? null })),
+      hourOf: (ms) => tz.hourOf(ms),
+      workouts: model.sessions.map((w) => ({ start: w.start, end: w.end, type: w.type, title: w.title })),
+      sauna: (s.saunaSessions || []).map((x) => ({ date: x.date, end: x.endedAt ?? (x.startedAt ?? (tz.startOfDay(x.date) + clockMin(x.start) * 60000)) + (x.lengthMin || 0) * 60000 })),
+      wristTemp: model.series.temp || new Map(),
+      weather: s.weatherNights || {},
+      doses: (s.doseLogs || []).map((l) => ({ compoundId: l.peptideId, t: l.loggedAt && !l.backfilled ? Date.parse(l.loggedAt) : Date.parse(`${l.date}T12:00:00`) })).filter((d) => Number.isFinite(d.t)),
+      doseLevel: (id, date) => segs.get(id)?.find((g) => date >= g.from && date <= g.to)?.dose ?? null,
+      compounds: compounds.map((c) => ({ id: c.id, name: c.name })),
+      wakeReasons: s.wakeReasons,
+    })
+    for (const f of features) {
+      const a = auto.get(f.date)
+      if (!a) continue
+      Object.assign(f.binary, a.binary)
+      Object.assign(f.continuous, a.continuous)
+      f.line = [...f.line, ...a.line]
+    }
     const featureBy = new Map(features.map((f) => [f.date, f]))
+    // outlier nights: possibly unwell, very short, an unusual bedtime, missing heart rate, away from home
+    const outliers = own.map((n) => {
+      const a = auto.get(n.date)
+      const evening = s.habitLogs?.[addDays(n.date, -1)] || {}
+      const reasons = outlierReasons({
+        date: n.date, asleepMin: n.asleepMin ?? null, bedOffMin: a?.continuous.bedOffMin ?? null,
+        wristTempDev: a?.continuous.wristTempDev ?? null, respDev: a?.continuous.respDev ?? null,
+        missing: !n.overnight?.hr?.length, sick: evening.unwell === true, away: evening.away === true,
+      })
+      return { date: n.date, reasons, excluded: !!n.excluded }
+    }).filter((o) => o.reasons.length || o.excluded)
+    const outlierBy = new Map(outliers.map((o) => [o.date, o]))
     const inputs = new Map()
     const extras = new Map()
     // nightmare events per night, then a rating (fitted to your answers once there are enough)
@@ -103,7 +145,7 @@ export default function useSleepLab() {
       inputs.set(n.date, input)
       extras.set(n.date, { night: n, overnight: o, spo2, restless, feature: featureBy.get(n.date), input, events, rating, truth })
     }
-    const rows = buildRows(features, new Map([...inputs].filter(([d]) => !model.nightBy.get(d)?.fallback)))
+    const rows = buildRows(features, new Map([...inputs].filter(([d]) => { const x = model.nightBy.get(d); return !(x?.fallback || x?.excluded) })))
     const timing = nights.map((n) => [n.date, { bedFromNoon: clockFromNoon(n.start, tz), wakeFromNoon: clockFromNoon(n.end, tz) }])
     const names = {
       habits: Object.fromEntries(s.habits.map((h) => [h.id, h.name])),
@@ -111,6 +153,6 @@ export default function useSleepLab() {
       supplements: Object.fromEntries(s.supplements.map((x) => [x.id, x.name])),
       compounds: Object.fromEntries(compounds.map((c) => [c.id, c.name])),
     }
-    return { model, features, featureBy, inputs, extras, rows, timing, names, needMin: Math.round(model.needH * 60), calibration: { personal: cal.personal, confirmed: cal.confirmed } }
+    return { model, features, featureBy, inputs, extras, rows, timing, names, outliers, outlierBy, needMin: Math.round(model.needH * 60), calibration: { personal: cal.personal, confirmed: cal.confirmed } }
   }, [model, compounds, s])
 }

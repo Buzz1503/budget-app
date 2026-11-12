@@ -22,7 +22,7 @@ import { tz } from './useHealthModel'
 const soft = { color: 'var(--text-2)' }
 const muted = { color: 'var(--text-3)' }
 const short = (d) => format(parseISO(d), 'd MMM')
-const counts = (model) => (d) => { const n = model.nightBy.get(d); return !!n && !n.fallback }
+const counts = (model) => (d) => { const n = model.nightBy.get(d); return !!n && !(n.fallback || n.excluded) }
 /** "6h 37m": no spaces, so it never breaks across lines in a narrow column */
 export const compactHm = (min) => { const m = Math.round(min); return `${Math.floor(m / 60)}h\u00a0${String(m % 60).padStart(2, '0')}` }
 const noCi = (s) => String(s || '').replace(/\s*\(95% CI[^)]*\)\s*$/, '')
@@ -56,7 +56,7 @@ export function RowLink({ title, sub, onClick, testid, icon: Icon }) {
 
 /** Each night's bedtime and wake as minutes from noon (chosen source only). */
 function liteNights(model, from, to) {
-  return dateRange(from, to).map((d) => model.nightBy.get(d)).filter((n) => n && !n.fallback).map((n) => {
+  return dateRange(from, to).map((d) => model.nightBy.get(d)).filter((n) => n && !(n.fallback || n.excluded)).map((n) => {
     const bed = clockFromNoon(n.start, tz)
     return { date: n.date, asleepMin: n.asleepMin, bedFromNoon: bed, wakeFromNoon: bed + (n.end - n.start) / 60000 }
   })
@@ -154,7 +154,7 @@ export function VsNormal({ model, date, onOpen, heart = null }) {
 // ------------------------------------------------------------------ stages
 
 export function StagesCard({ model, night, date, onDetail }) {
-  const recent = useMemo(() => nightsEnding(model.nightBy, date, SLEEP_VIEW.averageNights).filter((n) => !n.fallback), [model, date])
+  const recent = useMemo(() => nightsEnding(model.nightBy, date, SLEEP_VIEW.averageNights).filter((n) => !(n.fallback || n.excluded)), [model, date])
   const stats = stageStats(night, recent)
   return (
     <Section icon={Layers} title="Stages" testid="stages-card"
@@ -390,11 +390,11 @@ export function TrendsScreen({ model, onBack }) {
   const ok = counts(model)
   const pts = (map, scale = 1) => [...map.entries()].filter(([d]) => ok(d)).map(([date, value]) => ({ date, value: value * scale })).sort((a, b) => a.date.localeCompare(b.date))
   const s = useMemo(() => {
-    const nights = [...model.nightBy.values()].filter((n) => !n.fallback).sort((a, b) => a.date.localeCompare(b.date))
+    const nights = [...model.nightBy.values()].filter((n) => !(n.fallback || n.excluded)).sort((a, b) => a.date.localeCompare(b.date))
     return {
       score: nights.map((n) => ({ date: n.date, value: model.sleepScore(n.date)?.score })).filter((p) => p.value != null),
       // consistency: how much bed and wake times varied over the 7 nights ending each night
-      spread: nights.map((n) => ({ date: n.date, value: consistencySd(nightsEnding(model.nightBy, n.date, 7).filter((x) => !x.fallback), tz) })).filter((p) => p.value != null).map((p) => ({ ...p, value: Math.round(p.value) })),
+      spread: nights.map((n) => ({ date: n.date, value: consistencySd(nightsEnding(model.nightBy, n.date, 7).filter((x) => !(x.fallback || x.excluded)), tz) })).filter((p) => p.value != null).map((p) => ({ ...p, value: Math.round(p.value) })),
     }
   }, [model])
   const win = { from: addDays(t, -(days - 1)), to: t }

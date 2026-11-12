@@ -9,7 +9,7 @@ const soft = { color: 'var(--text-2)' }
 
 /** One measure per night, from the chosen sleep source only (fallback nights are left out). */
 const seriesOf = (lab, key) => [...lab.extras.values()]
-  .filter((e) => !e.night.fallback && e.restless?.[key] != null)
+  .filter((e) => !(e.night.fallback || e.night.excluded) && e.restless?.[key] != null)
   .map((e) => ({ date: e.night.date, value: e.restless[key] }))
   .sort((a, b) => a.date.localeCompare(b.date))
 

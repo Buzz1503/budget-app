@@ -16,7 +16,7 @@ const BAND = { low: 'low', intermediate: 'intermediate', high: 'high' }
 export function sleepReportData({ lab, apnea, state, days, today, weight }) {
   const from = addDays(today, -days + 1)
   // the chosen sleep source only: Other source nights stay out, as they do in baselines
-  const extras = [...lab.extras.values()].filter((e) => !e.night.fallback && e.night.date >= from && e.night.date <= today).sort((a, b) => a.night.date.localeCompare(b.night.date))
+  const extras = [...lab.extras.values()].filter((e) => !(e.night.fallback || e.night.excluded) && e.night.date >= from && e.night.date <= today).sort((a, b) => a.night.date.localeCompare(b.night.date))
   const inp = extras.map((e) => e.input)
   const sig = signals(extras.map((e) => ({
     date: e.night.date, breathing: e.overnight?.breathing ?? null, elevated: e.overnight?.breathingElevated ?? null,

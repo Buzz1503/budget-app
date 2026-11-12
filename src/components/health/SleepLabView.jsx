@@ -4,6 +4,7 @@ import useHealthModel from './useHealthModel'
 import useSleepLab from './useSleepLab'
 import { NotConnected, EmptyState } from './BodyHealthView'
 import { LabTeaser } from './SleepMain'
+import { GoodBadCard, OutlierNights } from './GoodBadCard'
 import AnalysisScreen from './SleepAnalysis'
 import RestlessnessScreen from './RestlessnessScreen'
 import ApneaScreen from './ApneaScreen'
@@ -30,7 +31,9 @@ export default function SleepLabView({ goTo }) {
   if (view === 'nightmares') return <NightmaresScreen lab={lab} onBack={back} />
   return (
     <div className="space-y-6" data-testid="sleep-lab">
+      <GoodBadCard lab={lab} />
       <LabTeaser lab={lab} onOpen={() => setView('analysis')} onOpenView={setView} />
+      <OutlierNights lab={lab} />
     </div>
   )
 }

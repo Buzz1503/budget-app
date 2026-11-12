@@ -727,6 +727,42 @@ await step('Heart: Sleep › Heart, from the resting HR on Today and from Readin
   await seen('[data-testid="normal-timeToLow"]')
 })
 
+await step('Wake-ups card: the night list, when, stage, heart rate around waking, back to sleep, by period', async () => {
+  await go.night()
+  await seen('[data-testid="wake-card"]')
+  for (const k of ['wake-when-answer', 'wake-stage-answer', 'wake-hr-answer', 'wake-back-answer']) await seen(`[data-testid="${k}"]`)
+  const rows = await page.locator('[data-testid="wake-row"]').allTextContents()
+  for (const r of rows) if (!/^\d{1,2}:\d\d [ap]m · \d+ min( · after (REM|Core|Deep))?( · HR \d+ → \d+)?$/.test(r)) throw new Error(`wake row "${r}"`)
+  if (!/^Most wake-ups happen between /.test(await page.textContent('[data-testid="wake-when-answer"]'))) throw new Error('when answer')
+  await page.locator('[data-testid^="wake-scope-p:"]').first().click()
+  await page.waitForTimeout(400)
+  await noOverflow('Wake-ups card')
+})
+
+await step('Good nights vs bad nights, outlier nights: exclude and restore', async () => {
+  await go.lab()
+  await seen('[data-testid="good-bad"]')
+  const before = await page.textContent('[data-testid="gb-counts"]')
+  if (!/^\d+ good · \d+ bad nights/.test(before)) throw new Error(`counts "${before}"`)
+  if ((await page.locator('[data-testid="gb-factor"]').count()) < 1) throw new Error('no factor rows')
+  // leave out the latest night, then put it back
+  await page.evaluate(() => {
+    const raw = JSON.parse(localStorage.getItem('peptide-command-center'))
+    const d = new Date(); const t = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    raw.state.excludedNights = { [t]: { reason: 'short', at: Date.now() } }
+    localStorage.setItem('peptide-command-center', JSON.stringify(raw))
+  })
+  await page.reload({ waitUntil: 'domcontentloaded' }); await page.waitForSelector('nav button'); await page.waitForTimeout(2500)
+  await go.lab()
+  await seen('[data-testid="excluded-row"]')
+  const after = await page.textContent('[data-testid="gb-counts"]')
+  if (!/1 night excluded/.test(after)) throw new Error(`no excluded note: "${after}"`)
+  await page.click('[data-testid="excluded-restore"]')
+  await page.waitForTimeout(800)
+  if (await page.locator('[data-testid="excluded-row"]').count()) throw new Error('restore did not put the night back')
+  await noOverflow('Sleep Lab')
+})
+
 await step('Sauna settings: switching off "Show sauna on Home" removes the row', async () => {
   await go.sauna()
   await page.click('[data-testid="sauna-settings-open"]')

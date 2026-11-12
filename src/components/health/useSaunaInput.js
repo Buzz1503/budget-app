@@ -21,7 +21,7 @@ export default function useSaunaInput() {
       if (!n) return null
       return {
         start: n.start, asleepMin: n.asleepMin ?? null, score: model.sleepScore(wake)?.score ?? null, deepMin: n.hasStages ? n.deepMin : null, sleepingHR: n.sleepingHR?.avg ?? null,
-        wristTemp: model.series.temp?.get(wake) ?? null, wakeUps: n.fallback ? null : wakeUps(n.segments)?.count ?? null,
+        wristTemp: model.series.temp?.get(wake) ?? null, wakeUps: (n.fallback || n.excluded) ? null : wakeUps(n.segments)?.count ?? null,
       }
     }
     const morning = (d) => {

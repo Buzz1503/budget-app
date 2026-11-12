@@ -43,6 +43,7 @@ export default function HeartView({ onBack }) {
   const [view, setView] = useState(null) // { switchId } | 'reference'
   const [metric, setMetric] = useState('rhr')
   const [adjusted, setAdjusted] = useState(false)
+  const excludedCount = useStore((s) => Object.keys(s.excludedNights || {}).length)
   if (view?.switchId) return <SwitchScreen switchId={view.switchId} onBack={() => setView(null)} />
   const t = h.today
   const todayRhr = h.lookups.rhr.get(t) ?? [...h.lookups.rhr.entries()].sort((a, b) => a[0].localeCompare(b[0])).at(-1)?.[1] ?? null
@@ -74,6 +75,7 @@ export default function HeartView({ onBack }) {
         </button>
       </section>
 
+      {excludedCount > 0 && <p className="px-1 text-[13px] font-medium" style={muted} data-testid="heart-excluded">{excludedCount} {excludedCount === 1 ? 'night' : 'nights'} excluded from these comparisons. Restore them in Insights › Sleep Lab.</p>}
       <SwitchOffers h={h} onOpen={(id) => setView({ switchId: id })} />
       <LongView h={h} />
       <ByDose h={h} metric={metric} setMetric={setMetric} adjusted={adjusted} setAdjusted={setAdjusted} />
@@ -278,6 +280,8 @@ function FragmentRow({ label, cells }) {
 // ---------------------------------------------------------- days since dose
 
 const SINCE_METRICS = ['wakeUps', 'awakeMin', 'sleepHR', 'rhr']
+// when a dose was taken: its logged time, or noon on its date for one added later
+export const doseTime = (l) => (l.loggedAt && !l.backfilled ? Date.parse(l.loggedAt) : Date.parse(`${l.date}T12:00:00`))
 
 /** One metric by day since the injection: a bar per day with n under it, Early under 6 nights. */
 function SinceBars({ r, metric, weekly, name }) {
@@ -321,7 +325,7 @@ function SinceDose({ h }) {
   const focus = injected.find((c) => c.id === picked) || injected[0] || null
   const results = useMemo(() => {
     if (!focus) return null
-    const doses = doseLogs.filter((l) => l.peptideId === focus.id).map((l) => (l.at ? Date.parse(l.at) : Date.parse(`${l.date}T${l.time || '08:00'}:00`))).filter(Number.isFinite)
+    const doses = doseLogs.filter((l) => l.peptideId === focus.id).map(doseTime).filter(Number.isFinite)
     return Object.fromEntries(SINCE_METRICS.map((k) => [k, sinceDose({ weekly: isWeekly(focus.frequency), doses, bedtimes: h.bedtimes, lookup: h.lookups[k] })]))
   }, [focus, doseLogs, h])
   if (!focus || !results) return null

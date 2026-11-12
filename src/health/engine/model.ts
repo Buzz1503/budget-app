@@ -120,7 +120,7 @@ export function buildModel({
   const nightBy = mapOf(nights, (n) => n.date)
   // a night from another source than the chosen one ("Other source") is shown, but never
   // counts towards a baseline: not the sleep series readiness reads, not the score's recent nights
-  const chosen = nights.filter((n) => !n.fallback)
+  const chosen = nights.filter((n) => !(n.fallback || n.excluded))
   const baseBy = mapOf(chosen, (n) => n.date)
   const sleepH = new Map<string, number>()
   for (const n of chosen) sleepH.set(n.date, n.asleepMin / 60)

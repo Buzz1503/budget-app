@@ -7,6 +7,7 @@
 import type { NightFeatures } from '../features'
 import type { MorningCheck } from '../logging'
 import type { RestlessNight } from '../restless'
+import { contextName } from '../autoContext'
 
 export type OutcomeKey =
   | 'sleepScore' | 'totalSleep' | 'deep' | 'rem' | 'awake' | 'awakenings'
@@ -159,6 +160,8 @@ const FIXED: Record<string, string> = {
 /** The words for a factor key. */
 export function factorName(key: string, names: Names): string {
   if (FIXED[key]) return FIXED[key]
+  const auto = contextName(key, names.compounds)
+  if (auto) return auto
   const [kind, id, more] = key.split(':')
   if (kind === 'habit') return names.habits[id] || id
   if (kind === 'asNeeded') return names.asNeeded[id] || id

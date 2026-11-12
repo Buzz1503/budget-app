@@ -256,6 +256,35 @@ function Habits() {
 }
 
 
+/** Where the overnight outside temperature is read for (Open-Meteo, no account). */
+function WeatherPlace() {
+  const w = useStore((s) => s.weatherSettings)
+  const set = useStore((s) => s.setWeatherSettings)
+  const count = useStore((s) => Object.keys(s.weatherNights || {}).length)
+  const num = (v) => { const x = Number(String(v).replace(',', '.')); return Number.isFinite(x) ? x : null }
+  return (
+    <div className="card p-4" data-testid="weather-place">
+      <p className="t-label">Outside temperature</p>
+      <p className="mt-1 text-xs font-medium" style={{ color: 'var(--text-3)' }}>The overnight temperature where you sleep, from Open-Meteo, as a factor in Sleep Lab. Only this position and the dates go out. {count} nights stored.</p>
+      <label className="mt-3 flex items-center gap-3 text-sm font-bold">
+        <input type="checkbox" checked={w?.enabled !== false} onChange={(e) => set({ enabled: e.target.checked })} data-testid="weather-enabled" />
+        Read the overnight temperature
+      </label>
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <label className="text-xs font-semibold" style={{ color: 'var(--text-2)' }}>Latitude
+          <input inputMode="decimal" defaultValue={w?.lat ?? ''} onBlur={(e) => { const v = num(e.target.value); if (v != null && Math.abs(v) <= 90 && v !== w?.lat) set({ lat: v, place: null }) }}
+            className="mt-1 w-full rounded-[10px] px-3 py-2 text-sm tabular-nums" style={{ background: 'var(--surface-sunk)', color: 'var(--text)' }} data-testid="weather-lat" />
+        </label>
+        <label className="text-xs font-semibold" style={{ color: 'var(--text-2)' }}>Longitude
+          <input inputMode="decimal" defaultValue={w?.lon ?? ''} onBlur={(e) => { const v = num(e.target.value); if (v != null && Math.abs(v) <= 180 && v !== w?.lon) set({ lon: v, place: null }) }}
+            className="mt-1 w-full rounded-[10px] px-3 py-2 text-sm tabular-nums" style={{ background: 'var(--surface-sunk)', color: 'var(--text)' }} data-testid="weather-lon" />
+        </label>
+      </div>
+      {w?.place && <p className="mt-2 text-xs font-medium" style={{ color: 'var(--text-3)' }}>{w.place}</p>}
+    </div>
+  )
+}
+
 export default function HealthSettings() {
   const available = useHealth((s) => s.available)
   const loaded = useHealth((s) => s.loaded)
@@ -314,6 +343,7 @@ export default function HealthSettings() {
           <SleepSetupSection />
           <SleepLabSettings />
           <Numbers />
+          <WeatherPlace />
           <BaselineCompounds />
         </>
       )}

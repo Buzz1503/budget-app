@@ -20,6 +20,7 @@ import MorningCheck from '../sleep/MorningCheck'
 import NightCard from './NightCard'
 import HeartView from './HeartView'
 import WakeCard from './WakeCard'
+import { OutlierChip } from './GoodBadCard'
 import Segments from '../ui/Segments'
 import { useNav, SLEEP_SEGMENTS } from '../../lib/nav'
 import useSleepLab from './useSleepLab'
@@ -103,7 +104,7 @@ function SleepScreen({ model, goTo }) {
   return (
     <Stagger className="space-y-6" data-testid="sleep-view">
       <StaggerItem className="space-y-2">
-        <Hero model={model} night={night} date={date} t={t} prev={prev} next={next} setDate={setDate} openCalendar={() => setCalendar(true)} bed={bed} heart={heart} />
+        <Hero model={model} night={night} date={date} t={t} prev={prev} next={next} setDate={setDate} openCalendar={() => setCalendar(true)} bed={bed} heart={heart} lab={lab} />
       </StaggerItem>
       <StaggerItem><WakeCard model={model} heart={heart} date={date} /></StaggerItem>
       <StaggerItem><MorningCheck /></StaggerItem>
@@ -171,7 +172,7 @@ export function sleepAnswer(asleepMin, needH) {
   return diff < 0 ? `${durationWords(-diff)} short of your ${needH} h.` : `${durationWords(diff)} over your ${needH} h.`
 }
 
-function Hero({ model, night, date, t, prev, next, setDate, openCalendar, bed, heart }) {
+function Hero({ model, night, date, t, prev, next, setDate, openCalendar, bed, heart, lab }) {
   const perf = model.sleepScore(date)
   const band = scoreBand(perf?.score)
   return (
@@ -207,6 +208,7 @@ function Hero({ model, night, date, t, prev, next, setDate, openCalendar, bed, h
         <p className="mt-0.5 text-[13px] font-medium" style={{ color: 'var(--text-3)' }} data-testid="sleep-source">From {night.sourceName || 'Apple Health'}</p>
       )}
       {!night.hasStages && <p className="mt-1 text-sm font-medium" style={{ color: 'var(--text-2)' }} data-testid="no-stages">No stages from {night.sourceName || 'this source'}, so the score and stage comparisons leave this night out.</p>}
+      {!night.fallback && lab && <OutlierChip lab={lab} date={date} />}
       {!night.fallback && heart?.hearts.has(date) && <HeartSummaryText heart={heart} date={date} className="mt-3 border-t pt-3" />}
     </section>
   )
