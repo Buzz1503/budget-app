@@ -32,7 +32,7 @@ export function RangeRow({ row, format: fmt, chipUnit, chipText, onOpen, extra }
       <span className="w-[120px] shrink-0">
         <span className="block truncate text-[15px] font-medium">{row.label}</span>
         <span className="block truncate text-[13px] font-medium tabular-nums" style={muted}>
-          {band ? (() => { const r = `${show(row.lo)} to ${show(row.hi)}`; return r.length > 13 ? r : `${r} usual` })() : row.n ? `Needs 7 nights, ${row.n} so far` : 'Not recorded yet'}
+          {band ? (() => { const r = `${show(row.lo)} to ${show(row.hi)}`; return row.basis === 'reference' ? `Good: ${r}` : r.length > 13 ? r : `${r} usual` })() : row.n ? `Needs 7 nights, ${row.n} so far` : 'Not recorded yet'}
         </span>
       </span>
       <span className="relative h-5 min-w-0 flex-1" aria-hidden="true">

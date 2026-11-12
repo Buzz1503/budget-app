@@ -1,5 +1,5 @@
 import { useMemo, useState, Suspense, lazy } from 'react'
-import { Info, HeartPulse, Flame } from 'lucide-react'
+import { Info, HeartPulse, Flame, ChevronRight } from 'lucide-react'
 import useStore, { todayStr } from '../../store/useStore'
 import { useHealth } from '../../health/state'
 import Modal from '../ui/Modal'
@@ -17,8 +17,10 @@ import { AnswerLine, DeltaChip, SectionTitle, StatRow } from '../ui/Glance'
 import { recoveryAnswer } from '../../lib/glance'
 import { HEALTH_BANDS } from './bands'
 import { SyncLine } from './HealthSettings'
+import { useHealthLink } from '../../lib/healthLink'
 
 const CompareSheet = lazy(() => import('./CompareSheet'))
+const HeartView = lazy(() => import('./HeartView'))
 
 const lastDays = (t, n) => dateRange(addDays(t, -(n - 1)), t)
 const clean = (rows) => rows.filter((r) => r.value != null)
@@ -46,11 +48,13 @@ export function NotConnected({ goTo }) {
   )
 }
 
-export default function BodyHealthView({ goTo }) {
+export default function BodyHealthView({ goTo, segment }) {
   const connected = useStore((s) => s.healthSettings.connected)
+  const setSegment = useHealthLink((s) => s.setBodySegment)
   const model = useHealthModel()
   if (!connected) return <NotConnected goTo={goTo} />
   if (!model.hasData) return <EmptyState />
+  if (segment === 'heart') return <Suspense fallback={null}><HeartView onBack={() => setSegment('recovery')} /></Suspense>
   // Training left Body in stage 2D; its data and engines stay (sleep factors,
   // the planner and sauna detection read them), so any old link lands here
   return <RecoveryView model={model} />
@@ -155,6 +159,14 @@ function RecoveryView({ model }) {
           {showResp && <RecoveryRow testid="row-resp" label="Respiratory rate" metric="respiratory" unit="/min" dp={1} row={rows.resp} spark={spark('resp')} />}
         </div>
       </div>
+
+      <button onClick={() => useHealthLink.getState().setBodySegment('heart')} className="card flex w-full items-center gap-3 p-4 text-left" data-testid="open-heart">
+        <span className="min-w-0 flex-1">
+          <span className="t-label block">Heart</span>
+          <span className="block text-[13px] font-medium" style={{ color: 'var(--text-3)' }}>Resting and sleeping heart rate by dose, around changes, and against your good sleep period.</span>
+        </span>
+        <ChevronRight size={18} className="shrink-0" style={{ color: 'var(--text-3)' }} />
+      </button>
 
       <SaunaRecoveryLine />
 

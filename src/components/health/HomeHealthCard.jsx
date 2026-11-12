@@ -9,6 +9,8 @@ import { DeltaChip } from '../ui/Glance'
 import { recoveryAnswer } from '../../lib/glance'
 import { HEALTH_BANDS } from './bands'
 import { saunaLastNight } from '../../sauna/sauna'
+import { rhrVsReference } from '../../health/heart'
+import { useHeartReference } from './useHeart'
 
 /**
  * One compact card at the bottom of Home: this morning's readiness, last
@@ -20,10 +22,12 @@ export default function HomeHealthCard({ goTo }) {
   const setBodySegment = useHealthLink((s) => s.setBodySegment)
   const saunaSessions = useStore((s) => s.saunaSessions)
   const model = useHealthModel()
+  const heartRef = useHeartReference()
   const t = todayStr()
   if (!available) return null
 
   const openRecovery = () => { setBodySegment('recovery'); goTo?.('body') }
+  const openHeart = () => { setBodySegment('heart'); goTo?.('body') }
 
   if (!connected) {
     return (
@@ -41,6 +45,7 @@ export default function HomeHealthCard({ goTo }) {
   const night = model.nightBy.get(t)
   const rhr = rowFor(model, 'rhr', t)
   const hrv = rowFor(model, 'hrv', t)
+  const vsRef = rhrVsReference(rhr.value, heartRef.rhrMean)
   const chip = r.chip || (saunaLastNight(saunaSessions, t) ? 'Sauna last night' : null)
 
   return (
@@ -64,8 +69,9 @@ export default function HomeHealthCard({ goTo }) {
       </button>
       <div className="mt-3 grid grid-cols-3 gap-2" data-testid="home-health-stats">
         <MiniStat label="Sleep" value={night ? minutesWords(night.asleepMin) : '–'} />
-        <MiniStat label="Resting HR" value={rhr.value != null ? Math.round(rhr.value) : '–'} unit="bpm"
-          chip={rhr.delta != null ? <DeltaChip metric="rhr" delta={rhr.delta} /> : <span className="text-[13px]" style={{ color: 'var(--text-3)' }}>no usual yet</span>} />
+        <MiniStat label="Resting HR" value={rhr.value != null ? Math.round(rhr.value) : '–'} unit="bpm" onClick={openHeart} testid="home-rhr"
+          chip={vsRef.chip ? <DeltaChip text={vsRef.chip.replace(' vs good sleep', ' vs good')} tone={vsRef.tone} />
+            : rhr.delta != null ? <DeltaChip metric="rhr" delta={rhr.delta} /> : <span className="text-[13px]" style={{ color: 'var(--text-3)' }}>no usual yet</span>} />
         <MiniStat label="HRV" value={hrv.value != null ? Math.round(hrv.value) : '–'} unit="ms"
           chip={hrv.delta != null ? <DeltaChip metric="hrv" delta={hrv.delta} unit="ms" /> : <span className="text-[13px]" style={{ color: 'var(--text-3)' }}>no usual yet</span>} />
       </div>
@@ -74,12 +80,13 @@ export default function HomeHealthCard({ goTo }) {
   )
 }
 
-function MiniStat({ label, value, unit, chip }) {
+function MiniStat({ label, value, unit, chip, onClick, testid }) {
+  const Tag = onClick ? 'button' : 'div'
   return (
-    <div className="min-w-0 rounded-[10px] px-2.5 py-2" style={{ background: 'var(--surface-sunk)' }}>
+    <Tag onClick={onClick} data-testid={testid} className="min-w-0 rounded-[10px] px-2.5 py-2 text-left" style={{ background: 'var(--surface-sunk)' }}>
       <p className="truncate text-[13px] font-medium" style={{ color: 'var(--text-3)' }}>{label}</p>
       <p className="whitespace-nowrap text-[17px] font-semibold tabular-nums">{value}{unit && <span className="ml-0.5 text-[12px] font-medium" style={{ color: 'var(--text-3)' }}>{unit}</span>}</p>
       {chip && <div className="mt-0.5">{chip}</div>}
-    </div>
+    </Tag>
   )
 }

@@ -242,6 +242,29 @@ export function defaultReference(compounds: CompoundTL[], today: string): { from
   return { from: addDays(first, -HEART.refWeeks * 7), to: addDays(first, -1) }
 }
 
+/** Today's resting HR against the good sleep reference average: the hero answer and the chip. */
+export function rhrVsReference(today: number | null | undefined, refMean: number | null | undefined): { diff: number | null; answer: string; chip: string | null; tone: 'better' | 'worse' | 'same' } {
+  if (today == null) return { diff: null, answer: 'No resting heart rate from Apple Health yet.', chip: null, tone: 'same' }
+  const v = Math.round(today)
+  if (refMean == null) return { diff: null, answer: `Resting HR ${v}. Set a good sleep period to compare.`, chip: null, tone: 'same' }
+  const diff = Math.round(today - refMean)
+  if (diff === 0) return { diff, answer: `Resting HR ${v}, about the same as your good sleep period.`, chip: 'same as good sleep', tone: 'same' }
+  return {
+    diff,
+    answer: `Resting HR ${v}, ${Math.abs(diff)} ${diff > 0 ? 'above' : 'below'} your good sleep period.`,
+    chip: `${diff > 0 ? '+' : '−'}${Math.abs(diff)} vs good sleep`,
+    tone: diff > 0 ? 'worse' : 'better',
+  }
+}
+
+/** Average of a lookup inside a date range (the reference's resting HR for the Home card). */
+export function rangeMean(lookup: Lookup | undefined, range: { from: string; to: string } | null): number | null {
+  if (!lookup || !range) return null
+  const v: number[] = []
+  for (const [d, x] of lookup) if (d >= range.from && d <= range.to && Number.isFinite(x)) v.push(x)
+  return v.length ? mean(v) : null
+}
+
 // ----------------------------------------------------------- statistics
 
 export interface Stat { mean: number; lo: number; hi: number; n: number; sd: number }

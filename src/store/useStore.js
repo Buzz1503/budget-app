@@ -91,6 +91,11 @@ function initialState() {
     // Body › Measurements: sites shown in the log sheet (null: measured ones and the defaults),
     // better direction turned round per site, and the reminder every 2 weeks (src/body/tape.ts)
     tapeSettings: { sites: null, better: {}, reminder: false },
+    // Heart: the good sleep reference { from, to } (null: the 8 weeks before the first Retatrutide dose),
+    // compound switches { id, from, to, date }, dismissed switch offers, the transition window in days
+    heartSettings: { reference: null, transitionDays: 14 },
+    switches: [],
+    switchDismissed: [],
     readingReviews: {},                 // Scale weights that looked wrong, by "date|value": 'keep' or 'hide' (never deleted)
     // Fixed distances up a limb, in cm, so every arm/thigh reading is taken at
     // the identical spot. Set once, editable, shown next to the field each time.
@@ -2900,6 +2905,22 @@ const useStore = create(
         get().showToast('Measurements saved')
         return entry.id
       },
+      setHeartSettings(patch = {}) {
+        set((s) => ({ heartSettings: { ...s.heartSettings, ...patch } }))
+      },
+      /** Record a switch from one compound to another (one tap from the offer). */
+      addSwitch({ from, to, date }) {
+        if (!from || !to || !date) return null
+        const id = `sw-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+        set((s) => ({ switches: [...(s.switches || []).filter((x) => !(x.from === from && x.to === to)), { id, from, to, date }] }))
+        return id
+      },
+      removeSwitch(id) {
+        set((s) => ({ switches: (s.switches || []).filter((x) => x.id !== id) }))
+      },
+      dismissSwitch(key) {
+        set((s) => ({ switchDismissed: [...new Set([...(s.switchDismissed || []), key])] }))
+      },
       setTapeSettings(patch = {}) {
         set((s) => ({ tapeSettings: { ...s.tapeSettings, ...patch } }))
       },
@@ -3231,6 +3252,7 @@ const useStore = create(
         bodyRefs: { ...current.bodyRefs, ...(persisted?.bodyRefs || {}) },
         bodyProfile: { ...current.bodyProfile, ...(persisted?.bodyProfile || {}) },
         tapeSettings: { ...current.tapeSettings, ...(persisted?.tapeSettings || {}) },
+        heartSettings: { ...current.heartSettings, ...(persisted?.heartSettings || {}) },
         // saves written before v19 have neither key
         supplements: persisted?.supplements || current.supplements,
         supplementLogs: persisted?.supplementLogs || current.supplementLogs,

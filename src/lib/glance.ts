@@ -14,7 +14,7 @@ export type Status = 'Normal' | 'Possible' | 'Clear' | 'Early'
  */
 export const BETTER: Record<string, Better> = {
   // heart and recovery
-  rhr: 'down', restingHR: 'down', sleepingHR: 'down', lowestHR: 'down', avgHR: 'down', daytimeHR: 'down',
+  rhr: 'down', restingHR: 'down', sleepingHR: 'down', sleepHR: 'down', timeToLow: 'down', lowestHR: 'down', avgHR: 'down', daytimeHR: 'down',
   hrv: 'up', readiness: 'up', hrRecovery: 'up', coolDownDrop: 'up', hrAt10: 'down', vo2: 'up',
   // sleep
   sleep: 'up', asleep: 'up', asleepMin: 'up', sleepMin: 'up', sleepDuration: 'up', deepSleep: 'up', deepMin: 'up', deep: 'up',

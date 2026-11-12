@@ -41,9 +41,10 @@ export function rangeTone(value: number | null, range: { lo: number; hi: number 
   return above === (dir === 'up') ? 'better' : 'worse'
 }
 
-export interface MetricSpec { key: string; label: string; unit: string; dp: number; dir: Dir; series: Map<string, number> }
+/** `range`: judge against a fixed period (the good sleep reference) instead of the 28 nights before. */
+export interface MetricSpec { key: string; label: string; unit: string; dp: number; dir: Dir; series: Map<string, number>; range?: { from: string; to: string } | null }
 export interface NormalRow {
-  key: string; label: string; unit: string; dp: number; dir: Dir
+  key: string; label: string; unit: string; dp: number; dir: Dir; basis?: 'normal' | 'reference'
   value: number | null; lo: number | null; hi: number | null; median: number | null; n: number
   tone: Tone; delta: number | null
 }
@@ -56,15 +57,19 @@ export function vsNormal(specs: MetricSpec[], date: string, counts: (d: string) 
   return specs.map((s) => {
     const value = s.series.get(date) ?? null
     const hist: number[] = []
-    for (let i = 1; i <= NORMAL.nights; i++) {
-      const d = addDays(date, -i)
-      const v = s.series.get(d)
-      if (v != null && counts(d)) hist.push(v)
+    if (s.range) {
+      for (const [d, v] of s.series) if (d >= s.range.from && d <= s.range.to && d < date && counts(d)) hist.push(v)
+    } else {
+      for (let i = 1; i <= NORMAL.nights; i++) {
+        const d = addDays(date, -i)
+        const v = s.series.get(d)
+        if (v != null && counts(d)) hist.push(v)
+      }
     }
     const r = normalRange(hist)
     const k = 10 ** s.dp
     return {
-      key: s.key, label: s.label, unit: s.unit, dp: s.dp, dir: s.dir, value,
+      key: s.key, label: s.label, unit: s.unit, dp: s.dp, dir: s.dir, value, basis: s.range ? 'reference' : 'normal',
       lo: r?.lo ?? null, hi: r?.hi ?? null, median: r?.median ?? null, n: r?.n ?? hist.length,
       tone: rangeTone(value, r, s.dir),
       delta: value != null && r ? Math.round((value - r.median) * k) / k : null,

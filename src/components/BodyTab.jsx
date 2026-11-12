@@ -92,7 +92,7 @@ export default function BodyTab({ goTo }) {
     return (
       <div className="space-y-3">
         <h1 className="text-2xl font-black tracking-tight">Body</h1>
-        <HealthSegments value={segment} onChange={setSegment} />
+        <HealthSegments value={segment === 'heart' ? 'recovery' : segment} onChange={setSegment} />
         <Suspense fallback={null}>
           {segment === 'effects' ? <EffectsView /> : <BodyHealthView segment={segment} goTo={goTo} />}
         </Suspense>

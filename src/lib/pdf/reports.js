@@ -191,3 +191,32 @@ export function healthSummaryPdf(d) {
   if (d.body?.source) rep.para(d.body.source, { muted: true })
   return rep.finish('Pepito+ health summary')
 }
+
+/**
+ * Heart summary, one page: resting heart rate, sleeping heart rate, wake-ups
+ * and the weight trend for each compound and dose period, with dates and the
+ * number of days or nights behind each, the good sleep period they are set
+ * against, and the switch if one is tracked. Numbers only; associations, not causes.
+ */
+export function heartReportPdf(d) {
+  const rep = new Report('Heart summary', `Made ${day(d.generatedOn)} with Pepito+ from Apple Health and the app's own logs`)
+  const v = (s, dp, unit) => (s ? `${s.mean.toFixed(dp)}${unit ? ` ${unit}` : ''} (95% range ${s.lo.toFixed(dp)} to ${s.hi.toFixed(dp)}, n ${s.n})` : 'No data')
+  if (d.reference) rep.para(`Good sleep period used for comparison: ${day(d.reference.from)} to ${day(d.reference.to)}.`, { muted: true })
+  for (const p of d.periods || []) {
+    rep.h2(p.label)
+    rep.para((p.ranges || []).map(([a, b]) => `${day(a)} to ${day(b)}`).join('; '), { muted: true })
+    rep.row('Resting heart rate', v(p.rhr, 0, 'bpm'))
+    rep.row('Sleeping heart rate', v(p.sleepHR, 0, 'bpm'))
+    rep.row('Wake-ups a night', v(p.wakeUps, 1, ''))
+    rep.row('Weight trend', p.weightPerWeek == null ? 'Not enough weigh-ins' : `${p.weightPerWeek > 0 ? '+' : ''}${p.weightPerWeek.toFixed(2)} kg a week`)
+  }
+  if (d.switch) {
+    rep.h2(`Switch: ${d.switch.from} to ${d.switch.to}`)
+    rep.row('Switched', day(d.switch.date))
+    rep.row('Nights compared', `${d.switch.nBefore} before, ${d.switch.nAfter} after${d.switch.early ? ' (early: under 21 nights on a side)' : ''}`)
+    rep.para(d.switch.answer)
+    rep.para('Doses of different compounds are not equivalent: each compound is compared with itself, dose by dose.', { muted: true })
+  }
+  rep.para('Resting heart rate is Apple Health\'s daily value; sleeping heart rate is the average of 5-minute averages while asleep. These are associations in one person\'s data, not causes.', { muted: true })
+  return rep.finish('Pepito+ heart summary')
+}

@@ -5,8 +5,10 @@ import { useCompounds } from '../../lib/useCompounds'
 import { laneFor, MAX_LANES } from '../../body/lanes'
 import { shortDate } from '../../body/chartPoints'
 import { saunaLaneDots } from '../../sauna/sauna'
+import { useHeartLane } from '../../lib/heartLane'
 
 export const SAUNA_LANE = 'sauna'
+export const HEART_LANE = 'heart'
 
 export const LANE_H = 28
 
@@ -14,30 +16,32 @@ export const LANE_H = 28
  * Compound lanes for a chart: which compounds are chosen for this chart type
  * (remembered), and each one's lane over the visible range.
  */
-export function useLanes(chartType, from, to) {
+export function useLanes(chartType, from, to, defaults = null) {
   const compounds = useCompounds()
   const sessions = useStore((s) => s.saunaSessions)
   const saved = useStore((s) => s.healthSettings?.overlays?.[chartType]?.lanes)
   const setChartOverlay = useStore((s) => s.setChartOverlay)
-  // sauna is one more lane, under the same rules: remembered per chart, four at most
-  const chosen = useMemo(() => (saved || []).filter((id) => id === SAUNA_LANE || compounds.some((c) => c.id === id)).slice(0, MAX_LANES), [saved, compounds])
+  const heart = useHeartLane((s) => s.points)
+  // sauna and resting heart rate are lanes too, under the same rules: remembered per chart, four at most
+  const chosen = useMemo(() => (saved ?? defaults ?? []).filter((id) => id === SAUNA_LANE || (id === HEART_LANE && heart.length) || compounds.some((c) => c.id === id)).slice(0, MAX_LANES), [saved, defaults, compounds, heart.length])
   const lanes = useMemo(() => chosen.map((id) => {
     if (id === SAUNA_LANE) return { id, name: 'Sauna', kind: 'dots', dots: saunaLaneDots(sessions, from, to), segments: [], changes: [], spans: [] }
+    if (id === HEART_LANE) return { id, name: 'Resting HR', kind: 'line', points: heart.filter((p) => p.date >= from && p.date <= to), segments: [], changes: [], spans: [] }
     const c = compounds.find((x) => x.id === id)
     return { id, name: c.name, ...laneFor(c.points, c.runs, from, to) }
-  }), [chosen, compounds, sessions, from, to])
+  }), [chosen, compounds, sessions, heart, from, to])
   const toggle = (id) => {
     const on = chosen.includes(id)
     if (!on && chosen.length >= MAX_LANES) return
     setChartOverlay?.(chartType, { lanes: on ? chosen.filter((x) => x !== id) : [...chosen, id] })
   }
-  return { compounds, chosen, lanes, toggle }
+  return { compounds, chosen, lanes, toggle, hasHeart: heart.length > 0 }
 }
 
 /** The Compounds list in a chart's Overlay menu. */
-export function LaneMenu({ compounds, chosen, toggle }) {
+export function LaneMenu({ compounds, chosen, toggle, hasHeart = false }) {
   const full = chosen.length >= MAX_LANES
-  const items = [...compounds, { id: SAUNA_LANE, name: 'Sauna' }]
+  const items = [...compounds, { id: SAUNA_LANE, name: 'Sauna' }, ...(hasHeart ? [{ id: HEART_LANE, name: 'Heart' }] : [])]
   return (
     <>
       <p className="t-caption" style={{ color: 'var(--text-3)' }}>Lanes (up to {MAX_LANES})</p>
@@ -77,6 +81,25 @@ export function LaneRows({ lanes, top, xFor, left, right, onPick, picked }) {
         </g>
       )
     }
+    if (l.kind === 'line') {
+      const vals = l.points.map((p) => p.value)
+      const lo = vals.length ? Math.min(...vals) : 0
+      const hi = vals.length ? Math.max(...vals) : 1
+      const yv = (v) => y0 + LANE_H - 4 - ((v - lo) / (hi - lo || 1)) * (LANE_H - 8)
+      const last = l.points[l.points.length - 1]
+      return (
+        <g key={l.id} data-testid={`lane-${l.id}`}>
+          <text x={left - 4} y={y0 + LANE_H / 2 + 4} fontSize="11" fontWeight="800" textAnchor="end" fill="var(--text-3)">RHR</text>
+          {l.points.length > 1 && <polyline points={l.points.map((p) => `${xFor(p.date).toFixed(1)},${yv(p.value).toFixed(1)}`).join(' ')} fill="none" stroke="var(--text-2)" strokeWidth="1.4" />}
+          {last && (
+            <g onClick={() => onPick({ id: l.id, name: l.name, date: last.date, kind: 'heart', label: `${Math.round(last.value)} bpm` })} style={{ cursor: 'pointer' }}>
+              <circle cx={xFor(last.date)} cy={yv(last.value)} r="2.5" fill="var(--text)" />
+              <text x={Math.min(right - 2, xFor(last.date) - 4)} y={y0 + 9} fontSize="10.5" fontWeight="700" textAnchor="end" fill="var(--text-2)">{Math.round(last.value)}</text>
+            </g>
+          )}
+        </g>
+      )
+    }
     const yFor = (dose) => y0 + LANE_H - 5 - (l.maxDose ? (dose / l.maxDose) * (LANE_H - 13) : 0)
     let path = ''
     for (const s of l.segments) path += `M${xFor(s.from).toFixed(1)},${yFor(s.dose).toFixed(1)} H${xFor(s.to).toFixed(1)} `
@@ -107,4 +130,5 @@ export function LaneRows({ lanes, top, xFor, left, right, onPick, picked }) {
 
 /** Popover text for a tapped lane change. */
 export const laneChangeWords = (p) => (p.kind === 'sauna' ? `Sauna, ${p.label} on ${shortDate(p.date)}`
+  : p.kind === 'heart' ? `Resting heart rate ${p.label} on ${shortDate(p.date)}`
   : p.kind === 'stop' ? `${p.name} stopped on ${shortDate(p.date)}` : `${p.name} to ${p.label} on ${shortDate(p.date)}`)

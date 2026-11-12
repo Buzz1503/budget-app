@@ -82,7 +82,7 @@ function verdictText(model, night, bed) {
 // ----------------------------------------------------- last night vs normal
 
 /** The series for each metric, by wake date. */
-export function useMetricSeries(model) {
+export function useMetricSeries(model, heart = null) {
   return useMemo(() => {
     const m = { asleep: new Map(), deep: new Map(), rem: new Map(), awake: new Map(), hr: new Map(), hrv: new Map(), resp: new Map(), spo2: new Map(), temp: new Map() }
     for (const n of model.nightBy.values()) {
@@ -97,8 +97,11 @@ export function useMetricSeries(model) {
       if (r.respRate != null) m.resp.set(r.date, Math.round(r.respRate * 10) / 10)
       if (r.wristTemp != null) m.temp.set(r.date, Math.round(r.wristTemp * 100) / 100)
     }
+    // the Heart model's 5-minute averages and time to lowest, when it is there
+    m.timeToLow = heart?.lookups.timeToLow || new Map()
+    if (heart) for (const [d, v] of heart.lookups.sleepHR) m.hr.set(d, Math.round(v))
     return m
-  }, [model])
+  }, [model, heart])
 }
 
 export const METRICS = [
@@ -107,19 +110,24 @@ export const METRICS = [
   { key: 'rem', label: 'REM', unit: 'min', dp: 0, dir: 'up', chipUnit: 'min', chart: { metric: 'remSleep' } },
   { key: 'awake', label: 'Awake time', unit: 'min', dp: 0, dir: 'down', chipUnit: 'min', chart: { metric: 'awake' } },
   { key: 'hr', label: 'Sleeping HR', unit: 'bpm', dp: 0, dir: 'down', chipUnit: '', chart: { metric: 'sleepHR' } },
+  { key: 'timeToLow', label: 'Time to lowest HR', unit: 'min', dp: 0, dir: 'down', chipUnit: 'min', fmt: (v) => compactHm(v), chart: { metric: 'timeToLow' } },
   { key: 'hrv', label: 'HRV overnight', unit: 'ms', dp: 0, dir: 'up', chipUnit: '', chart: { metric: 'hrv', chartType: 'sleepHrv' } },
   { key: 'resp', label: 'Breathing rate', unit: '/min', dp: 1, dir: null, chipUnit: '', chart: { metric: 'respiratory' } },
   { key: 'spo2', label: 'SpO2 low', unit: '%', dp: 0, dir: 'up', chipUnit: '', chart: { metric: 'spo2' } },
   { key: 'temp', label: 'Wrist temp', unit: '°C', dp: 2, dir: null, chipUnit: '°', fmt: (v) => Number(v).toFixed(1), chart: { metric: 'wristTemp', dp: 2 } },
 ]
 
-export function VsNormal({ model, date, onOpen }) {
-  const series = useMetricSeries(model)
+// Sleeping HR and time to lowest use your good sleep period as the band once you have set one
+const REFERENCE_ROWS = new Set(['hr', 'timeToLow'])
+
+export function VsNormal({ model, date, onOpen, heart = null }) {
+  const series = useMetricSeries(model, heart)
+  const ref = heart && !heart.referenceIsDefault ? heart.reference : null
   const rows = useMemo(() => {
-    const out = vsNormal(METRICS.map((m) => ({ ...m, series: series[m.key] })), date, counts(model))
+    const out = vsNormal(METRICS.map((m) => ({ ...m, series: series[m.key], range: ref && REFERENCE_ROWS.has(m.key) ? ref : null })), date, counts(model))
     // time asleep is judged against your need, the other rows against your normal
     return out.map((r) => (r.key !== 'asleep' || r.value == null ? r : { ...r, ...asleepVsNeed(r.value, model.needH) }))
-  }, [series, date, model])
+  }, [series, date, model, ref])
   const shown = rows.filter((r) => r.value != null || r.n > 0)
   const better = rows.filter((r) => r.tone === 'better').length
   const worse = rows.filter((r) => r.tone === 'worse').length
@@ -128,7 +136,7 @@ export function VsNormal({ model, date, onOpen }) {
       : `${better ? `${better} better than usual` : ''}${better && worse ? ', ' : ''}${worse ? `${worse} worse than usual` : ''}, the rest inside your normal.`
   return (
     <Section icon={Sparkles} title="Last night vs your normal" testid="vs-normal"
-      info={<><p>The soft band is your normal: the middle 80% of the 28 nights before (10th to 90th percentile), from your chosen sleep source.</p><p>The dot is last night: green when it is outside your normal the better way, amber the other way, grey inside it or for measures with no better side (breathing rate, wrist temperature). The chip is the change from your median. Tap a row for its last 30 nights.</p></>}>
+      info={<><p>The soft band is your normal: the middle 80% of the 28 nights before (10th to 90th percentile), from your chosen sleep source.</p>{ref && <p>Sleeping HR and time to lowest HR use your good sleep period instead, set in Body › Recovery › Heart.</p>}<p>The dot is last night: green when it is outside your normal the better way, amber the other way, grey inside it or for measures with no better side (breathing rate, wrist temperature). The chip is the change from your median. Tap a row for its last 30 nights.</p></>}>
       <div className="card px-4 py-2">
         <AnswerLine className="py-1" testid="vs-normal-answer">{answer}</AnswerLine>
         <div className="rows">
@@ -348,8 +356,8 @@ export function Back({ title, onBack }) {
 // ---------------------------------------------------------- metric chart
 
 /** A row of Last night vs your normal, over its last 30 nights. */
-export function MetricScreen({ model, metricKey, onBack }) {
-  const series = useMetricSeries(model)
+export function MetricScreen({ model, metricKey, onBack, heart = null }) {
+  const series = useMetricSeries(model, heart)
   const events = useChartEvents()
   const t = todayStr()
   const m = METRICS.find((x) => x.key === metricKey)

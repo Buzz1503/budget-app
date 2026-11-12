@@ -201,6 +201,8 @@ export default function TrendChart(props) {
     suspects = [], onReview = null, full = false, initialRange = null, onClose = null,
     // `better` turns the better way round for this chart; `second` { label, series } is a dashed second line
     better: betterProp = null, second = null, question = null, answer: answerProp = null, answerTone: answerToneProp = null,
+    // `periods` [{ from, to, label, tone }] shade the plot behind the line; `defaultLanes` until lanes are chosen
+    periods = null, defaultLanes = null,
   } = props
   // how a value reads: a number by default, or e.g. a clock time for bedtime
   const show = format || ((v) => fmt(v, dp))
@@ -271,7 +273,7 @@ export default function TrendChart(props) {
   const avg = points.filter((p) => !p.scan)
   const plotBottom = PAD.t + plotH
   const groups = ov.pins ? groupEvents(events.filter((e) => e.date >= from && e.date <= to)) : []
-  const { compounds: laneCompounds, chosen: laneIds, lanes, toggle: toggleLane } = useLanes(chartType, from, to)
+  const { compounds: laneCompounds, chosen: laneIds, lanes, toggle: toggleLane, hasHeart } = useLanes(chartType, from, to, defaultLanes)
   const blood = ov.bloods.length ? bloodPoints(tests, ov.bloods, from, to) : []
   // pins sit in one row under the dates, then the compound lanes
   const pinTop = plotBottom + PAD.b
@@ -495,7 +497,7 @@ export default function TrendChart(props) {
             <Chip on={ov.pins} onClick={() => setOv({ pins: !ov.pins })} testid="ov-pins">Pins</Chip>
             {wobble != null && <Chip on={ov.wobble} onClick={() => setOv({ wobble: !ov.wobble })} testid="ov-wobble">Normal wobble band</Chip>}
           </div>
-          <LaneMenu compounds={laneCompounds} chosen={laneIds} toggle={toggleLane} />
+          <LaneMenu compounds={laneCompounds} chosen={laneIds} toggle={toggleLane} hasHeart={hasHeart} />
           {markerNames.length > 0 && (
             <>
               <p className="t-caption" style={{ color: 'var(--text-3)' }}>Bloods</p>
@@ -521,6 +523,16 @@ export default function TrendChart(props) {
           style={{ touchAction: full ? 'none' : 'pan-y' }} data-testid="chart-svg" data-plot-h={plotH}
           onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} onClick={tapPlot}>
           <Axes axis={axis} yFor={yFor} from={from} to={to} dp={dp} format={format} plotH={plotH} w={Wv} unit={axisUnit(unit, metric)} better={betterProp ? (betterProp === 'up' ? '↑ better' : '↓ better') : betterHint(metric)} />
+          {(periods || []).filter((p) => p.to >= from && p.from <= to).map((p, i) => {
+            const x0 = Math.max(PAD.l, xFor(p.from < from ? from : p.from))
+            const x1 = Math.min(Wv - PAD.r, xFor(p.to > to ? to : p.to))
+            return (
+              <g key={`pb${i}`} data-testid="chart-period">
+                <rect x={x0} y={PAD.t} width={Math.max(1, x1 - x0)} height={plotH} fill={p.tone === 1 ? 'var(--series-muscle)' : 'var(--text)'} opacity={p.tone === -1 ? 0 : i % 2 ? 0.07 : 0.035} />
+                {x1 - x0 > 26 && p.label && <text x={x0 + 3} y={PAD.t + 11} fontSize="10.5" fontWeight="700" fill="var(--text-3)">{p.label}</text>}
+              </g>
+            )
+          })}
           {secondPts.length > 0 && (
             <g data-testid="chart-second">
               {secondPts.length > 1 && <polyline points={secondPts.map((p) => `${xFor(p.date).toFixed(1)},${yFor(p.value).toFixed(1)}`).join(' ')} fill="none" stroke="var(--text-3)" strokeWidth="1.5" strokeDasharray="4 4" />}
