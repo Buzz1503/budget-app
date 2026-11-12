@@ -54,7 +54,7 @@ const goStock = async () => {
   await page.click('nav button[aria-label="More"]'); await page.waitForTimeout(500)
   await page.click('[data-testid="more-supplies"]'); await page.waitForTimeout(900)
 }
-const goHome = async () => { await closeAll(); await page.click('nav button[aria-label="Home"]'); await page.waitForTimeout(700) }
+const goHome = async () => { await closeAll(); await page.click('nav button[aria-label="Today"]'); await page.waitForTimeout(700) }
 const noOverflow = async (where) => {
   const w = await page.evaluate(() => document.documentElement.scrollWidth)
   if (w > 391) throw new Error(`${where} overflows to ${w}px`)

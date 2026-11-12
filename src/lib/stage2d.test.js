@@ -38,11 +38,11 @@ describe('removed features are not reachable', () => {
     expect(app).not.toMatch(/SymptomsTab|GearTab/)
   })
 
-  it('tabs are Home, Body, Sleep, Sauna, More; More starts Calendar, Reactions, Bloods, Stock', () => {
+  it('tabs are Today, Sleep, Body, Insights, More (Run 1); More starts Sauna, Calendar, Reactions, Bloods, Stock', () => {
     const tabs = [...app.slice(app.indexOf('const PRIMARY = ['), app.indexOf(']\nconst PRIMARY_IDS')).matchAll(/label: '(\w+)'/g)].map((m) => m[1])
-    expect(tabs).toEqual(['Home', 'Body', 'Sleep', 'Sauna', 'More'])
+    expect(tabs).toEqual(['Today', 'Sleep', 'Body', 'Insights', 'More'])
     const rows = [...more.matchAll(/\{ id: '(\w+)', label: '([^']+)'/g)].map((m) => m[2])
-    expect(rows.slice(0, 4)).toEqual(['Calendar', 'Reactions', 'Bloods', 'Stock'])
+    expect(rows.slice(0, 5)).toEqual(['Sauna', 'Calendar', 'Reactions', 'Bloods', 'Stock'])
     expect(rows).not.toContain('Symptoms')
     expect(rows).not.toContain('Supplies')
   })

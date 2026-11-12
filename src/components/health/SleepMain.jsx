@@ -345,6 +345,8 @@ export function LabTeaser({ lab, onOpen, onOpenView }) {
 // ------------------------------------------------------------- back header
 
 export function Back({ title, onBack }) {
+  // a segment of its own (Trends) has no back: just its title
+  if (!onBack) return <h2 className="px-1 text-[17px] font-semibold">{title}</h2>
   return (
     <div className="flex items-center gap-2">
       <button onClick={onBack} className="flex items-center gap-1 rounded-full px-2 py-1.5 text-sm font-bold" style={soft} data-testid="sleep-back"><ChevronLeft size={16} /> Sleep</button>

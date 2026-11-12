@@ -149,8 +149,8 @@ await step('6b · nothing in peptide stock, doses or run-out changed through all
 await step('8 · the other tabs are untouched', async () => {
   await closeAll()
   // Calendar, Reactions and Bloods are the first rows of More since stage 2D
-  for (const label of ['Home', 'Body', 'Sauna', 'More', 'Calendar', 'Reactions', 'Bloods']) {
-    if (label === 'Calendar' || label === 'Reactions' || label === 'Bloods') {
+  for (const label of ['Today', 'Body', 'Insights', 'More', 'Sauna', 'Calendar', 'Reactions', 'Bloods']) {
+    if (label === 'Sauna' || label === 'Calendar' || label === 'Reactions' || label === 'Bloods') {
       await page.click('nav button[aria-label="More"]'); await page.waitForTimeout(400)
       await page.click(`[data-testid="more-${label.toLowerCase()}"]`)
     } else {

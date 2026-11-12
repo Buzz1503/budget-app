@@ -26,7 +26,7 @@ const waitText = async (re, timeout = 5000) => {
   }
   throw new Error('timeout waiting for ' + re)
 }
-const PRIMARY_TABS = new Set(['Home', 'Calendar', 'Symptoms', 'Body', 'More'])
+const PRIMARY_TABS = new Set(['Today', 'Calendar', 'Symptoms', 'Body', 'More'])
 // v13 moved everything but the five primary tabs under the More hub, so a
 // screen is reached by its More-hub description rather than a nav button.
 const MORE_LINK = {
@@ -58,7 +58,7 @@ const nav = async (label) => {
     if (await tab.count()) { await tab.click(); await page.waitForTimeout(450) }
   }
   // Home defaults to the current wall-clock slot; these suites want the morning
-  if (label === 'Home') { await page.click('button:has-text("AM")'); await page.waitForTimeout(400) }
+  if (label === 'Today') { await page.click('button:has-text("AM")'); await page.waitForTimeout(400) }
 }
 
 await page.goto(BASE, { waitUntil: 'networkidle' })
@@ -185,7 +185,7 @@ await step('the titration step-up is confirmed from the bell', async () => {
   })
   await page.reload({ waitUntil: 'networkidle' })
   await page.waitForTimeout(800)
-  await page.click('nav button:has-text("Home")')
+  await page.click('nav button:has-text("Today")')
   await page.waitForTimeout(600)
   // Selank is a morning compound; Home opens on the current wall-clock slot
   await page.click('button:has-text("AM")').catch(() => {})

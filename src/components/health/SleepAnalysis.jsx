@@ -15,7 +15,7 @@ const soft = { color: 'var(--text-2)' }
 export function BackHeader({ title, onBack, sub, info }) {
   return (
     <div className="space-y-1">
-      <button onClick={onBack} className="flex items-center gap-1 text-sm font-bold" style={soft} data-testid="lab-back"><ChevronLeft size={16} /> Sleep</button>
+      <button onClick={onBack} className="flex items-center gap-1 text-sm font-bold" style={soft} data-testid="lab-back"><ChevronLeft size={16} /> Sleep Lab</button>
       <div className="flex items-center gap-2">
         <h2 className="flex-1 text-2xl font-black tracking-tight">{title}</h2>
         {info && <button onClick={info} aria-label={`About ${title}`} className="p-1.5" style={muted} data-testid="lab-info"><Info size={18} /></button>}

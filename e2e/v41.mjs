@@ -79,7 +79,7 @@ await step('7 · migration gives every compound a unique code and a colour', asy
 })
 
 await step('5 · a Home dose card shows both buttons, no wrap, cycle line intact', async () => {
-  await nav('Home')
+  await nav('Today')
   const row = page.locator('[data-testid="log-row"]').first()
   if (!(await row.count())) throw new Error('no dose rows on Home')
   if (!(await page.locator('[data-testid="log-on-body"]').first().isVisible())) throw new Error('Log on body is not visible')
@@ -138,7 +138,7 @@ await step('2 · Log here writes the same dose as a quick log, plus the pin', as
 
 await step('2b · a quick log records an unsited injection, and Add site attaches to it', async () => {
   await reload()
-  await nav('Home')
+  await nav('Today')
   const before = await state()
   // a row already logged is not clickable, so pick one that is still due
   const row = page.locator('[data-testid="log-row"]:not([data-done="true"])').first()
@@ -211,7 +211,7 @@ await step('window · the recent-sites window is settable and takes effect', asy
 })
 
 await step('8 · nothing else on Home moved', async () => {
-  await nav('Home')
+  await nav('Today')
   await noOverflow('Home')
   if (!(await page.locator('[data-testid="log-row"]').count())) throw new Error('the dose rows are gone')
   // Log on body belongs to rows still due; a logged row shows the tick instead,

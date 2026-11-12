@@ -25,7 +25,7 @@ const waitText = async (re, timeout = 12000) => {
   }
   throw new Error('timeout waiting for ' + re)
 }
-const PRIMARY_TABS = new Set(['Home', 'Calendar', 'Symptoms', 'Body', 'More'])
+const PRIMARY_TABS = new Set(['Today', 'Calendar', 'Symptoms', 'Body', 'More'])
 // v13 moved everything but the five primary tabs under the More hub, so a
 // screen is reached by its More-hub description rather than a nav button.
 const MORE_LINK = {
@@ -57,7 +57,7 @@ const nav = async (label) => {
     if (await tab.count()) { await tab.click(); await page.waitForTimeout(450) }
   }
   // Home defaults to the current wall-clock slot; these suites want the morning
-  if (label === 'Home') { await page.click('button:has-text("AM")'); await page.waitForTimeout(400) }
+  if (label === 'Today') { await page.click('button:has-text("AM")'); await page.waitForTimeout(400) }
 }
 const TE = 'Testosterone Enanthate'
 // on Library there's one card for the compound; on Home the combine-plan card
@@ -161,7 +161,7 @@ await step('its schedule days are editable, in Build / rebuild, the one editor',
 
 // ---------------- CHANGE 4 · units on Home ----------------
 await step('Home shows every due dose as "X units" beside the mcg/mg', async () => {
-  await nav('Home')
+  await nav('Today')
   await waitText(new RegExp(TE), 15000)
   const body = await page.textContent('body')
   if (!/\d+(\.\d+)?\s+units/.test(body)) throw new Error('no "X units" on any due card')

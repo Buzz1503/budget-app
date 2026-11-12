@@ -41,7 +41,7 @@ const nav = async (label) => {
 // Re-entering Symptoms from another screen, so each step starts with a clean
 // selection — tapping the nav button while already there does not remount.
 const symptoms = async () => {
-  await nav('Home')
+  await nav('Today')
   await nav('Symptoms')
 }
 const more = async (label) => {
@@ -144,7 +144,7 @@ await step('the BAC field is editable and the concentration follows it', async (
 
 await step('nothing overflows horizontally at 390px on any screen', async () => {
   const screens = [
-    ['nav', 'Home'], ['nav', 'Calendar'], ['nav', 'Symptoms'], ['nav', 'Body'],
+    ['nav', 'Today'], ['nav', 'Calendar'], ['nav', 'Symptoms'], ['nav', 'Body'],
     ['more', 'Protocol overview'], ['more', 'History & adherence'],
     ['more', 'Stock'], ['more', 'Calculator'],
   ]
@@ -203,7 +203,7 @@ await step('the primary nav is untouched', async () => {
 })
 
 await step('Home is still decluttered, no streak, no disclaimer in the column', async () => {
-  await nav('Home')
+  await nav('Today')
   const t = await main()
   if (/day streak/i.test(t)) throw new Error('a streak came back to Home')
   if (/not medical advice/i.test(t)) throw new Error('the disclaimer came back to Home')

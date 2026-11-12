@@ -1,5 +1,5 @@
 import { Suspense, useState } from 'react'
-import { Info, Plus, Timer, Settings2 } from 'lucide-react'
+import { Info, Plus, Timer, Settings2, ChevronRight } from 'lucide-react'
 import useStore, { todayStr } from '../../store/useStore'
 import Modal from '../ui/Modal'
 import { CountIn, FillRing, Stagger, StaggerItem } from '../ui/Motion'
@@ -11,7 +11,7 @@ import { HEALTH_BUILD, SaunaWatchCards, SaunaHealthProvider } from '../../health
 import SaunaLogSheet, { Stepper } from './SaunaLogSheet'
 import { StartTimerSheet, RunningTimer } from './SaunaTimer'
 import { Consistency, HistoryList } from './SaunaHistory'
-import { LastSessionCard, BeforeAfterHero, RecoveryAroundCard, CoolDownCard, PatternsCard, LongerTermCard } from './SaunaSections'
+import { LastSessionCard } from './SaunaSections'
 import { InfoButton } from '../ui/Glance'
 import SaunaSessionSheet from './SaunaSessionSheet'
 
@@ -96,8 +96,8 @@ function SettingsSheet({ open, onClose }) {
   )
 }
 
-/** The Sauna tab, top to bottom: this week, the last session, heat adaptation, cool-down, consistency, patterns, the longer term and history. */
-export default function SaunaTab() {
+/** More › Sauna, the log and timer: this week, the last session, consistency, a link to Insights › Sauna, and history. */
+export default function SaunaTab({ goTo }) {
   const timer = useStore((s) => s.saunaTimer)
   const [log, setLog] = useState(null) // { prefill } or { editId }
   const [timerOpen, setTimerOpen] = useState(false)
@@ -112,32 +112,23 @@ export default function SaunaTab() {
           {timer ? <RunningTimer onStop={(prefill) => setLog({ prefill })} /> : <Hero onLog={() => setLog({})} onTimer={() => setTimerOpen(true)} />}
         </StaggerItem>
         {HEALTH_BUILD && <StaggerItem><Suspense fallback={null}><SaunaWatchCards /></Suspense></StaggerItem>}
-        {HEALTH_BUILD && <StaggerItem><BeforeAfterHero /></StaggerItem>}
-        {HEALTH_BUILD && <StaggerItem><RecoveryAroundCard /></StaggerItem>}
         <StaggerItem className="space-y-2">
           <SectionTitle>Last session</SectionTitle>
           <LastSessionCard onOpen={setViewing} />
         </StaggerItem>
-        {HEALTH_BUILD && (
-          <StaggerItem className="space-y-2">
-            <SectionTitle info="Heart rate after leaving the sauna, from Cool down on Apple Watch.">Cool-down recovery</SectionTitle>
-            <CoolDownCard />
-          </StaggerItem>
-        )}
         <StaggerItem className="space-y-2">
           <SectionTitle info="Each column is a week from your first sauna week on; darker is more heat minutes. After 12 weeks it shows the latest 12: swipe for earlier weeks.">Consistency</SectionTitle>
           <Consistency />
         </StaggerItem>
         {HEALTH_BUILD && (
-          <StaggerItem className="space-y-2">
-            <SectionTitle info="Inside sauna days compares your sessions with each other; then sauna days against days off.">Patterns</SectionTitle>
-            <PatternsCard />
-          </StaggerItem>
-        )}
-        {HEALTH_BUILD && (
-          <StaggerItem className="space-y-2">
-            <SectionTitle info="Week by week from your first session.">Longer term</SectionTitle>
-            <LongerTermCard />
+          <StaggerItem>
+            <button onClick={() => goTo?.('sauna-insights')} className="card flex w-full items-center gap-3 p-4 text-left" data-testid="sauna-open-insights">
+              <span className="min-w-0 flex-1">
+                <span className="t-label block">What sauna is doing</span>
+                <span className="block text-[13px] font-medium" style={{ color: 'var(--text-3)' }}>Since you started, recovery around sauna days, patterns. In Insights.</span>
+              </span>
+              <ChevronRight size={18} className="shrink-0" style={{ color: 'var(--text-3)' }} />
+            </button>
           </StaggerItem>
         )}
         <StaggerItem className="space-y-2">

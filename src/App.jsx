@@ -2,7 +2,7 @@ import { useState, useEffect, useLayoutEffect, useRef, Suspense, lazy } from 're
 import ErrorBoundary from './components/ui/ErrorBoundary'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Sun, LayoutGrid, ChevronLeft, PersonStanding, Moon, Flame,
+  Sun, LayoutGrid, ChevronLeft, PersonStanding, Moon, Lightbulb,
 } from 'lucide-react'
 
 import useStore, { onStorageError } from './store/useStore'
@@ -14,8 +14,8 @@ import MoreHub from './components/MoreHub'
 import Toast from './components/Toast'
 import VialPromptHost from './components/stock/VialPromptHost'
 import UpdatePrompt from './components/UpdatePrompt'
-import { HEALTH_BUILD, HealthBoot, HealthSettings, SleepTab } from './health/ui'
-import { useHealthLink } from './lib/healthLink'
+import { HEALTH_BUILD, HealthBoot, HealthSettings, SleepTab, ReadinessView } from './health/ui'
+import { openDestination } from './lib/nav'
 import { useNativeFeed } from './native/feed'
 import { ShortcutsScreen, NotificationsScreen, WatchScreen, LockSettingsScreen, LockGate } from './native/ui'
 
@@ -48,10 +48,11 @@ const BloodsTab = screen(() => import('./components/BloodsTab'))
 const ImportFiles = screen(() => import('./components/data/ImportFiles'))
 const DataReports = screen(() => import('./components/data/DataReports'))
 const ScheduleWizard = screen(() => import('./components/ScheduleWizard'))
+const InsightsTab = screen(() => import('./components/InsightsTab'))
 // every lazy screen, for the prefetch after Home. The dev server serves modules
 // one by one, so there they are all asked for straight away and a screen opened
 // early (as the e2e suites do) is not left waiting.
-const SCREEN_LOADERS = [ProtocolTab.load, CalendarTab.load, CalcTab.load, MixTab.load, SuppliesTab.load, SettingsTab.load, RightNowTab.load, ReactionsScreen.load, SaunaTab.load, BodyTab.load, HistoryTab.load, SupplementsTab.load, BloodsTab.load, ImportFiles.load, DataReports.load, ScheduleWizard.load]
+const SCREEN_LOADERS = [ProtocolTab.load, CalendarTab.load, CalcTab.load, MixTab.load, SuppliesTab.load, SettingsTab.load, RightNowTab.load, ReactionsScreen.load, SaunaTab.load, BodyTab.load, HistoryTab.load, SupplementsTab.load, BloodsTab.load, ImportFiles.load, DataReports.load, ScheduleWizard.load, InsightsTab.load]
 if (import.meta.env.DEV) for (const fn of SCREEN_LOADERS) void fn().catch(() => {})
 
 /** While a screen's code loads: a quiet placeholder rather than a blank page. */
@@ -68,6 +69,7 @@ const SCREENS = {
   mix: MixTab,
   reactions: ReactionsScreen,
   body: BodyTab,
+  insights: InsightsTab,
   sauna: SaunaTab,
   bloods: BloodsTab,
   more: MoreHub,
@@ -80,25 +82,26 @@ const SCREENS = {
   scans: ImportFiles,
   reports: DataReports,
   // native app only: compiled out of the web build
-  ...(HEALTH_BUILD ? { health: HealthSettings, sleep: SleepTab, shortcuts: ShortcutsScreen, notifications: NotificationsScreen, watch: WatchScreen, lock: LockSettingsScreen } : {}),
+  ...(HEALTH_BUILD ? { health: HealthSettings, sleep: SleepTab, readiness: ReadinessView, shortcuts: ShortcutsScreen, notifications: NotificationsScreen, watch: WatchScreen, lock: LockSettingsScreen } : {}),
 }
 
-// Primary tabs in the bottom bar; everything else lives under More (Calendar,
-// Reactions, Bloods and Stock are its first rows). Sleep reads Apple Health, so
-// it is only in the iPhone app; the web build has four tabs.
+// Five tabs: Today, Sleep, Body, Insights, More (src/lib/nav.js has the map).
+// Sleep reads Apple Health, so it is only in the iPhone app; the web has four.
 const PRIMARY = [
-  { id: 'today', label: 'Home', icon: Sun },
-  { id: 'body', label: 'Body', icon: PersonStanding },
+  { id: 'today', label: 'Today', icon: Sun },
   ...(HEALTH_BUILD ? [{ id: 'sleep', label: 'Sleep', icon: Moon }] : []),
-  { id: 'sauna', label: 'Sauna', icon: Flame },
+  { id: 'body', label: 'Body', icon: PersonStanding },
+  { id: 'insights', label: 'Insights', icon: Lightbulb },
   { id: 'more', label: 'More', icon: LayoutGrid },
 ]
 const PRIMARY_IDS = new Set(PRIMARY.map((t) => t.id))
+// a sub-screen's back bar returns to the tab it was opened from; More unless listed
+const BACK_TO = { readiness: 'today' }
 
 const SUB_TITLES = {
   now: 'Right Now', protocol: 'My protocol', supplies: 'Stock', calc: 'Calculator',
   mix: 'Mix', settings: 'Settings', history: 'History', supplements: 'Supplements',
-  health: 'Health', shortcuts: 'Shortcuts and widgets', notifications: 'Notifications', watch: 'Apple Watch', lock: 'Face ID lock', scans: 'Import', reports: 'Backups and reports', reactions: 'Reactions', bloods: 'Bloods', calendar: 'Calendar',
+  sauna: 'Sauna', readiness: 'Readiness', health: 'Health', shortcuts: 'Shortcuts and widgets', notifications: 'Notifications', watch: 'Apple Watch', lock: 'Face ID lock', scans: 'Import', reports: 'Backups and reports', reactions: 'Reactions', bloods: 'Bloods', calendar: 'Calendar',
 }
 
 // Screens that were their own destination in an earlier version. Old deep links
@@ -108,7 +111,7 @@ const SUB_TITLES = {
 // job is what My protocol does.
 const ALIASES = {
   schedule: 'protocol', library: 'protocol', inventory: 'supplies', restock: 'supplies',
-  insights: 'history', recap: 'history', needle: 'settings',
+  recap: 'history', needle: 'settings',
   // stage 2D: Symptoms ("how I feel") and Supplies left the app; their data stays stored
   symptoms: 'reactions', gear: 'more',
 }
@@ -122,7 +125,13 @@ export default function App() {
   const markCoachSeen = useStore((s) => s.markCoachSeen)
 
   // 'wizard' isn't a screen — it's a modal any screen can ask for.
-  const goTo = (id) => (id === 'wizard' ? setWizard(true) : setTab(ALIASES[id] || id))
+  // a destination (src/lib/nav.js) can name a tab and its segment: 'heart' is Sleep › Heart
+  const goTo = (id) => {
+    if (id === 'wizard') return setWizard(true)
+    const dest = openDestination(id)
+    const to = dest && SCREENS[dest] ? dest : ALIASES[id] || id
+    setTab(SCREENS[to] ? to : 'today')
+  }
 
   // every screen's code, fetched as soon as Home is up, so no later tap waits
   // on a download; start-up itself only parses Home
@@ -139,13 +148,15 @@ export default function App() {
     if (nativeRoute === 'count') {
       setTab('supplies')
       useNativeFeed.setState({ openCount: true })
-    } else if (nativeRoute === 'measurements') {
-      useHealthLink.getState().setBodySegment('measurements')
-      setTab('body')
     } else if (nativeRoute === 'evening') {
-      setTab('sleep')
+      setTab(openDestination('evening'))
       useNativeFeed.setState({ openEvening: true })
-    } else if (SCREENS[ALIASES[nativeRoute] || nativeRoute]) setTab(ALIASES[nativeRoute] || nativeRoute)
+    } else {
+      // widgets, the Watch, Siri and notifications name a destination; old names still land
+      const dest = openDestination(nativeRoute)
+      const to = dest && SCREENS[dest] ? dest : ALIASES[nativeRoute] || nativeRoute
+      if (SCREENS[to]) setTab(to)
+    }
     useNativeFeed.setState({ route: null })
   }, [nativeRoute])
 
@@ -211,6 +222,7 @@ export default function App() {
 
   const Active = SCREENS[tab] || Home
   const isSub = !PRIMARY_IDS.has(tab)
+  const backTo = BACK_TO[tab] || 'more'
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col">
@@ -219,7 +231,8 @@ export default function App() {
         {isSub && (
           <motion.button
             initial={{ y: -40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -40, opacity: 0 }}
-            onClick={() => setTab('more')}
+            onClick={() => setTab(backTo)}
+            data-testid="sub-back"
             className="sticky top-0 z-30 flex items-center gap-1 px-4 py-3 text-sm font-bold backdrop-blur-xl"
             style={{ background: 'color-mix(in srgb, var(--bg) 80%, transparent)', color: 'var(--text-2)' }}
           >
@@ -264,7 +277,7 @@ export default function App() {
       >
         <div className="mx-auto grid max-w-3xl px-1 pb-[max(env(safe-area-inset-bottom),6px)] pt-2" style={{ gridTemplateColumns: `repeat(${PRIMARY.length}, minmax(0, 1fr))` }}>
           {PRIMARY.map(({ id, label, icon: Icon }) => {
-            const active = tab === id || (id === 'more' && isSub)
+            const active = tab === id || (isSub && id === backTo)
             return (
               <motion.button
                 key={id}

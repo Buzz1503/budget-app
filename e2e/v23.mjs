@@ -35,7 +35,7 @@ const nav = async (label) => {
 
   await page.click(`nav button:has-text("${label}")`)
   await page.waitForTimeout(500)
-  if (label === 'Home') { await page.click('button:has-text("AM")').catch(() => {}); await page.waitForTimeout(400) }
+  if (label === 'Today') { await page.click('button:has-text("AM")').catch(() => {}); await page.waitForTimeout(400) }
 }
 const more = async (label) => {
   await nav('More')
@@ -98,7 +98,7 @@ await step('adding stock creates no protocol entry', async () => {
 })
 
 await step('a stock-only compound is scheduled nowhere', async () => {
-  await nav('Home')
+  await nav('Today')
   const home = await page.textContent('body')
   if (/TB-500/.test(home)) throw new Error('a stock-only compound appeared on Home')
   await nav('Calendar')
@@ -108,7 +108,7 @@ await step('a stock-only compound is scheduled nowhere', async () => {
 
 await step('removing from my protocol leaves stock and history intact', async () => {
   // log a dose first, so there is history that must survive
-  await nav('Home')
+  await nav('Today')
   await page.waitForTimeout(600)
   const bpc = await page.locator('[data-testid="log-row"]').evaluateAll(
     (els) => els.findIndex((e) => /BPC-157/.test(e.getAttribute('aria-label') || '') && e.dataset.done !== 'true'))
@@ -250,7 +250,7 @@ await step('Library, Insights, Needle guide, weekly recap, badges and streaks ar
   for (const gone of [/\bLibrary\b/, /Insights/, /Needle guide/, /Your week/, /Badges/, /streak/i, /\bXP\b/]) {
     if (gone.test(hub)) throw new Error(`More still offers ${gone}`)
   }
-  await nav('Home')
+  await nav('Today')
   const home = await page.textContent('main')
   for (const gone of [/\bXP\b/, /streak/i, /Lvl \d/]) {
     if (gone.test(home)) throw new Error(`Home still shows ${gone}`)
@@ -412,7 +412,7 @@ await step('the protocol overview lists everything and exports', async () => {
 // =========================================================== 7 · undo
 
 await step('logging a dose offers an Undo that fully reverses it', async () => {
-  await nav('Home')
+  await nav('Today')
   await page.waitForTimeout(600)
   const row = page.locator('[data-testid="log-row"]:not([data-done])').first()
   if (!(await row.count())) throw new Error('nothing left to log')
@@ -438,7 +438,7 @@ await step('logging a dose offers an Undo that fully reverses it', async () => {
 await step('nothing overflows horizontally at 390px on the new screens', async () => {
   const bad = []
   for (const [how, label] of [
-    ['nav', 'Home'], ['nav', 'Calendar'], ['more', 'Protocol overview'],
+    ['nav', 'Today'], ['nav', 'Calendar'], ['more', 'Protocol overview'],
     ['more', 'Stock'], ['more', 'History & adherence'],
   ]) {
     if (how === 'nav') await nav(label); else await more(label)

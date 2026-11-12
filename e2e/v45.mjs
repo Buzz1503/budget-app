@@ -369,7 +369,7 @@ await step('2b · Topical is a form option, and a topical never reads as oral or
 })
 
 await step('2c · both are in the PM group on Home, applied rather than taken', async () => {
-  await nav('Home')
+  await nav('Today')
   const pm = page.locator('button[aria-label="PM"]')
   if (await pm.count()) { await pm.first().click(); await page.waitForTimeout(500) }
   const group = page.locator('[data-testid="take-group"]')
@@ -469,7 +469,7 @@ const seedReactions = () => setState(`
 await step('3a · an open reaction sits at the top of Reactions with site, peptide, days open, severity and Check', async () => {
   await seedReactions()
   await reload()
-  await nav('Home')
+  await nav('Today')
   await page.waitForTimeout(500)
   if (await page.locator('[data-testid="open-reactions"]').count()) throw new Error('the open-reactions card is still on Home')
   await nav('Reactions')
@@ -567,7 +567,7 @@ await step('3e · peptide, co-draw, site, dose and needle are captured at log ti
     s.settings = { ...s.settings, lastNeedle: { gauge: '31G', lengthMm: 8 } }
   `)
   await reload()
-  await nav('Home')
+  await nav('Today')
   const before = (await state()).injectionRecords.length
   const lob = page.locator('[data-testid="log-on-body"]').first()
   if (!(await lob.count())) throw new Error('no Log on body on Home in this slot')
@@ -720,7 +720,7 @@ await step('3i · open and resolved reactions mark the body map, and the suggest
   if ((await status(PIN_DONE)) === 'reacting') throw new Error('a resolved site is still treated as reacting')
 
   // the suggestion on the log screen is never the open one
-  await nav('Home')
+  await nav('Today')
   const lob = page.locator('[data-testid="log-on-body"]').first()
   if (await lob.count()) {
     await lob.click(); await page.waitForTimeout(1000)
@@ -782,7 +782,7 @@ await step('no screen overflows at 375 wide', async () => {
   await openMarker(0)
   const w = await page.evaluate(() => document.documentElement.scrollWidth)
   if (w > 376) throw new Error(`the marker chart overflows to ${w}px`)
-  await nav('Home'); await page.waitForTimeout(500)
+  await nav('Today'); await page.waitForTimeout(500)
   const w2 = await page.evaluate(() => document.documentElement.scrollWidth)
   if (w2 > 376) throw new Error(`Home overflows to ${w2}px`)
   await page.setViewportSize({ width: 390, height: 844 })

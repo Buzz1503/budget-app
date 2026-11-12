@@ -305,7 +305,7 @@ export default function Home({ goTo }) {
         onClose={() => { updateSettings({ disclaimerDismissed: true }); setShowAbout(false) }}
       />
 
-      {/* 1 · readiness, native app only. Tapping it opens Body › Recovery. */}
+      {/* 1 · readiness and last night, native app only: readiness opens Readiness, asleep and wake-ups Sleep, resting HR Sleep › Heart */}
       {sections.includes('readiness') && <Suspense fallback={null}><HomeHealthCard goTo={goTo} /></Suspense>}
 
       {/* 2 · today's log: screen title + alerts + slot toggle */}

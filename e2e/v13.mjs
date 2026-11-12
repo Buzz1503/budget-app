@@ -235,7 +235,7 @@ await step('.ics export downloads from the Calendar', async () => {
 // and dosed, instead of a week of bare shot counts.
 // stage 2D: Home is the readiness card and today's log only; tomorrow lives in the calendar
 await step('Home no longer carries the Tomorrow card or a seven-day strip', async () => {
-  await nav('Home')
+  await nav('Today')
   await page.waitForTimeout(500)
   if (await page.locator('[data-testid="tomorrow"], [data-testid="next-7-days"]').count()) throw new Error('a look-ahead card is still on Home')
 })
@@ -371,8 +371,8 @@ await step('trends can chart each side on its own', async () => {
   await waitText(/up from the elbow crease/)
 })
 
-await step('the Outcome Engine still lives inside Body', async () => {
-  await page.click('button:has-text("Outcomes")')
+await step('the Outcome Engine lives in Insights › Compounds', async () => {
+  await page.click('nav button[aria-label="Insights"]')
   await page.waitForTimeout(500)
   await waitText(/outcome|overlay|dose|metric/i, 8000)
 })
@@ -388,7 +388,7 @@ await step('data persists across a reload', async () => {
 })
 
 await step('no horizontal overflow at 390px on any tab', async () => {
-  for (const tab of ['Home', 'Calendar', 'Symptoms', 'Body', 'More']) {
+  for (const tab of ['Today', 'Calendar', 'Symptoms', 'Body', 'More']) {
     await nav(tab)
     await page.waitForTimeout(500)
     const over = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
@@ -415,7 +415,7 @@ await step('the bottom nav never covers the last card', async () => {
   if (clear < 0) throw new Error(`content ends ${Math.round(-clear)}px under the nav`)
 })
 
-for (const tab of ['Home', 'Calendar', 'Body', 'More']) {
+for (const tab of ['Today', 'Calendar', 'Body', 'More']) {
   await nav(tab)
   await page.waitForTimeout(500)
   await page.screenshot({ path: `${SHOT}/v13-${tab.toLowerCase()}.png`, fullPage: true })

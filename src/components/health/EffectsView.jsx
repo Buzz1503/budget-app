@@ -240,7 +240,8 @@ export function CompoundEffectsDetail({ compound, fx, input, onBack }) {
  * Body › Effects: the tracked compounds, each with its clearest change since
  * starting. Tapping one opens its page.
  */
-export default function EffectsView() {
+/** `withSauna` false leaves the sauna row out where sauna has its own home (Insights › Sauna). */
+export default function EffectsView({ withSauna = true } = {}) {
   const compounds = useCompounds()
   const input = useEffectInput()
   const t = todayStr()
@@ -269,7 +270,7 @@ export default function EffectsView() {
   if (!result && trackedForEffects(compounds).length) {
     return <div className="card p-5" data-testid="effects-loading"><p className="text-sm font-medium" style={{ color: 'var(--text-2)' }}>Working out the effects…</p></div>
   }
-  if (!list.length && !saunaCount) {
+  if (!list.length && (!saunaCount || !withSauna)) {
     return (
       <div className="card p-5" data-testid="effects-empty">
         <p className="text-base font-black">No compounds are tracked yet</p>
@@ -287,7 +288,7 @@ export default function EffectsView() {
         <InfoButton title="How Effects works" testid="effects-legend">{LEGEND}</InfoButton>
       </div>
       <Stagger className="card rows overflow-hidden">
-        {saunaCount > 0 && (
+        {withSauna && saunaCount > 0 && (
           <StaggerItem as="button" onClick={() => setOpenId('sauna')} className="flex w-full items-center gap-3 p-4 text-left" data-testid="effects-compound" data-compound="sauna">
             <span className="min-w-0 flex-1">
               <span className="block text-[17px] font-semibold">Sauna</span>

@@ -13,6 +13,12 @@ export const HealthBoot = HEALTH_BUILD ? lazy(() => import('../components/health
 export const HealthSettings = HEALTH_BUILD ? lazy(() => import('../components/health/HealthSettings')) : none
 export const HomeHealthCard = HEALTH_BUILD ? lazy(() => import('../components/health/HomeHealthCard')) : none
 export const BodyHealthView = HEALTH_BUILD ? lazy(() => import('../components/health/BodyHealthView')) : none
+// Readiness in detail (was Body › Recovery): opened from the Today card
+export const ReadinessView = BodyHealthView
+export const HeartView = HEALTH_BUILD ? lazy(() => import('../components/health/HeartView')) : none
+export const SleepLabView = HEALTH_BUILD ? lazy(() => import('../components/health/SleepLabView')) : none
+export const CompoundInsights = HEALTH_BUILD ? lazy(() => import('../components/health/CompoundInsights')) : none
+export const SaunaInsights = HEALTH_BUILD ? lazy(() => import('../components/sauna/SaunaInsights')) : none
 export const MeasurementsHealth = HEALTH_BUILD ? lazy(() => import('../components/health/MeasurementsHealth')) : none
 export const DayHealth = HEALTH_BUILD ? lazy(() => import('../components/health/DayHealth')) : none
 export const CompoundHealth = HEALTH_BUILD ? lazy(() => import('../components/health/CompoundHealth')) : none

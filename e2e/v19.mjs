@@ -132,7 +132,7 @@ await step('manual mode saves nothing to the stack on its own', async () => {
   const f = page.locator('input[inputmode="decimal"]')
   await f.nth(0).fill('15'); await f.nth(1).fill('3')
   await page.waitForTimeout(600)
-  await nav('Home'); await page.waitForTimeout(400)
+  await nav('Today'); await page.waitForTimeout(400)
   const after = (await state()).peptides.length
   if (after !== before) throw new Error(`the stack changed by itself: ${before} → ${after}`)
 })
@@ -298,7 +298,7 @@ await step('the shelf shows dose notes and is editable', async () => {
 // ============================================================== 3 · Home
 
 await step('Home shows a separate oral "Take" group', async () => {
-  await nav('Home')
+  await nav('Today')
   await page.waitForTimeout(700)
   const grp = page.locator('[data-testid="take-group"]')
   if (!(await grp.count())) {
@@ -315,7 +315,7 @@ await step('Home shows a separate oral "Take" group', async () => {
 })
 
 await step('a Take row carries no injection concepts', async () => {
-  await nav('Home')
+  await nav('Today')
   await page.waitForTimeout(600)
   let rows = page.locator('[data-testid="take-row"]')
   if ((await rows.count()) === 0) { await page.click('button:has-text("PM")'); await page.waitForTimeout(600) }
@@ -326,7 +326,7 @@ await step('a Take row carries no injection concepts', async () => {
 })
 
 await step('one tap logs it taken, and a second tap undoes it', async () => {
-  await nav('Home')
+  await nav('Today')
   await page.waitForTimeout(600)
   if ((await page.locator('[data-testid="take-row"]').count()) === 0) {
     await page.click('button:has-text("PM")'); await page.waitForTimeout(600)
@@ -351,7 +351,7 @@ await step('one tap logs it taken, and a second tap undoes it', async () => {
 // v31 removed Home's day-tally card, so the oral group's own count is where
 // supplements now report. The point stands: they are counted, not ignored.
 await step('supplements are counted on Home, not just the injections', async () => {
-  await nav('Home')
+  await nav('Today')
   await page.waitForTimeout(700)
   const group = page.locator('[data-testid="take-group"]')
   if (!(await group.count())) throw new Error('the oral group is missing from Home')
@@ -380,7 +380,7 @@ await step('supplements reach the calendar', async () => {
 
 await step('nothing overflows horizontally at 390px on the new screens', async () => {
   const bad = []
-  for (const [how, label] of [['nav', 'Home'], ['nav', 'Calendar'], ['more', 'Supplements'], ['more', 'Calculator']]) {
+  for (const [how, label] of [['nav', 'Today'], ['nav', 'Calendar'], ['more', 'Supplements'], ['more', 'Calculator']]) {
     if (how === 'nav') await nav(label); else await more(label)
     const over = await page.evaluate(() =>
       document.documentElement.scrollWidth > document.documentElement.clientWidth + 1)

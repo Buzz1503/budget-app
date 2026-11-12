@@ -252,7 +252,7 @@ await step('every sheet with a field in it is sized against the keyboard, not th
 })
 
 await step('the bottom nav gets out of the way while typing', async () => {
-  await nav('Home')
+  await nav('Today')
   await openKeyboard()
   const opacity = await page.locator('nav').evaluate((el) => getComputedStyle(el).opacity)
   if (Number(opacity) > 0.05) throw new Error(`the nav is still at opacity ${opacity} over the keyboard`)
@@ -273,7 +273,7 @@ await step('a past day with nothing logged reads as missed, not as blank', async
 // Calendar and under More now. The way in still has to exist; it just is not
 // on the screen you open the app to.
 await step('missed days are surfaced where they now live, not on Home', async () => {
-  await nav('Home')
+  await nav('Today')
   await page.waitForTimeout(700)
   if (await page.locator('[data-testid="catch-up-card"]').count()) {
     throw new Error('the catch-up card is back on Home')

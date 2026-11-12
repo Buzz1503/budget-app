@@ -25,7 +25,7 @@ const waitText = async (re, timeout = 20000) => {
   }
   throw new Error('timeout waiting for ' + re)
 }
-const PRIMARY_TABS = new Set(['Home', 'Calendar', 'Symptoms', 'Body', 'More'])
+const PRIMARY_TABS = new Set(['Today', 'Calendar', 'Symptoms', 'Body', 'More'])
 // v13 moved everything but the five primary tabs under the More hub, so a
 // screen is reached by its More-hub description rather than a nav button.
 const MORE_LINK = {
@@ -57,7 +57,7 @@ const nav = async (label) => {
     if (await tab.count()) { await tab.click(); await page.waitForTimeout(450) }
   }
   // Home defaults to the current wall-clock slot; these suites want the morning
-  if (label === 'Home') { await page.click('button:has-text("AM")'); await page.waitForTimeout(400) }
+  if (label === 'Today') { await page.click('button:has-text("AM")'); await page.waitForTimeout(400) }
 }
 const modal = () => page.locator('div.fixed.inset-0.z-50 > div.card')
 const state = () => page.evaluate(() => JSON.parse(localStorage.getItem('peptide-command-center')).state)
@@ -283,7 +283,7 @@ await step('an expected delivery answers low stock and reaches the calendar expo
 
   // stage 2D: low stock is a dot on More and on the Stock row, not a Home alert;
   // an order arriving in time answers it, so Tesamorelin no longer counts as low
-  await nav('Home')
+  await nav('Today')
   const home = await page.textContent('body')
   if (/of Tesamorelin left/.test(home)) throw new Error('a low-stock alert is still on Home')
 

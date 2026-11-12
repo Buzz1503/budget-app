@@ -50,10 +50,12 @@ export default function HeartView({ onBack }) {
   const answer = vs.answer
   return (
     <div className="space-y-6" data-testid="heart-view">
-      <div className="flex items-center gap-2">
-        <button onClick={onBack} className="flex items-center gap-1 rounded-full px-2 py-1.5 text-sm font-bold" style={soft} data-testid="heart-back"><ChevronLeft size={16} /> Recovery</button>
-        <h1 className="min-w-0 flex-1 truncate text-right text-[17px] font-semibold">Heart</h1>
-      </div>
+      {onBack && (
+        <div className="flex items-center gap-2">
+          <button onClick={onBack} className="flex items-center gap-1 rounded-full px-2 py-1.5 text-sm font-bold" style={soft} data-testid="heart-back"><ChevronLeft size={16} /> Back</button>
+          <h1 className="min-w-0 flex-1 truncate text-right text-[17px] font-semibold">Heart</h1>
+        </div>
+      )}
       <SyncLine />
 
       <section className="card p-5" data-testid="heart-hero">

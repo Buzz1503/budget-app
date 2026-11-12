@@ -439,7 +439,7 @@ await step('4e · a report attaches, survives a reload and is in the backup', as
 // ------------------------------------------------------------------ 5
 
 await step('5 · "Change dose" is on the Home card and moves the protocol', async () => {
-  await nav('Home')
+  await nav('Today')
   await toastGone()
   const first = page.locator('[data-testid="row-overflow"]').first()
   await first.scrollIntoViewIfNeeded()
@@ -503,7 +503,7 @@ await step('5b · it records on the timeline and resets time at this dose', asyn
 })
 
 await step('5c · today’s card, the units and the run-out all follow', async () => {
-  await nav('Home')
+  await nav('Today')
   await toastGone()
   const { target, name } = globalThis.__changed
   const body = await page.locator('main').innerText()
@@ -515,7 +515,7 @@ await step('5c · today’s card, the units and the run-out all follow', async (
 })
 
 await step('5d · the same change is offered on the compound page', async () => {
-  await nav('Home')
+  await nav('Today')
   await toastGone()
   // tapping a row logs the dose — the compound page is behind "About"
   const row = page.locator('[data-testid="row-overflow"]').first()
@@ -539,7 +539,7 @@ await step('5d · the same change is offered on the compound page', async () => 
 await step('5e · undo puts the dose back where it was', async () => {
   const s0 = await state()
   const id = s0.peptides[0].id
-  await nav('Home')
+  await nav('Today')
   await toastGone()
   const first = page.locator('[data-testid="row-overflow"]').first()
   await first.click()
@@ -572,11 +572,11 @@ await step('6 · the app works normally and nothing else moved', async () => {
   if (!Array.isArray(s.doseLogs)) throw new Error('the logs are gone')
   if (!Array.isArray(s.vials)) throw new Error('the shelf is gone')
   if (!s.bloods) throw new Error('the bloods slice is gone')
-  for (const tab of ['Home', 'Calendar', 'Symptoms', 'Body', 'Bloods', 'More']) {
+  for (const tab of ['Today', 'Calendar', 'Symptoms', 'Body', 'Bloods', 'More']) {
     await nav(tab)
     await noOverflow(tab)
   }
-  await nav('Home')
+  await nav('Today')
   await page.screenshot({ path: `${SHOT}/v35-home.png` })
   console.log(`  ${s.peptides.length} compounds, ${s.doseLogs.length} logs, ${s.vials.length} vials, ${s.bloods.tests.length} tests`)
 })
@@ -602,7 +602,7 @@ await step('6b · an older install migrates without losing anything', async () =
 })
 
 await step('6c · the tab bar fits across at 390px', async () => {
-  await nav('Home')
+  await nav('Today')
   const buttons = await page.locator('nav button').count()
   if (buttons !== 4) throw new Error(`${buttons} tabs in the bar`)
   const clipped = await page.locator('nav button').evaluateAll(

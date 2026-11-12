@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { format, parseISO } from 'date-fns'
-import { ChevronLeft, ChevronRight, Info, Activity, Moon, HeartPulse, TrendingUp, Gauge, Layers } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Info, Activity, Moon, HeartPulse, Gauge, Layers, FlaskConical } from 'lucide-react'
 import { motion, useReducedMotion } from 'framer-motion'
 import useStore, { todayStr } from '../../store/useStore'
 import Modal from '../ui/Modal'
@@ -18,10 +18,9 @@ import { NightCalendar } from './SleepCharts'
 import EveningSheet from '../sleep/EveningSheet'
 import MorningCheck from '../sleep/MorningCheck'
 import NightCard from './NightCard'
-import AnalysisScreen from './SleepAnalysis'
-import RestlessnessScreen from './RestlessnessScreen'
-import ApneaScreen from './ApneaScreen'
-import NightmaresScreen from './NightmaresScreen'
+import HeartView from './HeartView'
+import Segments from '../ui/Segments'
+import { useNav, SLEEP_SEGMENTS } from '../../lib/nav'
 import useSleepLab from './useSleepLab'
 import useHeart from './useHeart'
 import { HeartSummaryText } from './HeartSummary'
@@ -31,7 +30,7 @@ import { OTHER_SOURCE_LABEL } from '../../sleep/sources'
 import { DeltaChip, InfoButton } from '../ui/Glance'
 import { spikeRule } from '../../sleep/restless'
 import {
-  VsNormal, StagesCard, ShapedCard, Last14, DebtCard, TonightCard, LabTeaser, TrendsScreen, MetricScreen, CheckNumbers, RowLink, Back,
+  VsNormal, StagesCard, ShapedCard, Last14, DebtCard, TonightCard, TrendsScreen, MetricScreen, CheckNumbers, RowLink, Back,
   useBedDiff, verdictFor,
 } from './SleepMain'
 
@@ -54,20 +53,27 @@ function SectionTitle({ children, icon: Icon, info, infoTitle, action }) {
 export default function SleepTab({ goTo }) {
   const connected = useStore((s) => s.healthSettings.connected)
   const model = useHealthModel()
+  const segment = useNav((s) => s.sleepSegment)
+  const setSegment = useNav((s) => s.setSleepSegment)
+  const ready = connected && model.hasData
   return (
     <div className="space-y-3" data-testid="sleep-tab">
       <h1 className="text-2xl font-black tracking-tight">Sleep</h1>
-      {!connected ? <NotConnected goTo={goTo} /> : !model.hasData ? <EmptyState /> : <SleepScreen model={model} />}
+      {ready && <Segments items={SLEEP_SEGMENTS} value={segment} onChange={setSegment} testid="sleep-segments" idPrefix="sleep-seg" />}
+      {!connected ? <NotConnected goTo={goTo} /> : !model.hasData ? <EmptyState />
+        : segment === 'heart' ? <HeartView />
+          : segment === 'trends' ? <TrendsScreen model={model} />
+            : <SleepScreen model={model} goTo={goTo} />}
     </div>
   )
 }
 
-function SleepScreen({ model }) {
+function SleepScreen({ model, goTo }) {
   const t = todayStr()
   const dates = useMemo(() => [...model.nightBy.keys()].sort(), [model])
   const [date, setDate] = useState(() => (model.nightBy.has(t) ? t : dates.at(-1)))
   const [calendar, setCalendar] = useState(false)
-  // 'analysis' | 'restless' | 'apnea' | 'nightmares' | 'detail' | 'trends' | 'metric:<key>'
+  // 'detail' | 'metric:<key>' (Trends is a segment; the Sleep Lab screens live in Insights)
   const [view, setView] = useState(null)
   const [evening, setEvening] = useState(false)
   const lab = useSleepLab()
@@ -84,11 +90,6 @@ function SleepScreen({ model }) {
   // a new screen opens at its top
   useEffect(() => { try { window.scrollTo(0, 0) } catch { /* no window */ } }, [view])
   const back = () => setView(null)
-  if (view === 'analysis') return <AnalysisScreen lab={lab} onBack={back} />
-  if (view === 'restless') return <RestlessnessScreen lab={lab} onBack={back} />
-  if (view === 'apnea') return <ApneaScreen lab={lab} onBack={back} />
-  if (view === 'nightmares') return <NightmaresScreen lab={lab} onBack={back} />
-  if (view === 'trends') return <TrendsScreen model={model} onBack={back} />
   if (view?.startsWith('metric:')) return <MetricScreen model={model} heart={heart} metricKey={view.slice(7)} onBack={back} />
   if (!dates.length || !night) {
     return <div className="card p-4"><p className="text-sm font-medium" style={{ color: 'var(--text-2)' }}>No main sleep recorded yet.</p></div>
@@ -102,7 +103,6 @@ function SleepScreen({ model }) {
     <Stagger className="space-y-6" data-testid="sleep-view">
       <StaggerItem className="space-y-2">
         <Hero model={model} night={night} date={date} t={t} prev={prev} next={next} setDate={setDate} openCalendar={() => setCalendar(true)} bed={bed} heart={heart} />
-        <RowLink title="Trends" sub="7, 30 and 90 nights: time asleep, deep, REM, heart rate, HRV, consistency, score" onClick={() => setView('trends')} testid="open-trends" icon={TrendingUp} />
       </StaggerItem>
       <StaggerItem><MorningCheck /></StaggerItem>
       <StaggerItem><VsNormal model={model} heart={heart} date={date} onOpen={(k) => setView(`metric:${k}`)} /></StaggerItem>
@@ -111,7 +111,7 @@ function SleepScreen({ model }) {
       <StaggerItem><Last14 model={model} t={t} /></StaggerItem>
       <StaggerItem><DebtCard model={model} t={t} /></StaggerItem>
       <StaggerItem><TonightCard model={model} lab={lab} onLogEvening={() => setEvening(true)} /></StaggerItem>
-      <StaggerItem><LabTeaser lab={lab} onOpen={() => setView('analysis')} onOpenView={setView} /></StaggerItem>
+      <StaggerItem><RowLink title="Sleep Lab" sub="What goes with your good and bad nights. In Insights." onClick={() => goTo?.('sleep-lab')} testid="open-sleep-lab" icon={FlaskConical} /></StaggerItem>
       <EveningSheet open={evening} onClose={() => setEvening(false)} />
       <Modal open={calendar} onClose={() => setCalendar(false)} title="Nights">
         <NightCalendar selected={date} today={t} hasNight={(d) => model.nightBy.has(d)} scoreOf={(d) => model.sleepScore(d)?.score}

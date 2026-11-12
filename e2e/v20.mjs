@@ -71,7 +71,7 @@ if (await modal().count()) { await page.click('button:has-text("Got it")'); awai
 // ============================================================== 5 · skipping
 
 await step('every outstanding dose can be skipped from its row', async () => {
-  await nav('Home')
+  await nav('Today')
   await page.waitForTimeout(700)
   const rows = await page.locator('[data-testid="log-row"]:not([data-done])').count()
   if (!rows) throw new Error('nothing outstanding on Home to skip')
@@ -89,7 +89,7 @@ await step('every outstanding dose can be skipped from its row', async () => {
 // particular compound's weekday landing on the day it runs.
 let skipTarget = null
 await step('skipping records it with an optional reason', async () => {
-  await nav('Home')
+  await nav('Today')
   await page.waitForTimeout(600)
   await shutMenus()
   const i = await page.locator('[data-testid="log-row"]').evaluateAll(
@@ -130,7 +130,7 @@ await step('a skip is not a dose, nothing is logged and no stock moves', async (
 // itself is. Both halves of the original claim still hold: the card says it
 // was skipped, and it says the vial was not touched.
 await step('a skipped dose reads as skipped, and leaves the stock alone', async () => {
-  await nav('Home')
+  await nav('Today')
   await page.waitForTimeout(700)
   const t = await main()
   if (!/Skipped today/.test(t)) throw new Error('the card does not read as skipped')
@@ -143,7 +143,7 @@ await step('a skipped dose reads as skipped, and leaves the stock alone', async 
 })
 
 await step('a skip can be undone', async () => {
-  await nav('Home')
+  await nav('Today')
   await page.waitForTimeout(600)
   await page.click(`button[aria-label="Undo skip: ${skipTarget}"]`)
   await page.waitForTimeout(800)
@@ -164,7 +164,7 @@ await step('supplements can be skipped too', async () => {
   await page.locator('[data-testid="supplement-library"] button:has-text("B-Complex #12")').first().click()
   await page.waitForTimeout(700)
 
-  await nav('Home')
+  await nav('Today')
   await page.waitForTimeout(700)
   if ((await page.locator('[data-testid="take-row"]').count()) === 0) {
     await page.click('button:has-text("AM")'); await page.waitForTimeout(600)
@@ -187,7 +187,7 @@ await step('supplements can be skipped too', async () => {
 // skipped by skipping two doses. The claim being kept is that skipping one
 // leaves the others alone and each is recorded in its own right.
 await step('doses are skipped one at a time, each recorded separately', async () => {
-  await nav('Home')
+  await nav('Today')
   await page.waitForTimeout(700)
   await shutMenus()
   const before = (await state()).skips.length
@@ -238,7 +238,7 @@ await step('and lists the days themselves on the compound they belong to', async
 
 await step('nothing overflows horizontally at 390px', async () => {
   const bad = []
-  for (const [how, label] of [['nav', 'Home'], ['nav', 'Calendar'], ['more', 'Protocol overview'], ['more', 'History & adherence']]) {
+  for (const [how, label] of [['nav', 'Today'], ['nav', 'Calendar'], ['more', 'Protocol overview'], ['more', 'History & adherence']]) {
     if (how === 'nav') await nav(label); else await more(label)
     await page.waitForTimeout(700) // let the page transition settle before measuring
     const over = await page.evaluate(() =>
@@ -260,7 +260,7 @@ await step('skips survive a reload', async () => {
 })
 
 await step('logging still works normally after all this', async () => {
-  await nav('Home')
+  await nav('Today')
   await page.waitForTimeout(700)
   await shutMenus()
   const before = (await state()).doseLogs.length
@@ -278,7 +278,7 @@ await step('no runtime errors anywhere in the run', async () => {
   if (real.length) throw new Error(real.slice(0, 3).join(' | '))
 })
 
-await nav('Home')
+await nav('Today')
 await page.screenshot({ path: `${SHOT}/v20-home.png`, fullPage: true })
 await browser.close()
 

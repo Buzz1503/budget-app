@@ -257,7 +257,7 @@ await step('1 · the schedule itself never moved', async () => {
 // ================================================= 1b · taking a log back
 
 await step('1b · a logged dose can be un-ticked from the row', async () => {
-  await nav('Home')
+  await nav('Today')
   await shutMenus()
   const before = await state()
   await page.locator('[data-testid="log-row"]:not([data-done])').first().click()
@@ -332,7 +332,7 @@ await step('2 · a pushed day is not counted as missed', async () => {
 // ================================================ 3 · the notification panel
 
 await step('3 · the bell opens a dimmed, opaque overlay', async () => {
-  await nav('Home')
+  await nav('Today')
   const bell = page.locator('[data-testid="alert-bell"]')
   if (!(await bell.count())) throw new Error('no bell to open')
   await bell.click()
@@ -501,12 +501,12 @@ await step('5 · a save from before v30.2 gains pushes and keeps everything', as
 })
 
 await step('5 · every screen renders with no overflow', async () => {
-  for (const tab of ['Home', 'Calendar', 'Symptoms', 'Body', 'More']) {
+  for (const tab of ['Today', 'Calendar', 'Symptoms', 'Body', 'More']) {
     await nav(tab)
     const w = await page.evaluate(() => document.documentElement.scrollWidth)
     if (w > 391) throw new Error(`${tab} overflows to ${w}px`)
   }
-  await nav('Home')
+  await nav('Today')
   await page.screenshot({ path: `${SHOT}/v34-home.png` })
 })
 

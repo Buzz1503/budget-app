@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, Suspense, lazy } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Ruler, Images, PersonStanding, LineChart as LineChartIcon, Plus, Trash2, Play,
+  Ruler, PersonStanding, LineChart as LineChartIcon, Plus, Trash2, Play,
   Info, Pencil,
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
@@ -29,43 +29,26 @@ import PickerField from './ui/PickerField'
 import BodyModel from './BodyModel'
 import MeasureGuide from './MeasureGuide'
 import PhotosSection from './PhotosSection'
-import OutcomeEngine from './OutcomeEngine'
 import { useHealthLink } from '../lib/healthLink'
-import { HEALTH_BUILD, BodyHealthView, MeasurementsHealth, EffectsView } from '../health/ui'
+import { HEALTH_BUILD, MeasurementsHealth } from '../health/ui'
+import Segments from './ui/Segments'
+import { BODY_SEGMENTS } from '../lib/nav'
 import TapeLogSheet from './measurements/TapeLogSheet'
 
 const MeasurementsArea = lazy(() => import('./measurements/MeasurementsArea'))
 
+// inside Composition: the record itself. Photos is its own segment; Outcomes moved to Insights › Compounds.
 const SECTIONS = [
   { id: 'stats', label: 'Stats', icon: Ruler },
   { id: 'trends', label: 'Trends', icon: LineChartIcon },
   { id: 'model', label: 'Model', icon: PersonStanding },
-  { id: 'photos', label: 'Photos', icon: Images },
-  { id: 'outcome', label: 'Outcomes', icon: LineChartIcon },
 ]
 
-const SEGMENTS = [
-  { id: 'composition', label: 'Composition' },
-  { id: 'measurements', label: 'Measurements' },
-  { id: 'effects', label: 'Effects', health: true },
-  { id: 'recovery', label: 'Recovery', health: true },
-]
-
-// Composition | Measurements | Effects | Recovery. Effects and Recovery need
-// Apple Health (the native app); on the web it is Composition | Measurements.
-// Sleep has its own tab.
-function HealthSegments({ value, onChange, health = true }) {
-  return (
-    <div className="flex gap-1 rounded-full p-1" style={{ background: 'var(--surface-sunk)' }} role="tablist" data-testid="body-segments">
-      {SEGMENTS.filter((s) => health || !s.health).map((s) => (
-        <button key={s.id} role="tab" aria-selected={value === s.id} onClick={() => onChange(s.id)} data-testid={`body-seg-${s.id}`}
-          className="min-h-[34px] flex-auto whitespace-nowrap rounded-full px-2 text-xs font-bold"
-          style={value === s.id ? { background: 'var(--surface2)', color: 'var(--text)' } : { color: 'var(--text-3)' }}>
-          {s.label}
-        </button>
-      ))}
-    </div>
-  )
+// Composition | Measurements | Photos, the same on the web and the iPhone.
+// Effects moved to Insights › Compounds, Recovery to the Today card (Readiness).
+function HealthSegments({ value, onChange }) {
+  const v = BODY_SEGMENTS.some((x) => x.id === value) ? value : 'composition'
+  return <Segments items={BODY_SEGMENTS} value={v} onChange={onChange} testid="body-segments" idPrefix="body-seg" />
 }
 
 export default function BodyTab({ goTo }) {
@@ -82,20 +65,18 @@ export default function BodyTab({ goTo }) {
     return (
       <div className="space-y-3">
         <h1 className="text-2xl font-black tracking-tight">Body</h1>
-        <HealthSegments value={segment} onChange={setSegment} health={showHealth} />
+        <HealthSegments value={segment} onChange={setSegment} />
         <Suspense fallback={null}><MeasurementsArea onEditEntry={setViewing} /></Suspense>
         <MeasurementSheet open={!!viewing} onClose={() => setViewing(null)} entryId={viewing} />
       </div>
     )
   }
-  if (showHealth && segment !== 'composition') {
+  if (segment === 'photos') {
     return (
-      <div className="space-y-3">
+      <div className="space-y-3" data-testid="body-photos">
         <h1 className="text-2xl font-black tracking-tight">Body</h1>
-        <HealthSegments value={segment === 'heart' ? 'recovery' : segment} onChange={setSegment} />
-        <Suspense fallback={null}>
-          {segment === 'effects' ? <EffectsView /> : <BodyHealthView segment={segment} goTo={goTo} />}
-        </Suspense>
+        <HealthSegments value={segment} onChange={setSegment} />
+        <PhotosSection />
       </div>
     )
   }
@@ -104,7 +85,7 @@ export default function BodyTab({ goTo }) {
   return (
     <div className="space-y-3">
       <h1 className="text-2xl font-black tracking-tight">Body</h1>
-      <HealthSegments value="composition" onChange={setSegment} health={showHealth} />
+      <HealthSegments value="composition" onChange={setSegment} />
       <CompositionView onLog={() => setAdding(true)} onOpenStart={() => setStartOpen(true)} onOpenDexa={() => setDexa(true)} onImport={() => goTo?.('scans')} />
 
       {/* the record itself: entries, tape trends, the model, photos, outcomes */}
@@ -129,8 +110,6 @@ export default function BodyTab({ goTo }) {
           {section === 'stats' && showHealth && <Suspense fallback={null}><MeasurementsHealth /></Suspense>}
           {section === 'trends' && <TrendsSection />}
           {section === 'model' && <ModelSection />}
-          {section === 'photos' && <PhotosSection />}
-          {section === 'outcome' && <OutcomeEngine />}
         </motion.div>
       </AnimatePresence>
       <TapeLogSheet open={adding} onClose={() => setAdding(false)} />

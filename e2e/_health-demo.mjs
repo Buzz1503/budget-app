@@ -35,6 +35,14 @@ const noOverflow = async (where) => {
   if (w > 391) throw new Error(`${where} overflows to ${w}px`)
 }
 const closeSheet = async () => { await page.keyboard.press('Escape'); await page.waitForTimeout(400) }
+// where things live since Run 1 (src/lib/nav.js)
+const go = {
+  readiness: async () => { await tab('Today'); await page.click('[data-testid="home-health-open"]'); await seen('[data-testid="recovery-view"]') },
+  compounds: async () => { await tab('Insights'); await page.click('[data-testid="insights-seg-compounds"]'); await page.waitForTimeout(400) },
+  lab: async () => { await tab('Insights'); await page.click('[data-testid="insights-seg-lab"]'); await page.waitForTimeout(600) },
+  sauna: async () => { await tab('More'); await page.click('[data-testid="more-sauna"]'); await page.waitForTimeout(600) },
+  night: async () => { await tab('Sleep'); await page.click('[data-testid="sleep-seg-night"]'); await page.waitForTimeout(400) },
+}
 
 await page.goto(BASE, { waitUntil: 'domcontentloaded' })
 await page.waitForSelector('nav button')
@@ -52,8 +60,8 @@ await step('More › Health first run explains the reads, then connects', async 
   await noOverflow('More › Health')
 })
 
-await step('Home is the readiness card, then the log, then the sauna row', async () => {
-  await tab('Home')
+await step('Today is the readiness and last night card, then the log, then the sauna row', async () => {
+  await tab('Today')
   await seen('[data-testid="home-health-card"]')
   if (await page.locator('[data-testid="home-checkin-toggle"]').count()) throw new Error('the check-in is still on Home')
   const order = await page.evaluate(() => {
@@ -87,7 +95,8 @@ await step('Recovery: rows, charts, info, overlay', async () => {
   await noOverflow('Recovery')
 })
 
-await step('Compare: dose timing, before and after, habits', async () => {
+await step('Compare: dose timing, before and after, habits (Insights › Compounds)', async () => {
+  await go.compounds()
   await page.click('[data-testid="open-compare"]')
   await seen('[data-testid="compare-sheet"]')
   await seen('[data-testid="compare-caveat"]')
@@ -99,7 +108,7 @@ await step('Compare: dose timing, before and after, habits', async () => {
 })
 
 await step('Sleep: verdict, your normal, stages, what shaped it, 14 nights, debt, tonight, Sleep Lab, trends', async () => {
-  await tab('Sleep')
+  await go.night()
   await seen('[data-testid="last-night"]')
   const score = Number(await page.textContent('[data-testid="sleep-score"]'))
   if (!(score >= 0 && score <= 100)) throw new Error(`score ${score}`)
@@ -116,8 +125,7 @@ await step('Sleep: verdict, your normal, stages, what shaped it, 14 nights, debt
   await seen('[data-testid="debt-value"]')
   if (!/^In bed by \d\d:\d\d to wake at \d\d:\d\d$/.test(await page.textContent('[data-testid="tonight-bedtime"]'))) throw new Error('tonight')
   await seen('[data-testid="log-habits"]')
-  await seen('[data-testid="lab-teaser"]')
-  await seen('[data-testid="lab-open-analysis"]')
+  await seen('[data-testid="open-sleep-lab"]')
   for (const gone of ['sleep-timing', 'sleep-debt', 'sleep-planner', 'sleep-trends', 'naps', 'score-breakdown']) {
     if (await page.locator(`[data-testid="${gone}"]`).count()) throw new Error(`${gone} is still on the main tab`)
   }
@@ -126,13 +134,13 @@ await step('Sleep: verdict, your normal, stages, what shaped it, 14 nights, debt
   await page.click('[data-testid="normal-deep"]')
   await seen('[data-testid="metric-screen"]')
   await page.click('[data-testid="sleep-back"]')
-  // trends: 7, 30 and 90 nights
-  await page.click('[data-testid="open-trends"]')
+  // trends: 7, 30 and 90 nights, its own segment
+  await page.click('[data-testid="sleep-seg-trends"]')
   await seen('[data-testid="sleep-trends-screen"]')
   for (const k of ['asleep', 'deep', 'rem', 'hr', 'hrv', 'spread', 'score']) await seen(`[data-testid="trend-${k}"]`)
   await page.click('[data-testid="trends-90"]')
   await noOverflow('Sleep › Trends')
-  await page.click('[data-testid="sleep-back"]')
+  await page.click('[data-testid="sleep-seg-night"]')
   // the night in detail: the gesture chart, what happened, the numbers checked
   await page.click('[data-testid="open-detail"]')
   await seen('[data-testid="night-detail"]')
@@ -222,10 +230,10 @@ await step('Sleep: verdict, your normal, stages, what shaped it, 14 nights, debt
   await closeSheet()
 })
 
-await step('Body has Composition, Measurements, Effects and Recovery; no Training', async () => {
+await step('Body has Composition, Measurements and Photos; no Training', async () => {
   await tab('Body')
   const segs = await page.locator('[data-testid^="body-seg-"]').allTextContents()
-  if (segs.join('|') !== 'Composition|Measurements|Effects|Recovery') throw new Error(`segments ${segs}`)
+  if (segs.join('|') !== 'Composition|Measurements|Photos') throw new Error(`segments ${segs}`)
   await page.click('[data-testid="body-seg-measurements"]')
   await seen('[data-testid="measurements-area"]')
   await noOverflow('Body › Measurements')
@@ -291,8 +299,8 @@ await step('Trends: overall progress chart and the metric chart', async () => {
   await noOverflow('Trends')
 })
 
-await step('Effects: one row per tracked compound, each opening its own page', async () => {
-  await page.click('[data-testid="body-seg-effects"]')
+await step('Effects: one row per tracked compound, each opening its own page (Insights › Compounds)', async () => {
+  await go.compounds()
   await seen('[data-testid="effects-compound"]')
   if (await page.locator('[data-testid="phase-card"]').count()) throw new Error('the old combined phase cards are still there')
   await page.locator('[data-testid="effects-compound"]').first().click()
@@ -310,7 +318,7 @@ await step('Effects: one row per tracked compound, each opening its own page', a
 })
 
 await step('Charts: a compound lane under the axis, a tapped change draws a guide', async () => {
-  await page.click('[data-testid="body-seg-recovery"]')
+  await go.readiness()
   const hrv = page.locator('[data-testid="trend-chart-hrv"]')
   await hrv.locator('[data-testid="overlay-button"]').click()
   const toggles = hrv.locator('[data-testid^="lane-toggle-"]')
@@ -441,7 +449,7 @@ await step('Trends: Start line on the weight chart, the start entry on 1 Jan 202
 })
 
 await step('Composition: all metrics, body map, scan compare, goal and device charts', async () => {
-  await tab('Home'); await tab('Body')
+  await tab('Today'); await tab('Body')
   await page.click('[data-testid="all-metrics-toggle"]')
   for (const g of ['Composition', 'Fat distribution', 'Water', 'Energy', 'Scores', 'Index']) await seen(`[data-testid="metric-group-${g}"]`)
   const ffmi = await page.locator('[data-testid="metric-row-ffmi"]').innerText()
@@ -490,7 +498,7 @@ const todayIso = () => page.evaluate(() => {
 })
 
 await step('Sauna: a normal session is two taps, and the hero counts it', async () => {
-  await tab('Sauna')
+  await go.sauna()
   await seen('[data-testid="sauna-hero"]')
   await page.click('[data-testid="sauna-log"]')
   await seen('[data-testid="sauna-log-sheet"]')
@@ -526,7 +534,7 @@ await step('Sauna timer: elapsed time, no heat note, stop opens the log prefille
   // a reload keeps the time: it is worked out from the stored start
   await page.reload({ waitUntil: 'domcontentloaded' })
   await page.waitForSelector('nav button')
-  await tab('Sauna')
+  await go.sauna()
   await seen('[data-testid="sauna-running"]')
   await page.click('[data-testid="timer-stop"]')
   await seen('[data-testid="sauna-log-sheet"]')
@@ -574,40 +582,44 @@ await step('Sauna history, session detail with heart rate, effects and the info 
   if (await page.locator('[data-testid="trend-chart-saunaLength"], [data-testid="trend-chart-saunaTemp"]').count()) throw new Error('session length or temperature chart is back')
   // the heat adaptation chart is gone: minute 10 is a row in the session detail
   if (await page.locator('[data-testid="sauna-adaptation"]').count()) throw new Error('the heat adaptation chart is back')
+  if (!/^\d+ sessions? this week · target \d+$/.test(await page.textContent('[data-testid="sauna-week-header"]'))) throw new Error('week header')
+  const logText = await page.textContent('[data-testid="sauna-tab"]')
+  if (/caused|improved|worked|\u2014/i.test(logText)) throw new Error('causal wording or an em dash')
+  await page.click('[data-testid="sauna-info-open"]')
+  await seen('[data-testid="sauna-info"]')
+  await closeSheet()
+  await noOverflow('Sauna')
+  // patterns and the longer term live in Insights › Sauna
+  await page.click('[data-testid="sauna-open-insights"]')
+  await seen('[data-testid="sauna-insights"]')
   await seen('[data-testid="sauna-patterns-locked"]')
   if (!/^Needs 7 sauna days to compare\. You have \d\.$/.test((await page.textContent('[data-testid="sauna-patterns-locked"]')).trim())) throw new Error('patterns lock line')
   // since you started and inside sauna days lead the patterns; each locked line says what it needs and has
   await seen('[data-testid="sauna-before-since"]')
   await seen('[data-testid="sauna-within"]')
   if (!/unlocks? with more sessions · \d of 5$/.test((await page.textContent('[data-testid="sauna-within-progress"]')).trim())) throw new Error('within progress row')
-  if (!/^\d+ sessions? this week · target \d+$/.test(await page.textContent('[data-testid="sauna-week-header"]'))) throw new Error('week header')
   if (await page.locator('[data-testid="sauna-pattern-row"]').count()) throw new Error('pattern rows before they unlock')
   await seen('[data-testid="sauna-longer-locked"]')
   if (await page.locator('[data-testid="sauna-weekly-rhr"], [data-testid="sauna-weekly-hrv"]').count()) throw new Error('the weekly scatter is back')
-  const tabText = await page.textContent('[data-testid="sauna-tab"]')
+  const tabText = await page.textContent('[data-testid="sauna-insights"]')
   // "Too early: needs 6 sessions" is the heat adaptation verdict by design; causal words and em dashes never
   if (/caused|improved|worked|\u2014/i.test(tabText)) throw new Error('causal wording or an em dash')
-  await page.click('[data-testid="sauna-info-open"]')
-  await seen('[data-testid="sauna-info"]')
-  await closeSheet()
-  await noOverflow('Sauna')
+  await noOverflow('Insights › Sauna')
 })
 
 await step('Sauna everywhere: chart lane, Effects entry, sleep factors, calendar day sheet', async () => {
-  await tab('Body')
-  await page.click('[data-testid="body-seg-recovery"]')
+  await go.readiness()
   const chart = page.locator('[data-testid="trend-chart-hrv"]').first()
   await chart.locator('[data-testid="overlay-button"]').click()
   await chart.locator('[data-testid="lane-toggle-sauna"]').click()
   await page.waitForTimeout(400)
   await chart.locator('[data-testid="lane-sauna"]').waitFor({ state: 'attached' })
   if (!(await chart.locator('[data-testid="lane-sauna-dot"]').count())) throw new Error('no sauna dots on the lane')
-  await page.click('[data-testid="body-seg-effects"]')
-  await page.click('[data-testid="effects-compound"][data-compound="sauna"]')
-  await seen('[data-testid="effects-sauna"]')
-  await page.click('[data-testid="effects-back"]')
-  // sauna is an automatic factor in Sleep › Analysis
-  await tab('Sleep')
+  // sauna effects have one home: Insights › Sauna
+  await tab('Insights'); await page.click('[data-testid="insights-seg-sauna"]')
+  await seen('[data-testid="sauna-insights"]')
+  // sauna is an automatic factor in Sleep Lab › Analysis
+  await go.lab()
   await page.click('[data-testid="lab-open-analysis"]')
   await seen('[data-testid="lab-factors"], [data-testid="lab-locked"]', 30000)
   const lab = await page.textContent('[data-testid="lab-analysis"]')
@@ -667,12 +679,13 @@ await step('Sleep from Apple Health only: lanes, summary, Restless nights, Sleep
   console.log(`   last night: ${summary}`)
   if (/snor|moved|restless/i.test(await page.textContent('[data-testid="what-happened"]').catch(() => ''))) throw new Error('What happened mentions sound or movement')
   await page.click('[data-testid="sleep-back"]')
+  await go.lab()
   await page.click('[data-testid="lab-open-restless"]')
   await seen('[data-testid="lab-restlessness"]')
   await seen('[data-testid="restless-wakeups"]')
   await noOverflow('Restless nights')
   await page.click('[data-testid="lab-back"]')
-  await seen('[data-testid="sleep-view"]')
+  await seen('[data-testid="sleep-lab"]')
   // More › Health › Sleep source lists only what Health returned
   await tab('More')
   await page.click('[data-testid="more-health"]')
@@ -694,8 +707,8 @@ await step('Sleep from Apple Health only: lanes, summary, Restless nights, Sleep
   if (!kept) throw new Error('the old Sleep sounds or movement rows were dropped from the store')
 })
 
-await step('Heart: from the resting HR on Home and from Recovery; summary on the Sleep hero', async () => {
-  await tab('Home')
+await step('Heart: Sleep › Heart, from the resting HR on Today and from Readiness; summary on the Sleep hero', async () => {
+  await tab('Today')
   await page.click('[data-testid="home-rhr"]')
   await seen('[data-testid="heart-view"]', 15000)
   const answer = await page.locator('[data-testid="heart-answer"]').innerText()
@@ -704,21 +717,22 @@ await step('Heart: from the resting HR on Home and from Recovery; summary on the
   await seen('[data-testid="heart-long-chart"]')
   await seen('[data-testid="heart-coverage"]')
   await noOverflow('Heart')
-  await page.click('[data-testid="heart-back"]')
-  await seen('[data-testid="recovery-view"]')
+  if ((await page.locator('[data-testid="sleep-seg-heart"]').getAttribute('aria-selected')) !== 'true') throw new Error('resting HR did not open Sleep › Heart')
+  await go.readiness()
   await page.click('[data-testid="open-heart"]')
   await seen('[data-testid="heart-view"]')
+  await page.click('[data-testid="sleep-seg-night"]')
   await tab('Sleep')
   await seen('[data-testid="last-night"] [data-testid="heart-summary"]')
   await seen('[data-testid="normal-timeToLow"]')
 })
 
 await step('Sauna settings: switching off "Show sauna on Home" removes the row', async () => {
-  await tab('Sauna')
+  await go.sauna()
   await page.click('[data-testid="sauna-settings-open"]')
   await page.click('[data-testid="sauna-show-home"]')
   await closeSheet()
-  await tab('Home')
+  await tab('Today')
   if (await page.locator('[data-testid="home-sauna-row"]').count()) throw new Error('the sauna row is still on Home')
 })
 

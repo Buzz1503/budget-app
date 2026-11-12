@@ -179,7 +179,7 @@ await step('1a · a pause can also be started from the Home header', async () =>
   await page.waitForSelector('nav button'); await page.waitForTimeout(1200)
   await gotIt()
 
-  await nav('Home')
+  await nav('Today')
   const btn = page.locator('[data-testid="home-pause"]')
   if (!(await btn.count())) throw new Error('no way to pause from the Home header')
   await btn.click()
@@ -192,7 +192,7 @@ await step('1a · a pause can also be started from the Home header', async () =>
   if (s.pauses.at(-1)?.reason !== 'sick') throw new Error('the pause was not started from Home')
 
   // and it stands down once something is paused, because the banner carries Resume
-  await nav('Home')
+  await nav('Today')
   if (await page.locator('[data-testid="home-pause"]').count()) {
     throw new Error('the header still offers Pause while already paused')
   }
@@ -362,7 +362,7 @@ await step('3 · pause bands show on the timeline with the reason', async () => 
 })
 
 await step('3b · Home says it is paused, with the reason and how long', async () => {
-  await nav('Home')
+  await nav('Today')
   const banner = page.locator('[data-testid="paused-banner"]')
   if (!(await banner.count())) throw new Error('Home does not say the protocol is paused')
   const txt = await banner.innerText()
@@ -375,7 +375,7 @@ await step('3b · Home says it is paused, with the reason and how long', async (
 })
 
 await step('3c · Resume puts the schedule back from today', async () => {
-  await nav('Home')
+  await nav('Today')
   await page.click('[data-testid="resume-protocol"]')
   await page.waitForTimeout(900)
   const s = await state()
@@ -407,7 +407,7 @@ await step('3d · a step-up due during the pause is held and asked on resume', a
   await page.reload({ waitUntil: 'domcontentloaded' })
   await page.waitForSelector('nav button'); await page.waitForTimeout(1400)
   await gotIt()
-  await nav('Home')
+  await nav('Today')
 
   const held = page.locator('[data-testid="held-step-ups"]')
   if (!(await held.count())) throw new Error('nothing says a step-up was held')
@@ -737,11 +737,11 @@ await step('8 · the app works normally and existing data is intact', async () =
   if (!Array.isArray(s.vials)) throw new Error('the shelf is gone')
   if (!s.bloods?.tests?.length) throw new Error('the blood results are gone')
   if (!Array.isArray(s.pauses)) throw new Error('the pauses list is gone')
-  for (const tab of ['Home', 'Calendar', 'Symptoms', 'Body', 'Bloods', 'More']) {
+  for (const tab of ['Today', 'Calendar', 'Symptoms', 'Body', 'Bloods', 'More']) {
     await nav(tab)
     await noOverflow(tab)
   }
-  await nav('Home')
+  await nav('Today')
   await page.screenshot({ path: `${SHOT}/v36-home.png` })
   console.log(`  ${s.peptides.length} compounds, ${s.vials.length} vials, ${s.bloods.tests.length} blood tests`)
 })

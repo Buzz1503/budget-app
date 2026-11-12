@@ -1029,7 +1029,7 @@ await step('safety · a doctor flag and an emergency flag both pin a banner', as
   if (await banner.getAttribute('data-level') !== 'doctor') throw new Error('red streaks did not read as a doctor flag')
   if (!/see a doctor today/i.test(await banner.innerText())) throw new Error('the doctor wording is missing')
 
-  await nav('Home')
+  await nav('Today')
   if (!(await page.locator('[data-testid="safety-banner"]').count())) throw new Error('the banner is not on Today')
 
   await tracker()
@@ -1109,7 +1109,7 @@ await step('19 · old Reaction Lab data migrates with nothing lost and the stray
 await step('20 · no emoji anywhere on the screens this touched', async () => {
   const EMOJI = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{1F1E6}-\u{1F1FF}]/u
   const screens = [
-    ['Home', async () => nav('Home')],
+    ['Home', async () => nav('Today')],
     ['Body stats', async () => body('Stats')],
     ['Body trends', async () => body('Trends')],
     ['Body photos', async () => body('Photos')],
@@ -1131,7 +1131,7 @@ await step('20 · no emoji anywhere on the screens this touched', async () => {
 
 await step('21 · every tab still opens and the untouched data is intact', async () => {
   const before = await state()
-  for (const label of ['Home', 'Calendar', 'Symptoms', 'Body', 'Bloods', 'More']) {
+  for (const label of ['Today', 'Calendar', 'Symptoms', 'Body', 'Bloods', 'More']) {
     await nav(label)
     const count = await page.locator('nav button').count()
     if (count !== 4) throw new Error(`${label} left ${count} nav buttons`)

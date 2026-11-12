@@ -117,7 +117,7 @@ await step('2 · Mix tool still there, log-together still reachable', async () =
   await shutMenus()
   await more('mix')
   if (!(await page.locator('body').innerText()).length) throw new Error('the Mix tab is empty')
-  await nav('Home')
+  await nav('Today')
 })
 
 // ================================================= 3 · one tap, undo, batch

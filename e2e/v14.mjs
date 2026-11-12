@@ -68,7 +68,7 @@ await step('More starts with Calendar, Reactions, Bloods, Stock; no Symptoms or 
 
 await step('no feelings check-in on Home, in Reactions, the calendar or History', async () => {
   for (const go of [
-    async () => page.click('nav button[aria-label="Home"]'),
+    async () => page.click('nav button[aria-label="Today"]'),
     async () => { await page.click('nav button[aria-label="More"]'); await page.click('[data-testid="more-reactions"]') },
     async () => { await page.click('nav button[aria-label="More"]'); await page.click('[data-testid="more-history"]') },
   ]) {

@@ -131,7 +131,7 @@ await step('OFFLINE: app still opens and data tabs work with no network', async 
 })
 
 await step('existing app data still persists across reload', async () => {
-  await page.click('nav button:has-text("Home")')
+  await page.click('nav button:has-text("Today")')
   await page.waitForTimeout(400)
   const before = await page.evaluate(() => localStorage.getItem('peptide-command-center'))
   if (!before) throw new Error('store not written')

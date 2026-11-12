@@ -298,12 +298,12 @@ await step('5 · a save from before v30.1 keeps its data and loses only the them
 })
 
 await step('5 · every screen renders with no overflow', async () => {
-  for (const tab of ['Home', 'Calendar', 'Symptoms', 'Body', 'More']) {
+  for (const tab of ['Today', 'Calendar', 'Symptoms', 'Body', 'More']) {
     await nav(tab)
     const w = await page.evaluate(() => document.documentElement.scrollWidth)
     if (w > 391) throw new Error(`${tab} overflows to ${w}px`)
   }
-  await nav('Home')
+  await nav('Today')
   await page.screenshot({ path: `${SHOT}/v33-home.png` })
   await more('history')
   await page.screenshot({ path: `${SHOT}/v33-history.png`, fullPage: true })

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import {
   Package, Settings, ChevronRight, Activity, History, Wand2, FlaskConical,
-  Combine, Pill, ClipboardList, CalendarPlus, HeartPulse, Upload, Droplet, CalendarDays, MapPin, Zap, Bell, Watch, Lock, FileText,
+  Combine, Pill, ClipboardList, CalendarPlus, HeartPulse, Upload, Droplet, CalendarDays, MapPin, Zap, Bell, Watch, Lock, FileText, Flame,
 } from 'lucide-react'
 import { HEALTH_BUILD } from '../health/ui'
 import useLowStockDot from '../lib/useLowStock'
@@ -21,6 +21,7 @@ const SECTIONS = [
     id: 'track',
     title: 'Track',
     links: [
+      { id: 'sauna', label: 'Sauna', desc: 'Log a session, the timer, history and settings', icon: Flame },
       { id: 'calendar', label: 'Calendar', desc: 'Every day, with doses, notes and the day sheet', icon: CalendarDays },
       { id: 'reactions', label: 'Reactions', desc: 'Injection sites, reactions and the site map', icon: MapPin },
       { id: 'bloods', label: 'Bloods', desc: 'Results, ranges and trends', icon: Droplet },
@@ -61,7 +62,7 @@ const SECTIONS = [
   }] : []),
   {
     id: 'data',
-    title: 'Data',
+    title: 'Data and import',
     links: [
       // native app only: Apple Health is read on the iPhone, never on the web
       ...(HEALTH_BUILD ? [{ id: 'health', label: 'Health', desc: 'Apple Health connection, sleep and training settings', icon: HeartPulse }] : []),

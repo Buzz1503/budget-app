@@ -153,7 +153,7 @@ await step('no horizontal overflow at 390px on any tab', async () => {
   await closeAny()
   await page.keyboard.press('Escape')
   await page.waitForTimeout(400)
-  for (const tab of ['Home', 'Calendar', 'Symptoms', 'Body', 'More']) {
+  for (const tab of ['Today', 'Calendar', 'Symptoms', 'Body', 'More']) {
     await nav(tab)
     await page.waitForTimeout(450)
     const over = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
@@ -170,7 +170,7 @@ await step('logs survive a reload', async () => {
   if (st.peptides.length !== before.peptides.length) throw new Error('the stack changed on reload')
 })
 
-await nav('Home')
+await nav('Today')
 await page.screenshot({ path: `${SHOT}/v15-home.png`, fullPage: true })
 await page.click('button:has-text("AM")')
 await page.waitForTimeout(300)

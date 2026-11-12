@@ -1,7 +1,6 @@
 import { ChevronRight } from 'lucide-react'
 import useStore, { todayStr } from '../../store/useStore'
 import { useHealth } from '../../health/state'
-import { useHealthLink } from '../../lib/healthLink'
 import { rowFor } from '../../health/engine/model'
 import useHealthModel from './useHealthModel'
 import { ReadinessRing, minutesWords } from './atoms'
@@ -9,6 +8,7 @@ import { DeltaChip } from '../ui/Glance'
 import { recoveryAnswer } from '../../lib/glance'
 import { HEALTH_BANDS } from './bands'
 import { saunaLastNight } from '../../sauna/sauna'
+import { wakeUps } from '../../sleep/restless'
 import { rhrVsReference } from '../../health/heart'
 import { useHeartReference } from './useHeart'
 
@@ -19,15 +19,15 @@ import { useHeartReference } from './useHeart'
 export default function HomeHealthCard({ goTo }) {
   const available = useHealth((s) => s.available)
   const connected = useStore((s) => s.healthSettings.connected)
-  const setBodySegment = useHealthLink((s) => s.setBodySegment)
   const saunaSessions = useStore((s) => s.saunaSessions)
   const model = useHealthModel()
   const heartRef = useHeartReference()
   const t = todayStr()
   if (!available) return null
 
-  const openRecovery = () => { setBodySegment('recovery'); goTo?.('body') }
-  const openHeart = () => { setBodySegment('heart'); goTo?.('body') }
+  const openRecovery = () => goTo?.('readiness')
+  const openHeart = () => goTo?.('heart')
+  const openNight = () => goTo?.('last-night')
 
   if (!connected) {
     return (
@@ -45,7 +45,11 @@ export default function HomeHealthCard({ goTo }) {
   const night = model.nightBy.get(t)
   const rhr = rowFor(model, 'rhr', t)
   const hrv = rowFor(model, 'hrv', t)
-  const vsRef = rhrVsReference(rhr.value, heartRef.rhrMean)
+  const score = night ? model.sleepScore(t)?.score ?? null : null
+  const wakes = night?.hasStages ? wakeUps(night.segments) : null
+  // Apple writes the day's resting HR later in the day: until then, yesterday's
+  const rhrValue = rhr.value ?? heartRef.latestRhr
+  const vsRef = rhrVsReference(rhrValue, heartRef.rhrMean)
   const chip = r.chip || (saunaLastNight(saunaSessions, t) ? 'Sauna last night' : null)
 
   return (
@@ -68,12 +72,13 @@ export default function HomeHealthCard({ goTo }) {
         <ChevronRight size={18} className="shrink-0" style={{ color: 'var(--text-3)' }} />
       </button>
       <div className="mt-3 grid grid-cols-3 gap-2" data-testid="home-health-stats">
-        <MiniStat label="Sleep" value={night ? minutesWords(night.asleepMin) : '–'} />
-        <MiniStat label="Resting HR" value={rhr.value != null ? Math.round(rhr.value) : '–'} unit="bpm" onClick={openHeart} testid="home-rhr"
+        <MiniStat label="Asleep" value={night ? minutesWords(night.asleepMin) : '–'} onClick={openNight} testid="home-asleep"
+          chip={score != null ? <span className="text-[13px] font-medium tabular-nums" style={{ color: 'var(--text-3)' }} data-testid="home-sleep-score">score {score}</span> : null} />
+        <MiniStat label="Wake-ups" value={wakes ? wakes.count : night ? (night.hasStages ? 0 : '–') : '–'} onClick={openNight} testid="home-wakeups"
+          chip={wakes ? <span className="text-[13px] font-medium tabular-nums" style={{ color: 'var(--text-3)' }}>{wakes.awakeMin} min awake</span> : night && !night.hasStages ? <span className="text-[13px]" style={{ color: 'var(--text-3)' }}>No stages</span> : null} />
+        <MiniStat label="Resting HR" value={rhrValue != null ? Math.round(rhrValue) : '–'} unit="bpm" onClick={openHeart} testid="home-rhr"
           chip={vsRef.chip ? <DeltaChip text={vsRef.chip.replace(' vs good sleep', ' vs good')} tone={vsRef.tone} />
             : rhr.delta != null ? <DeltaChip metric="rhr" delta={rhr.delta} /> : <span className="text-[13px]" style={{ color: 'var(--text-3)' }}>no usual yet</span>} />
-        <MiniStat label="HRV" value={hrv.value != null ? Math.round(hrv.value) : '–'} unit="ms"
-          chip={hrv.delta != null ? <DeltaChip metric="hrv" delta={hrv.delta} unit="ms" /> : <span className="text-[13px]" style={{ color: 'var(--text-3)' }}>no usual yet</span>} />
       </div>
       {chip && <p className="mt-2 truncate text-[13px] font-medium" style={{ color: 'var(--text-3)' }} data-testid="home-context-chip">{chip}</p>}
     </div>

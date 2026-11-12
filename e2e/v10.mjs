@@ -31,7 +31,7 @@ const waitText = async (re, timeout = 15000) => {
   }
   throw new Error('timeout waiting for ' + re)
 }
-const PRIMARY_TABS = new Set(['Home', 'Calendar', 'Symptoms', 'Body', 'More'])
+const PRIMARY_TABS = new Set(['Today', 'Calendar', 'Symptoms', 'Body', 'More'])
 // v13 moved everything but the five primary tabs under the More hub, so a
 // screen is reached by its More-hub description rather than a nav button.
 const MORE_LINK = {
@@ -63,7 +63,7 @@ const nav = async (label) => {
     if (await tab.count()) { await tab.click(); await page.waitForTimeout(450) }
   }
   // Home defaults to the current wall-clock slot; these suites want the morning
-  if (label === 'Home') { await page.click('button:has-text("AM")'); await page.waitForTimeout(400) }
+  if (label === 'Today') { await page.click('button:has-text("AM")'); await page.waitForTimeout(400) }
 }
 const modal = () => page.locator('div.fixed.inset-0.z-50 > div.card')
 // v15 unboxed the combine plan and tucked its reasoning behind an info tap
@@ -286,7 +286,7 @@ await step('the nasal prep recipe is shown, with the exact numbers', async () =>
 await page.screenshot({ path: `${SHOT}/v10-04-nasal-recipe.png` })
 
 await step('Home shows Semax in sprays with no insulin units', async () => {
-  await nav('Home')
+  await nav('Today')
   await waitText(/Semax/, 15000)
   const i = await page.locator('[data-testid="log-row"]').evaluateAll(
     (els) => els.findIndex((e) => /Semax/.test(e.getAttribute('aria-label') || '')))
@@ -322,7 +322,7 @@ await step('it is excluded from injection co-draws and the combine plan', async 
 // is asserted here is what a nasal log must never get wrong: it records sprays,
 // not syringe units, and asks nothing on the way.
 await step('logging a nasal dose records sprays and asks nothing', async () => {
-  await nav('Home')
+  await nav('Today')
   await page.waitForTimeout(700)
   const i = await page.locator('[data-testid="log-row"]').evaluateAll(
     (els) => els.findIndex((e) => /Semax/.test(e.getAttribute('aria-label') || '') && e.dataset.done !== 'true'))

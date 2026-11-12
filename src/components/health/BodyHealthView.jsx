@@ -1,4 +1,4 @@
-import { useMemo, useState, Suspense, lazy } from 'react'
+import { useMemo, useState } from 'react'
 import { Info, HeartPulse, Flame, ChevronRight } from 'lucide-react'
 import useStore, { todayStr } from '../../store/useStore'
 import { useHealth } from '../../health/state'
@@ -17,10 +17,7 @@ import { AnswerLine, DeltaChip, SectionTitle, StatRow } from '../ui/Glance'
 import { recoveryAnswer } from '../../lib/glance'
 import { HEALTH_BANDS } from './bands'
 import { SyncLine } from './HealthSettings'
-import { useHealthLink } from '../../lib/healthLink'
 
-const CompareSheet = lazy(() => import('./CompareSheet'))
-const HeartView = lazy(() => import('./HeartView'))
 
 const lastDays = (t, n) => dateRange(addDays(t, -(n - 1)), t)
 const clean = (rows) => rows.filter((r) => r.value != null)
@@ -48,16 +45,15 @@ export function NotConnected({ goTo }) {
   )
 }
 
-export default function BodyHealthView({ goTo, segment }) {
+/** Readiness in detail (was Body › Recovery), opened from the Today card. */
+export default function BodyHealthView({ goTo }) {
   const connected = useStore((s) => s.healthSettings.connected)
-  const setSegment = useHealthLink((s) => s.setBodySegment)
   const model = useHealthModel()
   if (!connected) return <NotConnected goTo={goTo} />
   if (!model.hasData) return <EmptyState />
-  if (segment === 'heart') return <Suspense fallback={null}><HeartView onBack={() => setSegment('recovery')} /></Suspense>
   // Training left Body in stage 2D; its data and engines stay (sleep factors,
   // the planner and sauna detection read them), so any old link lands here
-  return <RecoveryView model={model} />
+  return <RecoveryView model={model} goTo={goTo} />
 }
 
 // ---------------------------------------------------------------- Recovery
@@ -109,11 +105,10 @@ function SaunaRecoveryLine() {
   )
 }
 
-function RecoveryView({ model }) {
+function RecoveryView({ model, goTo }) {
   const t = todayStr()
   const compounds = useCompounds()
   const [info, setInfo] = useState(false)
-  const [compare, setCompare] = useState(false)
   const r = model.readiness(t)
   const days28 = lastDays(t, 28)
   const spark = (key) => days28.map((d) => model.series[key].get(d) ?? null)
@@ -160,27 +155,20 @@ function RecoveryView({ model }) {
         </div>
       </div>
 
-      <button onClick={() => useHealthLink.getState().setBodySegment('heart')} className="card flex w-full items-center gap-3 p-4 text-left" data-testid="open-heart">
-        <span className="min-w-0 flex-1">
-          <span className="t-label block">Heart</span>
-          <span className="block text-[13px] font-medium" style={{ color: 'var(--text-3)' }}>Resting and sleeping heart rate by dose, around changes, and against your good sleep period.</span>
-        </span>
-        <ChevronRight size={18} className="shrink-0" style={{ color: 'var(--text-3)' }} />
-      </button>
-
       <SaunaRecoveryLine />
 
       <TrendChart metric="readiness" title="Readiness" series={clean(readinessSeries)} dp={0} events={events} />
       <TrendChart metric="hrv" title="Heart rate variability" unit="ms" series={clean(series('hrv'))} dp={0} events={events}
         note="Apple Watch measures HRV as SDNN." />
-      <TrendChart metric="rhr" title="Resting heart rate" unit="bpm" series={clean(series('rhr'))} dp={0} events={events} />
-
-      <button onClick={() => setCompare(true)} className="w-full rounded-full py-3 text-sm font-bold" style={{ background: 'var(--surface-sunk)', color: 'var(--text-2)' }} data-testid="open-compare">
-        Compare
+      <button onClick={() => goTo?.('heart')} className="card flex w-full items-center gap-3 p-4 text-left" data-testid="open-heart">
+        <span className="min-w-0 flex-1">
+          <span className="t-label block">Resting heart rate</span>
+          <span className="block text-[13px] font-medium" style={{ color: 'var(--text-3)' }}>The long view, by dose and against your good sleep period. In Sleep › Heart.</span>
+        </span>
+        <ChevronRight size={18} className="shrink-0" style={{ color: 'var(--text-3)' }} />
       </button>
 
       <HowCalculated open={info} onClose={() => setInfo(false)} />
-      {compare && <Suspense fallback={null}><CompareSheet model={model} onClose={() => setCompare(false)} /></Suspense>}
     </div>
   )
 }

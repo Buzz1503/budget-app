@@ -134,7 +134,7 @@ await page.waitForTimeout(400)
 
 await step('the Home coach tip points at the Log button and dismisses, once', async () => {
   for (let i = 0; i < 4; i++) { await page.keyboard.press('Escape'); await page.waitForTimeout(250) }
-  await page.click('nav button:has-text("Home")')
+  await page.click('nav button:has-text("Today")')
   await page.waitForTimeout(900)
   const tip = page.locator('[data-coach="log-button"]')
   if (!await tip.count()) throw new Error('no Log-button coach tip on Home')

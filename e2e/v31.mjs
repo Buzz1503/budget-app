@@ -219,7 +219,7 @@ await step('either profile logging a draw moves the same vial', async () => {
     throw new Error(`partner's 1 mg draw moved the vial by ${start - afterPartner} mg`)
   }
   // and the owner's own dose comes out of that same number
-  await nav('Home')
+  await nav('Today')
   await page.waitForTimeout(700)
   const s = await state()
   console.log(`  ${start} mg → ${afterPartner} mg after the partner's 1 mg draw`)
@@ -277,7 +277,7 @@ await step('the "this PM" take-count box is gone', async () => {
 })
 
 await step('missed doses are absent from Home, and present in the Calendar', async () => {
-  await nav('Home')
+  await nav('Today')
   await page.waitForTimeout(700)
   if (await page.locator('[data-testid="catch-up-card"]').count()) {
     throw new Error('the missed-dose card is still on Home')
@@ -308,7 +308,7 @@ await step('missed doses are absent from Home, and present in the Calendar', asy
 })
 
 await step('the co-draw row sits below the inject cards and lists no compound names', async () => {
-  await nav('Home')
+  await nav('Today')
   await page.waitForTimeout(900)
   const row = page.locator('[data-testid="codraw-row"]')
   if (!(await row.count())) { console.log('  nothing combinable in this slot, skipped'); return }

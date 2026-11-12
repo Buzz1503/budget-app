@@ -71,6 +71,8 @@ export function useHeartReference() {
     const reference = settings?.reference?.from && settings?.reference?.to ? settings.reference : defaultReference(compounds, t)
     const rhr = new Map()
     for (const r of model.daily) if (r.restingHR != null) rhr.set(r.date, r.restingHR)
-    return { reference, rhrMean: rangeMean(rhr, reference) }
+    // the latest resting HR from the last two days, for the Today card before today's arrives
+    const latestRhr = rhr.get(t) ?? rhr.get(addDays(t, -1)) ?? null
+    return { reference, rhrMean: rangeMean(rhr, reference), latestRhr }
   }, [model, compounds, settings, t])
 }

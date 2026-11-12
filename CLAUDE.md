@@ -15,8 +15,8 @@ State is one persisted Zustand store, `src/store/useStore.js`; pure logic lives 
 - Design: dark only, Inter, tabular numbers, spacing 4/8/12/16/20/24/32/40/56, radii 10/14/20/pill, colour only where it carries
   meaning, no coloured icon tiles. Easy to read: `components/ui/Glance.jsx` + `src/lib/glance.ts` (AnswerLine, StatRow, DeltaChip by
   `betterOf`, StatusDot, InfoButton, ProgressRow), three text levels; every chart passes `src/body/chartGlance.ts`.
-- Tabs: Home, Body (Composition, Measurements, Effects, Recovery), Sleep (native only), Sauna, More (Calendar, Reactions, Bloods, Stock first).
-  Home is exactly: readiness card (native), today's log, sauna row. Screens other than Home are lazy, each in an `ErrorBoundary`.
+- Tabs (`src/lib/nav.js`: one home each, 2 taps max, routes via `openDestination`): Today (readiness and last night card, log, sauna row),
+  Sleep (Last night, Heart, Trends), Body (Composition, Measurements, Photos), Insights (Compounds, Sleep Lab, Sauna), More. Lazy screens.
 - Removed earlier, data kept: Symptoms "how I feel", daily check-in, Supplies (gear), Body › Training; Sleep sounds, Watch movement
   recording and Watch Start sleep (`nightExtras.sounds/restless`, `soundsLog`, `sleepModeLog` stay; `src/sleep/removed.test.js` guards).
 ## Health (native only)
