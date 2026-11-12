@@ -6,6 +6,7 @@ import { format, parseISO } from 'date-fns'
 import useStore, { todayStr } from '../../store/useStore'
 import { sourceRows, stagesWords } from '../../sleep/sources'
 import { useHealth } from '../../health/state'
+import { progressLine } from '../../health/sync'
 import NumberField from '../ui/NumberField'
 import PickerField from '../ui/PickerField'
 import { affectsBaseline } from '../../health/engine/protocol'
@@ -31,7 +32,7 @@ export function SyncLine() {
   if (syncing) {
     return (
       <p className="text-xs font-medium tabular-nums" style={{ color: 'var(--text-3)' }} data-testid="health-sync-progress">
-        {progress?.phase === 'history' ? 'Reading older Apple Health history' : 'Reading Apple Health'}{progress?.total ? ` · ${Math.min(progress.done + 1, progress.total)} of ${progress.total}` : '…'}
+        {progressLine(progress) || 'Reading Apple Health'}{progress?.total ? ` · ${Math.min(progress.done + 1, progress.total)} of ${progress.total}` : ''}
       </p>
     )
   }

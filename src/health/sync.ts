@@ -18,6 +18,8 @@ import { buildOvernight, morningLight } from './overnight'
 import { buildNights, buildDaily, buildWorkout, sleepingHeartRate } from './dayLogic'
 
 export const BACKFILL_DAYS = 365
+/** Heart rate inside sleep windows, the overnight detail and the daytime average are read this far back: two years and a bit. */
+export const HEART_HISTORY_DAYS = 760
 /** The earliest date the history probe looks at. */
 export const HISTORY_FLOOR = '2009-01-01'
 /** Quantities probed for the oldest reading: the body ones, so the Scale line reaches back as far as it can. */
@@ -28,10 +30,12 @@ const HISTORY_PROBE = ['weight', 'bodyFat', 'leanMass', 'restingHR'] as const
  * (latency, WASO, heart rate and SpO2 through the night, breathing
  * disturbances, headphone audio) and morning light. 5: HRV and breathing
  * rate samples through the night (night chart lanes), and each night's
- * sleep sources (the source picker). A cache written by an older version is
- * read again in full on the next sync.
+ * sleep sources (the source picker). 6: stages summed from one resolved
+ * timeline. 7: heart rate inside sleep windows, the overnight detail and the
+ * daytime average for two years, not one (the Heart section). A cache written
+ * by an older version is read again in full on the next sync.
  */
-export const NIGHTS_SCHEMA = 6
+export const NIGHTS_SCHEMA = 7
 export const CHUNK_DAYS = 30
 export const LATE_DATA_DAYS = 3
 
@@ -40,7 +44,15 @@ export interface SyncProgress {
   total: number
   /** 'history' while windows older than the usual year are being read */
   phase?: 'recent' | 'history'
+  /** the month being read, for "Loading your history: Mar 2025" */
+  month?: string
 }
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+/** "Mar 2025" */
+export const monthLabel = (d: string) => `${MONTHS[Number(d.slice(5, 7)) - 1]} ${d.slice(0, 4)}`
+/** The quiet line while history loads. */
+export const progressLine = (p: SyncProgress | null) => (p?.phase === 'history' && p.month ? `Loading your history: ${p.month}` : null)
 
 export interface SyncResult {
   from: string
@@ -107,17 +119,23 @@ export async function syncHealth({
   const stale = meta.backfillDone && (meta.nightsSchema ?? 1) < NIGHTS_SCHEMA
   // the full history is read once: now for an existing cache, on connect for a new one
   let historyFrom: string | null = null
-  if (!meta.historyDone) {
+  if (!meta.historyDone || stale) {
     try { historyFrom = await earliestReading(bridge, tz, now) } catch { historyFrom = null }
+    // at least two years, for sleep and heart rate, whatever the body readings reach
+    const heartFrom = addDays(today, -(HEART_HISTORY_DAYS - 1))
+    historyFrom = historyFrom && historyFrom < heartFrom ? historyFrom : heartFrom
   }
   const windows = syncWindows({ today, lastSyncDate, backfillDone: meta.backfillDone, full: full || stale, historyFrom })
   const recentFrom = addDays(today, -(BACKFILL_DAYS - 1))
+  const heartFrom = addDays(today, -(HEART_HISTORY_DAYS - 1))
   const result: SyncResult = { from: windows[0][0], to: today, days: 0, nights: 0, workouts: 0 }
 
   for (let i = 0; i < windows.length; i++) {
     const [d0, d1] = windows[i]
     const older = d1 < recentFrom
-    onProgress?.({ done: i, total: windows.length, phase: older ? 'history' : 'recent' })
+    // past two years: no heart rate inside sleep windows, no overnight detail
+    const deep = d1 < heartFrom
+    onProgress?.({ done: i, total: windows.length, phase: older ? 'history' : 'recent', month: monthLabel(d0) })
     const a = tz.startOfDay(d0)
     const b = Math.min(tz.startOfDay(addDays(d1, 1)), now)
     // a night that ends on d0 began the evening before; so did its wrist
@@ -150,15 +168,15 @@ export async function syncHealth({
       // the Sleep Lab's reads: nothing older than the usual year needs them
       older ? Promise.resolve([]) : bridge.quantity('breathing', wide, b + 6 * 3600000),
       older ? Promise.resolve([]) : bridge.quantity('daylight', a, b),
-      older ? Promise.resolve([]) : bridge.daytimeHeartRate(a, b),
+      deep ? Promise.resolve([]) : bridge.daytimeHeartRate(a, b),
       older ? Promise.resolve([]) : bridge.quantity('headphone', wide - 6 * 3600000, b),
     ])
 
     const nights = buildNights(sleep, { tz, priority, dates, preferred })
     // heart rate while asleep: read per main sleep, so a day of samples is never pulled
-    // (older than the usual year there is no sleeping heart rate: nothing reads it)
+    // (older than two years there is no sleeping heart rate)
     for (const n of Object.values(nights)) {
-      if (older) { n.sleepingHR = null; n.overnight = null; continue }
+      if (deep) { n.sleepingHR = null; n.overnight = null; continue }
       const hr = await bridge.quantity('heartRate', n.start, n.end)
       n.sleepingHR = sleepingHeartRate(hr, n.start, n.end)
       n.overnight = buildOvernight({ night: n, raw: sleep, hr, hrv, spo2, breathing, resp: respRate, headphone })

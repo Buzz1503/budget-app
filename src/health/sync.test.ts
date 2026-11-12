@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto'
 import { describe, it, expect, beforeEach } from 'vitest'
 import { HealthDB, loadAll, readMeta } from './cache'
-import { syncHealth, syncWindows, earliestReading, BACKFILL_DAYS, CHUNK_DAYS, NIGHTS_SCHEMA } from './sync'
+import { syncHealth, syncWindows, earliestReading, BACKFILL_DAYS, CHUNK_DAYS, NIGHTS_SCHEMA, HEART_HISTORY_DAYS, progressLine, monthLabel } from './sync'
 import { demoBridge, generateDemo } from './demo'
 import { nativeBridge } from './bridge'
 import type { HealthBridge } from './bridge'
@@ -72,14 +72,19 @@ describe('syncing into the cache', () => {
 
   it('backfills days, nights and workouts, and records the sync', async () => {
     const progress: number[] = []
-    const res = await syncHealth({ bridge: demoBridge({ now: NOW, tz }), db, tz, now: NOW, onProgress: (p) => progress.push(p.done) })
+    const lines: string[] = []
+    const res = await syncHealth({ bridge: demoBridge({ now: NOW, tz }), db, tz, now: NOW, onProgress: (p) => { progress.push(p.done); const l = progressLine(p); if (l) lines.push(l) } })
     const snap = await loadAll(db)
     expect(snap.daily.length).toBeGreaterThan(100)
     expect(snap.nights.length).toBeGreaterThanOrEqual(118)
     expect(snap.workouts.length).toBeGreaterThan(50)
     expect(res.workouts).toBe(snap.workouts.length)
     expect(progress[0]).toBe(0)
-    expect(progress.at(-1)).toBe(13)
+    // at least two years in 30-day chunks, oldest first, each named by its month while history loads
+    expect(progress.at(-1)).toBe(Math.ceil(HEART_HISTORY_DAYS / CHUNK_DAYS))
+    expect(res.from).toBe(addDays('2026-10-18', -(HEART_HISTORY_DAYS - 1)))
+    expect(lines[0]).toBe(`Loading your history: ${monthLabel(res.from)}`)
+    expect(monthLabel('2025-03-14')).toBe('Mar 2025')
     const meta = await readMeta(db)
     expect(meta.backfillDone).toBe(true)
     expect(meta.lastSyncAt).toBe(new Date(NOW).toISOString())
@@ -141,9 +146,17 @@ describe('syncing into the cache', () => {
     // pretend the cache was written before stage 2C: the next sync reads every window again
     await db.meta.put({ key: 'nightsSchema', value: 1 })
     const res = await syncHealth({ bridge, db, tz, now: NOW + 3600000 })
-    expect(res.from).toBe(addDays('2026-10-18', -(BACKFILL_DAYS - 1)))
+    expect(res.from).toBe(addDays('2026-10-18', -(HEART_HISTORY_DAYS - 1)))
     const res2 = await syncHealth({ bridge, db, tz, now: NOW + 7200000 })
     expect(res2.from).toBe(addDays('2026-10-18', -3))
+  })
+
+  it('nights up to two years back carry heart rate inside the sleep window; older ones keep duration only', async () => {
+    const bridge = demoBridge({ now: NOW, tz })
+    await syncHealth({ bridge, db, tz, now: NOW })
+    const snap = await loadAll(db)
+    const old = snap.nights.filter((n) => n.date < addDays('2026-10-18', -(BACKFILL_DAYS - 1)))
+    if (old.length) expect(old.some((n) => n.sleepingHR && n.overnight?.hr?.length)).toBe(true)
   })
 
   it('recent nights carry the Sleep Lab detail; days carry morning light and daytime heart rate', async () => {
