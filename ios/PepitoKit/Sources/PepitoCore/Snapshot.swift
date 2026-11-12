@@ -311,3 +311,13 @@ public extension Snapshot {
         return nil
     }
 }
+
+public extension Snapshot.Readiness {
+    /// "RHR 64 ↑": resting heart rate, with an arrow when it is 1 bpm or more from your usual.
+    var rhrWords: String? {
+        guard let h = rhr else { return nil }
+        var arrow = ""
+        if let d = rhrDelta, abs(d) >= 1 { arrow = d > 0 ? " ↑" : " ↓" }
+        return "RHR \(Int(h.rounded()))\(arrow)"
+    }
+}

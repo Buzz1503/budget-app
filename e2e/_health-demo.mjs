@@ -694,6 +694,25 @@ await step('Sleep from Apple Health only: lanes, summary, Restless nights, Sleep
   if (!kept) throw new Error('the old Sleep sounds or movement rows were dropped from the store')
 })
 
+await step('Heart: from the resting HR on Home and from Recovery; summary on the Sleep hero', async () => {
+  await tab('Home')
+  await page.click('[data-testid="home-rhr"]')
+  await seen('[data-testid="heart-view"]', 15000)
+  const answer = await page.locator('[data-testid="heart-answer"]').innerText()
+  if (!/^Resting HR \d+/.test(answer)) throw new Error(`hero answer: ${answer}`)
+  await seen('[data-testid="heart-summary"]')
+  await seen('[data-testid="heart-long-chart"]')
+  await seen('[data-testid="heart-coverage"]')
+  await noOverflow('Heart')
+  await page.click('[data-testid="heart-back"]')
+  await seen('[data-testid="recovery-view"]')
+  await page.click('[data-testid="open-heart"]')
+  await seen('[data-testid="heart-view"]')
+  await tab('Sleep')
+  await seen('[data-testid="last-night"] [data-testid="heart-summary"]')
+  await seen('[data-testid="normal-timeToLow"]')
+})
+
 await step('Sauna settings: switching off "Show sauna on Home" removes the row', async () => {
   await tab('Sauna')
   await page.click('[data-testid="sauna-settings-open"]')

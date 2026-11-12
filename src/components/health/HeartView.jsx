@@ -106,6 +106,8 @@ function ReferenceSheet({ open, onClose, h }) {
 
 // ------------------------------------------------------------- long view
 
+const LONG_RANGES = ['Start', '1Y', '6M', '90D', '30D']
+
 function LongView({ h }) {
   const events = useChartEvents()
   const rhr = useMemo(() => [...h.lookups.rhr.entries()].map(([date, value]) => ({ date, value })).sort((a, b) => a.date.localeCompare(b.date)), [h])
@@ -117,7 +119,8 @@ function LongView({ h }) {
       info={<p>Resting heart rate is Apple's daily value. Sleeping heart rate is the average of 5-minute averages while asleep, from your chosen sleep source. The shaded bands are your dose periods; the lane under the dates shows each compound's dose.</p>}>
       <TrendChart metric="rhr" chartType="heart-long" title="Resting heart rate" question="Is my resting heart rate going down?" unit="bpm" dp={0}
         series={rhr} events={events} defaultRange="1Y"
-        second={sleep.length ? { label: 'Sleeping HR', series: sleep } : null} periods={bands} defaultLanes={focus} testid="heart-long-chart" />
+        second={sleep.length ? { label: 'Sleeping HR', series: sleep } : null} periods={bands} defaultLanes={focus} testid="heart-long-chart"
+        ranges={LONG_RANGES} sinceDate={h.periods[0]?.ranges[0]?.[0] ?? null} />
     </Section>
   )
 }

@@ -81,7 +81,7 @@ public struct SaunaCornerComplication: View {
     }
 }
 
-/// accessoryRectangular (and the Smart Stack): readiness, its band, sleep and HRV.
+/// accessoryRectangular (and the Smart Stack): readiness, its band, resting HR with its arrow, and HRV.
 public struct ReadinessRectangular: View {
     let readiness: Snapshot.Readiness?
     public init(readiness: Snapshot.Readiness?) { self.readiness = readiness }
@@ -91,7 +91,7 @@ public struct ReadinessRectangular: View {
             Text("Readiness").font(.subheadline).foregroundStyle(.secondary)
             if let r = readiness, let score = r.score {
                 Text("\(score) · \(r.bandLabel ?? "")").font(.headline).monospacedDigit().lineLimit(1).pepitoAccentable()
-                Text([r.sleepMin.map { "Sleep \(Int($0) / 60) h \(Int($0) % 60) m" }, r.hrv.map { "HRV \(Int($0.rounded())) ms" }].compactMap { $0 }.joined(separator: " · "))
+                Text([r.rhrWords, r.hrv.map { "HRV \(Int($0.rounded())) ms" }].compactMap { $0 }.joined(separator: " · "))
                     .font(.subheadline).monospacedDigit().foregroundStyle(.secondary).lineLimit(1)
             } else {
                 Text("Not yet today").font(.headline)

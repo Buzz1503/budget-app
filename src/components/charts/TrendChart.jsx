@@ -41,10 +41,10 @@ const dayNum = (d) => Math.round(Date.parse(`${d}T00:00:00Z`) / 86400000)
 const fmt = (v, dp) => Number(v).toFixed(dp)
 
 /** Since start · 30D · 90D · 6M · 1Y · 2Y · All, the same chips on every chart. "Since start" only where a chart has a starting point. */
-export function RangeChips({ value, onChange, withStart = false }) {
+export function RangeChips({ value, onChange, withStart = false, only = null }) {
   return (
     <div className="flex flex-wrap gap-1.5" role="group" aria-label="Time range">
-      {RANGES.filter((r) => r.key !== 'Start' || withStart).map((r) => {
+      {RANGES.filter((r) => (r.key !== 'Start' || withStart) && (!only || only.includes(r.key))).map((r) => {
         const on = value === r.key
         return (
           <button key={r.key} data-testid={`range-${r.key}`} data-on={on ? 'true' : 'false'} aria-pressed={on}
@@ -203,6 +203,8 @@ export default function TrendChart(props) {
     better: betterProp = null, second = null, question = null, answer: answerProp = null, answerTone: answerToneProp = null,
     // `periods` [{ from, to, label, tone }] shade the plot behind the line; `defaultLanes` until lanes are chosen
     periods = null, defaultLanes = null,
+    // `ranges` limits the chips to these keys; `sinceDate` gives "Since start" a first day without drawing a Start line
+    ranges = null, sinceDate = null,
   } = props
   // how a value reads: a number by default, or e.g. a clock time for bedtime
   const show = format || ((v) => fmt(v, dp))
@@ -223,9 +225,11 @@ export default function TrendChart(props) {
   const haptics = useStore((s) => s.settings?.haptics)
   const setChartOverlay = useStore((s) => s.setChartOverlay)
   const t = todayStr()
-  const chosen = rangeKey ?? defaultRangeFor(series || [], t, defaultRange)
+  const opened = rangeKey ?? defaultRangeFor(series || [], t, defaultRange)
+  // a chart with its own chips opens on one of them ("Since start" stands in for All)
+  const chosen = ranges && !ranges.includes(opened) ? (ranges.includes('Start') ? 'Start' : ranges[0]) : opened
   // "Since start" needs a starting point on this chart; without one it is the 90 day view
-  const range = chosen === 'Start' && !startLine ? '90D' : chosen
+  const range = chosen === 'Start' && !startLine && !sinceDate ? '90D' : chosen
   // full screen fills the window: chart units are points there, so labels keep their size and the plot takes the room
   const boxRef = useRef(null)
   const [box, setBox] = useState(null)
@@ -248,7 +252,7 @@ export default function TrendChart(props) {
   const setOv = (patch) => setChartOverlay?.(chartType, patch)
   const markerNames = useMemo(() => [...new Set(tests.flatMap((x) => Object.keys(x.values || {})))].sort(), [tests])
 
-  const bounds = fixed || rangeBounds(range, t, series || [], startLine?.date)
+  const bounds = fixed || rangeBounds(range, t, series || [], startLine?.date ?? sinceDate)
   const { from, to } = full && zoom ? zoom : bounds
   const bucket = fixed || (full && zoom) ? bucketForSpan(from, to) : bucketFor(range, from, to)
   const points = useMemo(() => mergeScans(bucketPoints(series || [], bucket, from, to)), [series, bucket, from, to])
@@ -480,7 +484,7 @@ export default function TrendChart(props) {
         )}
       </div>
       {controls && <div className="mt-2">{controls}</div>}
-      {!fixed && <div className="mt-2"><RangeChips value={range} withStart={!!startLine} onChange={(k) => { setRangeKey(k); setSelected(null); setZoom(null) }} /></div>}
+      {!fixed && <div className="mt-2"><RangeChips value={range} withStart={!!startLine || !!sinceDate} only={ranges} onChange={(k) => { setRangeKey(k); setSelected(null); setZoom(null) }} /></div>}
       {full && (
         <div className="mt-2 flex items-center gap-1.5" data-testid="chart-zoom">
           <button onClick={() => zoomBy(0.5)} aria-label="Zoom in" data-testid="zoom-in" className="rounded-full p-2" style={{ background: 'var(--surface-sunk)' }}><ZoomIn size={15} /></button>

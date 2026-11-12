@@ -23,13 +23,15 @@ State is one persisted Zustand store, `src/store/useStore.js`; pure logic lives 
 - `HEALTH_BUILD` (`src/health/ui.js`) is false on the web. Reads Apple Health; the one write is water with a sauna rating (`writeWater`).
   `@capgo/capacitor-health` plus the Swift plugin `plugins/pepito-health`. Screens lazy in `src/components/health`.
 - Data: `bridge.ts` → `dayLogic.ts` (nights, days, workouts) → `sync.ts` (full history once, then from last sync −3 days) → Dexie
-  `pepito-health` (`cache.ts`, not in the backup). Bump `NIGHTS_SCHEMA` (now 6) to re-read the year. Engines `src/health/engine/*`,
+  `pepito-health` (`cache.ts`, not in the backup). Bump `NIGHTS_SCHEMA` (now 7) to re-read 2 years. Engines `src/health/engine/*`,
   constants in `config.ts`, wired by `model.ts`; `compoundEffects.ts` feeds Body › Effects.
 - Body values: always `getLatestMeasurement` / `dailySeries` (`src/body/bodySeries.ts`); "since" deltas via `getStartValue`
   (`startPoint.ts`). Source families (`sources.ts`): Scale, Evolt, DEXA, one line per source, never mixed. Scan fields `scanFields.ts`.
 - Charts: `TrendChart.jsx`, maths `src/body/chartPoints.ts`, `BodyChart.jsx`, lanes `Lanes.jsx`; `--series-*` colours only; ranges
   fit the data (14 days min), under 3 points is a list; suspect scale weights are left out until kept (`readingReviews`).
   Imports (`src/body/import`, IO `src/lib/importFiles.js`): Evolt PDFs, Withings zip/CSV/Medical Report, scan JSON; only add.
+- Heart (`src/health/heart.ts`, `useHeart.js`, `HeartView.jsx`; Body › Recovery › Heart, Home RHR): 5-min night HR, periods by dose,
+  95% CI status vs `heartSettings.reference` (null = 8 weeks before Retatrutide), `switches`; never word doses as equivalent (test scans).
 ## Sleep (Apple Health only)
 - One source per night (`buildNights`, by source name, never blended); `healthSettings.sleepSource` (null = any Apple Watch) from
   More › Health › Sleep source (`src/sleep/sources.ts`). A missed night uses the next source, `fallback: true` ("Other source"), out of

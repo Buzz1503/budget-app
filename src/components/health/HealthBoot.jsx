@@ -3,6 +3,7 @@ import NativeHealthFeed from './NativeHealthFeed'
 import useStore from '../../store/useStore'
 import { useHealth, startAutoSync } from '../../health/state'
 import { useHealthLink } from '../../lib/healthLink'
+import { useHeartLane } from '../../lib/heartLane'
 
 /**
  * Starts Health reading once the user has connected: a sync on launch and one
@@ -27,6 +28,11 @@ export default function HealthBoot() {
     useHealthLink.getState().setBodyDaily(daily
       .filter((r) => r.weight != null || r.bodyFatPct != null || r.leanMass != null || r.bpSys != null)
       .map((r) => ({ date: r.date, weight: r.weight, weightSource: r.weightSource, bodyFatPct: r.bodyFatPct, leanMass: r.leanMass, bpSys: r.bpSys, bpDia: r.bpDia })))
+  }, [daily])
+
+  // resting heart rate for the "Heart" lane in every chart's overlay menu
+  useEffect(() => {
+    useHeartLane.setState({ points: daily.filter((r) => r.restingHR != null).map((r) => ({ date: r.date, value: r.restingHR })) })
   }, [daily])
 
   useEffect(() => {

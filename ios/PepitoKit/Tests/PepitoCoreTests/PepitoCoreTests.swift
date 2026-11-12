@@ -26,6 +26,16 @@ final class SnapshotDecodingTests: XCTestCase {
         XCTAssertEqual(s.watch.maxHR, 182)
     }
 
+    func testRestingHeartRateWithItsArrow() {
+        func r(_ rhr: Double?, _ d: Double?) -> Snapshot.Readiness {
+            Snapshot.Readiness(score: 72, band: nil, bandLabel: nil, status: "ok", asOf: nil, rhr: rhr, rhrDelta: d, hrv: nil, hrvDelta: nil, sleepMin: nil)
+        }
+        XCTAssertEqual(r(63.6, 4.2).rhrWords, "RHR 64 ↑")
+        XCTAssertEqual(r(55, -2).rhrWords, "RHR 55 ↓")
+        XCTAssertEqual(r(58, 0.4).rhrWords, "RHR 58")
+        XCTAssertNil(r(nil, 3).rhrWords)
+    }
+
     func testRoundTrips() throws {
         let s = try fixture()
         XCTAssertEqual(try Snapshot.decode(s.encoded()), s)
