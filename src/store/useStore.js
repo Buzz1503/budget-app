@@ -96,6 +96,13 @@ function initialState() {
     heartSettings: { reference: null, transitionDays: 14 },
     switches: [],
     switchDismissed: [],
+    // Run 1. Why I woke, per night: { [date]: { tags: [], at, skipped? } }, asked once on Today
+    wakeReasons: {},
+    // nights left out of every analysis by choice (outlier nights): { [date]: { reason, at } }
+    excludedNights: {},
+    // overnight outside temperature per night from Open-Meteo: { [date]: { avgC, minC, at } }
+    weatherNights: {},
+    weatherSettings: { lat: -27.6, lon: 153.12, place: 'Rochedale South, Brisbane', enabled: true },
     readingReviews: {},                 // Scale weights that looked wrong, by "date|value": 'keep' or 'hide' (never deleted)
     // Fixed distances up a limb, in cm, so every arm/thigh reading is taken at
     // the identical spot. Set once, editable, shown next to the field each time.
@@ -2918,6 +2925,30 @@ const useStore = create(
       removeSwitch(id) {
         set((s) => ({ switches: (s.switches || []).filter((x) => x.id !== id) }))
       },
+      /** Why I woke: the chips chosen for a night (never asked again for it). */
+      setWakeReasons(date, tags) {
+        if (!date) return
+        set((s) => ({ wakeReasons: { ...(s.wakeReasons || {}), [date]: { tags: [...new Set(tags || [])], at: Date.now() } } }))
+      },
+      skipWakeReasons(date) {
+        if (!date) return
+        set((s) => ({ wakeReasons: { ...(s.wakeReasons || {}), [date]: { tags: [], at: Date.now(), skipped: true } } }))
+      },
+      /** Leave a night out of baselines and every analysis; restore puts it back. Nothing is deleted. */
+      excludeNight(date, reason = 'chosen') {
+        if (!date) return
+        set((s) => ({ excludedNights: { ...(s.excludedNights || {}), [date]: { reason, at: Date.now() } } }))
+      },
+      restoreNight(date) {
+        set((s) => { const next = { ...(s.excludedNights || {}) }; delete next[date]; return { excludedNights: next } })
+      },
+      /** Weather per night, merged in (cached; fetched again only for nights not yet stored). */
+      mergeWeatherNights(nights) {
+        set((s) => ({ weatherNights: { ...(s.weatherNights || {}), ...(nights || {}) } }))
+      },
+      setWeatherSettings(patch = {}) {
+        set((s) => ({ weatherSettings: { ...s.weatherSettings, ...patch } }))
+      },
       dismissSwitch(key) {
         set((s) => ({ switchDismissed: [...new Set([...(s.switchDismissed || []), key])] }))
       },
@@ -3253,6 +3284,7 @@ const useStore = create(
         bodyProfile: { ...current.bodyProfile, ...(persisted?.bodyProfile || {}) },
         tapeSettings: { ...current.tapeSettings, ...(persisted?.tapeSettings || {}) },
         heartSettings: { ...current.heartSettings, ...(persisted?.heartSettings || {}) },
+        weatherSettings: { ...current.weatherSettings, ...(persisted?.weatherSettings || {}) },
         // saves written before v19 have neither key
         supplements: persisted?.supplements || current.supplements,
         supplementLogs: persisted?.supplementLogs || current.supplementLogs,

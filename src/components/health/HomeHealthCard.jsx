@@ -11,6 +11,7 @@ import { saunaLastNight } from '../../sauna/sauna'
 import { wakeUps } from '../../sleep/restless'
 import { rhrVsReference } from '../../health/heart'
 import { useHeartReference } from './useHeart'
+import WhyWokeRow from './WhyWokeRow'
 
 /**
  * One compact card at the bottom of Home: this morning's readiness, last
@@ -80,6 +81,7 @@ export default function HomeHealthCard({ goTo }) {
           chip={vsRef.chip ? <DeltaChip text={vsRef.chip.replace(' vs good sleep', ' vs good')} tone={vsRef.tone} />
             : rhr.delta != null ? <DeltaChip metric="rhr" delta={rhr.delta} /> : <span className="text-[13px]" style={{ color: 'var(--text-3)' }}>no usual yet</span>} />
       </div>
+      {night && !night.fallback && wakes && <WhyWokeRow date={t} wakeCount={wakes.count} />}
       {chip && <p className="mt-2 truncate text-[13px] font-medium" style={{ color: 'var(--text-3)' }} data-testid="home-context-chip">{chip}</p>}
     </div>
   )

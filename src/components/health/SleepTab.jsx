@@ -19,6 +19,7 @@ import EveningSheet from '../sleep/EveningSheet'
 import MorningCheck from '../sleep/MorningCheck'
 import NightCard from './NightCard'
 import HeartView from './HeartView'
+import WakeCard from './WakeCard'
 import Segments from '../ui/Segments'
 import { useNav, SLEEP_SEGMENTS } from '../../lib/nav'
 import useSleepLab from './useSleepLab'
@@ -104,6 +105,7 @@ function SleepScreen({ model, goTo }) {
       <StaggerItem className="space-y-2">
         <Hero model={model} night={night} date={date} t={t} prev={prev} next={next} setDate={setDate} openCalendar={() => setCalendar(true)} bed={bed} heart={heart} />
       </StaggerItem>
+      <StaggerItem><WakeCard model={model} heart={heart} date={date} /></StaggerItem>
       <StaggerItem><MorningCheck /></StaggerItem>
       <StaggerItem><VsNormal model={model} heart={heart} date={date} onOpen={(k) => setView(`metric:${k}`)} /></StaggerItem>
       <StaggerItem><StagesCard model={model} night={night} date={date} onDetail={() => setView('detail')} /></StaggerItem>
